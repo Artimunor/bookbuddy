@@ -2,7 +2,7 @@
 
 ## Brand direction
 
-BookBuddy should feel like a well-run local service: **trustworthy, calm and practical**, not luxury-glam. Use generous spacing, a restrained green accent, plain-language statuses and concrete next steps. A real date, a named contact or a useful progress photo builds more trust than a decorative badge. Avoid gloss, gold, gradients, promotional photography behind text and status conveyed by colour alone.
+Keep Sol’s calm local-service green, readable forms and named foreman. Give a visit one recognisable shape: a **visit ticket** with a deep green face and a short, notched progress rail. The large line answers “What’s happening?”; the next line says who reported it and when. This is a service record, not a tracking map. A quote, a safety hold or a failed upload deserves a different, plainer layout. No gloss, gradients, text on photographs or colour-only status.
 
 ## Colour tokens
 
@@ -28,6 +28,9 @@ Use semantic names, not visual colour names, in design handoffs. The default fol
 | `attention-soft` / `attention-ink` | `#FFF1D5` / `#704500` | `#422F16` / `#FFDA91` | Action due, pending sync, briefing required |
 | `critical-soft` / `critical-ink` | `#FCE9E8` / `#853531` | `#462828` / `#FFC3BE` | Blocking errors or destructive confirmations |
 | `scrim` | `#101A18` | `#101A18` | Modal scrim at 40% opacity, no text over scrim |
+| `ticket` / `on-ticket` | `#123C33` / `#FFFFFF` | `#203C33` / `#FFFFFF` | One focal panel for the current visit, shift or booking |
+| `ticket-mark` / `ticket-track` | `#C9F2CC` / `#7AA99B` | `#C9F2CC` / `#7AA99B` | Milestone mark or key figure / unfilled track outline on `ticket` |
+| `paper` | `#FAF7EF` | `#182622` | Warm neutral canvas on focused visit views; normal `ink` and `muted` text |
 
 **WCAG 2.2 AA contrast.** Verified design-token ratios below use [WCAG 2.2 relative luminance and contrast (12 Dec 2024)](https://www.w3.org/TR/2024/REC-WCAG22-20241212/#contrast-minimum). Aim for at least 4.5:1 for all text, even when WCAG allows 3:1 for large text; affordances and meaningful graphics aim for at least 3:1. This checks token pairings, not runtime accessibility. Use only the pairings below for text and control boundaries; light/dark values are shown in that order.
 
@@ -44,6 +47,8 @@ Use semantic names, not visual colour names, in design handoffs. The default fol
 | `success-ink` on `success-soft` | 7.24 | 8.23 |
 | `attention-ink` on `attention-soft` | 7.40 | 9.51 |
 | `critical-ink` on `critical-soft`; on neutrals (minimum) | 7.04; 7.24 | 8.66; 8.16 |
+| `on-ticket`, `ticket-mark`, `ticket-track` on `ticket` | 12.21 / 9.92 / 4.64 | 11.96 / 9.72 / 4.54 |
+| `ink`, `muted` on `paper` | 13.81 / 6.88 | 14.42 / 9.33 |
 
 Use both icon and text for semantic banners and focus with a 2-unit `brand` ring and 2-unit neutral gap. If a tint does not distinguish a selection, add the checked state and an `outline` against a neutral boundary. Do not add opacity to text, outlines or selected states to approximate a new colour.
 
@@ -65,6 +70,8 @@ Use the platform system font. Sizes below are nominal design units (pt in iOS, s
 - **Radii:** 8 for compact inputs/tiles, 12 for standard controls, 16 for cards and chat bubbles, 24 top corners for sheets, fully rounded pills. Keep clipping away from focus rings and larger text.
 - **Elevation:** Level 0 flat canvas; 1 card on canvas with a `separator` edge; 2 bars with a rule and sheets/dialogs on `raised` with scrim. In native UI use platform surface/tone changes rather than stacking shadows; mockups use edges and tone only.
 - **Icons:** 24 × 24 view, consistent rounded caps/joins, nominal 1.75–2 strokes. Use 16 for non-interactive inline status icons. Pair task/status icons with text; give icon-only actions accessible names. Mirror directional navigation arrows in RTL, not clocks, cameras, brand marks or numerals.
+- **Ticket typography:** a 13/18 semibold context line, 28/34 bold statement and 15/22 source line. Use 32/40 tabular type for a decisive time or amount. Keep metadata sentence case; a short section stamp may be capitals, never a whole instruction. Use a flat list for related rows; do not give every line its own card.
+- **Motion:** on a newly confirmed milestone, reveal only the changed notch and label together (180 ms ease-out, once). The following row stays anchored; announce the new state politely without moving focus. Reduce Motion/data: swap text and mark immediately. No pulse loop, shimmering timeline, moving pin, confetti or manufactured progress.
 
 ## Component inventory
 
@@ -88,6 +95,32 @@ Use the platform system font. Sizes below are nominal design units (pt in iOS, s
 | Toast | Short noncritical confirmation with spoken polite announcement. No critical info or only route to undo in a timed element; use persistent inline feedback instead. | Saved locally, server-confirmed informational event, fail only with persistent recovery on the surface. |
 | Confirmation dialog | Item, action, actor/context, downstream effect, cancel + explicitly named action. Focus the title or safer action first and return focus to trigger. | Ready, processing, changed/invalidated, failure; show definitive outcome on the parent. |
 
+### Visit ticket and live components
+
+| Component | What to draw | Behaviour |
+| --- | --- | --- |
+| Visit ticket | 20-unit radius, 16–20 inset, one deep-green panel per view. Group role/visit, phase, then one source and site time. A next step sits below a ruled edge. | Use on an active visit or shift; before booking use a neutral next-action card. An active safety hold or unresolved delivery risk comes before routine actions. |
+| Notched rail | Four short segments for **Booked · On the way · On site · In review**. Complete = solid with tick, current = outlined diamond or ring on a solid line, later = outlined/dashed. Name the current milestone in words; the full accessible label lists the states. | A record of observed milestones, not a required sequence. Skip unreported events without backfilling; a later true milestone can be current while an earlier one is unknown. Delay/cover/changed window are notices, not extra stages. Never calculate a percentage or ETA from time, distance or headcount. |
+| Event ledger | Time aligned in a narrow column; a stroke and distinct nodes bind the verb and credited source in the other. State the site date/zone once per group; append an optional second zone. Below it give the next action or next update if actually promised. | Newest confirmed event first, stable event IDs; link superseding/correcting updates, don't erase the original. For a missed update show the actual last report and contact, not a rolling forecast. |
+| Follow control | In C-18 show the system surface and what will appear before the **Follow live** button. Once on, show **Stop following**. The screen itself works without permission. | Follow changes only this device’s display for this visit. Duplicate taps reuse one display. No pay, roster, attendance or safety actions. Stopping, dismissing, expiry, cancellation, revoked access and role changes must not leak the previous scope. |
+| Worker shift card | W-10 shows shift reference, deliberate arrival/departure event time, receipt state, hold separately, and an authenticated link to W-06. | Before arrival, no ticking clock. Confirmed arrival: “Since check-in”, not hours worked. Local-only arrival: “Saved on this device · pending sync”; no confirmed clock or customer event. Checkout stops the clock at event time; never use elapsed site time as payroll. |
+
+### System status surfaces
+
+S-18 and S-19 are OS presentations of the same permitted summary, not app tabs. Customer projection: generic visit alias, reported milestone, last report or stale label. Worker projection: generic shift alias, since check-in or pending sync, and “Safety hold · open app” when applicable. No worker location or route, address, client/worker name, safety all-clear, entry instructions, chat excerpt, money or private shift detail. Use a generic signed-out/redacted state when required.
+
+| Presentation | Layout and destination |
+| --- | --- |
+| iOS Lock Screen | Leading ticket glyph and service label, large plain-language phase, small rail and site timestamp. Tap opens C-18 after unlock; worker checkout link opens W-06 for review, never commits. No Island required. |
+| Dynamic Island | Compact: leading ticket glyph, trailing short phase. Minimal: one recognisable glyph with accessibility label. Expanded: short reference above phase, rail, source time and open-app affordance. No tiny duplicate timeline or text inside the camera cutout. All presentations use the same revision and deep link. |
+| Android ongoing | Ordinary OS template and channel, small monochrome glyph, title = phase, one line for last report or confirmed since-check-in. Expanded notification can add a next step; tap opens the authorised app record. No custom island or guaranteed status chip. Respect Android 13+ notification permission and channel settings; on Android 14+ dismissal can be allowed. No immediate repost on dismissal. |
+
+Start locally in the foreground after the customer's explicit follow, or an opted-in worker’s deliberate check-in. A widget/notification never creates an attendance event. iOS push-to-start requires iOS 17.2+ and a previously registered token; it is **not a launch path**. Updates and end may be pushed for an existing activity if supported and proven; use source timestamps, stale dates and changes only (under 4 KB on iOS). No background socket, polling, tick requests, Android foreground service or assumed push delivery. End promptly on completion, cancellation, checkout, unfollow or loss of scope. At **8 hours active** iOS ends the activity; the final snapshot can linger on the Lock Screen for **up to 4 more hours**, not as live status. No automatic restart. Freeze stale timers; if Android updates stop, time out the notification. With displays disabled, unavailable or expired, open C-18 or W-10/W-06 normally. Signed-device proof is required before offering these optional displays.
+
+**Notification copy and order.** On Android the OS draws the app label, relative notification time, expand control and channel styling. Do not mistake that OS timestamp for the source event time. In the collapsed customer view place **Crew on site** in the title slot and **Service visit · Reported 09:12 Spain time** in the text slot; expanded content may add **Open visit updates**. For a worker, use **Shift status** with **Since check-in** and an OS-rendered duration only while confirmed and fresh. An active hold or pending receipt takes precedence over elapsed time. **Check out** opens W-06 after unlock; never add a direct notification mutation. Use the public/redacted version when previews are hidden, not a private payload with text merely obscured by the mockup.
+
+On either OS, read the last event’s source instant and stale deadline from the permitted projection. After the deadline, replace any “live” or elapsed treatment with **Last reported [site time] · Open app**; a promised next update that has passed is overdue, not an automatically updated milestone. If the phase is unknown, say **No crew report yet**. A cached read, a screen repaint and a new minute do not change the source timestamp.
+
 ## iOS and Android adaptations
 
 The decision, destination hierarchy and language labels remain the same. Platform navigation chrome, safe areas, permissions and input controls follow native conventions. These are product rules, informed by [Apple HIG Accessibility (accessed 23 Nov 2026)](https://developer.apple.com/design/human-interface-guidelines/accessibility) and [Android accessibility guidance (accessed 23 Nov 2026)](https://developer.android.com/guide/topics/ui/accessibility/apps#large-controls).
@@ -96,7 +129,7 @@ The decision, destination hierarchy and language labels remain the same. Platfor
 | --- | --- | --- |
 | Back and navigation | Use navigation bar Back and native edge swipe in stacks. Close or Done dismisses modal presentations; do not fake a Back gesture for a flow with no ancestor. | Support system Back including predictive preview where available: IME first, then sheet/modal, then one route. Provide Up in the top app bar for pushed pages. At role root, hand Back to platform; never silently switch roles. |
 | Top and bottom chrome | Native-aligned toolbar and tab bar respecting home safe area. Keep English SVG labels even if the OS shell renders them differently. | Top app bar and bottom navigation respect system insets and gesture or button navigation. Preserve destination order and labels. |
-| System sheets and permissions | Use OS photo, camera, sharing and payment presentation where appropriate; native sheet detents for simple choices. | Use system photo picker, camera, share and payment surfaces; Material modal bottom sheet for product choices. Never show app-designed permission prompts as OS dialogs. |
+| System sheets and permissions | Use OS photo, camera and sharing presentation where appropriate; native sheet detents for simple choices. | Use system photo picker, camera and share surfaces; Material modal bottom sheet for product choices. No imitation OS permission dialogs. Neither app processes customer payments. |
 | Haptics and motion | Use a restrained selection acknowledgement or explicit completion haptic after a real response, not for every tap. Respect device settings and Reduce Motion. | Use platform feedback for equivalent selection/completion, respecting vibration and animation settings; never depend on haptics to confirm an event. |
 | Date/time | Use native date/time control within the product flow. Render booking windows and both zones as accessible text outside it. | Use platform date/time picker with typed input alternative where available. Keep the same separate site-time and local-time review. |
 
@@ -110,6 +143,7 @@ The decision, destination hierarchy and language labels remain the same. Platfor
 ## Localisation and original content
 
 - Budget **30–40%** expansion in labels and instructions; allow longer content to wrap beyond that. Test narrow widths and large text together. Keep strings whole, with placeholders for dates, quantities, names and amounts; handle plural forms, grammar and per-paragraph direction. Text in the app must never be baked into non-decorative images.
-- Support Arabic RTL layouts: mirror leading/trailing navigation, tab order and alignment; maintain reading order and use per-message bidi direction/isolation independently of the UI locale. Isolate job IDs, prices, phone numbers, times and inline Latin names; do not reverse those characters. Keep input, attachments and status order meaningful in both directions.
+- Launch UI is LTR. Exercise Arabic authored text and a non-shipping RTL pseudo-locale: mirror leading/trailing navigation and alignment, not time, prices or embedded IDs. In apps use logical layout and isolate authored passages separately; in static SVG use positioned text and `text-anchor="end"` for right-aligned RTL runs, never `direction` or `unicode-bidi`.
 - Format dates, numerals, grouping, plurals and currency with the selected locale. Preserve the actual transaction currency (EUR for sample construction work), no implicit conversion. Preserve valid phone numbers and addresses as entered. Show operational dates in the service location time zone; optionally show the user's time alongside and never call a localised display a changed booking. Prefer a named zone and date, not only a relative countdown.
-- The UI language, preferred translation language, work languages and actual message source are separate. First-release UI copy is designed for Spanish and English; the offered language set is a launch decision, not a statement about demand. Do not limit original text or audio to UI languages. When the selected translation language differs, show `Translation · [language]` first and `Original · [language]` directly below, both readable without tapping. If unavailable, show the original plus the reason/status; if the same language, show the source once. Original audio is retained with its separate transcript and translation where available. Never translate prices/IDs into new values or treat machine output as consent or a verified safety instruction.
+- Ship `en` (source/default) and `pt-PT` (Português (Portugal)); adding a UI language means translating the shared/mobile/web/push ICU catalogs, native-language review and enabling metadata, not changing flows. Select before sign-in; explicit choice takes priority over device preference, unsupported choices fall back to English, and the saved account choice wins after sign-in. Keep both catalogs bundled so switching offline needs no fetch. Use complete messages, `Intl`, the site’s IANA zone, +40% expansion and the architecture’s pseudo-locale gates. See [Internationalisation](../../docs/architecture/mobile-tech-stack.md#internationalisation).
+- UI locale, account reading preference (including **Original only**), declared working language and the language of a particular original are independent. Enable each translation pair only after review. Preserve authored text/audio in any language; label a stored translation first and the immutable original immediately below, or show the original once when appropriate. Unavailable translation does not hide it. Changing locale does not change a quote, instruction, EUR amount or visit instant; machine output is neither consent nor teach-back.

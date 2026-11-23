@@ -1,6 +1,6 @@
-# BookBuddy app design
+# BookBuddy mobile design · Astra
 
-Design for a mobile-first, locally managed repair service on Android and iPhone. The first release follows a customer request through one accountable foreman to a named crew. Later sessions reuse the booking shell without adding construction steps.
+This track improves Sol’s repair flows. A customer can follow what the foreman reports about a visit; the worker sees a separate, private shift record. The provider remains responsible for the work and bills the customer directly. Start with the [improvement plan and nine-slice checklist](foundation/improvement-plan.md).
 
 ## Foundation
 
@@ -13,13 +13,14 @@ Design for a mobile-first, locally managed repair service on Android and iPhone.
 - [Design system](system/design-system.md): colour, components, platform rules, accessibility and localisation.
 - [Wireframe conventions](system/wireframe-conventions.md) and [SVG template](system/wireframe-template.svg): the shared production standard and sample Jobs screen.
 - [Shared job-chat reference](screens/shared/S-10-job-chat.svg): translated and original messages in an assigned worker's view.
+- Live references: [customer visit](screens/customer/C-18-follow-live.svg), [worker Today](screens/worker/W-01-today.svg), and [iPhone Lock Screen](screens/shared/S-18-live-activity.svg) with [compact](screens/shared/S-18-live-activity--compact.svg), [minimal](screens/shared/S-18-live-activity--minimal.svg) and [expanded](screens/shared/S-18-live-activity--expanded.svg) Island states.
 - [Screen inventory](screens/inventory.md): release and later surfaces, states and slice assignments.
 
 ## Screens
 
 ### Customer
 
-Specs: [C-01–C-08 specs](screens/customer/C-01_C-08-specs.md) · [C-09–C-17 specs](screens/customer/C-09_C-17-specs.md)
+Specs: [customer entry and booking](screens/customer/C-01_C-08-specs.md) · [visit and aftercare](screens/customer/C-09_C-17-specs.md)
 
 | | | |
 | --- | --- | --- |
@@ -31,11 +32,11 @@ Specs: [C-01–C-08 specs](screens/customer/C-01_C-08-specs.md) · [C-09–C-17 
 | <img src="screens/customer/C-11-payment-and-receipt.svg" width="240" alt="C-11 Payment and receipt"><br>C-11 Payment and receipt | <img src="screens/customer/C-11-payment-and-receipt--paid.svg" width="240" alt="C-11 Payment and receipt — paid"><br>C-11 Payment and receipt — paid | <img src="screens/customer/C-11-payment-and-receipt--payment-failed.svg" width="240" alt="C-11 Payment and receipt — payment failed"><br>C-11 Payment and receipt — payment failed |
 | <img src="screens/customer/C-12-leave-a-review.svg" width="240" alt="C-12 Leave a review [Sheet]"><br>C-12 Leave a review [Sheet] | <img src="screens/customer/C-13-properties.svg" width="240" alt="C-13 Properties"><br>C-13 Properties | <img src="screens/customer/C-14-property-detail-and-people.svg" width="240" alt="C-14 Property detail and people"><br>C-14 Property detail and people |
 | <img src="screens/customer/C-15-review-a-job-change.svg" width="240" alt="C-15 Review a job change"><br>C-15 Review a job change | <img src="screens/customer/C-16-report-an-issue-or-follow-a-case.svg" width="240" alt="C-16 Report an issue or follow a case"><br>C-16 Report an issue or follow a case | <img src="screens/customer/C-16-report-an-issue-or-follow-a-case--case-open.svg" width="240" alt="C-16 Report an issue or follow a case — case open"><br>C-16 Report an issue or follow a case — case open |
-| <img src="screens/customer/C-17-cancel-or-reschedule.svg" width="240" alt="C-17 Cancel or reschedule [Sheet]"><br>C-17 Cancel or reschedule [Sheet] |  |  |
+| <img src="screens/customer/C-17-cancel-or-reschedule.svg" width="240" alt="C-17 Cancel or reschedule"><br>C-17 Cancel or reschedule | <img src="screens/customer/C-18-follow-live.svg" width="240" alt="C-18 Customer visit timeline"><br>C-18 Follow live | |
 
 ### Foreman
 
-Specs: [F-01–F-07 specs](screens/foreman/F-01_F-07-specs.md) · [F-08–F-16 specs](screens/foreman/F-08_F-16-specs.md)
+Specs: [intake and dispatch](screens/foreman/F-01_F-07-specs.md) · [crew and delivery](screens/foreman/F-08_F-16-specs.md). F-11 and its vetted-pool offers are later, not launch navigation.
 
 | | | |
 | --- | --- | --- |
@@ -51,7 +52,7 @@ Specs: [F-01–F-07 specs](screens/foreman/F-01_F-07-specs.md) · [F-08–F-16 s
 
 ### Worker
 
-Specs: [W-01–W-09 specs](screens/worker/W-01_W-09-specs.md)
+Specs: [worker shifts and attendance](screens/worker/W-01_W-09-specs.md)
 
 | | | |
 | --- | --- | --- |
@@ -63,7 +64,7 @@ Specs: [W-01–W-09 specs](screens/worker/W-01_W-09-specs.md)
 
 ### Shared
 
-Specs: [S-01–S-09 specs](screens/shared/S-01_S-09-specs.md) · [S-11–S-17 specs](screens/shared/S-11_S-17-specs.md)
+Specs: [access and inboxes](screens/shared/S-01_S-09-specs.md) · [communication, safety and system status](screens/shared/S-11_S-17-specs.md)
 
 | | | |
 | --- | --- | --- |
@@ -76,6 +77,8 @@ Specs: [S-01–S-09 specs](screens/shared/S-01_S-09-specs.md) · [S-11–S-17 sp
 | <img src="screens/shared/S-13-chat-details.svg" width="240" alt="S-13 Chat details [Sheet]"><br>S-13 Chat details [Sheet] | <img src="screens/shared/S-14-attach-a-photo-or-record-audio.svg" width="240" alt="S-14 Attach a photo or record audio [Sheet]"><br>S-14 Attach a photo or record audio [Sheet] | <img src="screens/shared/S-14-attach-a-photo-or-record-audio--recording.svg" width="240" alt="S-14 Attach a photo or record audio [Sheet] — recording"><br>S-14 Attach a photo or record audio [Sheet] — recording |
 | <img src="screens/shared/S-15-media-and-original-audio-preview.svg" width="240" alt="S-15 Media and original audio preview [Modal]"><br>S-15 Media and original audio preview [Modal] | <img src="screens/shared/S-15-media-and-original-audio-preview--transcript-unavailable.svg" width="240" alt="S-15 Media and original audio preview [Modal] — transcript unavailable"><br>S-15 Media and original audio preview [Modal] — transcript unavailable | <img src="screens/shared/S-16-help-and-access-status.svg" width="240" alt="S-16 Help and access status"><br>S-16 Help and access status |
 | <img src="screens/shared/S-17-confirm-consequential-action.svg" width="240" alt="S-17 Confirm consequential action [Modal]"><br>S-17 Confirm consequential action [Modal] |  |  |
+| <img src="screens/shared/S-18-live-activity.svg" width="240" alt="S-18 generic visit on Lock Screen"><br>S-18 Lock Screen | <img src="screens/shared/S-18-live-activity--compact.svg" width="240" alt="Compact Island"><br>S-18 compact | <img src="screens/shared/S-18-live-activity--minimal.svg" width="240" alt="Minimal Island"><br>S-18 minimal |
+| <img src="screens/shared/S-18-live-activity--expanded.svg" width="240" alt="Expanded Island"><br>S-18 expanded | | |
 
 ### Provider admin (P-)
 
@@ -100,6 +103,8 @@ Specs: [L-01–L-06 specs](screens/shared/L-01_L-06-specs.md)
 
 ## Decisions and reviews
 
+- [Decided operating model, pricing and launch languages](../docs/decisions/2026-11-23-open-questions.md)
+- [Live Activity and attendance constraints](../research/tech-stack/live-activities-and-geofenced-attendance.md)
 - [Architecture: mobile tech stack](../docs/architecture/mobile-tech-stack.md)
 - [Flow design review and consolidated open questions](../docs/reports/2026-11-23-design-review-flows.md)
 - [Visual design review](../docs/reports/2026-11-23-design-review-visual.md)

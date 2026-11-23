@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-01-today-title W-01-today-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-<title id="W-01-today-title">W-01 Today — next shift and briefing</title>
-<desc id="W-01-today-desc">Nadia Benali is working as Worker in Reformas Ruiz. On Monday 23 November her next shift is the confirmed terrace door repair tomorrow at Villa Mar, Xàbia. The required safety briefing is a separate action. Today is selected in the worker shell.</desc>
-<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<title id="W-01-today-title">W-01 Today — arrival recorded, safety hold</title>
+<desc id="W-01-today-desc">Worker Nadia Benali’s own active shift at Villa Mar on Tuesday 24 November. Her deliberate 09:14 check-in was received. The terrace door task is still on hold until Mateo verifies teach-back and Nadia acknowledges the current instruction. She can open her briefing, live shift card or contact Mateo.</desc>
+<rect width="390" height="844" fill="#FAF7EF"/>
 <g id="status-bar" aria-hidden="true"><text x="20" y="29" font-size="15" font-weight="700" fill="#152C26" text-anchor="start">9:41</text><g><rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/><rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/><rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/><rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="332" cy="29" r="1.1" fill="#152C26"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/><path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26" stroke="#152C26" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/></g></g>
 <g id="header">
   <text x="20" y="75" font-size="16" font-weight="700" fill="#152C26" text-anchor="start">Reformas Ruiz</text>
@@ -12,30 +12,42 @@
   <circle cx="346" cy="76" r="15" fill="#DCF2EA"/>
   <text x="346" y="81" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">NB</text>
 </g>
-<g id="content">
-  <text x="20" y="149" font-size="28" font-weight="700" fill="#152C26" text-anchor="start">Today</text>
-  <text x="20" y="175" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Mon, 23 Nov · Spain time</text>
-  <text x="20" y="217" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Action needed</text>
-  <rect x="20" y="232" width="350" height="100" rx="16" fill="#FFF1D5"/><g transform="translate(34 248) scale(1)" aria-hidden="true"><path d="M12 3l9 16H3Zm0 6v4m0 3h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="68" y="263" font-size="16" font-weight="650" fill="#704500" text-anchor="start">Safety briefing required</text><text x="68" y="285" font-size="15" font-weight="400" fill="#704500" text-anchor="start">Review before your next shift.</text><text x="68" y="307" font-size="15" font-weight="400" fill="#704500" text-anchor="start">Attendance does not clear work.</text>
-  <g transform="translate(338 249) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="20" y="372" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Next shift</text>
-  <rect x="20.5" y="388.5" width="349" height="167" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <rect x="36" y="402" width="112" height="28" rx="14" fill="#E7F4E8"/><g transform="translate(44 408) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 4 4 10-9" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="65" y="420" font-size="12" font-weight="550" fill="#245936" text-anchor="start">Confirmed</text>
-  <text x="354" y="420" font-size="12" font-weight="650" fill="#425B52" text-anchor="end">BB-1042</text>
-  <text x="36" y="457" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Terrace door repair</text>
-  <text x="36" y="479" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Villa Mar · Xàbia</text>
-  <path d="M36 492.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="36" y="505" width="32" height="32" rx="8" fill="#EBF2EF"/><g transform="translate(42 511) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2-3v6m10-6v6M3 11h18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="80" y="520" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Tue, 24 Nov · 09:00–10:00</text>
-  <text x="80" y="540" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Spain time · Mateo Ruiz</text>
-  <g transform="translate(338 515) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="20" y="598" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Latest update</text>
-  <rect x="20.5" y="614.5" width="349" height="103" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <rect x="36" y="630" width="32" height="32" rx="8" fill="#EBF2EF"/><g transform="translate(42 636) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 3h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-7l-7 4v-4a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 6h10m-10 4h7" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="80" y="649" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Arrival plan posted</text>
-  <text x="80" y="674" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">Mateo will meet you at the gate.</text>
-  <text x="80" y="697" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Today · 08:36</text>
-  <g transform="translate(338 640) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g id="content" fill="#152C26">
+  <text x="20" y="151" font-size="32" font-weight="700">Today</text>
+  <text x="370" y="149" text-anchor="end" fill="#425B52" font-size="13" font-weight="550">Tue, 24 Nov · Spain time</text>
+  <g id="shift-ticket">
+    <rect x="20" y="174" width="350" height="223" rx="20" fill="#123C33"/>
+    <g fill="none" stroke="#C9F2CC" stroke-width="2" stroke-linejoin="round">
+      <path d="M40 200l10-6 10 6v13H40z M46 213v-10h8v10"/>
+    </g>
+    <text x="72" y="209" fill="#C9F2CC" font-size="13" font-weight="650">YOUR SHIFT</text>
+    <text x="350" y="209" text-anchor="end" fill="#FFFFFF" font-size="13" font-weight="550">BB-1042</text>
+    <text x="40" y="250" fill="#FFFFFF" font-size="28" font-weight="700">Terrace door repair</text>
+    <text x="40" y="276" fill="#FFFFFF" font-size="15">Villa Mar · Xàbia</text>
+    <circle cx="48" cy="310" r="8" fill="#C9F2CC"/>
+    <path d="m44 310 3 3 5-6" fill="none" stroke="#123C33" stroke-width="2" stroke-linecap="round"/>
+    <text x="68" y="315" fill="#C9F2CC" font-size="15" font-weight="650">Arrival recorded · 09:14</text>
+    <path d="M32 342h326" stroke="#7AA99B" stroke-dasharray="3 5"/>
+    <g fill="#FAF7EF"><circle cx="20" cy="342" r="5"/><circle cx="370" cy="342" r="5"/></g>
+    <text x="40" y="376" fill="#FFFFFF" font-size="16" font-weight="650">View live shift</text>
+    <path d="m340 365 6 6-6 6" fill="none" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <g id="safety-hold">
+    <rect x="20" y="421" width="350" height="196" rx="16" fill="#FFF1D5"/>
+    <path d="M40 456l9-16 9 16z M49 447v4m0 2v1" fill="none" stroke="#704500" stroke-width="2" stroke-linejoin="round"/>
+    <text x="68" y="454" fill="#704500" font-size="13" font-weight="700">SAFETY HOLD · TERRACE DOOR</text>
+    <text x="40" y="488" fill="#704500" font-size="22" font-weight="700">Do not start this task.</text>
+    <text x="40" y="516" fill="#704500" font-size="15">Explain the steps back to Mateo. Once he</text>
+    <text x="40" y="538" fill="#704500" font-size="15">verifies them, acknowledge the instruction.</text>
+    <rect x="36" y="549" width="318" height="56" rx="12" fill="#0B6250"/>
+    <text x="195" y="583" text-anchor="middle" fill="#FFFFFF" font-size="16" font-weight="650">Open my briefing</text>
+  </g>
+  <text x="20" y="657" font-size="20" font-weight="650">Your foreman</text>
+  <circle cx="44" cy="697" r="21" fill="#DCF2EA"/>
+  <text x="44" y="702" text-anchor="middle" font-size="13" font-weight="700" fill="#0B5747">MR</text>
+  <text x="82" y="695" font-size="16" font-weight="650">Mateo Ruiz</text>
+  <text x="82" y="717" font-size="13" fill="#425B52">Contact in the crew conversation</text>
+  <path d="m353 691 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round"/>
 </g>
 <g id="tab-bar">
   <rect x="0" y="746" width="390" height="98" fill="#FFFFFF"/>

@@ -1,10 +1,12 @@
 # Screen inventory
 
-**70 surfaces:** 64 for the construction release, six category-extension surfaces for later. IDs are stable. Each row is one reviewable SVG and includes its states; do not mint IDs for state changes, platform pickers, the keyboard, payment-provider steps or local variations of the same route. **[Sheet]** means a bottom sheet, expandable or full height when needed. **[Modal]** means a separate dialog or full-screen modal. Untagged rows are tab roots, pushed screens or onboarding steps. See the [navigation contract](../foundation/information-architecture.md) and [SVG standard](../system/wireframe-conventions.md).
+**75 surfaces:** 68 construction-release designs (including optional device displays) and seven later designs (F-11 and L-01–L-06). IDs are stable. State variants, including compact/minimal/expanded Island presentations of S-18, reuse the primary ID. **[Sheet]** means a bottom sheet expandable to full height. **[Modal]** is a dialog or full-screen modal; **[OS]** is system-owned, not a new tab. See the [navigation contract](../foundation/information-architecture.md) and [SVG standard](../system/wireframe-conventions.md).
 
 Design the normal state plus the states named in the row. Apply shared loading, connectivity, permissions, accessibility and recovery patterns where relevant. Use different text for a draft, an operation underway, a server-confirmed outcome and a stale view. Role abbreviations: **C** Customer, **F** Foreman, **W** Worker, **P** Provider admin, **All** authorised mobile roles. Local operations has no mobile slice.
 
-## Customer — `design/screens/customer/` (17)
+**Slice ownership (including additions):** C-01–C-08 (8); C-09–C-18 (10); F-01–F-07 (7); F-08–F-17 (10); W-01–W-10 (10); S-01–S-09 (9); S-10–S-19 (10); P-01–P-05 (5); L-01–L-06 (6). Keep the inherited spec filenames and add new ID sections before Open design questions. See the [slice checklist](../foundation/improvement-plan.md#nine-slice-checklist).
+
+## Customer — `design-astra/screens/customer/` (18)
 
 | ID | Name | Role | Purpose | Entry points | Key components | States to design |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -16,17 +18,18 @@ Design the normal state plus the states named in the row. Apply shared loading, 
 | C-06 | Quote and scope | C | Inspect scope, exclusions, total and terms | C-05, S-09 quote | Version badge, line items, totals, inclusions/exclusions, original plus translation, ask/approve | Current, superseded, expired, clarification, declined, authorised read-only/approvable |
 | C-07 | Approve current quote [Modal] | C | Record a versioned, authorised approval | C-06 approve | Current total and version, what changes, confirm/cancel | Ready, changed since review, processing, approved, failed, no authority |
 | C-08 | Schedule a visit | C | Choose or confirm a provider-proposed window | C-05, C-17 reschedule, S-09 | Visit-type label, dates/day view, arrival window and zone(s), agreement CTA | Scoping vs work visit, no windows, proposed, changed/expired, pending, confirmed, reschedule requested |
-| C-09 | Job day | C | Know who is coming, when and who to contact | C-05 booked visit, S-09 day or crew update | Arrival window, confirmed foreman and arrival roster, update/status card, contact | Scheduled, delayed, cover being arranged, confirmed crew change, on site, completed |
+| C-09 | Job day | C | Know the agreed window, confirmed crew and who to contact | C-05, S-09 | Window, confirmed roster, latest report, C-18 timeline and named foreman | Scheduled, delayed, cover being arranged, confirmed crew change, on site, completed |
 | C-10 | Completion and sign-off | C | Inspect evidence and approve completed scope or report a problem | C-05, S-09 completion | Approved-scope checklist, photos, notes, sign-off via S-17, issue link | Awaiting review, evidence unavailable, accepted, issue opened, unauthorised |
-| C-11 | Payment and receipt | C | Show the amount due and an authorised route to pay | C-05, C-10, S-09 payment | Bill summary, payment CTA, processor handoff, receipt and support | No amount due yet, due, processing, failed, paid, receipt pending, amount on hold, adjusted/refunded when confirmed |
+| C-11 | Provider payment record | C | Record payment made directly to the provider, never charge a card | C-05, C-10, S-09 | Provider invoice/due date, direct payment instructions, report sent, matched payment receipt | Not due, due, reported/unmatched, recording failed or uncertain, provider-confirmed paid, disputed amount or confirmed adjustment/refund |
 | C-12 | Leave a review [Sheet] | C | Collect feedback after service closure | C-05 closed, completion prompt, L-05 later | Labelled rating control, optional text, send | Unrated, draft, submitting, submitted, retry, ineligible |
 | C-13 | Properties | C | Find the right site across owned and managed properties | Properties tab; property shortcut in C-03 | Search/filter, property cards, add property | Empty, one/many, delegated, archived filter, offline |
 | C-14 | Property detail and people | C | Maintain a site, list its jobs and manage permitted delegation | C-13, C-03 add/edit, C-05 site | Address/contact, site access notes, job list, people and permission controls | New/edit, delegated read-only, invite pending/accepted/revoked, unsaved edits, archived |
 | C-15 | Review a job change | C | Compare proposed scope, cost and timing with what was approved | C-05, S-09 change | Before/after, version, original/translation, approve via S-17, reject/clarify | Open, superseded, approved, rejected, offline/read-only, issue on hold |
 | C-16 | Report an issue or follow a case | C | Attach evidence and reach the local service | C-05, C-09, C-10, C-11, C-15, S-16 | Issue category, impacted item, evidence, status/history, service contact | Draft, submitted, acknowledged, awaiting response, resolved, cannot submit offline |
-| C-17 | Cancel or reschedule [Sheet] | C | Show current terms and request a booking change | C-05, C-08, L-05 later | Current time/terms, consequence summary, confirm request, choose another time | Eligible, subject to provider confirmation, fee/terms changed, unavailable, requested, confirmed cancelled |
+| C-17 | Cancel or reschedule [Sheet] | C | Manage eligible visits without a fee; distinguish statutory withdrawal | C-05, C-08, L-05 later | Current terms/window, €0 fee, confirm eligible cancellation, choose or request a new time | Direct cancellation, like-for-like change, provider agreement required, original still booked, cancelled, started work/referral |
+| C-18 | Follow live | C | Follow this visit’s confirmed public milestones, optionally on this device | C-05/C-09, S-18/S-19 after unlock | Visit ticket, milestone rail, timed reports, next step/contact, foreground Follow live / Stop following | Unreported, current, delayed/cover at risk, stale/offline, following, OS unavailable/denied, ended/cancelled |
 
-## Foreman — `design/screens/foreman/` (16)
+## Foreman — `design-astra/screens/foreman/` (17)
 
 | ID | Name | Role | Purpose | Entry points | Key components | States to design |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -39,15 +42,16 @@ Design the normal state plus the states named in the row. Apply shared loading, 
 | F-07 | Assign crew [Sheet] | F | Send named assignments to eligible team members | F-05, F-16 | Worker cards, skills/language filters, role/shift checklist, send offers | Eligible candidates, none, already assigned, offers pending, expired, refresh required |
 | F-08 | Team roster | F | Find crew, skills, working languages and availability | Team tab; F-07 roster link | Worker cards, filters, verification summary | Active, unavailable, eligibility pending/expired, empty, filtered, offline |
 | F-09 | Worker profile and availability | F | Check fit for an assignment without seeing raw credentials | F-08, F-07, F-10 | Skills, working languages, availability, approved status/valid-until | Available, conflicting, stale, restricted, not eligible |
-| F-10 | Fill shift | F | Track a gap; offer to own team first, then escalate or use vetted pool | F-01, F-05, F-16, S-09 | Gap urgency, internal candidates, offer status, pool gate, support action | Gap, internal offers open, exhausted/time cutoff, external search allowed/blocked, no cover, covered |
-| F-11 | Vetted pool | F | Find cover through eligible local providers only | F-10 after internal attempt/recorded cutoff | Required skills, working language and eligibility filters, available candidates, offer expiry | Eligible results, none, eligibility pending/changed, offer open/declined/expired/accepted, offline blocked |
-| F-12 | Confirm replacement [Sheet] | F | Finalise exactly one accepted replacement | F-10, F-11, S-09 acceptance | Candidate/provider, eligibility and availability summary, change impact, confirm | Awaiting confirmation, no longer eligible/available, confirming, confirmed, returned to gap |
+| F-10 | Fill shift | F | Request cover only from this provider’s eligible crew | F-01, F-05, F-16, S-09 | Delivery risk, internal round/expiry, reservation, duty contact, propose revised visit | Open, replies pending, reserved, expired/withdrawn, no own cover, revised visit requested, confirmed |
+| F-11 | Vetted pool — later only | F | Document a future legally approved external route, not launch supply | None at launch; later-only F-10 design | Future eligibility, candidate and offer states, explicit later label | Later search, no match, pending vetted-pool offers; blocked launch links |
+| F-12 | Confirm replacement [Sheet] | F | Assign the first valid reserved internal candidate after recheck | F-10, S-09 acceptance (F-11 later only) | Reservation deadline, candidate/business, eligibility and availability, review/confirm | Reserved, withdrawn/expired, stale/filled, confirmed once, gap remains |
 | F-13 | Site log | F | Reconcile attendance, progress photos and publication | F-05, F-16 | Time entries, evidence gallery, share-to-customer control, safety status | No entries, latest confirmed, pending/rejected, reconcile conflict, private or shared |
 | F-14 | Submit completion | F | Hand finished scope and required evidence to the customer | F-05, F-13 | Scope checklist, photos, notes, review/send | Draft, evidence still uploading, change unresolved, submitting, awaiting sign-off, returned for correction |
 | F-15 | Propose job change | F | Version scope, cost and timing and obtain customer approval | F-05, F-13 | Before/after comparison, responsibility, evidence, publish | Draft, sent, awaiting approval, withdrawn, rejected, approved, affected work on hold |
 | F-16 | Shift detail | F | See assigned/confirmed staff, gaps and delivery events | F-01, F-05, F-13, S-09 | Shift card, task/skill, assignments, briefing status, assign/fill actions | Unassigned, offered, confirmed, dropped, checked in/out, covered, cancelled, stale |
+| F-17 | Publish visit update | F | Deliberately publish a safe report for the customer’s visit | F-05, F-13, F-10 delivery risk | Audience preview, structured phase or disruption, site time and next update, publish | Draft/private, changed visit, sending, published, unknown/failed, corrected, offline blocked |
 
-## Worker — `design/screens/worker/` (9)
+## Worker — `design-astra/screens/worker/` (10)
 
 | ID | Name | Role | Purpose | Entry points | Key components | States to design |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -56,14 +60,15 @@ Design the normal state plus the states named in the row. Apply shared loading, 
 | W-03 | Offer details | W | Review and accept or decline an assignment or cover offer | W-01, W-02, S-09, offer deep link | Job area, clock and expiry, work/skills, working language, provider and contact | Initial/cover, open, accepted pending confirmation, expired, filled, ineligible, unable to act offline |
 | W-04 | Shift detail | W | See confirmed site access and next action | W-01, W-02, S-09, W-03 after confirmation | When/where, named foreman, briefing action, check-in/out, progress, dropout | Confirmed, briefing required, checked in, check-out due, dropped/cancelled, cached details |
 | W-05 | Decline or drop out [Sheet] | W | Respond to an offer or flag inability to attend confirmed work | W-03 decline, W-04 can't attend | Clear scope, reason, consequence, confirm | Decline vs dropout, sending, foreman notified, expired/changed, not sent offline |
-| W-06 | Check in or out [Sheet] | W | Deliberately record personal site attendance | W-04, W-01 action | Event type/time/site, status, confirm, retry/help | Ready, saved on device, synced, duplicate/conflict, outside schedule, attendance only while briefing outstanding |
+| W-06 | Check in or out [Sheet] | W | Record deliberate, location-free site attendance, not statutory working time | W-04, W-01, W-10, authenticated OS link | Event type, actual time/site, receipt, manual correction or help | Ready, outside expected time (record for review), saved on device, synced, duplicate/conflict, safety hold unaffected |
 | W-07 | Add progress photos | W | Capture and caption work evidence for the foreman | W-04, W-06 after event, S-14 camera return | Capture/picker, selected photos, captions, privacy prompt, upload | No photo, denied permission, preview, queued, uploading, synced, retryable failure |
 | W-08 | Availability | W | See or edit availability and acknowledge schedule conflicts | Availability tab, W-03 conflict | Week/day view, unavailable slots, changes summary | Read-only policy, available, unavailable, conflict, save pending/failed |
 | W-09 | Site briefing | W | Read the approved arrival and briefing context; ask the foreman | W-04, W-01 safety prompt | Original/translation, named contact, site access, S-11 link | Readable, pending/changed briefing, clarification requested, unavailable offline |
+| W-10 | Live shift card | W | Resume a current shift and see the status of personal attendance | W-01/W-04, S-18/S-19 | Safe shift reference, event time/receipt, since check-in, separate hold, open W-06, opt-in status | Not checked in, saved locally, confirmed, hold, stale, departure pending, checked out, display dismissed/expired |
 
-## Shared + provider + later — `design/screens/shared/` (28)
+## Shared + provider + later — `design-astra/screens/shared/` (30)
 
-### Shared (17)
+### Shared (19)
 
 | ID | Name | Role | Purpose | Entry points | Key components | States to design |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -84,13 +89,15 @@ Design the normal state plus the states named in the row. Apply shared loading, 
 | S-15 | Media and original audio preview [Modal] | Authorised viewers | Examine an attachment without losing the parent screen | C-02, C-10, S-10, S-14, F-13, W-07 | Photo zoom, caption, audio/transcript, remove/retry if owner | Preview, upload incomplete, unsupported/no transcript, restricted, read-only |
 | S-16 | Help and access status | All | Recover from stale/forbidden links or get local support | S-03, S-06, gated links, F-10 no cover | Reason-safe message, return path, contact, optional job reference | Expired, removed, unknown/inaccessible, pending eligibility, no connection, contact ready |
 | S-17 | Confirm consequential action [Modal] | All by capability | Confirm action in the correct role on the correct item | C-10 sign-off, C-15 approve, P-02 handoff, P-05 revoke, S-06 sign-out | Named action/consequence, item and role, cancel, confirm | Ready, blocked, processing, invalidated by newer state, failed; outcome on parent screen |
+| S-18 | Live Activity [OS] | C, W | Glance at an opted-in visit or shift on iPhone | C-18 foreground follow; opted-in foreground W-06 check-in | Lock Screen ticket; compact, minimal and expanded Dynamic Island variants; authenticated C-18 or W-06/W-10 link | Current, stale, hold/pending for worker, ended ≤8 h active, dismissed, unavailable, non-Island iPhone |
+| S-19 | Android ongoing notification [OS] | C, W | Glance at an opted-in visit or shift in the notification shade | C-18 foreground follow; opted-in foreground W-06 check-in | Standard collapsed/expanded notification, channel, safe title/time, authenticated C-18 or W-06/W-10 link | Current, permission denied, channel off, stale/timeout, worker hold/pending, dismissed, ended |
 
 ### Provider business admin (5)
 
 | ID | Name | Role | Purpose | Entry points | Key components | States to design |
 | --- | --- | --- | --- | --- | --- | --- |
-| P-01 | Business overview | P | See active handoffs and readiness at a glance | Overview tab; launch; S-07 switch | Business label, summary cards, exceptions, eligibility link | Onboarding, active, action needed, restricted, cached |
-| P-02 | Jobs and handoffs | P | Assign or reassign accountable foremen and review business status | Jobs tab, P-01, S-09 | Business job list, job/foreman summary, handoff action, S-17 confirmation | Unassigned, offered, accepted, reassign/declined, authority missing, no eligible lead |
+| P-01 | Business overview | P | Prioritise handoffs and explain provider fee status | Overview tab, S-07 | Business, readiness exceptions, monthly provider fee summary | Trial free, trial terms accepted, eligible fee/credit, restricted, cached |
+| P-02 | Jobs and handoffs | P | Route accountable foreman and commercial review; explain fee eligibility | Jobs tab, P-01, S-09 | Job/foreman, commercial queue, sourced/signed-off/paid facts, S-17 handoff | Unassigned, offered, accepted, declined, protected sole foreman, commercial review, fee ineligible/eligible |
 | P-03 | People and access | P | Inspect memberships, invitations and permitted role grants | People tab, P-01 prompt | Member/invite list, role labels, expiry status, add/edit action | Active, pending, revoked, empty, limited access |
 | P-04 | Business and eligibility | P | Understand what is approved, expiring or needs ops review | P-01, P-03, S-09 | Verification summary, validity and capability restrictions, secure support handoff | Pending, approved for scope, expired, suspended, needs evidence, no access |
 | P-05 | Invite or edit membership [Sheet] | Authorised P | Manage team membership and role permissions | P-03 add/edit | Invite recipient, scoped roles, expiry, send or update | Invite pending/resend, editing, duplicate, removed, cannot grant, saved/failed |
@@ -102,6 +109,6 @@ Design the normal state plus the states named in the row. Apply shared loading, 
 | L-01 | Browse sessions | C | Find sessions, classes, coaching and tours in an active market | Later entry in C-01 | Category/location filters, session cards, language and accessible venue cues | No local supply, results, filtered, closed category, stale |
 | L-02 | Session detail | C | Match time, location, language and service to need | L-01, valid session link | Host/service, duration, language, capacity, price and terms, book CTA | Class/private/group, full, unpublished/cancelled, times available |
 | L-03 | Choose a slot [Sheet] | C | Pick a time and, where relevant, group size | L-02, L-05 reschedule | Date/day view, slot/capacity, venue zone, hold expiry | Available, sold out, hold, expired/conflict, no connection |
-| L-04 | Review and book | C | Confirm a held slot, terms and any required payment | L-03 | Slot and venue, total, terms, checkout/confirm, provider payment UI if required | Held, processing, confirmation received, capacity changed, payment pending/failed, cancelled |
+| L-04 | Review and book | C | Confirm exact held slot and party under pay-at-venue terms | L-03 | Venue/time, ten-minute hold expiry, tax-inclusive total, fee-free cancellation, confirm | Held, confirming, booked, expired or capacity changed, move failed/original retained |
 | L-05 | Session booking | C | Find attendance details or manage the booking | C-01, L-04, S-09 | Booking pass/details, directions, host contact, eligible reschedule/cancel, review | Upcoming, host/time changed, reschedule pending, cancelled, attended, review eligible |
 | L-06 | Session setup and roster | P; designated F for roster | Publish sessions and organise staff/capacity | Later entry in P-01; F-01 for assigned sessions | Service/slot editor, language, capacity, roster, eligible cover link | Draft, needs approval, published, full, cancelled, roster change, cover unavailable |

@@ -1,14 +1,14 @@
 # Core flows
 
-Design the next action around who can take it, what they are committing to and what has actually happened. The IDs below refer to the [screen inventory](../screens/inventory.md); they do not imply API routes or a legal operating model. Roles and grants are defined in [Personas and roles](personas-and-roles.md).
+The [inventory](../screens/inventory.md) names the screens; [Personas and roles](personas-and-roles.md) defines who may act. The named provider contracts with, invoices and is paid by the customer. BookBuddy coordinates the booking and helps resolve exceptions. The [owner’s decisions](../../docs/decisions/2026-11-23-open-questions.md) govern launch, including where they supersede an earlier architecture example.
 
 ## Shared state and offline rules
 
 - **Job stage:** Draft → Request sent → Scoping → Quote ready → Scheduling → Booked → In progress → Awaiting sign-off → Signed off → Closed. Cancelled is shown only after authoritative cancellation. Show separate, named flags for a crew gap, an open change, a disputed item and payment. A declined quote can return to Scoping if the parties continue; history is not overwritten. Do not call a site assessment a booked repair.
-- **Assignment status:** Offered → Confirmed (ordinary named assignment after valid worker confirmation), or Offered → Accepted, confirmation required → Confirmed (cover). Declined, Expired, Filled elsewhere and Cannot attend describe different outcomes. A worker reply in chat is none of these. A confirmed worker saying they cannot attend opens a crew gap without automatically cancelling the job.
-- **Consequential actions require online confirmation:** submitting a request, approving a quote/change, agreeing a schedule, accepting or replacing an assignment, acknowledging a safety briefing, signing off and paying. Save safe eligible drafts, chat/media and attendance events locally where allowed. Say `Saved on this device · pending sync` until accepted; use a distinct failed state with retry/reconcile. Never imply pending evidence or a payment has arrived. No offline grant, safety clearance or optimistic coverage. Show last confirmed time on stale records.
-- **Time and sensitive data:** appointments, shift and offer deadlines use the service location time zone, with the person's local time alongside if different and enabled. Label the common zone once on site logs and chat. Display sensitive access instructions only to authorised assigned users who need them, never in push copy or on an offer; do not cache access secrets. Mark offline details as last confirmed and provide a contact route if someone cannot verify what they need.
-- **Release gates:** provider relationship, categories/trades, permissible work arrangements, verification, support coverage, payment authorisation and liability are [unverified] operating decisions. A UI status must never assert those facts on the basis of a chat, an invite or software matching alone. The [product brief, 21 Nov 2026](../../docs/reports/2026-11-21-builders-company-idea.md#open-questions) documents the operating questions.
+- **Assignment status:** Offered → Confirmed for an ordinary named assignment after valid worker confirmation. For cover, the first valid server-recorded acceptance reserves that round’s slot; `Accepted · awaiting confirmation` grants no assignment, travel or access. Only foreman confirmation assigns. Declined, expired, filled elsewhere and cannot attend have different effects. Chat changes none of them. A dropout opens a gap; it does not cancel the job.
+- **Consequential actions require online confirmation:** request submission, quote/change approval, scheduling, offer acceptance, assignment, briefing acknowledgement, sign-off and payment-record updates. Keep an ambiguous operation pending and reconcile its existing ID. Eligible attendance/media can be `Saved on this device · pending sync`, never optimistically received, published or cleared.
+- **Privacy and time:** use the site’s stored zone, with viewer time second only if enabled and different. No gate/alarm codes or access secrets anywhere, including drafts, media, translation and chat; arrange a verified live handoff. On assigned devices show only the active scope’s permitted cache for up to 72 hours from last successful authorisation sync; no offline role switch. On shared devices do not leave a persistent cache. Record arrival/departure without any device location or boundary.
+- **Scope:** one accountable provider for an approved repair. No supplying labour or booking outside verified scope. Fixture locations are not a pilot decision. Individual external offers, marketplace checkout and later-category navigation are off at launch.
 
 ## 1. Customer request, booking and completion
 
@@ -37,14 +37,17 @@ sequenceDiagram
     A-->>C: C-05 Booked after current window is confirmed
     F->>A: Confirm named crew and report actual progress
     A-->>C: C-09 Arrival window, named contact and confirmed crew
+    opt Customer opens C-18 and chooses Follow live in the foreground
+        A-->>C: Optional private OS status; same reported events remain in app
+    end
     F->>A: F-14 Submit completion and required evidence
     A-->>C: C-10 Awaiting sign-off
     alt Customer signs off on the approved work
         C->>A: Confirm sign-off as the authorised approver
-        A-->>C: C-11 Show authorised bill when due, or a hold reason
-        opt Payment due and customer authorised to pay
-            C->>A: Pay through authorised checkout
-            A-->>C: Show confirmed outcome and receipt when available
+        A-->>C: C-11 Provider invoice, due date or explicit hold
+        opt Customer pays provider directly outside BookBuddy
+            C->>A: Record payment sent against the current bill
+            A-->>C: Await provider match; show paid only on confirmed reconciliation
         end
         A-->>C: Close service when no outstanding actions remain
         C->>A: C-12 Leave optional review after closure
@@ -55,9 +58,22 @@ sequenceDiagram
 ```
 
 - Start with a free description and optional photos or original voice. Review before sending; show upload/transcript status separately and keep the original playable. A failed translation is not a failed request. A selected photo that has not uploaded is not attached; wait or let the customer explicitly remove it. An out-of-area property routes to an explanation and local service contact, not a confirmed job.
-- C-06 shows the exact original scope and version with its translation, exclusions, line items and total. Approve only the current version as an authorised approver. A customer can ask the foreman to clarify by chat or decline online; only publishing and approving a new version changes the quote. Booking requires an approved quote, an accountable provider and a confirmed capacity-backed window, not a promise about a particular worker.
-- C-09 shows the named foreman, the agreed arrival window and customer-visible confirmed crew, plus any separately reported delay. No live GPS, pending candidate names or implied check-in based on a message. When completion arrives, compare evidence with the approved scope/change versions. An issue routes to C-16 instead of forcing sign-off.
-- Sign-off and payment are distinct. Show biller, currency, total and amount due only from authorised records; use the payment provider's flow and display processing until the outcome is known. A repeat tap cannot create a second payment; reconcile uncertain outcomes before retry. Show receipt when available. An approved hold is shown on the affected amount; no implied escrow, refund or settlement on a button tap. Invite, never require, a review after service closure.
+- C-06 names the provider and named approver, original scope, exclusions, tax-inclusive total, terms and site-zone expiry (seven calendar days from issue). Review the payment obligation before C-07; approval does not take money. Keep the accepted original and terms immutable and provide a durable copy. A clarification or translation never revises a quote. Booking requires approved scope and agreement to a capacity-backed window; capacity checked is not capacity reserved.
+- C-09 retains the agreed arrival window, named contact and confirmed customer-visible roster. C-18 explains **what was reported**, independently of staffing and job stage. Compare completion evidence against the approved quote/change versions. An issue opens C-16 instead of forcing sign-off.
+- C-11 records, but does not process, direct payment to the provider (its own external payment link or agreed transfer). Show authorised biller, invoice ID, exact amount/currency and due date, normally seven calendar days after bill delivery. A customer report is not payment confirmation. The provider matches its bank/PSP receipt, then the record can say **Paid**. Keep invoice, payment receipt, adjustments, disputed amounts and confirmed refunds distinct. No platform checkout, wallet, payout, escrow or automatic charge on sign-off. Closure invites an optional private review.
+
+### The visit as reported
+
+| Visible phase or notice | Authoritative source | What the customer sees next |
+| --- | --- | --- |
+| Booked | Confirmed provider window on C-08 | Agreed site window and named foreman; no live ETA. |
+| On the way / On site | Named foreman explicitly publishes F-17 for this visit, from F-05 or F-13 | Plain phase and site report time; older reports in C-18. No worker coordinates, individual attendance, map, route or inferred movement. “On site” does not clear work. |
+| Delay / cover being arranged | Foreman publishes the consequence and next update in F-17 | Keep agreed window until C-08 confirms another; show next report time if promised, otherwise contact. Only confirmed roster changes appear on C-09. |
+| In review | F-14 authoritatively submits evidence | C-18 points to C-10. End OS follow at visit completion; sign-off, billing and closure stay separate. |
+
+F-17 previews exactly what the customer will see: one structured status for the current visit, reporting time, safe next step and optional next-update time. No free-text crew log posted by default. The foreman publishes online; a failed or unknown result is not a public event. A later correction supersedes an event without rewriting history. Private W-06/F-13 records, shift assignments, S-10 chat, time passing and OS callbacks cannot set a customer milestone. Show unreported milestones as unknown, not completed by implication. Each new visit has its own ledger.
+
+C-05/C-09 open C-18 on mobile or the signed-in web. Opening the record does not start an OS display: **Follow live** requests one locally in the foreground for this device and visit. iPhone uses S-18; Android S-19. Disabled, denied, stale, expired or web-only: keep the timeline, last confirmed site time and contact usable. Stop following, completed/cancelled visits, sign-out and loss of scope end the display; no operational state changes. Reuse the authorised job projection, apply newer confirmed revisions only, catch up by cursor on reconnect, no timer-driven refetch. See [system layouts and lifecycle](../system/design-system.md#system-status-surfaces).
 
 ## 2. Foreman accepts a job and assigns crew
 
@@ -99,9 +115,9 @@ flowchart TD
     Change -->|No| Brief[W-09 review briefing and job-day actions]
 ```
 
-An unconfirmed external offer shows the area and relevant task, not precise residential access. For a confirmed shift, `Can't attend` is distinct from declining an offer. If an urgent dropout cannot be sent, state `Foreman not notified` and offer a direct foreman contact route; no queued cancellation should look like a released shift. A reason can be entered without a required public explanation or exposure to the customer.
+An unconfirmed offer shows the area and relevant task, not precise residential access. For a confirmed shift, `Can't attend` is distinct from declining an offer. If an urgent dropout cannot be sent, state `Foreman not notified` and offer the provider’s verified duty contact; no queued cancellation should look like a released shift. Do not expose the reason to the customer.
 
-## 4. Last-minute replacement: own team, then vetted pool
+## 4. Last-minute replacement: provider’s own crew only
 
 ```mermaid
 sequenceDiagram
@@ -117,13 +133,8 @@ sequenceDiagram
         F->>A: Send an internal offer
         A->>W: W-03 Internal cover offer with expiry
     end
-    opt Own team exhausted or recorded urgency cutoff reached
-        A-->>F: Unlock F-11 only if approved local provider route exists
-        F->>A: Choose match with current task and site eligibility
-        A->>W: W-03 External offer through permitted provider
-    end
-    alt Candidate accepts before expiry
-        W->>A: Accept provisionally, not permission to travel or start
+    alt First valid internal acceptance received before expiry
+        W->>A: Reserve the slot pending foreman confirmation
         A-->>F: F-12 Accepted, confirmation required
         F->>A: Confirm named worker after eligibility and conflict recheck
         alt Still valid and slot open
@@ -134,15 +145,16 @@ sequenceDiagram
             A-->>F: Confirm failed; retain gap and explain reason
             A-->>W: Offer closed or returned to pending as appropriate
         end
-    else All offers decline or expire, or no permitted route
-        A-->>F: No cover confirmed
-        F->>O: Escalate or agree a revised plan
-        A-->>C: If delivery at risk, notify delay or revised window, not candidate details
+    else No valid reservation or review timed out
+        A-->>F: Keep gap open; no worker assigned
+        F->>O: Call duty contact or propose a revised visit
+        A-->>C: F-17 reports delivery risk and next update; no candidate details
     end
 ```
 
-- Own team first means the external step is unavailable until no internal eligible candidate remains or the system records a justified time cutoff; expire/withdraw outstanding own-team offers before sending external ones. Show skill, required work/briefing language, availability, location and approved legal eligibility for the task, responsible business and time. Language is declared work capability, not nationality. Pending/expired checks cannot pass. External workers are approached only via the authorised local provider/contracting relationship; no public pick-up or customer direction of individual labour.
-- Label Offered, Accepted and Confirmed distinctly. A provisional acceptance reserves no permission to travel, access a property or perform work. Final confirmation can apply to only one eligible candidate per gap, rechecking assignment conflicts and current eligibility. Other offers resolve as filled or expired. The new worker needs their own versioned instruction and attendance; prior records are never transferred to them.
+- The foreman selects from **this provider’s own eligible crew only**. Ordinary named offers and urgent internal cover rounds have distinct deadlines. For urgent cover, at most three eligible on-duty people per round, normally 15 minutes to reply and at most one more round if safe. The first valid server-recorded acceptance reserves the place. Foreman or authorised backup has up to five minutes after that reply, capped at the safe staffing cutoff and before shift start, to recheck scope, availability, eligibility and overlap and confirm once. No promotion of a losing reply on timeout.
+- A candidate cannot travel, enter or work from a provisional acceptance. Correction, expiry, withdrawal or failed recheck reopens the gap, not a silent assignment. Newly confirmed staff need their own versioned briefing and attendance. On material delivery risk notify the customer immediately, with next update within 15 minutes or sooner as required; a new window needs separate agreement.
+- **F-11 and all vetted-pool offers are later**, with no launch entry/link or deadline unlock. If own crew cannot cover, propose a revised visit. If the provider cannot deliver, resolve the old agreement; BookBuddy may introduce a separately verified local business for a **new agreement**, never switch contractors or combine employers' crews in place.
 - Customer notices name only the confirmed, customer-visible crew and accurate arrival window. If coverage is unresolved and timing materially at risk, say `Crew cover being arranged` and identify the foreman and next update. When scope or timing changes, route through C-08/C-15 as appropriate. Do not promise instant cover or show an external pool to customers.
 
 ## 5. Multilingual chat and safety-critical confirmation
@@ -166,7 +178,7 @@ sequenceDiagram
     alt Cannot understand, translation uncertain, or offline
         W->>F: Request clarification or a human briefing when possible
         A-->>W: Affected work remains blocked pending confirmed understanding
-    else Human briefing where needed and worker can explain back
+    else Human briefing in a language the worker understands
         W->>F: Explain back the critical points in a language both can verify
         F->>A: Verify understanding for the current version
         W->>A: Explicitly acknowledge that same version online
@@ -201,7 +213,8 @@ flowchart TD
     Log --> Share[Foreman shares only appropriate evidence with customer timeline]
 ```
 
-- Present check-in and check-out as distinct deliberate events, not background location tracking. Explain when offline that recording arrival is not permission to start work. Preserve the original capture time and the confirmed server receipt; mark late uploads. If checkout follows a locally queued arrival, keep the events ordered and resolve any rejection against the shift rather than inventing a confirmed log. Only the assigned person records their attendance; any allowed correction is visibly recorded, not a replacement of the original event.
+- W-06 records deliberate, location-free job-site arrival/departure. No GPS permission, boundary, background monitoring or automatic check-in/out. An entry outside the expected time window saves the actual time for review; offer a foreman-assisted recorded exception for a worker without a usable phone. Preserve capture time, ordered operation IDs and server receipt. A locally queued arrival/departure pair is not a confirmed log. Amend with a traceable correction. Site attendance is not the employer’s working-time register, payroll or permission to start.
+- W-01/W-04 open W-10 for the current shift. Show **Since check-in** only against a confirmed, non-stale arrival; mark pending, checkout and conflicts explicitly. The separate safety hold persists until a human verifies teach-back **and** the worker acknowledges the current version online. An opted-in worker can start a device status display after deliberate foreground check-in; the checkout link opens W-06 to review. Neither expiry nor dismissal checks anyone out.
 - Use the system camera/picker and an accessible text alternative. Review images and captions before upload; warn against people, private items or identifying details unrelated to the work. Site evidence goes to the foreman first. A deliberate share publishes selected completed uploads to the customer, and C-10 distinguishes unavailable or not-yet-received evidence from a finished checklist.
 
 ## 7. Changes, cancellations and disputes
@@ -225,7 +238,9 @@ flowchart TD
     Terms -->|Cancellation confirmed| Timeline
 ```
 
-A change is not a comment. Show original and proposed scope, price delta/new total, who is accountable and the schedule impact before explicit approval. Keep unaffected work under previous approval; visibly hold only work that cannot proceed safely or within scope. Explain when a revised window awaits separate acceptance. The current booking remains until changed or cancelled authoritatively, with any fees explained using the approved terms. A case preserves the record and shows owner, expected next response if known and any explicitly affected work/payment; it does not silently accept work, cancel the job or promise a refund. Back-office review and findings are not mobile tools.
+A change is not a comment. Show the approved original and a separately published proposal with cost delta, new total, timing, affected work and deadline. Keep prior terms and unaffected work; apply only an approved version. For eligible unstarted visits with no work performed, cancellation is **fee-free**. Rescheduling is fee-free: at least 24 hours out, confirm a current like-for-like authorised window; inside 24 hours or if terms/capacity differ, request provider agreement. Keep the original until confirmed. Started work goes to the provider/case with any work already performed itemised, not a cancellation fee. Where applicable offer statutory withdrawal separately with a durable receipt; never turn it into a request for permission. An issue does not imply sign-off, refund or billing hold.
+
+**Provider pricing, not customer checkout.** The first 30 completed paid jobs carry no BookBuddy fee. Under new accepted paid-trial terms, bill the provider monthly: €25 plus applicable VAT per BookBuddy-sourced, signed-off, paid job of at least €150 before VAT. No fee on leads, cancelled or fully refunded jobs or provider-sourced work; credit a later full refund. No customer surcharge or worker fee. P-01/P-02 can show eligibility and statement context, never a deduction from the customer's service invoice. Pricing is a hypothesis, not a guaranteed ongoing tariff.
 
 ## 8. Later category: book a Pilates class or massage
 
@@ -239,12 +254,12 @@ sequenceDiagram
     A-->>C: L-02 Show session detail, access information and cancellation terms
     C->>A: L-03 Choose slot and group size
     A-->>C: Show short hold with expiry in venue time
-    C->>A: L-04 Confirm details and any required payment
-    alt Capacity and payment outcome confirmed where required
+    C->>A: L-04 Confirm held slot, party and pay-at-venue terms
+    alt Current ten-minute hold and available capacity confirmed
         A-->>C: L-05 Booking with arrival details and service language
         A-->>P: Update roster and occupied capacity
-    else Hold expires, capacity changes or payment unresolved
-        A-->>C: Show not booked or processing; return to slots only when retry is safe
+    else Hold expires or capacity changes
+        A-->>C: Not booked; show actual remaining seats and keep any original booking
     end
     opt Customer needs a change
         C->>A: Reschedule through L-03/L-04 or cancel with C-17 terms
