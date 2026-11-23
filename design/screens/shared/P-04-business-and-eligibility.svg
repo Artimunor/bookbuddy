@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">P-04 Business and eligibility — approved scope</title>
+<desc id="screen-desc">A Reformas Ruiz provider admin sees scoped approval for construction repairs and Nadia Benali’s current eligibility through the recorded expiry time. Only a secure local service route handles evidence.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true">
+<text x="20" y="29" fill="#152C26" font-size="15" font-weight="700">9:41</text>
+<rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/>
+<rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/>
+<rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/>
+<rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/>
+<path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="332" cy="29" r="1.1" fill="#152C26"/>
+<rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+<rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/>
+<path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26"/>
+</g>
+<g id="header">
+<path d="m35 68-8 8 8 8" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Business and eligibility</text>
+<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Reformas Ruiz · Provider admin</text>
+<path d="M0 107.5h390" stroke="#D4E1DB"/>
+</g>
+<g id="content">
+<text x="20" y="142" fill="#425B52" font-size="15" font-weight="400">See what’s approved and when it expires.</text>
+<text x="20" y="181" fill="#152C26" font-size="20" font-weight="650">Business verification</text>
+<g id="business-verification">
+<rect x="20.5" y="196.5" width="349" height="119" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="214" width="32" height="32" rx="8" fill="#E7F4E8"/>
+<g transform="translate(40 218)" aria-hidden="true"><path d="M12 3 5 6v5c0 4 2 7 7 10 5-3 7-6 7-10V6l-7-3zm-3 9 2 2 4-4" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="80" y="232" fill="#152C26" font-size="16" font-weight="650">Construction repairs</text>
+<rect x="246" y="214" width="108" height="28" rx="14" fill="#E7F4E8"/>
+<g transform="translate(254 220) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="#245936" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="276" y="232" fill="#245936" font-size="12" font-weight="550">Approved</text>
+<path d="M36 254.5h318" stroke="#D4E1DB"/>
+<text x="36" y="278" fill="#425B52" font-size="15" font-weight="400">Only the approved scope is covered.</text>
+<text x="36" y="299" fill="#425B52" font-size="13" font-weight="450">Other service categories are not approved.</text>
+</g>
+<text x="20" y="354" fill="#152C26" font-size="20" font-weight="650">Worker eligibility</text>
+<g id="worker-verification">
+<rect x="20.5" y="370.5" width="349" height="139" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="388" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(40 392)" aria-hidden="true"><path d="M16 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM4 20a8 8 0 0 1 16 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="80" y="402" fill="#152C26" font-size="16" font-weight="650">Nadia Benali</text>
+<text x="80" y="421" fill="#425B52" font-size="13" font-weight="450">Worker eligibility</text>
+<rect x="251" y="390" width="103" height="28" rx="14" fill="#E7F4E8"/>
+<g transform="translate(259 396) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="#245936" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="281" y="408" fill="#245936" font-size="12" font-weight="550">Current</text>
+<path d="M36 436.5h318" stroke="#D4E1DB"/>
+<text x="36" y="463" fill="#152C26" font-size="16" font-weight="650">Wed, 25 Nov · 17:00</text>
+<text x="36" y="488" fill="#425B52" font-size="13" font-weight="450">Validity ends · Spain time</text>
+</g>
+<g id="secure-support">
+<rect x="20.5" y="530.5" width="349" height="131" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="561" fill="#152C26" font-size="16" font-weight="650">Get help with verification</text>
+<text x="36" y="585" fill="#425B52" font-size="15" font-weight="400">Use the secure route for evidence.</text>
+<rect x="36.5" y="598.5" width="317" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="195" y="628" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Contact local service</text>
+</g>
+<text x="20" y="695" fill="#425B52" font-size="13" font-weight="450">Last confirmed Wed, 18 Nov · 09:18 · Spain time</text>
+</g>
+<g id="home-indicator" aria-hidden="true">
+<rect x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26"/>
+</g>
+</svg>

@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">P-05 Invite or edit membership — edit sheet</title>
+<desc id="screen-desc">Over a dimmed People screen, Mateo can edit the Worker role or access expiry for Nadia Benali at Reformas Ruiz. No changes have been made yet, so Save changes is disabled. Revocation is a separate consequential action.</desc>
+<g id="parent-screen" aria-hidden="true">
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<g id="status-bar" aria-hidden="true">
+<text x="20" y="29" fill="#152C26" font-size="15" font-weight="700">9:41</text>
+<rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/>
+<rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/>
+<rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/>
+<rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/>
+<path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="332" cy="29" r="1.1" fill="#152C26"/>
+<rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+<rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/>
+<path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26"/>
+</g>
+<g id="header">
+<circle cx="36" cy="76" r="16" fill="#DCF2EA"/>
+<g transform="translate(26 66) scale(0.8333333333333334)" aria-hidden="true"><path d="M3 11l9-7 9 7M5 10v10h14V10M9 20v-6h6v6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="60" y="75" fill="#152C26" font-size="16" font-weight="700">Reformas Ruiz</text>
+<text x="60" y="94" fill="#425B52" font-size="13" font-weight="450">Provider admin</text>
+<rect x="322.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<path d="M339 79h14l-1.5-2v-4a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="content">
+<text x="20" y="149" fill="#152C26" font-size="28" font-weight="700">People and access</text>
+<text x="20" y="176" fill="#425B52" font-size="15" font-weight="400">Manage who can act for Reformas Ruiz.</text>
+<rect x="20" y="196" width="176" height="48" rx="12" fill="#0B6250"/>
+<g transform="translate(36 208)" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="68" y="226" fill="#FFFFFF" font-size="16" font-weight="650">Invite a person</text>
+<text x="20" y="283" fill="#152C26" font-size="20" font-weight="650">Active members</text>
+<rect x="292" y="262" width="78" height="28" rx="14" fill="#EBF2EF"/>
+<text x="304" y="280" fill="#425B52" font-size="12" font-weight="550">2 active</text>
+<g id="member-list">
+<rect x="20.5" y="300.5" width="349" height="151" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<circle cx="54" cy="338" r="18" fill="#DCF2EA"/>
+<text x="54" y="342" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">MR</text>
+<text x="84" y="334" fill="#152C26" font-size="16" font-weight="650">Mateo Ruiz</text>
+<text x="84" y="355" fill="#425B52" font-size="13" font-weight="450">Provider admin · Foreman</text>
+<rect x="266" y="325" width="48" height="28" rx="14" fill="#EBF2EF"/>
+<text x="278" y="343" fill="#425B52" font-size="12" font-weight="550">You</text>
+<g transform="translate(334 326)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M36 376.5h318" stroke="#D4E1DB"/>
+<circle cx="54" cy="414" r="18" fill="#E5F0FA"/>
+<text x="54" y="418" fill="#234C78" font-size="12" font-weight="650" text-anchor="middle">NB</text>
+<text x="84" y="410" fill="#152C26" font-size="16" font-weight="650">Nadia Benali</text>
+<text x="84" y="431" fill="#425B52" font-size="13" font-weight="450">Worker</text>
+<g transform="translate(334 402)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="20" y="493" fill="#152C26" font-size="20" font-weight="650">Invitations</text>
+<g id="no-invites">
+<rect x="20.5" y="510.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="530" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(40 534)" aria-hidden="true"><path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm-2 3 10 6 10-6" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="80" y="540" fill="#152C26" font-size="16" font-weight="650">No pending invitations</text>
+<text x="80" y="561" fill="#425B52" font-size="13" font-weight="450">New invitations appear here.</text>
+</g>
+<rect x="20.5" y="606.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="626" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(40 630)" aria-hidden="true"><path d="M12 3 5 6v5c0 4 2 7 7 10 5-3 7-6 7-10V6l-7-3zm-3 9 2 2 4-4" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="80" y="636" fill="#152C26" font-size="16" font-weight="650">Check work eligibility</text>
+<text x="80" y="657" fill="#425B52" font-size="13" font-weight="450">Separate from membership and access</text>
+<g transform="translate(334 630)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<g id="tab-bar">
+<rect x="0" y="746" width="390" height="98" fill="#FFFFFF"/>
+<path d="M0 746.5h390" stroke="#D4E1DB"/>
+<g transform="translate(37 757)" aria-hidden="true"><path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="49" y="800" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Overview</text>
+<g transform="translate(134 757)" aria-hidden="true"><path d="M7 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2M4 7h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm-2 5a24 24 0 0 0 20 0" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="146" y="800" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Jobs</text>
+<rect x="220" y="753" width="48" height="30" rx="15" fill="#DCF2EA"/>
+<g transform="translate(232 757)" aria-hidden="true"><path d="M14 7.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0zM3 20v-1a6 6 0 0 1 6-6h3a6 6 0 0 1 6 6v1m-1-15a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v1" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="244" y="800" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">People</text>
+<g transform="translate(329 757)" aria-hidden="true"><path d="M16.5 7a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0zM3.5 20a8.5 8.5 0 0 1 17 0" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="341" y="800" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Account</text>
+</g>
+</g>
+<g id="scrim" aria-hidden="true">
+<rect width="390" height="844" fill="#101A18" opacity=".4"/>
+</g>
+<g id="sheet">
+<path d="M0 324a24 24 0 0 1 24-24h342a24 24 0 0 1 24 24v520H0z" fill="#FFFFFF"/>
+<rect x="175" y="308" width="40" height="4" rx="2" fill="#70877D"/>
+<text x="20" y="339" fill="#152C26" font-size="20" font-weight="650">Edit membership</text>
+<rect x="322.5" y="316.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<g transform="translate(334 328)" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="20" y="362" fill="#152C26" font-size="15" font-weight="400">Nadia Benali · Reformas Ruiz</text>
+<text x="20" y="381" fill="#425B52" font-size="13" font-weight="450">Acting as Provider admin</text>
+<path d="M20 388.5h350" stroke="#D4E1DB"/>
+<g id="sheet-content">
+<text x="20" y="416" fill="#152C26" font-size="16" font-weight="650">Role</text>
+<rect x="20.5" y="426.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="36" y="456" fill="#152C26" font-size="16" font-weight="650">Worker</text>
+<g transform="translate(330 438)" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="20" y="498" fill="#425B52" font-size="15" font-weight="400">This role does not confirm any shift.</text>
+<text x="20" y="533" fill="#152C26" font-size="16" font-weight="650">Access expiry</text>
+<rect x="20.5" y="543.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="36" y="573" fill="#152C26" font-size="16" font-weight="650">No expiry</text>
+<g transform="translate(330 555)" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="20" y="615" fill="#425B52" font-size="15" font-weight="400">Changes affect only Reformas Ruiz.</text>
+<rect x="20" y="648" width="350" height="48" rx="12" fill="#FCE9E8"/>
+<text x="195" y="678" fill="#853531" font-size="16" font-weight="650" text-anchor="middle">Revoke access</text>
+<text x="20" y="726" fill="#425B52" font-size="13" font-weight="450">Edit a field to enable Save changes.</text>
+</g>
+<g id="sheet-footer">
+<path d="M0 744.5h390" stroke="#D4E1DB"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#EBF2EF"/>
+<text x="195" y="782" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">Save changes</text>
+</g>
+</g>
+<g id="home-indicator" aria-hidden="true">
+<rect x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26"/>
+</g>
+</svg>
