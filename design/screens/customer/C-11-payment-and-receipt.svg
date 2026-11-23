@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">C-11 Payment and receipt</title>
+<desc id="screen-desc">The authorised biller is Reformas Ruiz and EUR 240.00 is due for approved work. Claire can open the payment provider’s checkout; the receipt is not yet available.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/><g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g><g id="header">
+<g aria-hidden="true" transform="translate(20 64)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" font-size="20" font-weight="650" fill="#152C26">Payment and receipt</text>
+<text x="64" y="94" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Terrace door repair</text>
+<path d="M0 107.5h390" stroke="#D4E1DB"/>
+</g>
+<g id="content">
+<rect x="20.5" y="124.5" width="349" height="155" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="141" width="40" height="40" rx="8" fill="#EBF2EF"/><g aria-hidden="true" transform="translate(44 149)"><path d="M6 3h8l4 4v14H6zm8 0v5h4M9 12h6m-6 4h6" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="88" y="150" font-size="13" font-weight="450" fill="#425B52">Billed by</text>
+<text x="88" y="176" font-size="16" font-weight="650" fill="#152C26">Reformas Ruiz</text>
+<path d="M36 195.5h318" stroke="#D4E1DB"/>
+<text x="36" y="224" font-size="13" font-weight="450" fill="#425B52">Amount due · EUR</text>
+<g style="font-variant-numeric:tabular-nums"><text x="354" y="252" font-size="32" font-weight="650" fill="#152C26" text-anchor="end">€240.00</text></g>
+<rect x="20" y="296" width="350" height="104" rx="16" fill="#E5F0FA"/><g aria-hidden="true" transform="translate(36 311) scale(0.8333333333333334)"><path d="M3 5h18v14H3zm0 4h18m-14 6h4" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="64" y="325" font-size="16" font-weight="650" fill="#234C78">Pay in secure checkout</text><text x="64" y="348" font-size="15" font-weight="400" fill="#234C78">You’ll return here to see the result.</text>
+<text x="64" y="370" font-size="15" font-weight="400" fill="#234C78">A receipt appears once it’s available.</text>
+<text x="20" y="445" font-size="20" font-weight="650" fill="#152C26">Bill details</text>
+<rect x="20.5" y="460.5" width="349" height="118" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="490" font-size="16" font-weight="650" fill="#152C26">Approved work · Quote v1</text>
+<g style="font-variant-numeric:tabular-nums"><text x="354" y="490" font-size="16" font-weight="650" fill="#152C26" text-anchor="end">€240.00</text></g>
+<text x="36" y="512" font-size="13" font-weight="450" fill="#425B52">Terrace door repair</text>
+<path d="M36 528.5h318" stroke="#D4E1DB"/>
+<text x="36" y="555" font-size="13" font-weight="450" fill="#425B52">Sign-off recorded separately</text>
+<rect x="20.5" y="596.5" width="349" height="57" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g aria-hidden="true" transform="translate(36 612)"><path d="M6 3h8l4 4v14H6zm8 0v5h4M9 12h6m-6 4h6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="72" y="631" font-size="13" font-weight="450" fill="#425B52">Receipt not available yet</text>
+<text x="20" y="705" font-size="16" font-weight="650" fill="#0B5747">Get payment help</text>
+</g>
+<g id="action-bar">
+<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+<path d="M0 744.5h390" stroke="#D4E1DB"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/><g aria-hidden="true" transform="translate(36 764)"><path d="M3 5h18v14H3zm0 4h18m-14 6h4" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="70" y="782" font-size="16" font-weight="650" fill="#FFFFFF">Pay €240.00</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>
