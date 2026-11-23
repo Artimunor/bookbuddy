@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">L-06 Session setup and roster — no cover confirmed</title>
-<desc id="screen-desc">The coordinator sees that Elena Costa cannot attend, own-team cover is unavailable, no approved external cover exists and new bookings are paused. Six of eight places are booked and existing bookings remain valid. The coordinator can reach local support or review cover history.</desc>
-<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
-<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<desc id="screen-desc">Coordinator Marina Serra sees a required instructor gap. The studio has no eligible available substitute. New holds and confirmations for this slot are paused; the six booked places remain valid. No automatic substitute, customer reschedule, cancellation or external offer.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
 <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
 <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,64 +15,43 @@
 <path d="M370 20v5c2-1 2-4 0-5z"/>
 </g>
 <g id="header">
-<g transform="translate(32 76)" aria-hidden="true"><path d="m3-8-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Session setup and roster</text>
-<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Estudi Mar Pilates · Roster coordinator</text>
-<path d="M0 107.5h390" stroke="#D4E1DB"/>
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B6250" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Session setup and roster</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">Estudi Mar Pilates · Roster coordinator</text>
 </g>
-<g id="content">
-<g id="session-and-publish-status">
-<rect x="20.5" y="124.5" width="349" height="131" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<g>
-<rect x="36" y="140" width="144" height="28" rx="14" fill="#FFF1D5"/>
-<g transform="translate(52 154)" aria-hidden="true"><path d="M0-8 8 7H-8zm0 5v4m0 3h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="65" y="158" fill="#704500" font-size="12" font-weight="550">Bookings paused</text>
+<g id="coverage-gap">
+<rect x="20" y="120" width="350" height="178" rx="16" fill="#FFF1D5"/>
+<g transform="translate(44 146)" aria-hidden="true"><path d="M0-8 8 7H-8zm0 5v4m0 3h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="68" y="152" font-size="13" font-weight="650" fill="#704500">INSTRUCTOR GAP</text>
+<text x="36" y="192" font-size="25" font-weight="700" fill="#704500">No cover confirmed</text>
+<text x="36" y="221" font-size="13" font-weight="450" fill="#704500">Mat Pilates · Sat, 28 Nov · 10:00–10:45 Spain time</text>
+<text x="36" y="250" font-size="16" font-weight="650" fill="#704500">New bookings are paused.</text>
+<text x="36" y="276" font-size="13" font-weight="450" fill="#704500">Elena can’t attend. No qualified studio cover.</text>
 </g>
-<text x="36" y="196" fill="#152C26" font-size="20" font-weight="650">Mat Pilates</text>
-<text x="36" y="222" fill="#152C26" font-size="16" font-weight="650">Sat, 28 Nov · 10:00–10:45</text>
-<text x="36" y="244" fill="#425B52" font-size="13" font-weight="450">Spain time · Xàbia</text>
+<g id="attendee-roster">
+<text x="20" y="343" font-size="20" font-weight="650" fill="#152C26">Attendee roster</text>
+<rect x="20" y="359" width="350" height="82" rx="16" fill="#FFFFFF"/>
+<text x="36" y="390" font-size="16" font-weight="650" fill="#152C26">6 of 8 places booked</text>
+<text x="36" y="417" font-size="13" font-weight="450" fill="#425B52">2 unbooked · No new confirmations</text>
+<path d="m344 392 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
-<g id="session-setup">
-<text x="20" y="290" fill="#152C26" font-size="20" font-weight="650">Session setup</text>
-<rect x="20.5" y="302.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="332" fill="#152C26" font-size="16" font-weight="650">45 min · Group class</text>
-<text x="36" y="355" fill="#425B52" font-size="13" font-weight="450">English · Step-free entry · €16.00 per person</text>
-<path d="M36 367.5h318" stroke="#D4E1DB"/>
-<text x="36" y="389" fill="#425B52" font-size="13" font-weight="450">Pay at the studio · 24-hour cancellation cutoff</text>
-</g>
-<g id="roster-summary">
-<text x="20" y="446" fill="#152C26" font-size="20" font-weight="650">Roster</text>
-<g>
-<rect x="20.5" y="460.5" width="349" height="63" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<g>
-<rect x="36" y="476" width="32" height="32" rx="8" fill="#EBF2EF"/>
-<g transform="translate(52 492)" aria-hidden="true"><path d="M-3-7a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm-6 13v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1M5-6a2.5 2.5 0 0 1 0 5m1 2c2 0 3 2 3 4v1" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-</g>
-<text x="80" y="489" fill="#152C26" font-size="16" font-weight="650">6 of 8 places booked</text>
-<text x="80" y="508" fill="#425B52" font-size="13" font-weight="450">New bookings paused</text>
-<g transform="translate(346 492)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-</g>
-</g>
-<g>
-<rect x="20" y="540" width="350" height="76" rx="16" fill="#FFF1D5"/>
-<g transform="translate(44 563)" aria-hidden="true"><path d="M0-8 8 7H-8zm0 5v4m0 3h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="569" fill="#704500" font-size="16" font-weight="650">No cover confirmed</text>
-<text x="64" y="590" fill="#704500" font-size="13" font-weight="450"><tspan x="64">Own team unavailable. No approved</tspan><tspan x="64" dy="18">external cover for this class.</tspan></text>
-</g>
-<g id="gap-summary">
-<text x="20" y="643" fill="#425B52" font-size="13" font-weight="450">Elena Costa can’t attend.</text>
-<text x="20" y="664" fill="#425B52" font-size="13" font-weight="450"><tspan x="20">Existing bookings remain valid.</tspan><tspan x="20" dy="18">No time change or cancellation.</tspan></text>
-<text x="20" y="706" fill="#0B5747" font-size="16" font-weight="650">View cover history</text>
-<g transform="translate(346 701)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-</g>
+<g id="staffing-and-safety">
+<text x="20" y="484" font-size="20" font-weight="650" fill="#152C26">Before reopening</text>
+<text x="20" y="514" font-size="15" font-weight="400" fill="#152C26">Marina must confirm a qualified studio</text>
+<text x="20" y="536" font-size="15" font-weight="400" fill="#152C26">instructor and check the venue, language,</text>
+<text x="20" y="558" font-size="15" font-weight="400" fill="#152C26">capacity and participant safety.</text>
+<path d="M20 579h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="612" font-size="16" font-weight="650" fill="#152C26">Existing bookings still stand</text>
+<text x="20" y="640" font-size="15" font-weight="400" fill="#425B52">If the class cannot run as booked, contact</text>
+<text x="20" y="662" font-size="15" font-weight="400" fill="#425B52">bookers. A new time needs their agreement.</text>
+<text x="20" y="710" font-size="16" font-weight="650" fill="#0B5747">View cover history</text>
+<path d="m348 699 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="action-bar">
-<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
-<path d="M0 744.5h390" stroke="#D4E1DB"/>
-<g>
-<rect x="20.5" y="752.5" width="349" height="47" rx="12" fill="#0B6250"/>
-<text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Contact local support</text>
-</g>
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="752" width="350" height="52" rx="12" fill="#0B6250"/>
+<text x="195" y="784" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Contact local support</text>
 </g>
 <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">L-04 Review and book — active hold</title>
-<desc id="screen-desc">Claire Martin reviews her held place at Estudi Mar Pilates. The expiry is in Spain time. The total is sixteen euros payable at the studio; the final action confirms the booking online.</desc>
-<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
-<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<desc id="screen-desc">Claire Martin has a server hold for exactly one adult at the 10:00 class, expiring Monday 23 November at 09:46 Spain time. Booking commits that place and terms version 1 together. Total €16.00 including tax, payable to Estudi Mar Pilates at the venue. No charge in BookBuddy.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
 <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
 <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,56 +15,47 @@
 <path d="M370 20v5c2-1 2-4 0-5z"/>
 </g>
 <g id="header">
-<g transform="translate(32 76)" aria-hidden="true"><path d="m3-8-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Review and book</text>
-<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Customer · Claire Martin</text>
-<path d="M0 107.5h390" stroke="#D4E1DB"/>
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B6250" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Review and book</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">Customer · Claire Martin</text>
 </g>
-<g id="content">
-<g>
-<rect x="20" y="124" width="350" height="72" rx="16" fill="#FFF1D5"/>
-<g transform="translate(44 147)" aria-hidden="true"><path d="M0-8a8 8 0 1 1 0 16A8 8 0 0 1 0-8zm0 4v4l3 2" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="153" fill="#704500" font-size="16" font-weight="650">1 place held until 09:46</text>
-<text x="64" y="174" fill="#704500" font-size="13" font-weight="450">Mon, 23 Nov · Spain time</text>
+<g id="hold-status">
+<rect x="20" y="120" width="350" height="106" rx="16" fill="#FFF1D5"/>
+<g transform="translate(44 145)" aria-hidden="true"><path d="M0-8a8 8 0 1 1 0 16A8 8 0 0 1 0-8zm0 4v4l3 2" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="68" y="151" font-size="13" font-weight="650" fill="#704500">10-MINUTE HOLD</text>
+<text x="36" y="183" font-size="23" font-weight="700" fill="#704500">1 place held until 09:46</text>
+<text x="36" y="207" font-size="13" font-weight="450" fill="#704500">Mon, 23 Nov · Spain time · Not booked yet</text>
 </g>
 <g id="booking-summary">
-<rect x="20.5" y="208.5" width="349" height="181" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="240" fill="#152C26" font-size="20" font-weight="650">Mat Pilates</text>
-<text x="36" y="263" fill="#425B52" font-size="13" font-weight="450">Estudi Mar Pilates · Xàbia</text>
-<path d="M36 279.5h318" stroke="#D4E1DB"/>
-<g>
-<rect x="36" y="292" width="32" height="32" rx="8" fill="#EBF2EF"/>
-<g transform="translate(52 308)" aria-hidden="true"><path d="M-7-5h14v12h-14zM-4-8v5m8-5v5M-7-1h14" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-</g>
-<text x="80" y="307" fill="#152C26" font-size="16" font-weight="650">Sat, 28 Nov · 10:00–10:45</text>
-<text x="80" y="329" fill="#425B52" font-size="13" font-weight="450">Spain time · Taught in English</text>
-<text x="36" y="369" fill="#152C26" font-size="16" font-weight="650">1 place</text>
-<text x="264" y="369" fill="#0B5747" font-size="16" font-weight="650">Change slot</text>
+<text x="20" y="265" font-size="20" font-weight="650" fill="#152C26">Mat Pilates</text>
+<text x="20" y="288" font-size="13" font-weight="450" fill="#425B52">Estudi Mar Pilates · Xàbia</text>
+<rect x="20" y="304" width="350" height="146" rx="16" fill="#FFFFFF"/>
+<rect x="36" y="322" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(52 338)" aria-hidden="true"><path d="M-7-5h14v12h-14zM-4-8v5m8-5v5M-7-1h14" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="80" y="338" font-size="16" font-weight="650" fill="#152C26">Sat, 28 Nov · 10:00–10:45</text>
+<text x="80" y="360" font-size="13" font-weight="450" fill="#425B52">Spain time · Taught in English</text>
+<path d="M36 377h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="420" font-size="16" font-weight="650" fill="#152C26">1 adult</text>
+<text x="354" y="420" font-size="16" font-weight="650" fill="#0B5747" text-anchor="end">Change slot</text>
 </g>
 <g id="price-summary">
-<rect x="20.5" y="402.5" width="349" height="123" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="434" fill="#152C26" font-size="16" font-weight="650">Total</text>
-<text x="354" y="434" fill="#152C26" font-size="15" font-weight="650" text-anchor="end">€16.00</text>
-<text x="36" y="452" fill="#425B52" font-size="13" font-weight="450">1 place at €16.00 per person</text>
-<path d="M36 465.5h318" stroke="#D4E1DB"/>
-<text x="36" y="490" fill="#152C26" font-size="15" font-weight="400">Pay at the studio.</text>
-<text x="36" y="512" fill="#425B52" font-size="13" font-weight="450">No payment is taken in the app.</text>
+<text x="20" y="493" font-size="16" font-weight="650" fill="#152C26">Total including tax</text>
+<text x="370" y="495" font-size="28" font-weight="700" fill="#152C26" text-anchor="end">€16.00</text>
+<text x="20" y="519" font-size="13" font-weight="450" fill="#425B52">1 place at €16.00 per person</text>
+<path d="M20 539h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="booking-terms">
-<text x="20" y="554" fill="#152C26" font-size="20" font-weight="650">Cancellation terms</text>
-<text x="20" y="582" fill="#152C26" font-size="15" font-weight="400"><tspan x="20">Cancel for free until Fri, 27 Nov at 10:00</tspan><tspan x="20" dy="22">Spain time. After that, the full price applies.</tspan></text>
-<text x="20" y="643" fill="#425B52" font-size="13" font-weight="450"><tspan x="20">Booking shares your name and party size with</tspan><tspan x="20" dy="18">the studio so it can manage your attendance.</tspan></text>
-</g>
-<g id="booking-status">
-<text x="20" y="720" fill="#425B52" font-size="13" font-weight="450">Your booking is confirmed only after you book.</text>
-</g>
-</g>
+<text x="20" y="570" font-size="16" font-weight="650" fill="#152C26">Pay at the studio · Terms v1</text>
+<text x="20" y="596" font-size="15" font-weight="400" fill="#152C26">Pay Estudi Mar Pilates directly. No deposit.</text>
+<text x="20" y="618" font-size="15" font-weight="400" fill="#152C26">Cancel for €0 up to Sat, 28 Nov at 10:00</text>
+<text x="20" y="640" font-size="15" font-weight="400" fill="#152C26">Spain time. No late or no-show charge.</text>
+<text x="20" y="689" font-size="13" font-weight="450" fill="#425B52">The studio receives your name and party size</text>
+<text x="20" y="708" font-size="13" font-weight="450" fill="#425B52">for its class roster.</text>
 <g id="action-bar">
-<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
-<path d="M0 744.5h390" stroke="#D4E1DB"/>
-<g>
-<rect x="20.5" y="752.5" width="349" height="47" rx="12" fill="#0B6250"/>
-<text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Book session</text>
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="752" width="350" height="52" rx="12" fill="#0B6250"/>
+<text x="195" y="784" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Book 1 place</text>
 </g>
 </g>
 <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
