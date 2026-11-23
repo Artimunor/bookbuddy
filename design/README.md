@@ -100,7 +100,7 @@ Specs: [L-01–L-06 specs](screens/shared/L-01_L-06-specs.md)
 
 ## Decisions and reviews
 
-- [Mobile tech stack](../docs/reports/2026-11-23-mobile-tech-stack.md)
+- [Architecture: mobile tech stack](../docs/architecture/mobile-tech-stack.md)
 - [Flow design review and consolidated open questions](../docs/reports/2026-11-23-design-review-flows.md)
 - [Visual design review](../docs/reports/2026-11-23-design-review-visual.md)
 - [Tech stack research](../research/tech-stack/)
