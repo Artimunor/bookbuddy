@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">S-05 Accept an invitation — expired</title>
-  <desc id="screen-desc">The link has expired and shows no inviter, business or property details. The user can ask the sender for a new invitation or open help.</desc>
+  <desc id="screen-desc">The verified recipient’s link has expired. No scope or sender details appear. No membership was added. A new invitation must come from an authorised sender.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
-  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,21 +15,23 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-    <g transform="translate(20 64) scale(1)" aria-hidden="true"><path d="M15 4l-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="83" fill="#152C26" font-size="20" font-weight="650">Invitation</text>
-    <path d="M0 107.5h390" stroke="#D4E1DB"/>
+    <path d="m34 64-10 10 10 10" fill="none" stroke="#0B6250" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="76" fill="#152C26" font-size="20" font-weight="700">Invitation</text>
+    <text x="64" y="96" fill="#425B52" font-size="13" font-weight="450">Link status</text>
   </g>
   <g id="content">
-    <rect x="20" y="136" width="32" height="32" rx="8" fill="#FCE9E8"/>
-    <g transform="translate(26 142) scale(0.8333333333333334)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Zm-10-6v6l4 2" fill="none" stroke="#853531" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="20" y="212" fill="#152C26" font-size="28" font-weight="700">Invitation expired</text>
-    <text x="20" y="245" fill="#425B52" font-size="15" font-weight="400"><tspan x="20" dy="0">This link no longer grants access.</tspan><tspan x="20" dy="22">Ask the person who sent it for a new invitation.</tspan></text>
-    <rect x="20" y="316" width="350" height="68" rx="16" fill="#EBF2EF"/>
-    <g transform="translate(36 332) scale(0.8333333333333334)" aria-hidden="true"><path d="M12 2 3 6v5c0 5 3.5 8.5 9 11 5.5-2.5 9-6 9-11V6L12 2Zm-4 10 3 3 5-6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="346" fill="#425B52" font-size="16" font-weight="650">You haven’t joined</text>
-    <text x="64" y="367" fill="#425B52" font-size="13" font-weight="450"><tspan x="64" dy="0">No access was added to your account.</tspan></text>
-    <rect x="20.5" y="412.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <text x="195" y="442" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Get help</text>
+    <text x="20" y="154" fill="#0B5747" font-size="13" font-weight="650">INVITATION STATUS</text>
+    <text x="20" y="201" fill="#152C26" font-size="28" font-weight="700">Invitation expired</text>
+    <text x="20" y="235" fill="#425B52" font-size="15" font-weight="400">This link can no longer be accepted.</text>
+    <rect x="20" y="281" width="350" height="94" rx="16" fill="#EBF2EF"/>
+    <path d="M40 306v-4a5 5 0 0 1 10 0v4m-12 0h14v13h-14z" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="66" y="314" fill="#425B52" font-size="16" font-weight="650">No access was added</text>
+    <text x="38" y="340" fill="#425B52" font-size="15" font-weight="400">If you still need access, ask the person who</text>
+    <text x="38" y="360" fill="#425B52" font-size="15" font-weight="400">invited you to send a new invitation.</text>
+    <path d="M20 421H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="459" fill="#0B5747" font-size="16" font-weight="650">Get help</text>
+    <path d="m349 448 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 481H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <g id="actions">
     <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>

@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">S-03 Verify code and recover access — incorrect code</title>
-  <desc id="screen-desc">The submitted code did not match. The user can re-enter the latest code or resend when the cooldown has passed.</desc>
+  <desc id="screen-desc">The latest submitted code did not match. Verification stays disabled until all six digits are entered. Resend is available in this example.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
-  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,27 +15,30 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-    <g transform="translate(20 64) scale(1)" aria-hidden="true"><path d="M15 4l-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="83" fill="#152C26" font-size="20" font-weight="650">Verify email</text>
-    <path d="M0 107.5h390" stroke="#D4E1DB"/>
+    <path d="m34 64-10 10 10 10" fill="none" stroke="#0B6250" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="76" fill="#152C26" font-size="20" font-weight="700">Verify email</text>
+    <text x="64" y="96" fill="#425B52" font-size="13" font-weight="450">Sign in</text>
   </g>
   <g id="content">
-    <rect x="20" y="132" width="32" height="32" rx="8" fill="#DCF2EA"/>
-    <g transform="translate(26 138) scale(0.8333333333333334)" aria-hidden="true"><path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm-1 2 9 7 9-7" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="20" y="208" fill="#152C26" font-size="28" font-weight="700">Check your email</text>
-    <text x="20" y="239" fill="#425B52" font-size="15" font-weight="400"><tspan x="20" dy="0">We sent a one-time code to</tspan><tspan x="20" dy="22">nadia@example.com.</tspan></text>
-    <text x="20" y="311" fill="#152C26" font-size="16" font-weight="650">Verification code</text>
-    <rect x="20.5" y="323.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#853531"/>
-    <text x="36" y="354" fill="#425B52" font-size="16" font-weight="400">Enter 6-digit code</text>
-    <rect x="20" y="388" width="350" height="68" rx="16" fill="#FCE9E8"/>
-    <g transform="translate(36 404) scale(0.8333333333333334)" aria-hidden="true"><path d="M12 3 22 20H2L12 3Zm0 6v5m0 3h.01" fill="none" stroke="#853531" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="418" fill="#853531" font-size="16" font-weight="650">That code didn’t match</text>
-    <text x="64" y="439" fill="#853531" font-size="13" font-weight="450"><tspan x="64" dy="0">Try the most recent email, or request a new code.</tspan></text>
-    <rect x="20.5" y="472.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <text x="195" y="502" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Resend code</text>
-    <text x="195" y="558" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Change email address</text>
-    <path d="M20 592.5h350" stroke="#D4E1DB"/>
-    <text x="195" y="634" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Get help with this email</text>
+    <text x="20" y="154" fill="#0B5747" font-size="13" font-weight="650">EMAIL VERIFICATION</text>
+    <text x="20" y="201" fill="#152C26" font-size="28" font-weight="700">Check your email</text>
+    <text x="20" y="235" fill="#425B52" font-size="15" font-weight="400">Enter the latest code we sent to:</text>
+    <text x="20" y="261" fill="#152C26" font-size="16" font-weight="650">nadia@example.com</text>
+    <text x="20" y="325" fill="#152C26" font-size="16" font-weight="650">Verification code</text>
+    <rect x="20.5" y="339.5" width="349" height="51" rx="12" fill="#FFFFFF" stroke="#853531"/>
+    <text x="36" y="372" fill="#152C26" font-size="16" font-weight="400">Enter 6-digit code</text>
+    <rect x="20" y="421" width="350" height="74" rx="16" fill="#FCE9E8"/>
+    <path d="m38 456 9-16 9 16z m9-10v4m0 3v.1" fill="none" stroke="#853531" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="66" y="454" fill="#853531" font-size="16" font-weight="650">That code didn’t match</text>
+    <text x="38" y="480" fill="#853531" font-size="15" font-weight="400">Use the code from your most recent email.</text>
+    <rect x="20" y="521" width="350" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <text x="195" y="551" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Resend code</text>
+    <path d="M20 592H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="629" fill="#0B5747" font-size="16" font-weight="650">Change email address</text>
+    <path d="m349 618 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 652H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="691" fill="#0B5747" font-size="16" font-weight="650">Get help with this email</text>
+    <path d="m349 680 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <g id="actions">
     <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>

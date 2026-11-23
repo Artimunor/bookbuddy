@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">S-07 Switch role or business — selection before switching</title>
-  <desc id="screen-desc">A bottom sheet over Account. Worker at Reformas Ruiz is the current context and Customer is selected as the next context. An explicit switch is still required.</desc>
+  <desc id="screen-desc">A sheet over Worker Account. Customer is selected but not active. Switching requires an online grant check, keeps the unsent draft with Worker, and ends the Worker Lock Screen display before Customer opens.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
-  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,69 +15,61 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-    <g transform="translate(20 64) scale(1)" aria-hidden="true"><path d="M15 4l-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Account</text>
-    <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Worker · Reformas Ruiz</text>
-    <path d="M0 107.5h390" stroke="#D4E1DB"/>
+    <path d="m34 64-10 10 10 10" fill="none" stroke="#0B6250" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="76" fill="#152C26" font-size="20" font-weight="700">Account</text>
+    <text x="64" y="96" fill="#425B52" font-size="13" font-weight="450">Worker · Reformas Ruiz</text>
   </g>
   <g id="content">
-    <rect x="20.5" y="128.5" width="349" height="87" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <circle cx="58" cy="172" r="22" fill="#DCF2EA"/>
-    <text x="58" y="177" fill="#0B5747" font-size="13" font-weight="650" text-anchor="middle">NB</text>
-    <text x="96" y="167" fill="#152C26" font-size="20" font-weight="650">Nadia Benali</text>
-    <text x="96" y="192" fill="#425B52" font-size="15" font-weight="400">nadia@example.com</text>
-    <text x="20" y="254" fill="#152C26" font-size="20" font-weight="650">Active context</text>
-    <rect x="20.5" y="270.5" width="349" height="75" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="292" width="32" height="32" rx="8" fill="#DCF2EA"/>
-    <g transform="translate(42 298) scale(0.8333333333333334)" aria-hidden="true"><path d="M3 8h17l-4-4m4 4-4 4m5 4H4l4-4m-4 4 4 4" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="297" fill="#152C26" font-size="16" font-weight="650">Worker · Reformas Ruiz</text>
-    <text x="80" y="318" fill="#425B52" font-size="13" font-weight="450">Switch role or business</text>
-    <g transform="translate(332 296) scale(1)" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="20" y="384" fill="#152C26" font-size="20" font-weight="650">Preferences</text>
-    <rect x="20.5" y="400.5" width="349" height="135" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="418" width="32" height="32" rx="8" fill="#EBF2EF"/>
-    <g transform="translate(42 424) scale(0.8333333333333334)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM2 12h20M12 2c3 2.7 4.5 6 4.5 10s-1.5 7.3-4.5 10c-3-2.7-4.5-6-4.5-10S9 4.7 12 2Z" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="427" fill="#152C26" font-size="16" font-weight="650">Language and display</text>
-    <text x="80" y="448" fill="#425B52" font-size="13" font-weight="450">App English · Reading English</text>
-    <g transform="translate(332 422) scale(1)" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <path d="M80 467.5h274" stroke="#D4E1DB"/>
-    <rect x="36" y="486" width="32" height="32" rx="8" fill="#EBF2EF"/>
-    <g transform="translate(42 492) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="495" fill="#152C26" font-size="16" font-weight="650">Notifications</text>
-    <text x="80" y="516" fill="#425B52" font-size="13" font-weight="450">Push notifications on</text>
-    <g transform="translate(332 490) scale(1)" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="20" y="578" fill="#152C26" font-size="20" font-weight="650">Support</text>
-    <rect x="20.5" y="594.5" width="349" height="63" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="610" width="32" height="32" rx="8" fill="#EBF2EF"/>
-    <g transform="translate(42 616) scale(0.8333333333333334)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM9 8a3.1 3.1 0 0 1 6 1c0 2-3 2.5-3 5m0 3h.01" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="632" fill="#152C26" font-size="16" font-weight="650">Help and access status</text>
-    <g transform="translate(332 614) scale(1)" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <rect x="20" y="678" width="350" height="48" rx="12" fill="#FCE9E8"/>
-    <text x="195" y="708" fill="#853531" font-size="16" font-weight="650" text-anchor="middle">Sign out</text>
+    <circle cx="46" cy="156" r="25" fill="#DCF2EA"/>
+    <text x="46" y="162" fill="#0B5747" font-size="15" font-weight="700" text-anchor="middle">NB</text>
+    <text x="86" y="153" fill="#152C26" font-size="20" font-weight="650">Nadia Benali</text>
+    <text x="86" y="178" fill="#425B52" font-size="13" font-weight="450">nadia@example.com</text>
+    <rect x="20" y="209" width="350" height="72" rx="16" fill="#FFFFFF"/>
+    <text x="36" y="235" fill="#425B52" font-size="13" font-weight="450">Active role and business</text>
+    <text x="36" y="260" fill="#152C26" font-size="16" font-weight="650">Worker · Reformas Ruiz</text>
+    <path d="m346 241 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="327" fill="#152C26" font-size="20" font-weight="650">Preferences</text>
+    <rect x="20" y="346" width="350" height="204" rx="16" fill="#FFFFFF"/>
+    <text x="36" y="374" fill="#152C26" font-size="16" font-weight="650">Language and display</text>
+    <text x="36" y="397" fill="#425B52" font-size="13" font-weight="450">App: English · Reading: Original only</text>
+    <path d="m346 374 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M36 413H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="36" y="441" fill="#152C26" font-size="16" font-weight="650">Notifications</text>
+    <text x="36" y="464" fill="#425B52" font-size="13" font-weight="450">Push alerts allowed on this device</text>
+    <path d="m346 441 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M36 481H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="36" y="510" fill="#152C26" font-size="16" font-weight="650">Lock Screen status</text>
+    <text x="36" y="533" fill="#425B52" font-size="13" font-weight="450">Following this shift · Manage display</text>
+    <path d="m346 509 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="591" fill="#152C26" font-size="20" font-weight="650">On this device</text>
+    <rect x="20" y="610" width="350" height="68" rx="16" fill="#FFF1D5"/>
+    <path d="M36 643h6l3 4h6l3-4h6l-4-13H40z" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="75" y="637" fill="#704500" font-size="16" font-weight="650">1 unsent photo draft</text>
+    <text x="75" y="661" fill="#704500" font-size="13" font-weight="450">Review before signing out</text>
+    <path d="m345 638 5 5-5 5" fill="none" stroke="#704500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="720" fill="#0B5747" font-size="16" font-weight="650">Help and access status</text>
+    <path d="m349 709 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 743H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="783" fill="#853531" font-size="16" font-weight="650">Sign out</text>
   </g>
   <rect id="scrim" width="390" height="844" fill="#101A18" opacity="0.4"/>
   <g id="context-sheet">
     <path d="M0 844V398a24 24 0 0 1 24-24h342a24 24 0 0 1 24 24v446H0Z" fill="#FFFFFF"/>
     <rect x="177" y="382" width="36" height="4" rx="2" fill="#70877D"/>
     <text x="20" y="426" fill="#152C26" font-size="20" font-weight="650">Switch role or business</text>
-    <g transform="translate(334 405) scale(1)" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="20" y="457" fill="#425B52" font-size="15" font-weight="400">Choose an account context you already have.</text>
-    <rect x="20.5" y="486.5" width="349" height="75" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="508" width="32" height="32" rx="8" fill="#EBF2EF"/>
-    <g transform="translate(42 514) scale(0.8333333333333334)" aria-hidden="true"><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2M3 7h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Zm-1 5a23 23 0 0 0 20 0" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="517" fill="#152C26" font-size="16" font-weight="650">Worker</text>
-    <text x="80" y="541" fill="#425B52" font-size="13" font-weight="450">Reformas Ruiz</text>
-    <rect x="278" y="502" width="76" height="24" rx="12" fill="#EBF2EF"/>
-    <text x="316" y="518" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Current</text>
-    <rect x="20.5" y="574.5" width="349" height="75" rx="16" fill="#DCF2EA" stroke="#0B6250"/>
-    <rect x="36" y="596" width="32" height="32" rx="8" fill="#FFFFFF"/>
-    <g transform="translate(42 602) scale(0.8333333333333334)" aria-hidden="true"><path d="M16.5 7a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM3.5 21a8.5 8.5 0 0 1 17 0" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="605" fill="#152C26" font-size="16" font-weight="650">Customer</text>
-    <text x="80" y="629" fill="#425B52" font-size="13" font-weight="450">Personal jobs and properties</text>
-    <circle cx="338" cy="612" r="12" fill="#0B6250"/>
-    <g transform="translate(330 604) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 4 4 10-10" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="20" y="681" fill="#425B52" font-size="13" font-weight="450">Your drafts stay with the role they belong to.</text>
-    <path d="M0 744.5h390" stroke="#D4E1DB"/>
+    <text x="370" y="424" fill="#0B5747" font-size="16" font-weight="650" text-anchor="end">Close</text>
+    <text x="20" y="457" fill="#425B52" font-size="15" font-weight="400">Your access is checked online before switching.</text>
+    <rect x="20" y="478" width="350" height="80" rx="16" fill="#EBF2EF"/>
+    <text x="36" y="505" fill="#425B52" font-size="13" font-weight="450">Current role</text>
+    <text x="36" y="533" fill="#152C26" font-size="16" font-weight="650">Worker · Reformas Ruiz</text>
+    <rect x="20" y="570" width="350" height="80" rx="16" fill="#DCF2EA" stroke="#0B6250"/>
+    <text x="36" y="601" fill="#152C26" font-size="16" font-weight="650">Customer</text>
+    <text x="36" y="626" fill="#425B52" font-size="13" font-weight="450">Personal jobs and properties</text>
+    <circle cx="338" cy="609" r="11" fill="#0B6250"/>
+    <path d="m334 609 3 3 6-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="681" fill="#152C26" font-size="15" font-weight="550">Switching ends your Worker Lock Screen status.</text>
+    <text x="20" y="705" fill="#425B52" font-size="13" font-weight="450">Your unsent photo stays in your Worker drafts.</text>
+    <path d="M0 744H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
     <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
     <text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Switch to Customer</text>
   </g>

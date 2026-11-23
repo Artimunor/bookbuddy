@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">S-05 Accept an invitation</title>
-  <desc id="screen-desc">Verified invitee Nadia Benali can join Reformas Ruiz as a Worker. Mateo Ruiz sent the invite as business admin. Membership does not confirm any assignment or eligibility.</desc>
+  <desc id="screen-desc">The recipient address matches the invite. Mateo Ruiz invites Nadia to Reformas Ruiz as a Worker. This link expires Tue, 24 Nov at 17:00 Spain time; joining alone gives no assignment, job chat or site access.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
-  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,25 +15,30 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-    <g transform="translate(20 64) scale(1)" aria-hidden="true"><path d="M15 4l-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="83" fill="#152C26" font-size="20" font-weight="650">Invitation</text>
-    <path d="M0 107.5h390" stroke="#D4E1DB"/>
+    <path d="m34 64-10 10 10 10" fill="none" stroke="#0B6250" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="76" fill="#152C26" font-size="20" font-weight="700">Invitation</text>
+    <text x="64" y="96" fill="#425B52" font-size="13" font-weight="450">Verified account</text>
   </g>
   <g id="content">
-    <text x="20" y="153" fill="#152C26" font-size="28" font-weight="700">Join Reformas Ruiz</text>
-    <text x="20" y="184" fill="#425B52" font-size="15" font-weight="400"><tspan x="20" dy="0">Mateo Ruiz invited you to join his crew.</tspan><tspan x="20" dy="22">You’re signed in as nadia@example.com.</tspan></text>
-    <rect x="20.5" y="244.5" width="349" height="131" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="260" width="32" height="32" rx="8" fill="#DCF2EA"/>
-    <g transform="translate(42 266) scale(0.8333333333333334)" aria-hidden="true"><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2M3 7h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Zm-1 5a23 23 0 0 0 20 0" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="280" fill="#152C26" font-size="20" font-weight="650">Worker</text>
-    <text x="80" y="303" fill="#425B52" font-size="15" font-weight="400">Reformas Ruiz</text>
-    <path d="M36 320.5h318" stroke="#D4E1DB"/>
-    <text x="36" y="348" fill="#425B52" font-size="13" font-weight="450">Invited by Mateo Ruiz · Business admin</text>
-    <rect x="20" y="400" width="350" height="92" rx="16" fill="#E5F0FA"/>
-    <g transform="translate(36 416) scale(0.8333333333333334)" aria-hidden="true"><path d="M12 2 3 6v5c0 5 3.5 8.5 9 11 5.5-2.5 9-6 9-11V6L12 2Zm-4 10 3 3 5-6" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="430" fill="#234C78" font-size="16" font-weight="650">Invited to the business, not a job</text>
-    <text x="64" y="451" fill="#234C78" font-size="13" font-weight="450"><tspan x="64" dy="0">You can review offers sent to you and</tspan><tspan x="64" dy="18">see shifts after they’re confirmed.</tspan></text>
-    <text x="195" y="540" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Use a different account</text>
+    <text x="20" y="150" fill="#0B5747" font-size="13" font-weight="650">BUSINESS INVITATION</text>
+    <text x="20" y="193" fill="#152C26" font-size="28" font-weight="700">Join Reformas Ruiz</text>
+    <text x="20" y="226" fill="#425B52" font-size="13" font-weight="450">Verified email</text>
+    <text x="20" y="250" fill="#152C26" font-size="16" font-weight="650">nadia@example.com</text>
+    <rect x="20" y="281" width="350" height="176" rx="16" fill="#FFFFFF"/>
+    <text x="36" y="311" fill="#425B52" font-size="13" font-weight="450">Role offered</text>
+    <text x="36" y="342" fill="#152C26" font-size="20" font-weight="650">Worker</text>
+    <path d="M36 361H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="36" y="387" fill="#152C26" font-size="15" font-weight="400">From Mateo Ruiz · Provider admin</text>
+    <text x="36" y="420" fill="#425B52" font-size="13" font-weight="450">Link expires</text>
+    <text x="36" y="443" fill="#152C26" font-size="15" font-weight="550">Tue, 24 Nov · 17:00 Spain time</text>
+    <rect x="20" y="481" width="350" height="94" rx="16" fill="#E5F0FA"/>
+    <circle cx="47" cy="508" r="9" fill="none" stroke="#234C78" stroke-width="1.75"/>
+    <path d="M47 508v5m0-10v.1" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="66" y="514" fill="#234C78" font-size="16" font-weight="650">Membership only</text>
+    <text x="38" y="540" fill="#234C78" font-size="15" font-weight="400">Joining does not assign a shift or give you</text>
+    <text x="38" y="560" fill="#234C78" font-size="15" font-weight="400">access to a property or job conversation.</text>
+    <text x="20" y="635" fill="#0B5747" font-size="16" font-weight="650">Use a different account</text>
+    <path d="m223 624 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <g id="actions">
     <rect x="0" y="688" width="390" height="156" rx="0" fill="#FFFFFF"/>

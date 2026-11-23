@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="title desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="title">S-16 Help and access status — no own-crew cover</title>
+<desc id="desc">Authorised foreman from F-10 has no assigned replacement. The verified work line reaches the provider duty contact. The booked visit remains unchanged and the local desk is the backup. Neither a phone call nor the app assigns anyone.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+<g id="header"><path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><text x="64" y="76" font-size="20" font-weight="700" fill="#152C26" text-anchor="start">Help and access status</text><text x="64" y="96" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Reformas Ruiz · Foreman</text></g>
+<g id="delivery-risk">
+<rect x="20" y="120" width="350" height="148" rx="16" fill="#FFF1D5"/>
+<text x="40" y="151" font-size="13" font-weight="700" fill="#704500" text-anchor="start">DELIVERY RISK · BB-1042</text>
+<text x="40" y="187" font-size="24" font-weight="700" fill="#704500" text-anchor="start">No confirmed cover</text>
+<text x="40" y="218" font-size="15" font-weight="400" fill="#704500" text-anchor="start">The agreed visit hasn’t changed.</text>
+<text x="40" y="242" font-size="15" font-weight="400" fill="#704500" text-anchor="start">Tell the customer if the window is at risk.</text>
+</g>
+<text x="20" y="314" font-size="22" font-weight="700" fill="#152C26" text-anchor="start">Call your duty contact</text>
+<rect x="20" y="334" width="350" height="164" rx="16" fill="#FFFFFF"/>
+<circle cx="54" cy="372" r="20" fill="#DCF2EA"/>
+<path d="M47 361c2-2 3 0 4 2l2 3c1 2-1 3-2 4 2 4 4 6 8 8l3-2c2-1 4 2 5 3 0 4-3 7-8 5-8-3-15-11-16-17-1-3 1-5 4-6z" fill="none" stroke="#0B5747" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="88" y="371" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Reformas Ruiz duty line</text>
+<text x="88" y="392" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Verified work number</text>
+<path d="M36 413h318" stroke="#D4E1DB"/>
+<rect x="36" y="429" width="318" height="56" rx="12" fill="#0B6250"/>
+<text x="195" y="463" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Call provider duty line</text>
+<text x="20" y="544" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">If nobody answers</text>
+<text x="20" y="572" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">Call the backup or the local desk.</text>
+<text x="20" y="595" font-size="15" font-weight="400" fill="#425B52" text-anchor="start">A call does not assign a replacement.</text>
+<rect x="20.5" y="615.5" width="349" height="55" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="195" y="650" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Call local desk</text>
+<path d="M20 705h350" stroke="#D4E1DB"/>
+<text x="20" y="739" font-size="15" font-weight="550" fill="#152C26" text-anchor="start">Immediate danger: stop work and use</text>
+<text x="20" y="762" font-size="15" font-weight="550" fill="#152C26" text-anchor="start">site emergency procedures or call 112.</text>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

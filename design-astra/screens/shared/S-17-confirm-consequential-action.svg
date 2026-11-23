@@ -2,8 +2,8 @@
 <title id="confirmation-title">S-17 Confirm consequential action — sign off on work</title>
 <desc id="confirmation-desc">Claire Martin is about to record sign-off on the completed terrace door repair for Villa Mar, approved scope version 1. Signing off does not take payment. Cancel returns to the completion review without signing off.</desc>
 <g id="completion-parent" aria-hidden="true">
-<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
-<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/><g id="status-bar" aria-hidden="true" fill="#152C26">
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
     <rect x="306" y="22" width="3" height="6" rx="1"/>
@@ -14,64 +14,67 @@
     <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
     <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
     <path d="M370 20v5c2-1 2-4 0-5z"/>
-  </g><g id="header">
-<g aria-hidden="true" transform="translate(20 64)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="74" font-size="20" font-weight="650" fill="#152C26">Completion and sign-off</text>
-<text x="64" y="94" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Terrace door repair</text>
-<path d="M0 107.5h390" stroke="#D4E1DB"/>
+  </g>
+<g id="header">
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Completion and sign-off</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Villa Mar</text>
 </g>
 <g id="content">
-<rect x="20" y="124" width="154" height="28" rx="14" fill="#FFF1D5"/><g aria-hidden="true" transform="translate(28 130) scale(0.6666666666666666)"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 4v5l3 2" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="48" y="142" font-size="12" font-weight="550" fill="#704500">Awaiting sign-off</text>
-<text x="370" y="142" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">Reformas Ruiz</text>
-<text x="20" y="186" font-size="20" font-weight="650" fill="#152C26">Approved work</text>
-<text x="20" y="207" font-size="13" font-weight="450" fill="#425B52">Quote v1 · €240.00</text>
-<rect x="20.5" y="220.5" width="349" height="119" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<circle cx="50" cy="251" r="14" fill="#E7F4E8"/>
-<g aria-hidden="true" transform="translate(42 243) scale(0.6666666666666666)"><path d="m5 12 4 4 10-10" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="76" y="257" font-size="16" font-weight="650" fill="#152C26">Terrace door adjusted</text>
-<path d="M36 280.5h318" stroke="#D4E1DB"/>
-<circle cx="50" cy="309" r="14" fill="#E7F4E8"/>
-<g aria-hidden="true" transform="translate(42 301) scale(0.6666666666666666)"><path d="m5 12 4 4 10-10" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="76" y="315" font-size="16" font-weight="650" fill="#152C26">Rollers replaced</text>
-<text x="20" y="382" font-size="20" font-weight="650" fill="#152C26">Shared evidence</text>
-<rect x="20.5" y="396.5" width="349" height="87" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="20" y="142" font-size="13" font-weight="650" fill="#704500">COMPLETION 1 · AWAITING SIGN-OFF</text>
+<text x="20" y="182" font-size="28" font-weight="700" fill="#152C26">Review the repair</text>
+<text x="20" y="210" font-size="15" font-weight="400" fill="#152C26">Submitted by Mateo Ruiz · Reformas Ruiz</text>
+<text x="20" y="234" font-size="13" font-weight="450" fill="#425B52">Approved quote v1 · €240.00 incl. tax</text>
+<text x="20" y="287" font-size="20" font-weight="650" fill="#152C26">Results by approved item</text>
+<rect x="20" y="307" width="350" height="155" rx="16" fill="#FFFFFF"/>
+<circle cx="46" cy="339" r="10" fill="#E7F4E8"/>
+<path d="m42 339 3 3 6-7" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="70" y="344" font-size="16" font-weight="650" fill="#152C26">Terrace door adjusted</text>
+<text x="70" y="369" font-size="13" font-weight="450" fill="#425B52">Test: door closes without catching.</text>
+<path d="M36 384h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="46" cy="414" r="10" fill="#E7F4E8"/>
+<path d="m42 414 3 3 6-7" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="70" y="419" font-size="16" font-weight="650" fill="#152C26">Rollers replaced</text>
+<text x="70" y="443" font-size="13" font-weight="450" fill="#425B52">Test: door slides smoothly on new rollers.</text>
+<text x="20" y="507" font-size="20" font-weight="650" fill="#152C26">Evidence for both items</text>
+<rect x="20" y="523" width="350" height="85" rx="16" fill="#FFFFFF"/>
+<g transform="translate(0 125)">
 <rect x="36" y="410" width="68" height="60" rx="8" fill="#EBF2EF"/>
 <g aria-hidden="true"><rect x="47" y="418" width="46" height="42" rx="4" fill="#FFFFFF" stroke="#70877D"/><rect x="52" y="423" width="36" height="32" rx="2" fill="#DCF2EA" stroke="#0B5747"/><path d="M70 424v30m-16 3h32m-12-16h6m-18 16h4m13 0h4" stroke="#0B5747" fill="none" stroke-width="1.75" stroke-linecap="round"/></g>
-<text x="116" y="433" font-size="16" font-weight="650" fill="#152C26">After adjustment</text>
-<text x="116" y="455" font-size="13" font-weight="450" fill="#425B52">Photo shared by Mateo</text>
-<g aria-hidden="true" transform="translate(334 428)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<rect x="20.5" y="500.5" width="349" height="113" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="529" font-size="16" font-weight="650" fill="#152C26">Note from Mateo</text>
-<text x="36" y="555" font-size="15" font-weight="400" fill="#152C26">The door slides and closes smoothly</text>
-<text x="36" y="577" font-size="15" font-weight="400" fill="#152C26">with the new rollers.</text>
-<text x="20" y="654" font-size="15" font-weight="400" fill="#425B52">Sign off only if the approved work is complete.</text>
-<text x="20" y="676" font-size="15" font-weight="400" fill="#425B52">Signing off does not pay the bill.</text>
+</g>
+<text x="118" y="556" font-size="16" font-weight="650" fill="#152C26">After adjustment</text>
+<text x="118" y="580" font-size="13" font-weight="450" fill="#425B52">Received photo · Shared by Mateo</text>
+<path d="m342 557 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M20 638h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="671" font-size="16" font-weight="650" fill="#152C26">Sign-off by Claire Martin</text>
+<text x="20" y="697" font-size="15" font-weight="400" fill="#152C26">Sign off only if the approved work is complete.</text>
+<text x="20" y="719" font-size="13" font-weight="450" fill="#425B52">This does not pay the bill or waive your remedies.</text>
 </g>
 <g id="action-bar">
-<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
-<path d="M0 744.5h390" stroke="#D4E1DB"/>
-<rect x="20.5" y="752.5" width="155" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/><text x="98" y="782" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Report an issue</text>
-<rect x="184" y="752" width="186" height="48" rx="12" fill="#0B6250"/><text x="277" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Review sign-off</text>
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="752" width="155" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="97.5" y="782" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Report an issue</text>
+<rect x="184" y="752" width="186" height="48" rx="12" fill="#0B6250"/>
+<text x="277" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Review sign-off</text>
 </g>
 </g>
 <rect id="scrim" width="390" height="844" fill="#101A18" opacity="0.4" aria-hidden="true"/>
 <g id="dialog">
-<rect x="20" y="252" width="350" height="370" rx="24" fill="#FFFFFF"/>
-<rect x="36" y="268" width="40" height="40" rx="12" fill="#DCF2EA"/>
-<g aria-hidden="true" transform="translate(46 278) scale(0.8333333333333334)"><path d="M5 3h9l5 5v13H5zM14 3v6h5M8 13h8m-8 4h6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="36" y="343" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Sign off on this work?</text>
-<text x="36" y="372" font-size="15" font-weight="650" fill="#152C26" text-anchor="start">Terrace door repair · BB-1042</text>
-<text x="36" y="394" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Villa Mar · Xàbia · Approved scope v1</text>
-<path d="M36 410.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="36" y="435" font-size="13" font-weight="550" fill="#425B52" text-anchor="start">Acting as Claire Martin · Customer</text>
-<text x="36" y="464" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">This records your acceptance of the</text>
-<text x="36" y="486" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">completed work. It does not take payment.</text>
-<rect x="36" y="505" width="318" height="48" rx="12" fill="#0B6250"/>
-
-<text x="195" y="535" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Confirm sign-off</text>
-<rect x="36.5" y="561.5" width="317" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-
-<text x="195" y="591" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle">Cancel</text>
+<rect x="20" y="232" width="350" height="408" rx="24" fill="#FFFFFF"/>
+<text x="40" y="268" font-size="13" font-weight="650" fill="#0B5747" text-anchor="start">COMPLETION 1 · BB-1042</text>
+<text x="40" y="308" font-size="24" font-weight="700" fill="#152C26" text-anchor="start">Sign off on this work?</text>
+<text x="40" y="339" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Terrace door repair · Villa Mar</text>
+<text x="40" y="364" font-size="15" font-weight="400" fill="#425B52" text-anchor="start">Reformas Ruiz · Quote v1 · €240.00</text>
+<path d="M40 387h310" stroke="#D4E1DB"/>
+<text x="40" y="415" font-size="15" font-weight="650" fill="#152C26" text-anchor="start">Claire Martin · Named customer approver</text>
+<text x="40" y="450" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">You accept the work in this submission.</text>
+<text x="40" y="474" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">This does not pay the provider or waive</text>
+<text x="40" y="496" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">your right to report an issue.</text>
+<rect x="36" y="518" width="318" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="548" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Confirm sign-off</text>
+<rect x="36" y="575" width="318" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="195" y="605" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle">Cancel</text>
 </g>
 <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

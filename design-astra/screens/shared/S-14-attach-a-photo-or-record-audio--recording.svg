@@ -16,7 +16,7 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-    <path d="m35 68-8 8 8 8" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Job chat</text>
     <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
     <g fill="#152C26" aria-hidden="true">
@@ -26,7 +26,8 @@
     </g>
     <rect x="20" y="108" width="350" height="48" rx="12" fill="#EBF2EF"/>
     <rect x="24.5" y="112.5" width="170" height="39" rx="8" fill="#DCF2EA" stroke="#0B6250"/>
-    <text x="109" y="137" text-anchor="middle" fill="#0B5747" font-size="15" font-weight="650">Job conversation</text>
+    <text x="116" y="137" text-anchor="middle" fill="#0B5747" font-size="15" font-weight="650">Job conversation</text>
+    <path d="m34 132 3 3 5-6" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="283" y="137" text-anchor="middle" fill="#425B52" font-size="15" font-weight="550">Crew only</text>
     <path d="M0 159.5h390" stroke="#D4E1DB"/>
   </g>
@@ -35,12 +36,12 @@
       <rect x="20" y="172" width="350" height="64" rx="16" fill="#FFF1D5"/>
       <path d="M44 189 53 205a1 1 0 0 1-.9 1.5H35.9a1 1 0 0 1-.9-1.5L44 189zm0 6v4m0 4h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>
       <text x="64" y="198" fill="#704500" font-size="16" font-weight="650">Safety briefing required</text>
-      <text x="64" y="219" fill="#704500" font-size="13" font-weight="550">Review &amp; confirm</text>
+      <text x="64" y="219" fill="#704500" font-size="13" font-weight="550">Only you · Open your briefing</text>
       <path d="m344 199 5 5-5 5" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g id="day-separator">
-      <path d="M20 256.5h116m118 0h116" stroke="#D4E1DB"/>
-      <text x="195" y="261" fill="#425B52" text-anchor="middle" font-size="12" font-weight="550">Mon, 23 Nov</text>
+      <path d="M20 256.5h87m176 0h87" stroke="#D4E1DB"/>
+      <text x="195" y="261" fill="#425B52" text-anchor="middle" font-size="12" font-weight="550">Mon, 23 Nov · Spain time</text>
     </g>
     <g id="customer-message">
       <circle cx="36" cy="316" r="16" fill="#E5F0FA"/>
@@ -79,7 +80,7 @@
       <path d="m323 680 3 3 6-7" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
       <text x="370" y="684" text-anchor="end" fill="#425B52" font-size="12" font-weight="550">Sent</text>
     </g>
-    <text x="195" y="721" text-anchor="middle" fill="#425B52" font-size="12" font-weight="550">Message times shown in Spain time</text>
+    <text x="195" y="721" text-anchor="middle" fill="#425B52" font-size="12" font-weight="550">Job conversation · No gate or alarm codes</text>
   </g>
   <g id="composer">
     <rect y="744" width="390" height="100" fill="#FFFFFF"/>
@@ -132,13 +133,14 @@
 <path d="M291 579.5v15" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M299 582v10" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M307 584v6" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="195" y="626" font-size="13" font-weight="450" fill="#425B52" text-anchor="middle">Not shared</text>
+<text x="195" y="626" font-size="13" font-weight="450" fill="#425B52" text-anchor="middle">Not shared · Limit 90 s or 2 MiB</text>
 <rect x="20" y="670" width="350" height="56" rx="12" fill="#0B6250"/>
 <g aria-hidden="true" transform="translate(34 686) scale(1)"><path d="M7 7h10v10H7z" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="68" y="704" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="start">Stop and review</text>
 <rect x="20.5" y="734.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
 
 <text x="195" y="764" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle">Cancel recording</text>
+<text x="195" y="811" font-size="13" font-weight="450" fill="#425B52" text-anchor="middle">Never record gate or alarm codes.</text>
 </g>
 <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

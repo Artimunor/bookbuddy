@@ -59,8 +59,8 @@
 <circle cx="224" cy="243" r="16" fill="#FFF1D5"/>
 <path d="M101 416h188" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
-<text x="20" y="533" font-size="13" font-weight="550" fill="#425B52" text-anchor="start">Photo 1 of 1</text>
-<text x="20" y="554" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Illustrative thumbnail</text>
+<text x="20" y="533" font-size="15" font-weight="650" fill="#152C26" text-anchor="start">Photo 1 of 1 · On this device</text>
+<text x="20" y="556" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Request limit: 5 photos, 5 MiB each</text>
 <rect x="266.5" y="512.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
 <path d="M283 536h14" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
 <rect x="322.5" y="512.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
@@ -70,6 +70,7 @@
 <rect x="20.5" y="604.5" width="349" height="55" rx="12" fill="#FFFFFF" stroke="#70877D"/>
 <text x="36" y="637" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">Terrace door from inside</text>
 </g>
+<text x="20" y="677" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Only added to your draft when you choose Use photo.</text>
 
 
 <text x="195" y="708" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Remove photo</text>

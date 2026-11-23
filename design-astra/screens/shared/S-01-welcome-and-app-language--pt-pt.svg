@@ -1,0 +1,58 @@
+<svg xml:lang="pt-PT" xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">S-01 Boas-vindas e idioma da aplicação</title>
+  <desc id="screen-desc">Antes de iniciar sessão, pode escolher English ou Português (Portugal). Está selecionado Português (Portugal). A alteração aplica-se neste dispositivo e não dá acesso a nenhum trabalho.</desc>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+  <g id="header">
+    <circle cx="36" cy="76" r="16" fill="#DCF2EA"/>
+    <path d="M29 76.5l7-6 7 6m-12.5-1v7h11v-7m-8 3.5 2.1 2 3.1-3.5" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="60" y="75" fill="#152C26" font-size="16" font-weight="700">BookBuddy</text>
+    <text x="60" y="94" fill="#425B52" font-size="13" font-weight="450">Costa Blanca</text>
+  </g>
+  <g id="content">
+    <g id="welcome-illustration" aria-hidden="true">
+    <rect x="20" y="128" width="350" height="180" rx="16" fill="#DCF2EA"/>
+    <circle cx="195" cy="216" r="65" fill="#EBF2EF"/>
+    <circle cx="248" cy="166" r="17" fill="#FFF1D5"/>
+    <path d="M116 275h158m-145-10v10m132-10v10" fill="none" stroke="#70877D" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="155" y="157" width="80" height="118" rx="8" fill="#FFFFFF" stroke="#0B5747"/>
+    <rect x="166" y="168" width="58" height="88" rx="4" fill="#DCF2EA" stroke="#0B5747"/>
+    <path d="M195 169v86m-28-44h56m-20 12h8m-51 42h70" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M137 197v14m-7-7h14m106 8v18m-9-9h18" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="229" cy="247" r="20" fill="#0B6250"/>
+    <g transform="translate(216 234) scale(1.0833333333333333)" aria-hidden="true"><path d="m5 12 4 4 10-10" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </g>
+    <text x="20" y="348" fill="#0B5747" font-size="13" font-weight="650">BOOKBUDDY</text>
+    <text x="20" y="387" fill="#152C26" font-size="28" font-weight="700">Reparações locais</text>
+    <text x="20" y="417" fill="#425B52" font-size="15" font-weight="400">Diga-nos o que precisa de reparação.</text>
+    <text x="20" y="439" fill="#425B52" font-size="15" font-weight="400">O encarregado mantém-no a par.</text>
+    <text x="20" y="484" fill="#152C26" font-size="20" font-weight="650">Idioma da aplicação</text>
+    <rect x="20" y="501" width="350" height="124" rx="16" fill="#FFFFFF"/>
+    <circle cx="48" cy="532" r="10" fill="#FFFFFF" stroke="#70877D" stroke-width="1.75"/>
+    <text x="76" y="538" fill="#152C26" font-size="16" font-weight="650" xml:lang="en">English</text>
+    <path d="M36 563H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="48" cy="594" r="11" fill="#0B6250"/>
+    <path d="m44 594 3 3 6-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="76" y="600" fill="#152C26" font-size="16" font-weight="650" xml:lang="pt-PT">Português (Portugal)</text>
+    <text x="20" y="678" fill="#0B5747" font-size="16" font-weight="650">Definições de idioma</text>
+    <path d="m205 667 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="actions">
+    <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+    <path d="M0 744.5h390" stroke="#D4E1DB"/>
+    <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+    <text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Continuar</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

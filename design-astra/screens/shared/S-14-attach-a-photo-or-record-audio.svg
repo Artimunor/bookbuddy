@@ -16,7 +16,7 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-    <path d="m35 68-8 8 8 8" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Job chat</text>
     <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
     <g fill="#152C26" aria-hidden="true">
@@ -26,7 +26,8 @@
     </g>
     <rect x="20" y="108" width="350" height="48" rx="12" fill="#EBF2EF"/>
     <rect x="24.5" y="112.5" width="170" height="39" rx="8" fill="#DCF2EA" stroke="#0B6250"/>
-    <text x="109" y="137" text-anchor="middle" fill="#0B5747" font-size="15" font-weight="650">Job conversation</text>
+    <text x="116" y="137" text-anchor="middle" fill="#0B5747" font-size="15" font-weight="650">Job conversation</text>
+    <path d="m34 132 3 3 5-6" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="283" y="137" text-anchor="middle" fill="#425B52" font-size="15" font-weight="550">Crew only</text>
     <path d="M0 159.5h390" stroke="#D4E1DB"/>
   </g>
@@ -35,12 +36,12 @@
       <rect x="20" y="172" width="350" height="64" rx="16" fill="#FFF1D5"/>
       <path d="M44 189 53 205a1 1 0 0 1-.9 1.5H35.9a1 1 0 0 1-.9-1.5L44 189zm0 6v4m0 4h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>
       <text x="64" y="198" fill="#704500" font-size="16" font-weight="650">Safety briefing required</text>
-      <text x="64" y="219" fill="#704500" font-size="13" font-weight="550">Review &amp; confirm</text>
+      <text x="64" y="219" fill="#704500" font-size="13" font-weight="550">Only you · Open your briefing</text>
       <path d="m344 199 5 5-5 5" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g id="day-separator">
-      <path d="M20 256.5h116m118 0h116" stroke="#D4E1DB"/>
-      <text x="195" y="261" fill="#425B52" text-anchor="middle" font-size="12" font-weight="550">Mon, 23 Nov</text>
+      <path d="M20 256.5h87m176 0h87" stroke="#D4E1DB"/>
+      <text x="195" y="261" fill="#425B52" text-anchor="middle" font-size="12" font-weight="550">Mon, 23 Nov · Spain time</text>
     </g>
     <g id="customer-message">
       <circle cx="36" cy="316" r="16" fill="#E5F0FA"/>
@@ -79,7 +80,7 @@
       <path d="m323 680 3 3 6-7" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
       <text x="370" y="684" text-anchor="end" fill="#425B52" font-size="12" font-weight="550">Sent</text>
     </g>
-    <text x="195" y="721" text-anchor="middle" fill="#425B52" font-size="12" font-weight="550">Message times shown in Spain time</text>
+    <text x="195" y="721" text-anchor="middle" fill="#425B52" font-size="12" font-weight="550">Job conversation · No gate or alarm codes</text>
   </g>
   <g id="composer">
     <rect y="744" width="390" height="100" fill="#FFFFFF"/>
@@ -99,26 +100,26 @@
 <text x="20" y="471" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Add an attachment</text>
 <text x="20" y="493" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">To: Job conversation</text>
 <g aria-hidden="true" transform="translate(334 451) scale(1)"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<rect x="20.5" y="512.5" width="349" height="63" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="20" y="512" width="350" height="208" rx="16" fill="#EBF2EF"/>
 <rect x="36" y="526" width="36" height="36" rx="8" fill="#EBF2EF"/>
 <g aria-hidden="true" transform="translate(43 533) scale(0.9166666666666666)"><path d="M4 6h4l2-3h4l2 3h4a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm12 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="84" y="539" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Take a photo</text>
-<text x="84" y="560" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Open your camera</text>
+<text x="84" y="560" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Up to 3 photos per message</text>
 <g aria-hidden="true" transform="translate(334 535) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<rect x="20.5" y="584.5" width="349" height="63" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<path d="M36 580h318" stroke="#D4E1DB"/>
 <rect x="36" y="598" width="36" height="36" rx="8" fill="#EBF2EF"/>
 <g aria-hidden="true" transform="translate(43 605) scale(0.9166666666666666)"><path d="M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm0 14 5-5 4 4 3-3 5 5M10 8a1.25 1.25 0 1 1-2.5 0A1.25 1.25 0 0 1 10 8z" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="84" y="611" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Choose a photo</text>
-<text x="84" y="632" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Open your photo library</text>
+<text x="84" y="632" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">5 MiB per photo</text>
 <g aria-hidden="true" transform="translate(334 607) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<rect x="20.5" y="656.5" width="349" height="63" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<path d="M36 652h318" stroke="#D4E1DB"/>
 <rect x="36" y="670" width="36" height="36" rx="8" fill="#EBF2EF"/>
 <g aria-hidden="true" transform="translate(43 677) scale(0.9166666666666666)"><path d="M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0zM5 11v1a7 7 0 0 0 14 0v-1m-7 8v3m-3 0h6" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="84" y="683" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Record audio</text>
-<text x="84" y="704" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Review before attaching</text>
+<text x="84" y="704" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">1 voice note instead · 90 s / 2 MiB</text>
 <g aria-hidden="true" transform="translate(334 679) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="20" y="758" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Avoid capturing people or private details</text>
-<text x="20" y="776" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">that are not needed for the repair.</text>
+<text x="20" y="751" font-size="15" font-weight="400" fill="#425B52" text-anchor="start">Leave out gate codes, alarm codes and people</text>
+<text x="20" y="773" font-size="15" font-weight="400" fill="#425B52" text-anchor="start">unrelated to the repair. Review before sending.</text>
 </g>
 <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

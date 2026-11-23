@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">S-01 Welcome and app language</title>
-  <desc id="screen-desc">English is selected from the device language. The user can change the app language or continue to sign in.</desc>
+  <desc id="screen-desc">Before sign-in, choose English or Português (Portugal). English currently matches the device. Language settings and Continue work without granting a role.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
@@ -33,16 +33,21 @@
     <circle cx="229" cy="247" r="20" fill="#0B6250"/>
     <g transform="translate(216 234) scale(1.0833333333333333)" aria-hidden="true"><path d="m5 12 4 4 10-10" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
   </g>
-    <text x="20" y="358" fill="#152C26" font-size="32" font-weight="700">Book a local repair</text>
-    <text x="20" y="389" fill="#425B52" font-size="15" font-weight="400"><tspan x="20" dy="0">Tell us what needs fixing and follow the</tspan><tspan x="20" dy="22">work with your named foreman.</tspan></text>
-    <text x="20" y="480" fill="#152C26" font-size="20" font-weight="650">App language</text>
-    <rect x="20.5" y="496.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="516" width="32" height="32" rx="8" fill="#EBF2EF"/>
-    <g transform="translate(42 522) scale(0.8333333333333334)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM2 12h20M12 2c3 2.7 4.5 6 4.5 10s-1.5 7.3-4.5 10c-3-2.7-4.5-6-4.5-10S9 4.7 12 2Z" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="523" fill="#152C26" font-size="16" font-weight="650">English</text>
-    <text x="80" y="544" fill="#425B52" font-size="13" font-weight="450">Matches your device language</text>
-    <g transform="translate(332 520) scale(1)" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="20" y="594" fill="#425B52" font-size="13" font-weight="450">You can change this at any time.</text>
+    <text x="20" y="348" fill="#0B5747" font-size="13" font-weight="650">BOOKBUDDY</text>
+    <text x="20" y="387" fill="#152C26" font-size="28" font-weight="700">Book a local repair</text>
+    <text x="20" y="417" fill="#425B52" font-size="15" font-weight="400">Tell us what needs fixing. Your foreman</text>
+    <text x="20" y="439" fill="#425B52" font-size="15" font-weight="400">will keep you updated.</text>
+    <text x="20" y="484" fill="#152C26" font-size="20" font-weight="650">App language</text>
+    <rect x="20" y="501" width="350" height="124" rx="16" fill="#FFFFFF"/>
+    <circle cx="48" cy="532" r="11" fill="#0B6250"/>
+    <path d="m44 532 3 3 6-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="76" y="538" fill="#152C26" font-size="16" font-weight="650" xml:lang="en">English</text>
+    <text x="196" y="537" fill="#425B52" font-size="13" font-weight="450">Device language</text>
+    <path d="M36 563H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="48" cy="594" r="10" fill="#FFFFFF" stroke="#70877D" stroke-width="1.75"/>
+    <text x="76" y="600" fill="#152C26" font-size="16" font-weight="650" xml:lang="pt-PT">Português (Portugal)</text>
+    <text x="20" y="678" fill="#0B5747" font-size="16" font-weight="650">Language settings</text>
+    <path d="m180 667 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <g id="actions">
     <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>

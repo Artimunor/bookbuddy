@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">S-04 Initial setup</title>
-  <desc id="screen-desc">Nadia confirms her display name, English reading preference and optional two-zone visit times. Site time remains visible.</desc>
+  <desc id="screen-desc">Nadia enters her display name. Reading language is Original only, independent of app or working language. Site time cannot be replaced; adding device time is optional and off.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
-  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,32 +15,30 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-    <g transform="translate(20 64) scale(1)" aria-hidden="true"><path d="M15 4l-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="83" fill="#152C26" font-size="20" font-weight="650">Set up your account</text>
-    <path d="M0 107.5h390" stroke="#D4E1DB"/>
+    <path d="m34 64-10 10 10 10" fill="none" stroke="#0B6250" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="76" fill="#152C26" font-size="20" font-weight="700">Set up your account</text>
+    <text x="64" y="96" fill="#425B52" font-size="13" font-weight="450">Verified email</text>
   </g>
   <g id="content">
-    <text x="20" y="153" fill="#152C26" font-size="28" font-weight="700">Make it yours</text>
-    <text x="20" y="184" fill="#425B52" font-size="15" font-weight="400"><tspan x="20" dy="0">Add your name and choose how you’ll see</tspan><tspan x="20" dy="22">messages and visit times.</tspan></text>
-    <text x="20" y="264" fill="#152C26" font-size="16" font-weight="650">Display name</text>
-    <rect x="20.5" y="276.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <text x="36" y="307" fill="#152C26" font-size="16" font-weight="400">Nadia Benali</text>
-    <text x="20" y="350" fill="#425B52" font-size="13" font-weight="450">People you work with can see this name.</text>
-    <text x="20" y="402" fill="#152C26" font-size="20" font-weight="650">Reading preferences</text>
-    <rect x="20.5" y="418.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="438" width="32" height="32" rx="8" fill="#EBF2EF"/>
-    <g transform="translate(42 444) scale(0.8333333333333334)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM2 12h20M12 2c3 2.7 4.5 6 4.5 10s-1.5 7.3-4.5 10c-3-2.7-4.5-6-4.5-10S9 4.7 12 2Z" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="445" fill="#152C26" font-size="16" font-weight="650">Reading language</text>
-    <text x="80" y="466" fill="#425B52" font-size="13" font-weight="450">English · for message translations</text>
-    <g transform="translate(332 442) scale(1)" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <rect x="20.5" y="506.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="522" width="32" height="32" rx="8" fill="#EBF2EF"/>
-    <g transform="translate(42 528) scale(0.8333333333333334)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Zm-10-6v6l4 2" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="542" fill="#152C26" font-size="16" font-weight="650">Also show my local time</text>
-    <text x="80" y="570" fill="#425B52" font-size="13" font-weight="450"><tspan x="80" dy="0">Visit times always include Spain time.</tspan><tspan x="80" dy="18">Show my time too when it differs.</tspan></text>
-    <rect x="300.5" y="524.5" width="53" height="31" rx="16" fill="#FFFFFF" stroke="#70877D"/>
-    <circle cx="316" cy="540" r="11" fill="#70877D"/>
-    <text x="20" y="644" fill="#425B52" font-size="13" font-weight="450">You can change these in your account.</text>
+    <text x="20" y="160" fill="#152C26" font-size="28" font-weight="700">What should we call you?</text>
+    <text x="20" y="195" fill="#425B52" font-size="15" font-weight="400">Use the name you want people on your jobs</text>
+    <text x="20" y="217" fill="#425B52" font-size="15" font-weight="400">to see.</text>
+    <text x="20" y="274" fill="#152C26" font-size="16" font-weight="650">Display name</text>
+    <rect x="20.5" y="288.5" width="349" height="51" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <text x="36" y="321" fill="#152C26" font-size="16" font-weight="400">Nadia Benali</text>
+    <text x="20" y="396" fill="#152C26" font-size="20" font-weight="650">Messages and times</text>
+    <rect x="20" y="415" width="350" height="206" rx="16" fill="#FFFFFF"/>
+    <text x="36" y="449" fill="#152C26" font-size="16" font-weight="650">Reading language</text>
+    <text x="36" y="476" fill="#0B5747" font-size="16" font-weight="650">Original only</text>
+    <text x="36" y="501" fill="#425B52" font-size="13" font-weight="450">Keeps messages in the language they were sent.</text>
+    <path d="m345 454 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M36 521H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="36" y="557" fill="#152C26" font-size="16" font-weight="650">Also show my time</text>
+    <text x="36" y="584" fill="#425B52" font-size="13" font-weight="450">Site time always comes first.</text>
+    <text x="36" y="603" fill="#425B52" font-size="13" font-weight="450">Add your time when the zones differ.</text>
+    <rect x="298" y="534" width="54" height="32" rx="16" fill="#FFFFFF" stroke="#70877D"/>
+    <circle cx="314" cy="550" r="11" fill="#70877D"/>
+    <text x="20" y="663" fill="#425B52" font-size="13" font-weight="450">Change these preferences later in Account.</text>
   </g>
   <g id="actions">
     <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">S-08 Messages — Worker view</title>
-  <desc id="screen-desc">Nadia sees only granted conversations in Reformas Ruiz. The crew-only conversation has one unread message. A separate job conversation shows Nadia’s most recent message.</desc>
+  <desc id="screen-desc">Nadia’s Messages tab separates her Crew only conversation (one unread) from Job conversation (read) on the same repair. Opening one audience never marks the other read.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
@@ -24,7 +24,7 @@
     <text x="346" y="81" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">NB</text>
   </g>
   <g id="content">
-    <text x="20" y="149" font-size="28" font-weight="700" fill="#152C26" text-anchor="start">Messages</text>
+    <text x="20" y="151" fill="#152C26" font-size="28" font-weight="700">Messages</text>
     <g transform="translate(0 48)">
     <g id="job-search">
     <text x="20" y="139" fill="#152C26" font-size="16" font-weight="650">Search jobs</text>
@@ -37,26 +37,23 @@
     <text x="80" y="244" fill="#0B5747" font-size="15" font-weight="650" text-anchor="middle">Active</text>
     <rect x="134.5" y="214.5" width="105" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
     <text x="187" y="244" fill="#425B52" font-size="15" font-weight="650" text-anchor="middle">Archived</text>
-    <text x="20" y="298" fill="#152C26" font-size="20" font-weight="650">Conversations</text>
-    <rect x="20.5" y="314.5" width="349" height="147" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="330" width="32" height="32" rx="8" fill="#DCF2EA"/>
-    <g transform="translate(42 336) scale(0.8333333333333334)" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2zm6 5v2" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="351" fill="#0B5747" font-size="13" font-weight="650">Crew only</text>
-    <text x="354" y="350" fill="#425B52" font-size="12" font-weight="550" text-anchor="end">08:40</text>
-    <text x="36" y="389" fill="#152C26" font-size="16" font-weight="650">BB-1042 · Terrace door repair</text>
-    <text x="36" y="411" fill="#425B52" font-size="13" font-weight="450">Villa Mar · Xàbia</text>
-    <text x="36" y="438" fill="#425B52" font-size="15" font-weight="400">Mateo: Please review the site briefing.</text>
-    <rect x="288" y="398" width="66" height="24" rx="12" fill="#DCF2EA"/>
-    <text x="321" y="414" fill="#0B5747" font-size="12" font-weight="550" text-anchor="middle">1 unread</text>
-    <rect x="20.5" y="474.5" width="349" height="147" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="490" width="32" height="32" rx="8" fill="#EBF2EF"/>
-    <g transform="translate(42 496) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 3h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-7l-7 4v-4a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zm2 6h10m-10 4h7" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="80" y="511" fill="#0B5747" font-size="13" font-weight="650">Job conversation</text>
-    <text x="354" y="510" fill="#425B52" font-size="12" font-weight="550" text-anchor="end">08:39</text>
-    <text x="36" y="549" fill="#152C26" font-size="16" font-weight="650">BB-1042 · Terrace door repair</text>
-    <text x="36" y="571" fill="#425B52" font-size="13" font-weight="450">Villa Mar · Xàbia</text>
-    <text x="36" y="598" fill="#425B52" font-size="15" font-weight="400">You: I’ll be at the gate at 09:00.</text>
-    <text x="20" y="654" fill="#425B52" font-size="13" font-weight="450">Message times shown in Spain time</text>
+    <text x="20" y="308" fill="#152C26" font-size="20" font-weight="650">Terrace door repair</text>
+    <text x="20" y="334" fill="#425B52" font-size="13" font-weight="450">BB-1042 · Villa Mar · Xàbia</text>
+    <rect x="20" y="355" width="350" height="240" rx="16" fill="#FFFFFF"/>
+    <rect x="36" y="375" width="36" height="36" rx="9" fill="#DCF2EA"/>
+    <path d="M47 389v-4a6 6 0 0 1 12 0v4m-14 0h16v13h-16z" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="88" y="390" fill="#152C26" font-size="16" font-weight="650">Crew only</text>
+    <text x="354" y="389" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">08:40</text>
+    <text x="88" y="413" fill="#0B5747" font-size="13" font-weight="650">1 unread</text>
+    <text x="36" y="450" fill="#152C26" font-size="15" font-weight="400">Mateo: Please review the site briefing.</text>
+    <path d="M36 475H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="36" y="495" width="36" height="36" rx="9" fill="#EBF2EF"/>
+    <path d="M45 504h18v13h-9l-7 5v-5h-2z" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="88" y="510" fill="#152C26" font-size="16" font-weight="650">Job conversation</text>
+    <text x="354" y="509" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">08:39</text>
+    <text x="88" y="533" fill="#425B52" font-size="13" font-weight="450">Read</text>
+    <text x="36" y="570" fill="#425B52" font-size="15" font-weight="400">You: I’ll be at the gate at 09:00.</text>
+    <text x="20" y="632" fill="#425B52" font-size="13" font-weight="450">Mon, 23 Nov · Message times in Spain time</text>
     </g>
   </g>
   <g id="tab-bar">

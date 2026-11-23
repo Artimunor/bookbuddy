@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">S-09 Notifications — private preview before unlock</title>
+  <desc id="screen-desc">An ordinary BookBuddy alert on the Lock Screen says only that there is an update. It contains no sender, property, task, offer terms or response control. Tapping requires unlock and a check of the current authorised record.</desc>
+<g id="system-wallpaper">
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#203C33"/>
+  <path d="M0 458C84 421 118 328 190 329c79 1 120 105 200 68v447H0z" fill="#253833" stroke="none" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="319" cy="304" r="43" fill="#374D45" />
+  <path d="M0 622c117-36 157-239 279-254 47-6 86 11 111 31v445H0z" fill="#374D45" stroke="none" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M0 686c109-27 132-143 222-220 63-54 115-65 168-37v415H0z" fill="#425B52" stroke="none" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M0 748c110-32 145-130 230-217 63-65 112-84 160-84v397H0z" fill="#253833" stroke="none" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="system-lock-screen">
+  <rect x="301" y="25" width="3" height="4" rx="1" fill="#FFFFFF"/><rect x="306" y="23" width="3" height="6" rx="1" fill="#FFFFFF"/><rect x="311" y="20" width="3" height="9" rx="1" fill="#FFFFFF"/><rect x="316" y="17" width="3" height="12" rx="1" fill="#FFFFFF"/>
+  <path d="M325 20a10 10 0 0 1 14 0m-11 4a6 6 0 0 1 8 0m-5 3h2" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#FFFFFF"/>
+  <rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#FFFFFF"/>
+  <path d="M370 20v5" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="185" y="47" width="20" height="15" rx="4" fill="#FFFFFF"/>
+  <path d="M189 47v-4a6 6 0 0 1 12 0v4" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="195" y="118" font-size="20" font-weight="550" fill="#FFFFFF" text-anchor="middle">Tuesday, 24 November</text>
+  <text x="195" y="198" font-size="82" font-weight="650" fill="#FFFFFF" text-anchor="middle">8:17</text>
+</g>
+<g id="ordinary-notification">
+<rect x="16" y="535" width="358" height="110" rx="22" fill="#EBF2EF"/>
+<rect x="32" y="551" width="28" height="28" rx="8" fill="#0B6250"/>
+<path d="M38 563l8-6 8 6v10h-16z m5 10v-9h6v9" fill="none" stroke="#FFFFFF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="572" fill="#152C26" font-size="15" font-weight="650">BookBuddy</text>
+<text x="356" y="572" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">now</text>
+<text x="32" y="604" fill="#152C26" font-size="20" font-weight="650">You have an update</text>
+<text x="32" y="628" fill="#425B52" font-size="15" font-weight="400">Unlock to open BookBuddy.</text>
+</g>
+<g id="system-controls">
+  <circle cx="53" cy="768" r="26" fill="#182622" />
+  <path d="M47 752h12v7l-3 5v11h-6v-11l-3-5z M47 757h12" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="337" cy="768" r="26" fill="#182622" />
+  <path d="M324 763h7l2-4h8l2 4h7v15h-26z" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="337" cy="770" r="4" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+</g>
+<rect x="128" y="831" width="134" height="5" rx="2.5" fill="#FFFFFF" id="home-indicator" aria-hidden="true"/>
+</svg>

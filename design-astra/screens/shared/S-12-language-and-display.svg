@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="preferences-title preferences-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="preferences-title">S-12 Language and display</title>
-<desc id="preferences-desc">Account language and display preferences. App language and reading language are separate. Reading language sets the preferred translation for messages, work documents and instructions. A Claire Martin message previews English translation above original French. Appearance, large controls and site and local time display can be changed.</desc>
+<desc id="preferences-desc">Account language and display preferences. App language and reading language are separate. Reading language sets the preferred translation for messages, work documents and instructions. A sample message previews English translation above original French. Appearance, large controls and site and local time display can be changed.</desc>
 <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
 <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
@@ -17,7 +17,7 @@
   </g>
 
 <g id="header">
-<g aria-hidden="true" transform="translate(20 64) scale(1)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="64" y="74" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Language and display</text>
 <text x="64" y="94" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Account preferences</text>
 <path d="M0 107.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
@@ -25,24 +25,24 @@
 <g id="content">
 <text x="20" y="139" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Language</text>
 <g id="app-language">
-<rect x="20.5" y="152.5" width="349" height="67" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="20" y="152" width="350" height="144" rx="16" fill="#FFFFFF"/>
 <g aria-hidden="true" transform="translate(36 169) scale(0.8333333333333334)"><path d="M3 6h13M9.5 3v3m4 0c-1 6-5 9-10.5 11m3-8c2 3 4 5 8 7m0 5 4-10 4 10m-6.5-3h5" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="68" y="179" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">App language</text>
-<text x="68" y="200" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Menus, labels and app messages</text>
+<text x="68" y="200" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">English or Português (Portugal)</text>
 <text x="331" y="179" font-size="15" font-weight="650" fill="#0B5747" text-anchor="end">English</text>
 <g aria-hidden="true" transform="translate(339 168) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 </g>
 <g id="reading-language">
-<rect x="20.5" y="228.5" width="349" height="67" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<path d="M36 224h318" stroke="#D4E1DB"/>
 <g aria-hidden="true" transform="translate(36 245) scale(0.8333333333333334)"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 5h10m-10 4h6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="68" y="255" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Reading language</text>
-<text x="68" y="276" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Messages, work docs and instructions</text>
+<text x="68" y="276" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Reviewed translations or Original only</text>
 <text x="331" y="255" font-size="15" font-weight="650" fill="#0B5747" text-anchor="end">English</text>
 <g aria-hidden="true" transform="translate(339 244) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 </g>
 <g id="translation-preview">
 <rect x="20" y="312" width="350" height="144" rx="16" fill="#EBF2EF"/>
-<text x="36" y="336" font-size="13" font-weight="550" fill="#425B52" text-anchor="start">Preview · Claire Martin</text>
+<text x="36" y="336" font-size="13" font-weight="550" fill="#425B52" text-anchor="start">Example message</text>
 <text x="36" y="360" font-size="12" font-weight="650" fill="#0B5747" text-anchor="start">Translation · English</text>
 <text x="36" y="382" font-size="15" font-weight="400" fill="#152C26" text-anchor="start" xml:lang="en">Thanks for letting me know.</text>
 <path d="M36 394.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
@@ -51,24 +51,24 @@
 </g>
 <text x="20" y="494" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Display</text>
 <g id="appearance">
-<rect x="20.5" y="508.5" width="349" height="67" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="20" y="508" width="350" height="236" rx="16" fill="#FFFFFF"/>
 <text x="36" y="535" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Appearance</text>
 <text x="36" y="556" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">System, Light or Dark</text>
 <text x="331" y="535" font-size="15" font-weight="650" fill="#0B5747" text-anchor="end">System</text>
 <g aria-hidden="true" transform="translate(339 524) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 </g>
 <g id="field-controls">
-<rect x="20.5" y="584.5" width="349" height="159" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<path d="M36 578h318" stroke="#D4E1DB"/>
 <text x="36" y="614" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Large field controls</text>
-<text x="36" y="636" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Bigger targets for use on site</text>
-<rect x="310" y="606" width="42" height="24" rx="12" fill="#EBF2EF" stroke="#70877D"/>
-<circle cx="322" cy="618" r="8" fill="#425B52"/>
+<text x="36" y="636" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Larger buttons for site work</text>
+<rect x="310" y="606" width="42" height="24" rx="12" fill="#0B6250"/>
+<circle cx="340" cy="618" r="8" fill="#FFFFFF"/>
 <path d="M36 649.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="36" y="677" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Show your time as well</text>
-<text x="36" y="699" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">When it differs from site time</text>
-<rect x="310" y="669" width="42" height="24" rx="12" fill="#0B6250"/>
-<circle cx="340" cy="681" r="8" fill="#FFFFFF"/>
-<text x="36" y="725" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Site time is always shown.</text>
+<text x="36" y="699" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Site time first; your time below it</text>
+<rect x="310" y="669" width="42" height="24" rx="12" fill="#EBF2EF" stroke="#70877D"/>
+<circle cx="322" cy="681" r="8" fill="#425B52"/>
+<text x="36" y="725" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Now showing Spain time only</text>
 </g>
 <text x="20" y="778" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Text size follows your phone’s settings.</text>
 </g>
