@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">F-06 Schedule and availability — customer move request</title>
+  <desc id="screen-desc">Claire requested a fee-free move at 09:30 Monday, less than 24 hours before Tuesday’s booked visit. She requests Wednesday 09:00–10:00 under the same approved terms. Mateo can review agreement after a fresh capacity check, decline the request without cancelling or propose another time for Claire to confirm. A response is targeted by 13:30 Spain time, not guaranteed.</desc>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+  <g id="header">
+  <path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="64" y="76" fill="#152C26" font-size="20" font-weight="700">Schedule and availability</text>
+  <text x="64" y="96" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
+  </g>
+  <g id="content">
+  <text x="20" y="136" fill="#0B5747" font-size="13" font-weight="650">CUSTOMER REQUEST · BB-1042</text>
+  <text x="20" y="175" fill="#152C26" font-size="26" font-weight="700">Can you move this visit?</text>
+  <text x="20" y="202" fill="#152C26" font-size="15" font-weight="450">Claire Martin · Villa Mar, Xàbia</text>
+  <rect x="20" y="225" width="350" height="94" rx="16" fill="#FFF1D5"/>
+  <text x="36" y="251" fill="#704500" font-size="14" font-weight="650">Reply target</text>
+  <text x="36" y="279" fill="#704500" font-size="19" font-weight="650">Mon, 23 Nov · 13:30 Spain time</text>
+  <text x="36" y="303" fill="#704500" font-size="13" font-weight="450">Requested by Claire at 09:30 today</text>
+  <text x="20" y="358" fill="#152C26" font-size="20" font-weight="650">Compare windows</text>
+  <text x="370" y="357" fill="#425B52" font-size="13" font-weight="550" text-anchor="end">Spain time</text>
+  <rect x="20" y="376" width="350" height="166" rx="16" fill="#FFFFFF"/>
+  <text x="36" y="406" fill="#425B52" font-size="13" font-weight="650">Still booked</text>
+  <text x="36" y="435" fill="#152C26" font-size="20" font-weight="650">Tue, 24 Nov · 09:00–10:00</text>
+  <path d="M36 456h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="484" fill="#0B5747" font-size="13" font-weight="650">Requested · Not booked</text>
+  <text x="36" y="514" fill="#152C26" font-size="20" font-weight="650">Wed, 25 Nov · 09:00–10:00</text>
+  <text x="20" y="581" fill="#152C26" font-size="17" font-weight="650">Quote v1 unchanged · €240.00</text>
+  <text x="20" y="605" fill="#425B52" font-size="14" font-weight="450">€0.00 change fee · Same work and provider</text>
+  <rect x="20" y="628" width="172" height="56" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="106" y="662" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Decline request</text>
+  <rect x="202" y="628" width="168" height="56" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="286" y="662" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Offer another time</text>
+  <text x="20" y="716" fill="#425B52" font-size="14" font-weight="450">The current visit stands until a move is confirmed.</text>
+  </g>
+  <g id="footer">
+  <rect x="0" y="740" width="390" height="104" rx="0" fill="#FFFFFF"/>
+  <path d="M0 740h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="748" width="350" height="56" rx="12" fill="#0B6250"/>
+  <text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Review requested move</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

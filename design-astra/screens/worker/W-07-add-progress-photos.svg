@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-07-add-progress-photos-title W-07-add-progress-photos-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="W-07-add-progress-photos-title">W-07 Progress photos — private review</title>
-<desc id="W-07-add-progress-photos-desc">Review one door track photo, its caption and the foreman recipient. Nothing has been uploaded or shared. No people, identifying private items or access codes in images or captions.</desc>
+<desc id="W-07-add-progress-photos-desc">Review one door track photo, its caption and the foreman recipient. Nothing has been uploaded or shared. No people, identifying private items or access codes in images or captions. Mateo verified Nadia’s teach-back for version 1 at 09:45. Nadia acknowledged version 1 online at 09:47, and Mateo cleared the door task at 09:48. The photo was captured at 09:53 Spain time.</desc>
 <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
-<g id="status-bar" aria-hidden="true"><text x="20" y="29" font-size="15" font-weight="700" fill="#152C26" text-anchor="start">9:41</text><g><rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/><rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/><rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/><rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="332" cy="29" r="1.1" fill="#152C26"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/><path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26" stroke="#152C26" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g id="status-bar" aria-hidden="true"><text x="20" y="29" font-size="15" font-weight="700" fill="#152C26" text-anchor="start">09:53</text><g><rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/><rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/><rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/><rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="332" cy="29" r="1.1" fill="#152C26"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/><path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26" stroke="#152C26" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/></g></g>
 <g id="header">
 <path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Progress photos</text>
@@ -22,7 +22,7 @@
   <path d="M76 313v54m-16-35h32m-11 10h6m-35 26h49" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <text x="132" y="316" font-size="18" font-weight="650" fill="#152C26">Door track</text>
-<text x="132" y="341" font-size="13" font-weight="450" fill="#425B52">Tue, 24 Nov · 09:41 Spain time</text>
+<text x="132" y="341" font-size="13" font-weight="450" fill="#425B52">Tue, 24 Nov · 09:53 Spain time</text>
 <text x="132" y="371" font-size="15" font-weight="650" fill="#425B52">Not sent</text>
 <path d="m342 336 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="20" y="447" font-size="16" font-weight="650" fill="#152C26">Caption or description</text>

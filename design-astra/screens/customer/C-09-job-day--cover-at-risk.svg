@@ -3,7 +3,7 @@
 <desc id="screen-desc">Mateo reported a risk to the agreed window, not a new arrival time or worker assignment. No replacement has been confirmed.</desc>
 <rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
-    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <text x="20" y="29" font-size="15" font-weight="700">07:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
     <rect x="306" y="22" width="3" height="6" rx="1"/>
     <rect x="311" y="19" width="3" height="9" rx="1"/>

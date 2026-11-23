@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="title description" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="title">C-18 Follow live — crew on site</title>
-<desc id="description">Customer visit updates for the terrace door repair at Villa Mar. Mateo reported On the way at 08:48 and On site at 09:12 Spain time. Booked, On the way and On site are recorded; In review has not been reported. No worker location is shared. Follow live starts optional Lock Screen status in the foreground. The timeline and foreman contact remain available without it.</desc>
+<desc id="description">Customer visit updates for the terrace door repair at Villa Mar. Mateo reported On the way at 08:48 and On site at 09:12 Spain time. Booked, On the way and On site are recorded; In review has not been reported. Before Follow live, the Lock Screen preview shows “Service visit · Crew on site” and the report time, without names or address. Only choosing Follow live in the foreground starts this device’s display. The timeline and foreman contact remain available without it.</desc>
 <rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
 <g id="status-bar">
   <text x="20" y="29" font-size="15" font-weight="700" fill="#152C26">9:41</text>
@@ -64,9 +64,11 @@
   <path d="m150 657 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="follow-control">
-  <rect x="0" y="696" width="390" height="148" rx="0" fill="#FFFFFF"/>
-  <path d="M0 696h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="195" y="723" font-size="15" font-weight="450" fill="#425B52" text-anchor="middle">Show visit status on your Lock Screen.</text>
+  <rect x="0" y="682" width="390" height="162" rx="0" fill="#FFFFFF"/>
+  <path d="M0 682h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round"/>
+  <text x="20" y="704" font-size="14" font-weight="650" fill="#152C26">Lock Screen preview</text>
+  <text x="370" y="704" text-anchor="end" font-size="13" fill="#425B52">No names or address</text>
+  <text x="20" y="730" font-size="13" fill="#152C26">Service visit · Crew on site · Reported 09:12 Spain time</text>
   <rect x="20" y="746" width="350" height="56" rx="12" fill="#0B6250"/>
   <text x="195" y="780" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Follow live</text>
 </g>

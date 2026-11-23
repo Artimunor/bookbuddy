@@ -45,13 +45,14 @@
     <text x="88" y="503" fill="#425B52" font-size="13" font-weight="450">08:38</text>
     <path d="m345 492 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="20" y="573" fill="#152C26" font-size="20" font-weight="650">Sun, 22 Nov</text>
-    <rect x="20" y="593" width="350" height="103" rx="16" fill="#FFFFFF"/>
+    <rect x="20" y="593" width="350" height="128" rx="16" fill="#FFFFFF"/>
     <rect x="36" y="609" width="36" height="36" rx="9" fill="#EBF2EF"/>
     <path d="M46 628l5 5 9-11" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="88" y="627" fill="#152C26" font-size="16" font-weight="650">Invitation accepted</text>
     <text x="88" y="651" fill="#425B52" font-size="13" font-weight="450">Worker · Reformas Ruiz</text>
     <text x="88" y="675" fill="#425B52" font-size="13" font-weight="450">17:20</text>
-    <path d="m345 664 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="88" y="702" fill="#0B5747" font-size="15" font-weight="650">View current access</text>
+    <path d="m345 692 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

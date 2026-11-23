@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">L-06 Session setup and roster — correct redeemed places</title>
+<desc id="screen-desc">For Aina Soler’s two booked places on BB-S1048, attendance holder Marina Serra recorded two at 10:06. At 10:51 she has selected one after checking a duplicate count. Confirm correction appends the new count, reason, actor and confirmation time. The earlier entry remains until then and in history afterwards. No guest names are collected.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+<text x="20" y="29" font-size="15" font-weight="700">10:51</text>
+<rect x="301" y="24" width="3" height="4" rx="1"/>
+<rect x="306" y="22" width="3" height="6" rx="1"/>
+<rect x="311" y="19" width="3" height="9" rx="1"/>
+<rect x="316" y="16" width="3" height="12" rx="1"/>
+<path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+<circle cx="332" cy="29" r="1.1"/>
+<rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+<rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+<path d="M370 20v5c2-1 2-4 0-5z"/>
+</g>
+<g id="header">
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B6250" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Correct attendance</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">Estudi Mar Pilates · Marina Serra, coordinator</text>
+</g>
+<g id="booking">
+<text x="20" y="143" font-size="13" font-weight="650" fill="#0B5747">ATTENDEE ROSTER · BB-S1048</text>
+<text x="20" y="180" font-size="24" font-weight="700" fill="#152C26">Aina Soler · 2 places</text>
+<text x="20" y="208" font-size="15" font-weight="400" fill="#152C26">Mat Pilates · Sat, 28 Nov · 10:00–10:45</text>
+<text x="20" y="233" font-size="13" font-weight="450" fill="#425B52">Estudi Mar Pilates · Spain time</text>
+</g>
+<g id="earlier-entry">
+<rect x="20" y="258" width="350" height="101" rx="16" fill="#FFFFFF"/>
+<text x="36" y="289" font-size="16" font-weight="650" fill="#152C26">Confirmed: 2 of 2 attended</text>
+<text x="36" y="314" font-size="13" font-weight="450" fill="#425B52">Marina Serra · Sat, 28 Nov, 10:06 Spain time</text>
+<text x="36" y="338" font-size="13" font-weight="450" fill="#425B52">This entry stays in the attendance history.</text>
+</g>
+<g id="correction">
+<text x="20" y="404" font-size="20" font-weight="650" fill="#152C26">How many actually attended?</text>
+<text x="20" y="430" font-size="13" font-weight="450" fill="#425B52">Choose the total for this booking, not a difference.</text>
+<rect x="20" y="448" width="110" height="52" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="75" y="480" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle">0</text>
+<rect x="140" y="448" width="110" height="52" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
+<path d="m163 475 4 4 7-9" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="195" y="480" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">1</text>
+<rect x="260" y="448" width="110" height="52" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="315" y="480" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle">2</text>
+<text x="20" y="550" font-size="16" font-weight="650" fill="#152C26">Reason for correction</text>
+<rect x="20" y="566" width="350" height="56" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="36" y="600" font-size="15" font-weight="400" fill="#152C26">One place was counted twice.</text>
+<text x="20" y="668" font-size="16" font-weight="650" fill="#152C26">Correction: 2 → 1 attended</text>
+<text x="20" y="695" font-size="13" font-weight="450" fill="#425B52">Only the confirmed count is shared with the booker.</text>
+</g>
+<g id="action-bar">
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744h390" stroke="#D4E1DB"/>
+<rect x="20" y="752" width="350" height="52" rx="12" fill="#0B6250"/>
+<text x="195" y="784" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Confirm correction</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

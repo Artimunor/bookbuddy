@@ -3,7 +3,7 @@
   <desc id="screen-desc">Diego’s first valid server acceptance reserved one internal slot at 08:30. The foreman has until 08:35 to confirm. This is not an assignment.</desc>
   <rect width="390" height="844" fill="#FAF7EF"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
-    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <text x="20" y="29" font-size="15" font-weight="700">08:30</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
     <rect x="306" y="22" width="3" height="6" rx="1"/>
     <rect x="311" y="19" width="3" height="9" rx="1"/>

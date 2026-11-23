@@ -3,7 +3,7 @@
 <desc id="W-06-check-in-or-out--departure-desc">W-06 over the authenticated live shift. Nadia reviews the actual departure before recording it. Opening the sheet neither stops the clock nor records attendance.</desc>
 <g id="parent" aria-hidden="true">
 <rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
-<g id="status-bar" aria-hidden="true"><text x="20" y="29" font-size="15" font-weight="700" fill="#152C26" text-anchor="start">9:41</text><g><rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/><rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/><rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/><rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="332" cy="29" r="1.1" fill="#152C26"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/><path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26" stroke="#152C26" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g id="status-bar" aria-hidden="true"><text x="20" y="29" font-size="15" font-weight="700" fill="#152C26" text-anchor="start">09:56</text><g><rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/><rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/><rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/><rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="332" cy="29" r="1.1" fill="#152C26"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/><path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26" stroke="#152C26" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/></g></g>
 <g id="header">
 <path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Live shift card</text>
@@ -16,7 +16,7 @@
 <text x="72" y="154" font-size="13" font-weight="650" fill="#C9F2CC">YOUR SHIFT</text>
 <text x="350" y="154" font-size="13" font-weight="550" fill="#FFFFFF" text-anchor="end">BB-1042</text>
 <text x="40" y="193" font-size="18" font-weight="650" fill="#FFFFFF">Since check-in</text>
-<text x="40" y="236" font-size="36" font-weight="700" fill="#FFFFFF">27 min</text>
+<text x="40" y="236" font-size="36" font-weight="700" fill="#FFFFFF">42 min</text>
 <text x="40" y="265" font-size="15" font-weight="400" fill="#FFFFFF">Arrival recorded · 09:14 Spain time</text>
 <path d="M32 283h326" fill="none" stroke="#7AA99B" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 5"/>
 <circle cx="20" cy="283" r="5" fill="#FAF7EF"/>

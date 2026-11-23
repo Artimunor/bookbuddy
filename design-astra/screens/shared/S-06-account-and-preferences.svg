@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">S-06 Account and preferences</title>
-  <desc id="screen-desc">Nadia’s verified Worker account has an opted-in Lock Screen display, permitted push and one unsent photo draft. She can manage the display without changing her shift, review the draft or switch context online.</desc>
+  <desc id="screen-desc">Nadia can open Security to set up a recovery passkey for her verified account. Her Worker display, push permission and unsent photo draft are separate settings.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
@@ -41,16 +41,20 @@
     <text x="36" y="510" fill="#152C26" font-size="16" font-weight="650">Lock Screen status</text>
     <text x="36" y="533" fill="#425B52" font-size="13" font-weight="450">Following this shift · Manage display</text>
     <path d="m346 509 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="20" y="591" fill="#152C26" font-size="20" font-weight="650">On this device</text>
-    <rect x="20" y="610" width="350" height="68" rx="16" fill="#FFF1D5"/>
-    <path d="M36 643h6l3 4h6l3-4h6l-4-13H40z" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="75" y="637" fill="#704500" font-size="16" font-weight="650">1 unsent photo draft</text>
-    <text x="75" y="661" fill="#704500" font-size="13" font-weight="450">Review before signing out</text>
-    <path d="m345 638 5 5-5 5" fill="none" stroke="#704500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="20" y="720" fill="#0B5747" font-size="16" font-weight="650">Help and access status</text>
-    <path d="m349 709 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M20 743H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="20" y="783" fill="#853531" font-size="16" font-weight="650">Sign out</text>
+    <text x="20" y="579" fill="#152C26" font-size="20" font-weight="650">On this device</text>
+    <rect x="20" y="594" width="350" height="68" rx="16" fill="#FFF1D5"/>
+    <path d="M36 627h6l3 4h6l3-4h6l-4-13H40z" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="75" y="621" fill="#704500" font-size="16" font-weight="650">1 unsent photo draft</text>
+    <text x="75" y="645" fill="#704500" font-size="13" font-weight="450">Review before signing out</text>
+    <path d="m345 622 5 5-5 5" fill="none" stroke="#704500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="696" fill="#152C26" font-size="16" font-weight="650">Security</text>
+    <text x="115" y="696" fill="#425B52" font-size="13" font-weight="450">Set up a recovery passkey</text>
+    <path d="m349 685 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 714H370" fill="none" stroke="#D4E1DB"/>
+    <text x="20" y="744" fill="#0B5747" font-size="16" font-weight="650">Help and access status</text>
+    <path d="m349 733 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M20 762H370" fill="none" stroke="#D4E1DB"/>
+    <text x="20" y="792" fill="#853531" font-size="16" font-weight="650">Sign out</text>
   </g>
   <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

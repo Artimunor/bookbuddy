@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-10-live-shift-card--pending-sync-title W-10-live-shift-card--pending-sync-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="W-10-live-shift-card--pending-sync-title">W-10 Live shift card — Saved on this device</title>
-<desc id="W-10-live-shift-card--pending-sync-desc">Private shift status. Saved on this device: Pending sync. Arrival entered · 09:14 Spain time. The terrace door hold is separate. The attendance action opens the authenticated W-06 record; nothing is sent from a status card.</desc>
+<desc id="W-10-live-shift-card--pending-sync-desc">Private shift status. Saved on this device: Pending sync. Arrival entered · 09:14 Spain time. The terrace door hold is separate. Device status is off. After saving this arrival locally, the worker may choose Show shift on this device to start a pending-only display. The attendance action opens the authenticated W-06 record; nothing is sent from a status card.</desc>
 <rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
 <g id="status-bar" aria-hidden="true"><text x="20" y="29" font-size="15" font-weight="700" fill="#152C26" text-anchor="start">9:41</text><g><rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/><rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/><rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/><rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="332" cy="29" r="1.1" fill="#152C26"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/><path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26" stroke="#152C26" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/></g></g>
 <g id="header">
@@ -34,8 +34,10 @@
 <path d="m338 480 5 5-5 5" fill="none" stroke="#704500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <text x="20" y="552" font-size="20" font-weight="650" fill="#152C26">Device status · off</text>
-<text x="20" y="582" font-size="15" font-weight="400" fill="#425B52">Only this phone has your arrival.</text>
-<text x="20" y="605" font-size="15" font-weight="400" fill="#425B52">No confirmed clock until a receipt arrives.</text>
+<text x="20" y="582" font-size="15" font-weight="400" fill="#425B52">Lock Screen preview · Shift status</text>
+<text x="20" y="605" font-size="15" font-weight="400" fill="#425B52">Pending sync · Safety hold · Open app</text>
+<rect x="20" y="625" width="350" height="56" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="195" y="658.6" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Show shift on this device</text>
 <text x="20" y="710" font-size="13" font-weight="550" fill="#425B52">Site attendance only · not hours worked</text>
 </g>
 <g id="fixed-action">

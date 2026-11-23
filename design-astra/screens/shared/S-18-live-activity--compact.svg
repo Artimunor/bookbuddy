@@ -18,9 +18,9 @@
   <path d="M370 20v5" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="dynamic-island-compact">
-  <rect x="89" y="9" width="212" height="39" rx="20" fill="#101A18"/>
-  <g transform="translate(101 15) scale(0.88)" aria-hidden="true"><path d="M1 9 11 3l10 6v13H1z M7 22V11h8v11" fill="none" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="289" y="34" font-size="13" font-weight="650" fill="#C9F2CC" text-anchor="end">On site</text>
+  <rect x="97" y="9" width="196" height="39" rx="20" fill="#101A18"/>
+  <g transform="translate(109 15) scale(0.88)" aria-hidden="true"><path d="M1 9 11 3l10 6v13H1z M7 22V11h8v11" fill="none" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="281" y="34" font-size="13" font-weight="650" fill="#C9F2CC" text-anchor="end">On site</text>
 </g>
 <g id="system-home-screen">
   <rect x="16" y="720" width="358" height="87" rx="28" fill="#253833"/>

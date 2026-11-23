@@ -3,7 +3,7 @@
   <desc id="screen-desc">Claire’s received French request has a reading aid and original audio. Only Mateo is offered the scoping handoff. It does not grant quote publication, schedule a visit or assign anyone.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
-    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <text x="20" y="29" font-size="15" font-weight="700">8:08</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
     <rect x="306" y="22" width="3" height="6" rx="1"/>
     <rect x="311" y="19" width="3" height="9" rx="1"/>
@@ -23,7 +23,8 @@
   <text x="20" y="135" fill="#425B52" font-size="13" font-weight="650">REFORMAS RUIZ · NEW HANDOFF</text>
   <text x="20" y="173" fill="#152C26" font-size="25" font-weight="700">Take the lead on this job?</text>
   <text x="20" y="202" fill="#152C26" font-size="15" font-weight="400">Claire Martin · Villa Mar, Xàbia</text>
-  <text x="20" y="226" fill="#425B52" font-size="13" font-weight="550">Offered to Mateo Ruiz · Not yet accepted</text>
+  <text x="20" y="221" fill="#425B52" font-size="13" font-weight="550">Offered to Mateo Ruiz · Not yet accepted</text>
+  <text x="20" y="242" fill="#152C26" font-size="13" font-weight="650">Reply by Mon, 23 Nov · 10:00 Spain time</text>
   <g id="customer-request">
   <text x="20" y="266" fill="#152C26" font-size="20" font-weight="650">Customer request</text>
   <rect x="20" y="284" width="350" height="142" rx="16" fill="#FFFFFF"/>

@@ -39,9 +39,9 @@
 <rect x="20" y="421" width="350" height="196" rx="16" fill="#FFF1D5"/>
 <path d="m340 441 9 16h-18z m0 5v4m0 3v1" fill="none" stroke="#704500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="318" y="454" font-size="13" font-weight="700" fill="#704500" text-anchor="end">تعليق العمل لأسباب تتعلق بالسلامة · باب الشرفة</text>
-<text x="350" y="488" font-size="22" font-weight="700" fill="#704500" text-anchor="end">لا تبدئي هذه المهمة.</text>
+<text x="350" y="488" font-size="22" font-weight="700" fill="#704500" text-anchor="end">لا تبدئي هذه المهمة.&#x200F;</text>
 <text x="350" y="516" font-size="15" font-weight="400" fill="#704500" text-anchor="end">اشرحي الخطوات لماتيو بكلماتك. بعد أن يتحقق</text>
-<text x="350" y="539" font-size="15" font-weight="400" fill="#704500" text-anchor="end">من فهمك، أقرّي بالتعليمات نفسها عبر الإنترنت.</text>
+<text x="350" y="539" font-size="15" font-weight="400" fill="#704500" text-anchor="end">من فهمك، أقرّي بالتعليمات نفسها عبر الإنترنت.&#x200F;</text>
 <rect x="36" y="549" width="318" height="56" rx="12" fill="#0B6250"/>
 <text x="245" y="584" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="end">فتح إحاطة السلامة</text>
 </g>
