@@ -30,6 +30,10 @@ type Spec = { file: string; title: string; questions: string; navigation: string
 type Screen = { file: string; title: string; id: string; purpose: string; ownsSystemChrome: boolean };
 type InventoryEntry = { id: string; name: string; purpose: string; deferred: boolean; ownsSystemChrome: boolean };
 type Diagram = { title: string; source: string; file: string };
+const stateNames: Record<string, string> = {
+  rtl: 'RTL', ios: 'iOS', android: 'Android', os: 'OS', ui: 'UI',
+  arabic: 'Arabic', english: 'English', spanish: 'Spanish', french: 'French', portuguese: 'Portuguese',
+};
 
 function inventoryEntries(text: string): InventoryEntry[] {
   const entries: InventoryEntry[] = [];
@@ -48,11 +52,10 @@ function inventoryEntries(text: string): InventoryEntry[] {
     const deferred = headings.some(item => /^Later\b/i.test(item.title))
       || /\[Later\]|\blater only\b/i.test(row[2])
       || /\bunbuilt\b|\bnot (?:yet )?(?:built|drawn)\b/i.test(line);
-    // OS/System entries that own Lock Screen/Live Activity/Island chrome retain that
-    // source artwork verbatim. This is inventory-derived, not a track-specific ID list:
-    // no second export-frame Island is overlaid on any primary or state of that ID.
-    const ownsSystemChrome = /\[(?:OS|System)\b/i.test(row[2])
-      && /Lock Screen|Dynamic Island|Live Activity/i.test(line);
+    // OS/System surfaces supply their own platform chrome. Preserve it verbatim:
+    // an export-frame Island could hide a native Island or an Android status date.
+    // This inventory marker applies to every primary/state, without track-specific IDs.
+    const ownsSystemChrome = /\[(?:OS|System)\b/i.test(row[2]);
     entries.push({ id: row[1], name: row[2].trim(), purpose: line.split('|')[4]?.trim() ?? '', deferred, ownsSystemChrome });
   }
   if (!entries.length) throw new Error(`No screen ID rows found in ${sourceLabel}/screens/inventory.md.`);
@@ -83,11 +86,36 @@ function plain(text: string) {
     .replace(/(?:\*\*|`)/g, '').replace(/^\s*[-*]\s+/gm, '').replace(/\s+/g, ' ').trim();
 }
 function excerpt(text: string, length = 145) {
-  const cleaned = plain(text);
+  return shortenSentence(plain(text), length);
+}
+function shortenSentence(cleaned: string, length: number) {
   const sentence = cleaned.split(/(?<=[.!?])\s+(?=[A-Z‘“])/)[0];
   if (sentence.length <= length) return sentence;
   const clause = sentence.split(/[;:]/)[0];
   return clause.length <= length ? clause : clause.slice(0, length).replace(/\s+\S*$/, '');
+}
+function captionInline(text: string, length = 130) {
+  const source = text.replace(/\s+/g, ' ').trim();
+  const ignored = { html: () => '', image: () => '' };
+  let remaining = shortenSentence(Bun.markdown.render(source, ignored), length).length;
+  return Bun.markdown.render(source, {
+    ...ignored,
+    text: (value: string) => {
+      const kept = value.slice(0, remaining);
+      remaining -= kept.length;
+      return escape(kept);
+    },
+    strong: (children: string) => children ? `<strong>${children}</strong>` : '',
+    emphasis: (children: string) => children ? `<em>${children}</em>` : '',
+    codespan: (children: string) => children ? `<code>${children}</code>` : '',
+  });
+}
+function stateLabel(file: string) {
+  const suffix = file.split('--')[1]?.replace(/\.svg$/, '');
+  if (!suffix) return '';
+  return suffix.split('-').map((word, index) =>
+    stateNames[word.toLowerCase()] ?? (index === 0 ? word.charAt(0).toUpperCase() + word.slice(1) : word)
+  ).join(' ');
 }
 function markdown(text: string, relative: string) {
   return Bun.markdown.html(text).replace(/href="([^"#]+)(#[^"]*)?"/g, (_, target: string, anchor = '') =>
@@ -174,7 +202,7 @@ function sequencePanels(source: string): string[] {
 function caption(text: string, screen: Screen) {
   const blocks = text.split(/\n\s*\n|\n(?=\s*-\s+\*\*)/).map(block => {
     const label = block.match(/\*\*([^*]+)\*\*/)?.[1] ?? '';
-    return { label, text: plain(block.replace(/^\s*-?\s*\*\*[^*]+\*\*\s*/, '')) };
+    return { label, text: block.replace(/^\s*-?\s*\*\*[^*]+\*\*\s*/, '').replace(/\s+/g, ' ').trim() };
   });
   const purpose = blocks.find(block => /purpose/i.test(block.label));
   if (!purpose && !screen.purpose) throw new Error(`Missing spec/inventory purpose: ${screen.id}.`);
@@ -184,8 +212,8 @@ function caption(text: string, screen: Screen) {
   if (tokens.includes('arabic')) candidates.unshift(...blocks.flatMap(block => block.text.split(/(?<=[.!?])\s+(?=[A-Z‘“])/)).filter(sentence => /Arabic artboard/i.test(sentence)));
   const ranked = candidates.map((sentence, index) => ({ sentence, index, score: tokens.reduce((score, token) => score + (sentence.toLowerCase().includes(token) ? 5 : 0), 0) }));
   ranked.sort((a, b) => b.score - a.score || a.index - b.index);
-  const bullets = [...new Set(ranked.map(item => excerpt(item.sentence, 130)).filter(Boolean))].slice(0, 4);
-  return { purpose: excerpt(purpose?.text ?? screen.purpose, 130), bullets };
+  const bullets = [...new Set(ranked.map(item => captionInline(item.sentence)).filter(Boolean))].slice(0, 4);
+  return { purpose: captionInline(purpose?.text ?? screen.purpose), bullets };
 }
 function phone(source: string, ownsSystemChrome: boolean) {
   if (!/viewBox="0 0 390 844"/.test(source)) throw new Error('Mockups must use the 390×844 display viewport.');
@@ -233,6 +261,7 @@ footer a { color:#425B52; } footer span { font-variant-numeric:tabular-nums; }
 .caption .state { display:inline-block; font-size:12pt; color:#0B5747; background:#DCF2EA; border-radius:2mm; padding:2mm 2.5mm; margin-bottom:4mm; line-height:1.3; }
 .caption .purpose { font-size:11pt; line-height:1.45; font-weight:600; } .caption ul { font-size:9.5pt; line-height:1.5; }
 table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:9pt; line-height:1.4; margin:4mm 0; } th,td { padding:2.5mm; border-bottom:.5pt solid #D4E1DB; text-align:left; vertical-align:top; overflow-wrap:anywhere; } th { color:#0B5747; background:#DCF2EA; } thead { display:table-header-group; } tr { break-inside:avoid; } tr:nth-child(even) td { background:#EBF2EF; }
+.caption code { font-size:.95em; overflow-wrap:anywhere; }
 .roles th:first-child { width:24%; } .system-grid { display:grid; grid-template-columns:1fr 1fr; gap:7mm; } .swatches { display:grid; grid-template-columns:1fr 1fr; gap:3mm; margin:4mm 0 7mm; } .swatch { display:flex; gap:2mm; align-items:center; font-size:8pt; } .swatch i { width:12mm; height:10mm; border:.5pt solid #70877D; border-radius:2mm; } .system-grid table { font-size:8pt; } .components { font-size:10pt; line-height:1.8; }
 .diagram-stage { width:182mm; height:238mm; display:flex; align-items:center; justify-content:center; } .diagram-stage svg { display:block; margin:auto; max-width:100% !important; max-height:100%; width:auto !important; height:auto; }
 .wide h1 { font-size:20pt; } .wide .diagram-stage { width:269mm; height:155mm; } .diagram-stage .mermaid { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
@@ -285,8 +314,7 @@ try {
     if (primary.length !== 1) { problems.push(`Multiple primary SVGs for ${entry.id}: ${primary.join(', ')}`); continue; }
     const ordered = [...primary,...files.filter(file => file.includes('--')).sort()];
     for (const file of ordered) {
-      const svgTitle = sources.get(file)!.match(/<title\b[^>]*>([\s\S]*?)<\/title>/)?.[1]?.trim() ?? '';
-      const state = file.includes('--') ? (svgTitle.split(' — ').slice(1).join(' — ') || file.split('--')[1].replace(/\.svg$/,'').replaceAll('-',' ')) : '';
+      const state = stateLabel(file);
       screenList.push({ file, id: entry.id, title: `${entry.id} ${entry.name}${state ? ' — '+state : ''}`, purpose: entry.purpose, ownsSystemChrome: entry.ownsSystemChrome });
     }
   }
@@ -333,7 +361,7 @@ try {
       const [baseName,...stateParts] = screen.title.replace(new RegExp('^'+screen.id+'\\s*'),'').split(' — ');
       const state = stateParts.join(' — ');
       const frame = phone(sources.get(screen.file)!,screen.ownsSystemChrome);
-      body += page(`<div class="screen-layout"><img class="device" alt="${escape(screen.title)}" src="data:image/svg+xml;base64,${Buffer.from(frame).toString('base64')}"><div class="caption"><p class="screen-id">${screen.id}</p><h1>${escape(baseName)}</h1>${state?`<p class="state">${escape(state)}</p>`:''}<p class="purpose">${escape(summary.purpose)}</p><ul>${summary.bullets.map(bullet=>`<li>${escape(bullet)}</li>`).join('')}</ul></div></div>`,spec.file,{id:screen.file.replaceAll(/[^a-z\d]/gi,'-'),className:'screen-page'});
+      body += page(`<div class="screen-layout"><img class="device" alt="${escape(screen.title)}" src="data:image/svg+xml;base64,${Buffer.from(frame).toString('base64')}"><div class="caption"><p class="screen-id">${screen.id}</p><h1>${escape(baseName)}</h1>${state?`<p class="state">${escape(state)}</p>`:''}<p class="purpose">${summary.purpose}</p><ul>${summary.bullets.map(bullet=>`<li>${bullet}</li>`).join('')}</ul></div></div>`,spec.file,{id:screen.file.replaceAll(/[^a-z\d]/gi,'-'),className:'screen-page'});
     }
   }
   const orderedSpecs = chapters.flatMap(chapter=>specs.filter(spec=>[...screenSpecs].some(([id,value])=>id.startsWith(chapter.prefix+'-')&&value.spec===spec)));
