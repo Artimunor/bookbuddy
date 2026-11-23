@@ -1,5 +1,7 @@
 # Suggestions for the open questions
 
+**Status:** the owner decided on these suggestions on 23 November 2026; see [the decision record](../decisions/2026-11-23-open-questions.md).
+
 Suggested defaults for every open question in the idea document, the architecture document, the design specs and the Live Activities research. Each answer gives a concrete default, the reasoning, alternatives, evidence, who must confirm it and a confidence level. Legal and tax points are suggestions, not legal advice.
 
 | Theme | Questions | File |
