@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="L-04-review-and-book-title L-04-review-and-book-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="L-04-review-and-book-title">L-04 Review and book [Later] — place held</title>
+  <desc id="L-04-review-and-book-desc">Later category, not in the construction release. Customer view for Claire Martin at 09:41 UK time on Monday 23 November, 10:41 in Spain. One place is held until 10:48 Spain time, 09:48 her time; a ring shows 7 minutes left. Summary: Mat Pilates at Estudi Mar Pilates in Xàbia, Saturday 28 November, 10:00 to 10:45 Spain time, 09:00 to 09:45 her time, 1 place, in English, with Elena Costa; a link changes the time. Total €16.00, 1 place at €16.00 per person, paid to Estudi Mar Pilates at the studio; no payment is taken in the app. Free to cancel or move until Friday 27 November at 10:00 Spain time. The dock says it is not booked until she confirms and has one action: Book session.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header"><path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Review and book</text><text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">Claire Martin · 1 place</text></g>
+  <g id="hold">
+  <rect x="20.5" y="116.5" width="349" height="95" rx="24" fill="#FFEFCF"/>
+  <circle cx="72" cy="164" r="28" fill="none" stroke="#FFFFFF" stroke-width="6"/><path d="M72 136a28 28 0 1 1-26.63 36.65" fill="none" stroke="#15171C" stroke-width="6" stroke-linecap="round"/>
+  <text x="72" y="164" font-size="20" font-weight="800" fill="#15171C" text-anchor="middle">7</text>
+  <text x="72" y="178" font-size="12" font-weight="600" fill="#15171C" text-anchor="middle">min</text>
+  
+  <text x="116" y="158" font-size="20" font-weight="700" fill="#15171C">Held until 10:48</text>
+  <text x="116" y="180" font-size="14" font-weight="500" fill="#15171C">Spain time · 09:48 your time</text>
+  </g>
+  
+  <g id="summary">
+  <rect x="20.5" y="224.5" width="349" height="203" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  
+  <text x="40" y="254" font-size="20" font-weight="700" fill="#15171C">Mat Pilates</text>
+  <text x="40" y="276" font-size="14" font-weight="500" fill="#555A66">Estudi Mar Pilates · Xàbia</text>
+  <path d="M40 292.5h310" stroke="#DED8CB"/>
+  <text x="40" y="318" font-size="14" font-weight="600" fill="#555A66">Sat, 28 Nov</text>
+  <text x="350" y="318" font-size="14" font-weight="700" fill="#2438B5" text-anchor="end">Change time</text><path d="M266.1 322.5h83.9" stroke="#2438B5" stroke-width="1.5"/>
+  <text x="40" y="350" font-size="28" font-weight="800" fill="#15171C">10:00–10:45</text>
+  <text x="40" y="372" font-size="14" font-weight="500" fill="#555A66">Spain time · 09:00–09:45 your time</text>
+  <text x="40" y="406" font-size="14" font-weight="600" fill="#15171C">1 place · in English · with Elena Costa</text>
+  </g>
+  
+  <g id="pay">
+  <rect x="20.5" y="440.5" width="349" height="131" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  
+  <text x="40" y="470" font-size="17" font-weight="700" fill="#15171C">Total</text>
+  <text x="350" y="470" font-size="20" font-weight="700" fill="#15171C" text-anchor="end">€16.00</text>
+  <text x="40" y="492" font-size="14" font-weight="500" fill="#555A66">1 place at €16.00 per person</text>
+  <path d="M40 508.5h310" stroke="#DED8CB"/>
+  <text x="40" y="534" font-size="14" font-weight="600" fill="#15171C">Pay Estudi Mar Pilates at the studio.</text>
+  <text x="40" y="554" font-size="14" font-weight="500" fill="#555A66">No payment is taken in the app.</text>
+  </g>
+  
+  <text x="20" y="600" font-size="14" font-weight="500" fill="#555A66">Free to cancel or move until Fri, 27 Nov,</text>
+  <text x="20" y="620" font-size="14" font-weight="500" fill="#555A66">10:00 Spain time.</text>
+  <text x="20" y="650" font-size="14" font-weight="700" fill="#2438B5">Read the studio’s terms</text><path d="M20.0 654.5h157.6" stroke="#2438B5" stroke-width="1.5"/>
+  <g id="dock"><rect y="692" width="390" height="152" fill="#FFFFFF"/><path d="M0 692.5h390" stroke="#DED8CB"/><text x="195" y="718" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Not booked until you confirm</text><rect x="20" y="738" width="350" height="56" rx="28" fill="#15171C"/><text x="195" y="772" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Book session</text></g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>
