@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-01-now-title W-01-now-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="W-01-now-title">W-01 Now — cover offer in Field mode</title>
+  <desc id="W-01-now-desc">Worker view for Diego Torres at Reformas Ruiz at 08:36 Spain time on Tuesday 24 November, Field mode on. A lime offer capsule shows a cover offer for today 09:00 to 10:00 Spain time: terrace door adjustment in Xàbia, door fitting, briefing in Spanish. The offer clock shows 6 minutes left; reply by 08:42 Spain time. Accepting reserves the place and Mateo confirms before travel. Cover comes from the provider’s own crew. Open to cover is on until 18:00. Actions: Decline and Accept offer.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">8:36</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <circle cx="40" cy="76" r="20" fill="#DDF3E4"/><text x="40" y="81" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">DT</text>
+    <text x="72" y="72" font-size="17" font-weight="700" fill="#15171C">Diego</text>
+    <text x="72" y="92" font-size="14" font-weight="500" fill="#555A66">Worker · Reformas Ruiz</text>
+    <rect x="322.5" y="52.5" width="47" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/>
+    <path transform="translate(334 64)" d="M6 16h12l-1.5-2v-4a4.5 4.5 0 0 0-9 0v4zm4 3a2 2 0 0 0 4 0" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="content">
+    <text x="20" y="148" font-size="28" font-weight="800" fill="#15171C">Now</text>
+    <text x="20" y="172" font-size="14" font-weight="500" fill="#555A66">Tue, 24 Nov · Spain time</text>
+    <g id="offer-capsule">
+      <rect x="21" y="191" width="348" height="318" rx="31" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+      <rect x="40" y="210" width="104" height="28" rx="14" fill="#15171C"/>
+      <text x="92" y="229" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle">Cover offer</text>
+      <text x="350" y="229" font-size="14" font-weight="600" fill="#15171C" text-anchor="end">Reformas Ruiz</text>
+      <text x="40" y="276" font-size="28" font-weight="800" fill="#15171C">Today 09:00–10:00</text>
+      <text x="40" y="300" font-size="14" font-weight="500" fill="#15171C">Spain time · starts in 24 min</text>
+      <text x="40" y="334" font-size="17" font-weight="700" fill="#15171C">Terrace door adjustment</text>
+      <text x="40" y="356" font-size="14" font-weight="500" fill="#15171C">Xàbia · Door fitting · briefing in Spanish</text>
+      <path d="M40 374.5h310" stroke="#15171C"/>
+      <g id="offer-clock">
+        <circle cx="72" cy="418" r="28" fill="none" stroke="#BFDC22" stroke-width="6"/>
+        <path d="M72 390a28 28 0 1 1-24.25 14" fill="none" stroke="#15171C" stroke-width="6" stroke-linecap="round"/>
+        <text x="72" y="418" font-size="20" font-weight="800" fill="#15171C" text-anchor="middle">6</text>
+        <text x="72" y="432" font-size="12" font-weight="600" fill="#15171C" text-anchor="middle">min</text>
+      </g>
+      <text x="116" y="412" font-size="20" font-weight="700" fill="#15171C">Reply by 08:42</text>
+      <text x="116" y="434" font-size="14" font-weight="500" fill="#15171C">Spain time · the offer closes then</text>
+      <text x="40" y="472" font-size="14" font-weight="600" fill="#15171C">Accepting reserves the place.</text>
+      <text x="40" y="492" font-size="14" font-weight="600" fill="#15171C">Wait for Mateo to confirm before you travel.</text>
+    </g>
+    <g id="open-to-cover">
+      <rect x="20.5" y="526.5" width="349" height="71" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+      <text x="40" y="558" font-size="17" font-weight="700" fill="#15171C">Open to cover today</text>
+      <text x="40" y="580" font-size="14" font-weight="500" fill="#555A66">Until 18:00 · change in Availability</text>
+      <rect x="298" y="546" width="56" height="32" rx="16" fill="#15171C"/><circle cx="338" cy="562" r="12" fill="#FFFFFF"/>
+    </g>
+  </g>
+  <g id="dock">
+    <rect y="646" width="390" height="100" fill="#FFFFFF"/>
+    <path d="M0 646.5h390" stroke="#DED8CB"/>
+    <rect x="21" y="665" width="108" height="62" rx="31" fill="#FFFFFF" stroke="#747986" stroke-width="2"/>
+    <text x="75" y="702" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">Decline</text>
+    <rect x="143" y="665" width="226" height="62" rx="31" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+    <text x="256" y="702" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">Accept offer</text>
+  </g>
+  <g id="tab-bar"><rect y="746" width="390" height="98" fill="#FFFFFF"/><path d="M0 746.5h390" stroke="#DED8CB"/><circle cx="65" cy="769" r="9" fill="none" stroke="#15171C" stroke-width="2"/><circle cx="65" cy="769" r="3.5" fill="#15171C"/><text x="65" y="798" font-size="12" font-weight="700" fill="#15171C" text-anchor="middle">Now</text><circle cx="65" cy="806" r="2" fill="#15171C"/><path transform="translate(183 757)" d="M5 6h14v14H5zm0 4h14M9 4v4m6-4v4" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="195" y="798" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Shifts</text><path transform="translate(313 757)" d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="325" y="798" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Messages</text></g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>
