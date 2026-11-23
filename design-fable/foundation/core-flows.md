@@ -35,7 +35,7 @@ sequenceDiagram
         C->>A: C-09 Follow live, starts C-19 or C-20
     end
     F->>A: F-17 or W-10 On the way with arrival band
-    A-->>C: C-09 and C-19 On the way, band and countdown
+    A-->>C: C-09 On the way with band; update the card only if already following
     W->>A: W-06 Deliberate check-in, no location
     A-->>C: C-09 Crew on site
     F->>A: Start work once the safety hold is cleared
@@ -74,7 +74,7 @@ sequenceDiagram
     A-->>F: F-01 crew gap card and push
     F->>A: F-10 Find cover, choose eligible own-crew workers
     F->>A: Send offers with a reply deadline
-    A-->>F: F-18 cover search card starts on the Lock Screen
+    A-->>F: If the foreman opted in, show F-18 for this search
     A->>W: W-01 and W-03 cover offer with offer clock
     opt Visit start is at risk
         A-->>C: C-09 Cover being arranged, foreman named, next update time
@@ -158,7 +158,7 @@ flowchart TD
 ```
 
 - Check-in and check-out are deliberate, two-tap events by the assigned worker. **No location is read or stored.** A geofence, a notification or the shift card never records attendance.
-- The shift card is optional and off until the worker says yes. It starts in the foreground right after the check-in tap, so it needs no background permission. It shows the job reference, a site alias, "Since check-in" with an OS timer, and one link, Check out, which opens W-06. It never shows an address, a customer name or a safety all-clear.
+- The shift card is optional and off until the worker says yes. It starts in the foreground after deliberate check-in; no background permission is needed. With **Hide details** on (the default), the locked card says “BookBuddy shift · Open app”. The optional detailed preview can show the reference, a site alias and an OS timer labelled “Since check-in”. The Check out link opens W-06 after unlock; it does not record departure. No address, customer name or safety all-clear appears in either preview.
 - iOS ends a Live Activity after 8 hours. The card then says to open the app; the shift record is unaffected. Dismissing the card or denying notifications never blocks attendance.
 - Attendance during a safety hold is allowed and labelled "Attendance only".
 
@@ -184,7 +184,7 @@ flowchart LR
         S4["Web portal live page"]
     end
     subgraph Never["Never leaves the provider"]
-        N["Positions, routes, per-worker times, dropout reasons, candidates, crew-only chat"]
+        N["Private crew records: per-worker times, dropout reasons, candidates, crew-only chat"]
     end
     A1 --> M
     A2 --> M
@@ -193,15 +193,15 @@ flowchart LR
     A5 --> M
     A6 --> M
     M --> S1
-    M --> S2
-    M --> S3
+    M -->|Following on iOS: permitted preview only| S2
+    M -->|Following on Android: permitted preview only| S3
     M --> S4
 ```
 
 - The customer's live view is assembled from six kinds of deliberate act. There is no map, no coordinates and no continuous signal. The arrival band is an estimate the crew lead chose to share, shown with who shared it and when.
 - **Crew-level outside:** the customer sees "Crew on site · 09:14", not which worker arrived when. Names shown are the confirmed, customer-visible crew.
 - **Stale is stated:** if the band passes with no check-in, C-09 says "No arrival update yet · last update 08:52" and offers Message Mateo. The crew lead is prompted to update. The app never invents "late".
-- **Follow live** is the customer's choice per device. Starting needs the app in the foreground or push-to-start on iOS 17.2 or later; it runs for at most 8 hours; updates are sent on stage changes only. S-18 explains what is shown and lets the customer hide details on the Lock Screen.
+- **Follow live** starts the visit card only when the customer taps it in C-09, in the foreground, for this visit on this phone. A crew update refreshes an existing card; it never starts one. The locked preview is stage-only by default (“BookBuddy visit · On the way”); enabling details in S-18 is separate from following. **Stop following** ends the card without changing the visit. On iOS it ends after at most 8 active hours and never restarts automatically.
 - Workers read in S-18 exactly what customers can see. Lawful basis and notice wording are [unverified] operating decisions; the design collects no location for this.
 
 ## 6. Later category: book a session and follow it on the day

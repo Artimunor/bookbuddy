@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-05-decline-or-cant-make-it--dropout-title W-05-decline-or-cant-make-it--dropout-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="W-05-decline-or-cant-make-it--dropout-title">W-05 Decline or can’t make it — dropout from a confirmed shift</title>
+  <desc id="W-05-decline-or-cant-make-it--dropout-desc">Worker view for Nadia Benali, the original assignee at Reformas Ruiz, at 08:31 Spain time on Tuesday 24 November, Field mode on. The Can’t make it sheet sits over her dimmed confirmed shift for BB-1042, today 09:00 to 10:00 Spain time. The scope card names the shift: Villa Mar in Xàbia, terrace door adjustment, starts in 29 minutes. A critical card says what happens when she sends this: Mateo is told now and looks for cover; she comes off this shift with no undo here; the customer never sees her reason. A reason is optional and only Mateo sees it: the chips are Transport, selected, Another job, Personal and Prefer not to say; health is not asked. The dock says it is sent online and Mateo is told at once. Two actions, 16 units apart: Keep shift, and Tell Mateo with a critical outline. She sends it at 08:32.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">8:31</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Your shift</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">BB-1042 · Terrace door repair</text>
+  </g>
+  <g id="shift-capsule">
+    <rect x="21" y="115" width="348" height="268" rx="31" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+    <rect x="40" y="134" width="100" height="28" rx="14" fill="#15171C"/>
+    <path d="m50 148 3.5 3.5 6-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="66" y="153" font-size="12" font-weight="600" fill="#FFFFFF">Confirmed</text>
+    <text x="350" y="153" font-size="14" font-weight="600" fill="#15171C" text-anchor="end">Reformas Ruiz</text>
+  </g>
+  <g id="sheet">
+    <rect width="390" height="844" fill="#15171C" opacity="0.4"/>
+    <path d="M0 208a32 32 0 0 1 32-32h326a32 32 0 0 1 32 32V844H0z" fill="#FFFFFF"/>
+    <rect x="171" y="186" width="48" height="5" rx="2.5" fill="#DED8CB"/>
+    <text x="20" y="230" font-size="20" font-weight="700" fill="#15171C">Can’t make it?</text>
+    <text x="370" y="229" font-size="17" font-weight="700" fill="#2438B5" text-anchor="end">Close</text>
+    <path d="M324.2 233.5h45.8" stroke="#2438B5" stroke-width="1.5"/>
+    <text x="20" y="254" font-size="14" font-weight="500" fill="#555A66">BB-1042 · today 09:00–10:00 Spain time</text>
+    <g id="scope">
+      <rect x="20.5" y="270.5" width="349" height="71" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+      <rect x="36" y="290" width="32" height="32" rx="12" fill="#ECE8DE"/><path transform="translate(42 296) scale(0.8333)" d="M5 6h14v14H5zm0 4h14M9 4v4m6-4v4" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="80" y="302" font-size="17" font-weight="700" fill="#15171C">Villa Mar · Xàbia</text>
+      <text x="80" y="322" font-size="14" font-weight="500" fill="#555A66">Terrace door adjustment · starts in 29 min</text>
+    </g>
+    <g id="effect">
+      <rect x="20" y="354" width="350" height="122" rx="24" fill="#FCE6E3"/>
+      <text x="40" y="382" font-size="14" font-weight="700" fill="#8A2F28">When you send this</text>
+      <path transform="translate(36 391) scale(0.8333)" d="M12 12h.01M8.500 8.500a5 5 0 0 0 0 7m7-7a5 5 0 0 1 0 7M5.500 5.500a9 9 0 0 0 0 13m13-13a9 9 0 0 1 0 13" fill="none" stroke="#8A2F28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="406" font-size="14" font-weight="500" fill="#8A2F28">Mateo is told now and looks for cover</text>
+      <path transform="translate(36 417) scale(0.8333)" d="M6 6l12 12M18 6 6 18" fill="none" stroke="#8A2F28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="432" font-size="14" font-weight="600" fill="#8A2F28">You come off this shift. No undo here.</text>
+      <path transform="translate(36 443) scale(0.8333)" d="M7 11V8a5 5 0 0 1 10 0v3m-11 0h12v9H6z" fill="none" stroke="#8A2F28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="458" font-size="14" font-weight="500" fill="#8A2F28">The customer never sees your reason</text>
+    </g>
+    <text x="20" y="504" font-size="14" font-weight="600" fill="#15171C">Reason · optional · only Mateo sees it</text>
+    <g id="reason-chips">
+      <rect x="20" y="518" width="138" height="48" rx="24" fill="#15171C"/>
+      <path d="m42 542 4 4 7-8" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="64" y="547" font-size="14" font-weight="700" fill="#FFFFFF">Transport</text>
+      <rect x="170.5" y="518.5" width="127" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/>
+      <text x="234" y="547" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Another job</text>
+      <rect x="20.5" y="578.5" width="107" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/>
+      <text x="74" y="607" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Personal</text>
+      <rect x="140.5" y="578.5" width="159" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/>
+      <text x="220" y="607" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Prefer not to say</text>
+    </g>
+    <g id="sheet-dock">
+      <path d="M0 686.5h390" stroke="#DED8CB"/>
+      <text x="195" y="712" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Send online to notify Mateo and leave this shift</text>
+      <rect x="21" y="733" width="150" height="60" rx="30" fill="#FFFFFF" stroke="#747986" stroke-width="2"/>
+      <text x="96" y="769" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">Keep shift</text>
+      <rect x="189" y="733" width="180" height="60" rx="30" fill="#FFFFFF" stroke="#8A2F28" stroke-width="2"/>
+      <text x="279" y="769" font-size="17" font-weight="700" fill="#8A2F28" text-anchor="middle">Tell Mateo</text>
+    </g>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

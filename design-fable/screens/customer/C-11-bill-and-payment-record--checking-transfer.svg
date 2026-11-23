@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="C-11-bill-and-payment-record--checking-transfer-title C-11-bill-and-payment-record--checking-transfer-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="C-11-bill-and-payment-record--checking-transfer-title">C-11 Bill and payment record — checking a transfer after correction</title>
+  <desc id="C-11-bill-and-payment-record--checking-transfer-desc">Alternative branch for Claire Martin on Wednesday 25 November. Reformas Ruiz’s €240.00 bill RR-0412 is unchanged. Mateo Ruiz, provider admin, recorded it paid at 09:05 Spain time but corrected that entry at 09:18 because the bank reference did not match the bill. The transfer is being checked, not confirmed paid; Claire should not pay again. Her sign-off remains on record. Ask about this bill opens a billing case.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header"><path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Bill and payment</text><text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">BB-1042 · Terrace door repair</text></g>
+  <g id="bill">
+    <rect x="20.5" y="114.5" width="349" height="163" rx="23.5" fill="#FFFFFF" stroke="#DED8CB"/>
+    <text x="40" y="144" font-size="14" font-weight="600" fill="#15171C">Reformas Ruiz</text>
+    <rect x="254" y="127" width="96" height="28" rx="14" fill="#FFEFCF"/>
+    <circle cx="272" cy="141" r="7" fill="none" stroke="#6E4300" stroke-width="1.5"/><path d="M272 137v4l3 2" fill="none" stroke="#6E4300" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="286" y="145" font-size="12" font-weight="600" fill="#6E4300">Checking</text>
+    <text x="40" y="198" font-size="40" font-weight="800" fill="#15171C">€240.00</text><text x="350" y="198" font-size="14" font-weight="500" fill="#555A66" text-anchor="end">Bill total · EUR</text>
+    <text x="40" y="230" font-size="16" font-weight="600" fill="#15171C">Bill RR-0412</text>
+    <text x="40" y="255" font-size="14" font-weight="500" fill="#555A66">Original invoice · approved quote v1</text>
+    <text x="350" y="255" font-size="14" font-weight="700" fill="#2438B5" text-anchor="end" text-decoration="underline">View bill</text>
+  </g>
+  <g id="transfer-status">
+    <rect x="20" y="290" width="350" height="136" rx="24" fill="#FFEFCF"/>
+    <text x="40" y="323" font-size="17" font-weight="700" fill="#6E4300">Checking with the provider</text>
+    <text x="40" y="349" font-size="20" font-weight="700" fill="#6E4300">Don’t pay again.</text>
+    <text x="40" y="381" font-size="16" font-weight="400" fill="#6E4300">Reformas Ruiz is matching the transfer</text>
+    <text x="40" y="405" font-size="16" font-weight="400" fill="#6E4300">to this bill. Your sign-off still stands.</text>
+  </g>
+  <text x="20" y="463" font-size="20" font-weight="700" fill="#15171C">Payment record</text><text x="370" y="463" font-size="14" font-weight="500" fill="#555A66" text-anchor="end">Wed, 25 Nov · Spain time</text>
+  <g id="payment-history">
+    <rect x="20.5" y="480.5" width="349" height="197" rx="23.5" fill="#FFFFFF" stroke="#DED8CB"/>
+    <rect x="36" y="498" width="32" height="32" rx="12" fill="#FFEFCF"/><path d="M46 515a7 7 0 1 0 3-7m-4-1v6h6" fill="none" stroke="#6E4300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="80" y="515" font-size="17" font-weight="700" fill="#15171C">Payment match corrected</text><text x="350" y="515" font-size="14" font-weight="600" fill="#555A66" text-anchor="end">09:18</text>
+    <text x="80" y="539" font-size="14" font-weight="500" fill="#555A66">Mateo Ruiz · Provider admin</text>
+    <text x="80" y="561" font-size="14" font-weight="500" fill="#555A66">Bank reference did not match this bill.</text>
+    <path d="M36 584.5h318" stroke="#DED8CB"/>
+    <rect x="36" y="602" width="32" height="32" rx="12" fill="#ECE8DE"/><path d="m46 618 4 4 8-9" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="80" y="619" font-size="17" font-weight="700" fill="#15171C">Paid entry · corrected</text><text x="350" y="619" font-size="14" font-weight="600" fill="#555A66" text-anchor="end">09:05</text>
+    <text x="80" y="643" font-size="14" font-weight="500" fill="#555A66">Mateo Ruiz · Provider admin</text>
+  </g>
+  <g id="dock"><rect y="724" width="390" height="120" fill="#FFFFFF"/><path d="M0 724.5h390" stroke="#DED8CB"/><rect x="20" y="738" width="350" height="56" rx="28" fill="#15171C"/><text x="195" y="772" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Ask about this bill</text></g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

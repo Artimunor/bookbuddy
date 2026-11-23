@@ -53,7 +53,7 @@ Primary buttons are `brand` with `on-brand` text. A lime button with a 2-unit `i
 Notes for the owning slices:
 
 - **C-09.** The capsule is the only dark object. The band is the hero (Display). The countdown chip is secondary and time-based. On site: the hero becomes "Crew on site" with "Since 09:14 Spain time"; working: "Working" with the latest photo stamp first in Moments; finished: the dock becomes **Review and sign off**. Cover being arranged: state in `on-night`, no band, "Mateo will update you by 08:45", bead 1 as a ring. Follow live disappears once on.
-- **C-19.** Lead with the viewer's time on system surfaces. Trailing island text is at most six characters. The expanded island has one link and no state-changing control.
+- **C-19.** The reference artboards show the detailed preview *after* Claire taps **Follow live** on C-09 and separately allows details on this phone. The default locked preview is “BookBuddy visit · On the way”. Lead with the viewer's time only in the detailed version. Trailing island text is at most six characters. The expanded island has one link and no state-changing control.
 - **W-01.** Viewer is Diego Torres at 08:36. After acceptance the capsule reads "Accepted · waiting for Mateo" with "Do not travel yet"; the dock becomes a quiet **Withdraw**. Shift today uses the same capsule with the day line and a lime **On my way**.
 - **S-10.** Viewer is Claire. Same-language messages are single bubbles. The stamp pills are system events, not messages, and appear only if customer-visible.
 

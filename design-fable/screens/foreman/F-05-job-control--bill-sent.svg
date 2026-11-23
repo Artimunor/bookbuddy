@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="F-05-job-control-bill-sent-title F-05-job-control-bill-sent-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-  <title id="F-05-job-control-bill-sent-title">F-05 Job control — bill sent, not paid</title>
-  <desc id="F-05-job-control-bill-sent-desc">Foreman view for Mateo Ruiz at 10:45 Spain time on Tuesday 24 November. BB-1042 Terrace door repair at Villa Mar in Xàbia is at step 5 of 6, Signed off by Claire Martin on Tuesday at 10:40 Spain time; Whole job is selected in the view switch. The bill card says the bill was sent at 10:42 and is not paid yet: Reformas Ruiz bills Claire directly, €240.00, based on the approved quote version 1, paid outside the app. Claire sees the bill too. A note says Mateo is also a Provider admin and can switch role to record the payment. In the Foreman role the Record as paid action is disabled; the dock says only a Provider admin can record “paid”.</desc>
+  <title id="F-05-job-control-bill-sent-title">F-05 Job control — bill sent, payment not recorded</title>
+  <desc id="F-05-job-control-bill-sent-desc">Mateo sees Claire’s 10:40 sign-off and the bill sent at 10:42 Spain time on Tuesday 24 November. The €240.00 bill for BB-1042 is based on approved quote v1. The payee is Reformas Ruiz; payment has not been recorded. The journey stays at Signed off. Only a Provider admin can record payment, so Mateo must switch to that role before recording it.</desc>
   <rect width="390" height="844" fill="#F6F3EC"/>
   <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">10:45</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
   <g id="header"><path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Terrace door repair</text><text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">BB-1042 · Villa Mar · Xàbia</text><circle cx="336" cy="76" r="2" fill="#15171C"/><circle cx="346" cy="76" r="2" fill="#15171C"/><circle cx="356" cy="76" r="2" fill="#15171C"/></g>
@@ -16,14 +16,14 @@
   <g id="bill">
   <rect x="20.5" y="346.5" width="349" height="167" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
   <rect x="36" y="362" width="32" height="32" rx="12" fill="#FFEFCF"/><path transform="translate(42 368) scale(0.8333)" d="M6 4h12v16l-3-2-3 2-3-2-3 2zM9 9h6M9 13h6" fill="none" stroke="#6E4300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="80" y="376" font-size="17" font-weight="700" fill="#15171C">Bill sent · not paid yet</text>
+  <text x="80" y="376" font-size="17" font-weight="700" fill="#15171C">Bill sent</text>
   <text x="354" y="376" font-size="14" font-weight="600" fill="#555A66" text-anchor="end">10:42</text>
-  <text x="80" y="397" font-size="14" font-weight="500" fill="#555A66">Reformas Ruiz bills Claire directly</text>
+  <text x="80" y="397" font-size="14" font-weight="500" fill="#555A66">Payment not recorded</text>
   <path d="M40 414.5h310" stroke="#DED8CB"/>
   <text x="40" y="446" font-size="14" font-weight="500" fill="#555A66">Amount</text>
   <text x="350" y="447" font-size="20" font-weight="700" fill="#15171C" text-anchor="end">€240.00</text>
   <text x="40" y="472" font-size="14" font-weight="500" fill="#555A66">Based on</text><text x="350" y="472" font-size="14" font-weight="600" fill="#15171C" text-anchor="end">Quote v1 · approved</text>
-  <text x="40" y="496" font-size="14" font-weight="500" fill="#555A66">Paid</text><text x="350" y="496" font-size="14" font-weight="600" fill="#15171C" text-anchor="end">Outside the app</text>
+  <text x="40" y="496" font-size="14" font-weight="500" fill="#555A66">Payee</text><text x="350" y="496" font-size="14" font-weight="600" fill="#15171C" text-anchor="end">Reformas Ruiz</text>
   </g>
   <g id="share-row">
   <rect x="20" y="526" width="350" height="48" rx="24" fill="#E3EEFB"/>

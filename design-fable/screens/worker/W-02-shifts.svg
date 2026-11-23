@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-02-shifts-title W-02-shifts-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="W-02-shifts-title">W-02 Shifts — upcoming</title>
+  <desc id="W-02-shifts-desc">Diego Torres, Worker at Reformas Ruiz, at 08:44 Spain time on Tuesday 24 November. Upcoming is selected. His first shift today is terrace door adjustment in Xàbia from 09:00 to 10:00, confirmed by Mateo. Next is a confirmed window lock replacement from 10:30 to 12:30. Availability opens his open-to-cover hours. The live pill opens today’s first shift without changing its status.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">8:44</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <circle cx="40" cy="76" r="20" fill="#DDF3E4"/><text x="40" y="81" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">DT</text>
+    <text x="72" y="72" font-size="17" font-weight="700" fill="#15171C">Diego</text>
+    <text x="72" y="92" font-size="14" font-weight="500" fill="#555A66">Worker · Reformas Ruiz</text>
+    <rect x="322.5" y="52.5" width="47" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/>
+    <path transform="translate(334 64)" d="M6 16h12l-1.5-2v-4a4.5 4.5 0 0 0-9 0v4zm4 3a2 2 0 0 0 4 0" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="content">
+    <text x="20" y="148" font-size="28" font-weight="800" fill="#15171C">Shifts</text>
+    <text x="20" y="172" font-size="14" font-weight="500" fill="#555A66">Your shifts · Spain time</text>
+    <g id="segments">
+      <rect x="20" y="188" width="146" height="48" rx="24" fill="#15171C"/>
+      <path d="m36 212 4 4 7-8" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="58" y="217" font-size="14" font-weight="700" fill="#FFFFFF">Upcoming · 2</text>
+      <rect x="178.5" y="188.5" width="91" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/>
+      <text x="224" y="217" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Offers</text>
+      <rect x="282.5" y="188.5" width="87" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/>
+      <text x="326" y="217" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Past</text>
+    </g>
+    <text x="20" y="266" font-size="17" font-weight="700" fill="#15171C">Today</text>
+    <text x="370" y="266" font-size="14" font-weight="500" fill="#555A66" text-anchor="end">Tue, 24 Nov</text>
+    <g id="shift-today">
+      <rect x="20.5" y="280.5" width="349" height="135" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+      <text x="40" y="314" font-size="20" font-weight="700" fill="#15171C">09:00–10:00</text>
+      <rect x="244" y="294" width="106" height="28" rx="14" fill="#E1F3E4"/>
+      <path transform="translate(253 300) scale(0.6667)" d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="275" y="313" font-size="12" font-weight="600" fill="#1E5A32">Confirmed</text>
+      <text x="40" y="340" font-size="17" font-weight="700" fill="#15171C">Villa Mar · Xàbia</text>
+      <text x="40" y="361" font-size="14" font-weight="500" fill="#555A66">Terrace door adjustment · BB-1042</text>
+      <path d="M40 376.5h310" stroke="#DED8CB"/>
+      <circle cx="48" cy="396" r="7" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+      <text x="66" y="401" font-size="14" font-weight="600" fill="#15171C">Starts in 16 min · next: On my way</text>
+      <path transform="translate(330 384)" d="m10 6 6 6-6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <text x="20" y="450" font-size="17" font-weight="700" fill="#15171C">Later today</text>
+    <g id="shift-later">
+      <rect x="20.5" y="464.5" width="349" height="135" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+      <text x="40" y="498" font-size="20" font-weight="700" fill="#15171C">10:30–12:30</text>
+      <rect x="244" y="478" width="106" height="28" rx="14" fill="#E1F3E4"/>
+      <path transform="translate(253 484) scale(0.6667)" d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="275" y="497" font-size="12" font-weight="600" fill="#1E5A32">Confirmed</text>
+      <text x="40" y="524" font-size="17" font-weight="700" fill="#15171C">Casa Montgó · Xàbia</text>
+      <text x="40" y="545" font-size="14" font-weight="500" fill="#555A66">Window lock replacement · BB-1049</text>
+      <path d="M40 560.5h310" stroke="#DED8CB"/>
+      <circle cx="48" cy="580" r="7" fill="#FFFFFF" stroke="#747986" stroke-width="2"/>
+      <text x="66" y="585" font-size="14" font-weight="600" fill="#555A66">After Villa Mar · view shift details</text>
+      <path transform="translate(330 568)" d="m10 6 6 6-6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="availability-row">
+      <rect x="20.5" y="612.5" width="349" height="57" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+      <text x="40" y="637" font-size="14" font-weight="700" fill="#15171C">Availability</text>
+      <text x="40" y="656" font-size="12" font-weight="600" fill="#555A66">Open to cover today until 18:00</text>
+      <path transform="translate(330 629)" d="m10 6 6 6-6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+  <g id="live-pill">
+    <rect x="21" y="683" width="348" height="54" rx="27" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+    <circle cx="48" cy="710" r="9" fill="none" stroke="#15171C" stroke-width="1.5"/><circle cx="48" cy="710" r="5" fill="#15171C"/>
+    <text x="68" y="716" font-size="17" font-weight="700" fill="#15171C">Shift today · 09:00–10:00</text>
+    <path transform="translate(330 698)" d="m10 6 6 6-6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="tab-bar"><rect y="746" width="390" height="98" fill="#FFFFFF"/><path d="M0 746.5h390" stroke="#DED8CB"/><circle cx="65" cy="769" r="9" fill="none" stroke="#555A66" stroke-width="2"/><circle cx="65" cy="769" r="3.5" fill="#555A66"/><text x="65" y="798" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Now</text><path transform="translate(183 757)" d="M5 6h14v14H5zm0 4h14M9 4v4m6-4v4" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="195" y="798" font-size="12" font-weight="700" fill="#15171C" text-anchor="middle">Shifts</text><circle cx="195" cy="806" r="2" fill="#15171C"/><path transform="translate(313 757)" d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="325" y="798" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Messages</text></g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

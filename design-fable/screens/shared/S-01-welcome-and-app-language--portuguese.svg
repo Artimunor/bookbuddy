@@ -1,21 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="S-01-welcome-and-app-language--portuguese-title S-01-welcome-and-app-language--portuguese-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="S-01-welcome-and-app-language--portuguese-title">S-01 Welcome and app language — Portuguese</title>
-  <desc id="S-01-welcome-and-app-language--portuguese-desc">First launch on a phone set to European Portuguese, before sign-in. The same page in Portuguese: repairs you can follow live, a labelled example of the live card, on the way and arriving 09:10 to 09:20 Spain time, and the app language choice with Português selected and English offered. One action: Começar, which leads to sign-in by email. The longer Portuguese strings wrap or sit on their own line; nothing is shrunk.</desc>
+  <desc id="S-01-welcome-and-app-language--portuguese-desc">Ecrã de boas-vindas em português de Portugal. No exemplo da aplicação, a equipa está a caminho e chega entre as 09:10 e as 09:20, hora de Espanha. Ao seguir a visita, o ecrã de bloqueio mostra apenas a etapa. Mostrar detalhes é uma opção de privacidade separada. Os avisos dizem apenas «BookBuddy · Tem uma atualização». Português é o idioma selecionado; English também está disponível. Começar abre o início de sessão.</desc>
   <rect width="390" height="844" fill="#F6F3EC"/>
   <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
   <g id="brand">
     <circle cx="40" cy="76" r="20" fill="#15171C"/><circle cx="40" cy="76" r="9" fill="none" stroke="#D6F33C" stroke-width="1.5"/><circle cx="40" cy="76" r="5" fill="#D6F33C"/>
-    <text x="72" y="72" font-size="17" font-weight="700" fill="#15171C">BookBuddy</text>
-    <text x="72" y="92" font-size="14" font-weight="500" fill="#555A66">Costa Blanca</text>
+    <text x="72" y="82" font-size="17" font-weight="700" fill="#15171C">BookBuddy</text>
   </g>
   <g id="intro">
     <text x="20" y="150" font-size="28" font-weight="800" fill="#15171C">Reparações que pode</text>
     <text x="20" y="184" font-size="28" font-weight="800" fill="#15171C">seguir em direto.</text>
-    <text x="20" y="214" font-size="16" font-weight="400" fill="#15171C">Uma equipa local na Costa Blanca e cada</text>
-    <text x="20" y="238" font-size="16" font-weight="400" fill="#15171C">passo partilhado na hora. Sem rastreio.</text>
+    <text x="20" y="214" font-size="16" font-weight="400" fill="#15171C">A equipa local partilha cada etapa da reparação.</text>
+    <text x="20" y="238" font-size="16" font-weight="400" fill="#15171C">Sem seguir a localização de ninguém.</text>
   </g>
   <g id="example-capsule">
-    <rect x="20" y="258" width="350" height="200" rx="32" fill="#15171C"/>
+    <rect x="20" y="258" width="350" height="216" rx="32" fill="#15171C"/>
     <circle cx="46" cy="285" r="9" fill="none" stroke="#D6F33C" stroke-width="1.5"/><circle cx="46" cy="285" r="5" fill="#D6F33C"/>
     <text x="64" y="290" font-size="14" font-weight="600" fill="#F6F3EC">Porta do terraço</text>
     <rect x="274" y="271" width="76" height="28" rx="14" fill="#3B404B"/>
@@ -23,12 +22,18 @@
     <text x="40" y="334" font-size="28" font-weight="800" fill="#F6F3EC">A caminho</text>
     <text x="350" y="332" font-size="20" font-weight="700" fill="#D6F33C" text-anchor="end">09:10–09:20</text>
     <text x="40" y="356" font-size="14" font-weight="500" fill="#B1B5C0">Chegada · hora de Espanha</text>
-    <g id="job-line"><path d="M50 386H340" stroke="#3B404B" stroke-width="6" stroke-linecap="round"/><path d="M50 386H158.8" stroke="#D6F33C" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="386" r="10" fill="#D6F33C"/><path d="m46 386 3 3 5-6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="122.5" cy="386" r="15" fill="none" stroke="#D6F33C" stroke-width="2"/><circle cx="122.5" cy="386" r="10" fill="#D6F33C"/><circle cx="122.5" cy="386" r="3" fill="#15171C"/><circle cx="195" cy="386" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><circle cx="267.5" cy="386" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><circle cx="340" cy="386" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><text x="122.5" y="418" font-size="12" font-weight="600" fill="#F6F3EC" text-anchor="middle">A caminho</text><text x="195" y="418" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="middle">No local</text><text x="267.5" y="418" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="middle">Em obra</text><text x="350" y="418" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="end">Concluído</text></g>
-    <text x="40" y="442" font-size="12" font-weight="600" fill="#B1B5C0">Partilhado por Mateo · 08:52, hora de Espanha</text>
+    <g id="job-line"><path d="M50 386H340" stroke="#3B404B" stroke-width="6" stroke-linecap="round"/><path d="M50 386H158.8" stroke="#D6F33C" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="386" r="10" fill="#D6F33C"/><path d="m46 386 3 3 5-6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="122.5" cy="386" r="15" fill="none" stroke="#D6F33C" stroke-width="2"/><circle cx="122.5" cy="386" r="10" fill="#D6F33C"/><circle cx="122.5" cy="386" r="3" fill="#15171C"/><circle cx="195" cy="386" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><circle cx="267.5" cy="386" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><circle cx="340" cy="386" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/>
+      <text x="122.5" y="418" font-size="12" font-weight="600" fill="#F6F3EC" text-anchor="middle">A caminho</text>
+      <text x="195" y="418" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="middle">No local</text>
+      <text x="267.5" y="418" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="middle">Em obra</text>
+      <text x="350" y="436" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="end">Concluído</text>
+    </g>
+    <text x="40" y="458" font-size="12" font-weight="600" fill="#B1B5C0">Partilhado por Mateo · 08:52, hora de Espanha</text>
   </g>
-  <text x="20" y="482" font-size="14" font-weight="500" fill="#555A66">Um cartão em direto por marcação: na aplicação,</text>
-  <text x="20" y="502" font-size="14" font-weight="500" fill="#555A66">no ecrã de bloqueio e nas notificações.</text>
-  <g id="app-language">
+  <text x="20" y="494" font-size="14" font-weight="500" fill="#555A66">Siga a visita para ver a etapa no ecrã bloqueado.</text>
+  <text x="20" y="514" font-size="14" font-weight="500" fill="#555A66">Os detalhes só aparecem se os ativar em Privacidade.</text>
+  <text x="20" y="534" font-size="14" font-weight="500" fill="#555A66">Avisos: «BookBuddy · Tem uma atualização».</text>
+  <g id="app-language" transform="translate(0 26)">
     <rect x="20.5" y="524.5" width="349" height="135" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
     <path transform="translate(40 538)" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm-9 9h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="76" y="556" font-size="17" font-weight="700" fill="#15171C">Idioma da aplicação</text>

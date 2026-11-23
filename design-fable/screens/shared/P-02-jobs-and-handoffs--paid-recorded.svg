@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="P-02-jobs-and-handoffs--paid-recorded-title P-02-jobs-and-handoffs--paid-recorded-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="P-02-jobs-and-handoffs--paid-recorded-title">P-02 Jobs and handoffs — paid recorded</title>
-  <desc id="P-02-jobs-and-handoffs--paid-recorded-desc">Provider admin view for Mateo Ruiz at Reformas Ruiz at 09:05 Spain time on Wednesday 25 November. The terrace door repair, BB-1042, at Villa Mar in Xàbia is selected and its journey line is complete. A green block records the payment: paid, €240.00, recorded by Mateo Ruiz on Wednesday 25 November at 09:05 Spain time. Claire Martin now sees the bill as paid; it was paid to the provider directly, not in the app. A link allows a correction. No dock is shown because nothing is left to do on this job. The next card, the bathroom tap replacement BB-1038, is signed off with a bill of €95.00 sent and not yet recorded as paid.</desc>
+  <desc id="P-02-jobs-and-handoffs--paid-recorded-desc">The Reformas Ruiz bank receipt matches the €240.00 invoice RR-0412 for job BB-1042. Mateo, provider admin, recorded the match at 09:05 Spain time on Wednesday 25 November. Claire’s bill record now reports paid. Correct this record appends a correction to the same invoice. The separate bill for BB-1038 remains outstanding.</desc>
   <rect width="390" height="844" fill="#F6F3EC"/>
   <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:05</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
   <g id="header"><circle cx="40" cy="76" r="20" fill="#DDEBFF"/><text x="40" y="81" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">MR</text><text x="72" y="72" font-size="17" font-weight="700" fill="#15171C">Mateo</text><text x="72" y="92" font-size="14" font-weight="500" fill="#555A66">Provider admin · Reformas Ruiz</text><rect x="322.5" y="52.5" width="47" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/><path transform="translate(334 64)" d="M6 16h12l-1.5-2v-4a4.5 4.5 0 0 0-9 0v4zm4 3a2 2 0 0 0 4 0" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
@@ -21,8 +21,8 @@
   <text x="84" y="418" font-size="14" font-weight="500" fill="#15171C">Recorded by you, Mateo Ruiz</text>
   <text x="84" y="438" font-size="14" font-weight="500" fill="#15171C">Wed, 25 Nov · 09:05 Spain time</text>
   
-  <text x="40" y="484" font-size="14" font-weight="500" fill="#555A66">Claire Martin now sees it as paid.</text>
-  <text x="40" y="504" font-size="14" font-weight="500" fill="#555A66">Paid to the provider, not in the app.</text>
+  <text x="40" y="484" font-size="14" font-weight="600" fill="#15171C">Bank receipt matched to RR-0412.</text>
+  <text x="40" y="504" font-size="14" font-weight="500" fill="#555A66">Paid directly to Reformas Ruiz.</text>
   <text x="40" y="536" font-size="14" font-weight="700" fill="#2438B5">Correct this record</text><path d="M40.0 540.5h126.2" stroke="#2438B5" stroke-width="1.5"/>
   </g>
   

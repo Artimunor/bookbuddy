@@ -1,6 +1,6 @@
 # Personas and roles
 
-The first release is managed repairs and small renovations in one Costa Blanca catchment. The local provider contracts with and bills the customer; BookBuddy coordinates the handoff from customer to foreman and crew. The personas and role limits are **reused from the [reference design](../../design/foundation/personas-and-roles.md)**, which got them right. This file restates them briefly and adds what Beacon changes: what "live" means for each person, and what each person may see of the others. Profiles are design hypotheses, not interview findings. Device mix and field conditions are [unverified].
+The first release focuses on managed repairs and small renovations. The pilot location, size and duration are not yet decided. The repair in Xàbia is a fictional example; until an operating area is approved, use “A local crew” rather than naming a service area in the welcome. The local provider contracts with and bills the customer; BookBuddy coordinates the handoff from customer to foreman and crew. The personas and role limits are **reused from the [reference design](../../design/foundation/personas-and-roles.md)**, which got them right. This file restates them briefly and adds what Beacon changes: what "live" means for each person, and what each person may see of the others. Profiles are design hypotheses, not interview findings. Device mix and field conditions are [unverified].
 
 ## Customer personas
 

@@ -152,12 +152,16 @@ Decisions, hierarchy and wording are the same on both platforms. Chrome, safe ar
 
 All system surfaces follow three rules: they **open a record and never perform an action**; they show **no address, access detail, price, message text or worker position**; and missing permission, dismissal or expiry **never blocks or changes** a booking, a shift or attendance. Limits are from the [Live Activities research](../../research/tech-stack/live-activities-and-geofenced-attendance.md).
 
+At launch, an ordinary push can open the record after unlock, and a status push can update a running card. Neither starts a visit card. iOS supports push-to-start from 17.2; Beacon does not use it at launch. On this phone, **Hide details** in S-18 starts on: a followed visit shows “BookBuddy visit · On the way”, without names, reference, arrival time or photos. An ordinary locked notification says “BookBuddy · You have an update”. Following and allowing more detail are separate choices; the OS may still hide the preview.
+
 | Surface | Starts | Ends | Updates |
 | --- | --- | --- | --- |
-| Customer visit (C-19, C-20) | In the foreground when the customer taps **Follow live**, or by push-to-start (iOS 17.2 or later) at the first live stamp of the day if they opted in. Older iOS: an ordinary push that opens C-09, which starts it. | At Finished (final state can stay up to 4 hours) or at the 8-hour cap, whichever is first. Never chained. | On stage change only: about six pushes per visit. Countdown and rail fill are rendered by the OS from a timer. A stale date is set at the end of the arrival band. |
+| Customer visit (C-19, C-20) | Only when the customer taps **Follow live** in C-09 in the foreground, for this visit on this phone. Opening C-09 is not enough. | On **Stop following** or Finished; an iOS Live Activity also ends at the 8-hour cap. Its final snapshot may remain visible up to 4 more hours. Never chained. | Stage changes only. Where the customer allows details, the OS renders the countdown from the shared estimate. The card becomes stale at the end of the arrival band. |
 | Worker shift (W-11, W-12) | Locally, in the foreground, after a deliberate check-in, if the worker opted in. Never from a geofence. | At check-out, or at 8 hours with "Open the app to check out". | Local. Timer "Since check-in" rendered by the OS. Never shows a safety all-clear. |
-| Foreman cover search (F-18) | Locally, in the foreground, when the foreman sends offers. | When cover is confirmed, the search is closed, or no cover is found. | Push on acceptance, decline or expiry. Countdown to the reply deadline is OS-rendered. Confirmation happens in F-12, never on the Lock Screen. |
-| Session (L-07, later) | Foreground, or push-to-start on the day of the session if opted in. | At the session's end time. | Stage changes only. |
+| Foreman cover search (F-18) | In the foreground when the foreman sends offers, if the foreman has opted in to the cover card. | When cover is confirmed, the search is closed, or no cover is found. | Push on acceptance, decline or expiry. Countdown to the reply deadline is OS-rendered. Confirmation happens in F-12, never on the Lock Screen. |
+| Session (L-07, later) | Not at launch. In the later flow, the customer chooses to follow the session in L-05. | At the session's end time. | Stage changes only. |
+
+**Detailed previews:** the layouts below show the fields available after the user permits detail. Keep the generic preview on any locked surface while **Hide details** is on, including the Dynamic Island and Android notification.
 
 **Lock Screen layout** (370 × 160, radius 28, `night`, padding 16):
 
@@ -193,7 +197,7 @@ Users can swipe most ongoing notifications away on Android 14 and later. Dismiss
 - **Text scaling:** honour Dynamic Type and Android font scale to the largest sizes. Rows and docks grow, actions stack, sheets scroll. Times, prices, deadlines and consent text are never truncated.
 - **Screen readers:** the capsule reads as one sentence: state, time with zone, who shared it and when. The job line is announced as "Step 2 of 5, On the way". Pulses, rings and avatars are decorative. Status changes are announced politely without moving focus. Countdowns are not announced on every tick.
 - **Colour:** every state is also text and a glyph. Lime is paired with the word for the state.
-- **Privacy on glance surfaces:** see the Live surfaces rules. S-18 lets a user hide details on the Lock Screen ("BookBuddy visit · On the way").
+- **Privacy on glance surfaces:** in S-18, **Hide details** is on by default. Turning it off allows a detailed preview; it does not start a card or override OS privacy settings.
 
 ## Localisation and original content
 

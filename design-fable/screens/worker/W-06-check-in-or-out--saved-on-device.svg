@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-06-check-in-or-out--saved-on-device-title W-06-check-in-or-out--saved-on-device-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="W-06-check-in-or-out--saved-on-device-title">W-06 Check in or out — check-in saved on this device, pending sync</title>
+  <desc id="W-06-check-in-or-out--saved-on-device-desc">Alternative branch: Diego Torres at 09:14 Spain time on Tuesday 24 November, Field mode on, tapped Record check-in with no connection. The Check in sheet stays open over his dimmed shift screen and shows the result. An amber line says Offline, last confirmed 09:12 Spain time. A dashed card, the pending-sync style, says Saved on this device, pending sync, not sent yet: 09:14 Spain time, Tuesday 24 November, his tap, at Villa Mar in Xàbia, shift 09:00 to 10:00. Until it syncs: Mateo does not see his check-in yet; the customer still sees On the way; it sends once when he is online, timed 09:14; work still waits for Mateo’s briefing. Nothing calls it recorded, checked in or cleared. The dock says it sends by itself when he is back online. One ink action: Back to your shift.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:14</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Your shift</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">BB-1042 · Terrace door repair</text>
+  </g>
+  <g id="sheet">
+    <rect width="390" height="844" fill="#15171C" opacity="0.4"/>
+    <path d="M0 152a32 32 0 0 1 32-32h326a32 32 0 0 1 32 32V844H0z" fill="#FFFFFF"/>
+    <rect x="171" y="130" width="48" height="5" rx="2.5" fill="#DED8CB"/>
+    <text x="20" y="172" font-size="20" font-weight="700" fill="#15171C">Check in</text>
+    <text x="370" y="171" font-size="17" font-weight="700" fill="#2438B5" text-anchor="end">Close</text>
+    <path d="M324.2 175.5h45.8" stroke="#2438B5" stroke-width="1.5"/>
+    <text x="20" y="196" font-size="14" font-weight="500" fill="#555A66">BB-1042 · Terrace door repair</text>
+    <g id="offline-line">
+      <rect x="20" y="211" width="350" height="48" rx="24" fill="#FFEFCF"/>
+      <path transform="translate(36 223)" d="M2 8.500a15 15 0 0 1 20 0M5 12a10.500 10.500 0 0 1 14 0M8.500 15.500a5.500 5.500 0 0 1 7 0M12 19h.01M3 3l18 18" fill="none" stroke="#6E4300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="70" y="240" font-size="14" font-weight="600" fill="#6E4300">Offline · last confirmed 09:12 Spain time</text>
+    </g>
+    <g id="saved-event">
+      <rect x="21" y="272" width="348" height="152" rx="23" fill="#FFFFFF" stroke="#747986" stroke-width="2" stroke-dasharray="6 6"/>
+      <rect x="40.5" y="290.500" width="31" height="31" rx="11.500" fill="#FFFFFF" stroke="#747986" stroke-dasharray="4 4"/>
+      <path transform="translate(46 296) scale(0.8333)" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 4.500V12l3 2" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="84" y="304" font-size="17" font-weight="700" fill="#15171C">Saved on this device</text>
+      <text x="84" y="324" font-size="14" font-weight="600" fill="#6E4300">Pending sync · not sent yet</text>
+      <text x="40" y="376" font-size="40" font-weight="800" fill="#15171C">09:14</text>
+      <text x="168" y="358" font-size="17" font-weight="700" fill="#15171C">Spain time</text>
+      <text x="168" y="378" font-size="14" font-weight="500" fill="#555A66">Tue, 24 Nov · your tap</text>
+      <text x="40" y="406" font-size="14" font-weight="600" fill="#15171C">Villa Mar · Xàbia · shift 09:00–10:00</text>
+    </g>
+    <g id="until-it-syncs">
+      <rect x="20.5" y="436.500" width="349" height="150" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+      <text x="40" y="464" font-size="14" font-weight="700" fill="#15171C">Until it syncs</text>
+      <path transform="translate(36 473) scale(0.8333)" d="M6 6l12 12M18 6 6 18" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="488" font-size="14" font-weight="500" fill="#15171C">Mateo doesn’t see your check-in yet</text>
+      <path transform="translate(36 499) scale(0.8333)" d="M6 6l12 12M18 6 6 18" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="514" font-size="14" font-weight="500" fill="#15171C">The customer still sees “On the way”</text>
+      <path transform="translate(36 525) scale(0.8333)" d="M4 12a8 8 0 0 1 14-5.300L20 9m0-5v5h-5M20 12a8 8 0 0 1-14 5.300L4 15m0 5v-5h5" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="540" font-size="14" font-weight="500" fill="#15171C">Sends once when you’re online, timed 09:14</text>
+      <path transform="translate(36 551) scale(0.8333)" d="M8 13V6.5a1.5 1.5 0 0 1 3 0V11m0-5.5a1.5 1.5 0 0 1 3 0V11m0-4a1.5 1.5 0 0 1 3 0v7.5a6 6 0 0 1-6 6h-.5a6 6 0 0 1-5.2-3L5 14.5a1.5 1.5 0 0 1 2.6-1.5L8 14" fill="none" stroke="#6E4300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="566" font-size="14" font-weight="600" fill="#6E4300">Work still waits for Mateo’s briefing</text>
+    </g>
+    <g id="sheet-dock">
+      <path d="M0 686.5h390" stroke="#DED8CB"/>
+      <text x="195" y="712" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">It sends by itself when you’re back online</text>
+      <rect x="20" y="732" width="350" height="62" rx="31" fill="#15171C"/>
+      <text x="195" y="769" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Back to your shift</text>
+    </g>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

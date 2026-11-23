@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-05-decline-or-cant-make-it-title W-05-decline-or-cant-make-it-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="W-05-decline-or-cant-make-it-title">W-05 Decline or can’t make it — decline an open offer</title>
+  <desc id="W-05-decline-or-cant-make-it-desc">Alternative branch in which Diego does not take the cover: worker view for Diego Torres at 08:39 Spain time on Tuesday 24 November, Field mode on. The Decline sheet sits over the dimmed offer screen, where the offer capsule still shows today 09:00 to 10:00 Spain time and 3 minutes left to reply by 08:42. The sheet is titled Decline this offer, for the cover today 09:00 to 10:00 Spain time, with Close at the top. When he declines: only his offer closes; Mateo sees that he declined and when; he stays open to cover today until 18:00. A reason is optional and only Mateo sees it; the chips are Busy then, Too far away and Prefer not to say, none selected. The dock says declining can’t be undone and 3 minutes are left to reply. Two actions, 16 units apart: Keep offer, and Decline offer with a critical outline.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">8:39</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Cover offer</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">From Mateo Ruiz · Reformas Ruiz</text>
+  </g>
+  <g id="offer-capsule">
+    <rect x="21" y="115" width="348" height="216" rx="31" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+    <rect x="40" y="134" width="102" height="28" rx="14" fill="#15171C"/>
+    <text x="91" y="153" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle">Offer open</text>
+    <text x="350" y="153" font-size="14" font-weight="600" fill="#15171C" text-anchor="end">Your crew</text>
+    <text x="40" y="200" font-size="28" font-weight="800" fill="#15171C">Today 09:00–10:00</text>
+    <text x="40" y="222" font-size="14" font-weight="500" fill="#15171C">Spain time · starts in 21 min</text>
+    <path d="M40 240.5h310" stroke="#15171C"/>
+    <g id="offer-clock">
+      <circle cx="72" cy="284" r="28" fill="none" stroke="#BFDC22" stroke-width="6"/>
+      <path d="M72 256a28 28 0 0 1 14 52.25" fill="none" stroke="#15171C" stroke-width="6" stroke-linecap="round"/>
+      <text x="72" y="284" font-size="20" font-weight="800" fill="#15171C" text-anchor="middle">3</text>
+      <text x="72" y="298" font-size="12" font-weight="600" fill="#15171C" text-anchor="middle">min</text>
+    </g>
+    <text x="116" y="278" font-size="20" font-weight="700" fill="#15171C">Reply by 08:42</text>
+  </g>
+  <g id="sheet">
+    <rect width="390" height="844" fill="#15171C" opacity="0.4"/>
+    <path d="M0 332a32 32 0 0 1 32-32h326a32 32 0 0 1 32 32V844H0z" fill="#FFFFFF"/>
+    <rect x="171" y="310" width="48" height="5" rx="2.5" fill="#DED8CB"/>
+    <text x="20" y="354" font-size="20" font-weight="700" fill="#15171C">Decline this offer?</text>
+    <text x="370" y="353" font-size="17" font-weight="700" fill="#2438B5" text-anchor="end">Close</text>
+    <path d="M324.2 357.5h45.8" stroke="#2438B5" stroke-width="1.5"/>
+    <text x="20" y="378" font-size="14" font-weight="500" fill="#555A66">Cover · today 09:00–10:00 Spain time</text>
+    <g id="effect">
+      <rect x="20" y="394" width="350" height="122" rx="24" fill="#E3EEFB"/>
+      <text x="40" y="422" font-size="14" font-weight="700" fill="#1E4A7D">When you decline</text>
+      <path transform="translate(36 431) scale(0.8333)" d="M6 6l12 12M18 6 6 18" fill="none" stroke="#1E4A7D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="446" font-size="14" font-weight="500" fill="#1E4A7D">Only your offer closes</text>
+      <path transform="translate(36 457) scale(0.8333)" d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12zm10-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" fill="none" stroke="#1E4A7D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="472" font-size="14" font-weight="500" fill="#1E4A7D">Mateo sees that you declined, and when</text>
+      <path transform="translate(36 483) scale(0.8333)" d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#1E4A7D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="66" y="498" font-size="14" font-weight="500" fill="#1E4A7D">You stay open to cover today until 18:00</text>
+    </g>
+    <text x="20" y="544" font-size="14" font-weight="600" fill="#15171C">Reason · optional · only Mateo sees it</text>
+    <g id="reason-chips">
+      <rect x="20.5" y="558.5" width="115" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/>
+      <text x="78" y="587" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Busy then</text>
+      <rect x="148.5" y="558.5" width="133" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/>
+      <text x="215" y="587" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Too far away</text>
+      <rect x="20.5" y="618.5" width="159" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/>
+      <text x="100" y="647" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Prefer not to say</text>
+    </g>
+    <g id="sheet-dock">
+      <path d="M0 686.5h390" stroke="#DED8CB"/>
+      <text x="195" y="712" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Declining can’t be undone · 3 min left to reply</text>
+      <rect x="21" y="733" width="150" height="60" rx="30" fill="#FFFFFF" stroke="#747986" stroke-width="2"/>
+      <text x="96" y="769" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">Keep offer</text>
+      <rect x="189" y="733" width="180" height="60" rx="30" fill="#FFFFFF" stroke="#8A2F28" stroke-width="2"/>
+      <text x="279" y="769" font-size="17" font-weight="700" fill="#8A2F28" text-anchor="middle">Decline offer</text>
+    </g>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

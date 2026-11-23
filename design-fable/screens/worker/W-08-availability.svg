@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-08-availability-title W-08-availability-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="W-08-availability-title">W-08 Availability — available</title>
+  <desc id="W-08-availability-desc">Worker view for Diego Torres at Reformas Ruiz on Monday 23 November, Field mode on, times in Spain time. A week strip for 23 to 29 November 2026 marks today, Monday 23, and selects Tuesday 24; a dot means hours are set, a cross means unavailable and no mark means not set. Previous and next week buttons sit beside the range. The day card for Tuesday 24 November is Available: the choice Available is selected beside Unavailable; he can work 08:00 to 18:00, with a Change button; and a row shows his confirmed shift from 10:30 to 12:30, which stays as it is. Open to cover is on for this day: Mateo can send him short-notice offers until 18:00 and he chooses each time. Each change applies at once and shows a receipt: Saved, Monday 23 November 09:38 Spain time. Mateo sees his hours, not his reasons, and changing availability never cancels a shift. There is no primary action.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Availability</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">Reformas Ruiz · Spain time</text>
+  </g>
+  <g id="week">
+    <text x="20" y="146" font-size="17" font-weight="700" fill="#15171C">23–29 Nov 2026</text>
+    <circle cx="286" cy="140" r="21" fill="#FFFFFF" stroke="#747986" stroke-width="2"/><path transform="translate(274 128)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="348" cy="140" r="21" fill="#FFFFFF" stroke="#747986" stroke-width="2"/><path transform="translate(336 128)" d="m10 6 6 6-6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="21" y="177" width="42" height="58" rx="15" fill="#FFFFFF" stroke="#15171C" stroke-width="2"/><text x="42" y="195" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Mon</text><text x="42" y="217" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">23</text><circle cx="42" cy="227" r="2.5" fill="#15171C"/>
+    <rect x="71" y="176" width="44" height="60" rx="16" fill="#15171C"/><text x="93" y="195" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle">Tue</text><text x="93" y="217" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">24</text><circle cx="93" cy="227" r="2.5" fill="#FFFFFF"/>
+    <rect x="122.5" y="176.5" width="43" height="59" rx="15.5" fill="#FFFFFF" stroke="#DED8CB"/><text x="144" y="195" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Wed</text><text x="144" y="217" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">25</text><circle cx="144" cy="227" r="2.5" fill="#15171C"/>
+    <rect x="173.5" y="176.5" width="43" height="59" rx="15.5" fill="#FFFFFF" stroke="#DED8CB"/><text x="195" y="195" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Thu</text><text x="195" y="217" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">26</text><path d="m192 224 6 6m0-6-6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round"/>
+    <rect x="224.5" y="176.5" width="43" height="59" rx="15.5" fill="#FFFFFF" stroke="#DED8CB"/><text x="246" y="195" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Fri</text><text x="246" y="217" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">27</text><circle cx="246" cy="227" r="2.5" fill="#15171C"/>
+    <rect x="275.5" y="176.5" width="43" height="59" rx="15.5" fill="#FFFFFF" stroke="#DED8CB"/><text x="297" y="195" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Sat</text><text x="297" y="217" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">28</text>
+    <rect x="326.5" y="176.5" width="43" height="59" rx="15.5" fill="#FFFFFF" stroke="#DED8CB"/><text x="348" y="195" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Sun</text><text x="348" y="217" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">29</text>
+    <text x="20" y="256" font-size="12" font-weight="600" fill="#555A66">Dot: hours set · Cross: unavailable · No mark: not set</text>
+  </g>
+  <g id="day-card">
+    <rect x="20.5" y="270.5" width="349" height="252" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+    <text x="40" y="303" font-size="20" font-weight="700" fill="#15171C">Tue, 24 Nov</text>
+    <rect x="258" y="283" width="92" height="28" rx="14" fill="#E1F3E4"/><path transform="translate(266 289) scale(0.6667)" d="m5 12 5 5 9-10" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="288" y="302" font-size="12" font-weight="600" fill="#1E5A32">Available</text>
+    <rect x="40" y="322" width="132" height="44" rx="22" fill="#15171C"/><path d="m56 344 4 4 7-8" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="76" y="349" font-size="14" font-weight="700" fill="#FFFFFF">Available</text>
+    <rect x="185" y="323" width="130" height="42" rx="21" fill="#FFFFFF" stroke="#747986" stroke-width="2"/><text x="250" y="349" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Unavailable</text>
+    <path d="M40 382.5h310" stroke="#DED8CB"/>
+    <text x="40" y="408" font-size="14" font-weight="500" fill="#555A66">You can work</text>
+    <text x="40" y="434" font-size="20" font-weight="700" fill="#15171C">08:00–18:00</text>
+    <rect x="263" y="395" width="86" height="42" rx="21" fill="#FFFFFF" stroke="#747986" stroke-width="2"/><text x="306" y="421" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">Change</text>
+    <path d="M40 452.5h310" stroke="#DED8CB"/>
+    <rect x="40" y="468" width="32" height="32" rx="12" fill="#ECE8DE"/><path transform="translate(46 474) scale(0.8333)" d="M5 6h14v14H5zm0 4h14M9 4v4m6-4v4" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="84" y="482" font-size="17" font-weight="700" fill="#15171C">Shift 10:30–12:30</text>
+    <text x="84" y="502" font-size="14" font-weight="500" fill="#555A66">Confirmed · stays as it is</text>
+    <path transform="translate(326 472)" d="m10 6 6 6-6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="open-to-cover">
+    <rect x="20.5" y="534.5" width="349" height="96" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+    <text x="40" y="566" font-size="17" font-weight="700" fill="#15171C">Open to cover</text>
+    <rect x="294" y="546" width="56" height="32" rx="16" fill="#15171C"/><circle cx="334" cy="562" r="12" fill="#FFFFFF"/>
+    <text x="40" y="592" font-size="14" font-weight="500" fill="#555A66">Mateo can send you short-notice offers on</text>
+    <text x="40" y="612" font-size="14" font-weight="500" fill="#555A66">this day until 18:00. You choose each time.</text>
+  </g>
+  <path transform="translate(18 644) scale(0.8333)" d="m5 12 5 5 9-10" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="44" y="659" font-size="14" font-weight="600" fill="#15171C">Saved · Mon, 23 Nov 09:38 Spain time</text>
+  <text x="20" y="685" font-size="14" font-weight="500" fill="#555A66">Mateo sees your hours, not your reasons.</text>
+  <text x="20" y="707" font-size="14" font-weight="500" fill="#555A66">Changing availability never cancels a shift.</text>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

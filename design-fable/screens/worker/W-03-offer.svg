@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-03-offer-title W-03-offer-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="W-03-offer-title">W-03 Offer — own-crew cover offer, open</title>
+  <desc id="W-03-offer-desc">Diego, a worker on duty at Reformas Ruiz, views a cover offer at 08:37 Spain time on Tuesday 24 November. Mateo selected him at 08:33. The shift is 09:00–10:00 and the reply deadline is 08:42, five minutes away. Task: terrace door adjustment in Xàbia. Skill: door fitting. Mateo will brief him in Español. The offer does not conflict with his other shift. Accept offer opens a confirmation sheet. An accepted reply reserves the place; the site address opens only when Mateo confirms him.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">8:37</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Cover offer</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">From Mateo Ruiz · Reformas Ruiz</text>
+  </g>
+  <g id="offer-capsule">
+    <rect x="21" y="115" width="348" height="216" rx="31" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+    <rect x="40" y="134" width="102" height="28" rx="14" fill="#15171C"/>
+    <text x="91" y="153" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle">Offer open</text>
+    <text x="350" y="153" font-size="14" font-weight="600" fill="#15171C" text-anchor="end">Your crew</text>
+    <text x="40" y="200" font-size="28" font-weight="800" fill="#15171C">Today 09:00–10:00</text>
+    <text x="40" y="222" font-size="14" font-weight="500" fill="#15171C">Spain time · starts in 23 min</text>
+    <path d="M40 240.5h310" stroke="#15171C"/>
+    <g id="offer-clock">
+      <circle cx="72" cy="284" r="28" fill="none" stroke="#BFDC22" stroke-width="6"/>
+      <path d="M72 256a28 28 0 1 1-26.31 37.58" fill="none" stroke="#15171C" stroke-width="6" stroke-linecap="round"/>
+      <text x="72" y="284" font-size="20" font-weight="800" fill="#15171C" text-anchor="middle">5</text>
+      <text x="72" y="298" font-size="12" font-weight="600" fill="#15171C" text-anchor="middle">min</text>
+    </g>
+    <text x="116" y="278" font-size="20" font-weight="700" fill="#15171C">Reply by 08:42</text>
+    <text x="116" y="300" font-size="14" font-weight="500" fill="#15171C">Spain time · the offer closes then</text>
+  </g>
+  <g id="details">
+    <rect x="20.5" y="343.5" width="349" height="255" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+    <rect x="36" y="359" width="32" height="32" rx="12" fill="#ECE8DE"/><path transform="translate(42 365) scale(0.8333)" d="M6 21V4h11v17M3 21h18M13.5 12.5h.01" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="80" y="371" font-size="17" font-weight="700" fill="#15171C">Terrace door adjustment</text>
+    <text x="80" y="391" font-size="14" font-weight="500" fill="#555A66">Skill needed · Door fitting</text>
+    <path d="M36 407.5h318" stroke="#DED8CB"/>
+    <rect x="36" y="423" width="32" height="32" rx="12" fill="#ECE8DE"/><path transform="translate(42 429) scale(0.8333)" d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10zm0-12.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="80" y="435" font-size="17" font-weight="700" fill="#15171C">Xàbia</text>
+    <text x="80" y="455" font-size="14" font-weight="500" fill="#555A66">Address opens when Mateo confirms you</text>
+    <path d="M36 471.5h318" stroke="#DED8CB"/>
+    <rect x="36" y="487" width="32" height="32" rx="12" fill="#ECE8DE"/><path transform="translate(42 493) scale(0.8333)" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm-9 9h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="80" y="499" font-size="17" font-weight="700" fill="#15171C">Briefing in Español</text>
+    <text x="80" y="519" font-size="14" font-weight="500" fill="#555A66">In person with Mateo, before work</text>
+    <path d="M36 535.5h318" stroke="#DED8CB"/>
+    <rect x="36" y="551" width="32" height="32" rx="12" fill="#E1F3E4"/><path transform="translate(42 557) scale(0.8333)" d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="80" y="563" font-size="17" font-weight="700" fill="#15171C">You’re free at this time</text>
+    <text x="80" y="583" font-size="14" font-weight="500" fill="#555A66">No clash with your other shifts</text>
+  </g>
+  <text x="195" y="626" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Sent by Mateo Ruiz · 08:33 Spain time</text>
+  <text x="195" y="648" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Only selected workers on duty in your crew</text>
+  <g id="dock">
+    <rect y="686" width="390" height="158" fill="#FFFFFF"/>
+    <path d="M0 686.5h390" stroke="#DED8CB"/>
+    <text x="195" y="712" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Accepting reserves your place · Mateo confirms</text>
+    <rect x="21" y="733" width="108" height="60" rx="30" fill="#FFFFFF" stroke="#747986" stroke-width="2"/>
+    <text x="75" y="769" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">Decline</text>
+    <rect x="143" y="733" width="226" height="60" rx="30" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+    <text x="256" y="769" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">Accept offer</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

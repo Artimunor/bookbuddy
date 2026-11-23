@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-10-on-my-way-title W-10-on-my-way-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="W-10-on-my-way-title">W-10 On my way — ready, crew member</title>
+  <desc id="W-10-on-my-way-desc">Worker view for Diego Torres at 09:01 Spain time on Tuesday 24 November, Field mode on: the On my way sheet over his dimmed shift screen for BB-1042, today 09:00 to 10:00 Spain time. He picks when he will arrive from four choices, each shown as a ten-minute arrival time in Spain time: 09:05 to 09:15, about 10 minutes; 09:10 to 09:20, about 15 minutes, selected; 09:15 to 09:25, about 20 minutes; 09:25 to 09:35, about 30 minutes. A link offers another time. Who sees this: Mateo, his foreman, sees his name, on the way, 09:10 to 09:20. The customer sees nothing new, because Mateo leads this visit and shared the crew’s arrival time at 08:52. A green notice says no location is used and that this is his own estimate. The sheet dock says it is sent at once and Mateo can correct it. One lime action: I’m on my way.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="parent" aria-hidden="true">
+    <g fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:01</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Your shift</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">BB-1042 · Terrace door repair</text>
+    <rect x="21" y="115" width="348" height="268" rx="31" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+    <text x="40" y="198" font-size="28" font-weight="800" fill="#15171C">Today 09:00–10:00</text>
+    <text x="40" y="252" font-size="17" font-weight="700" fill="#15171C">Villa Mar · Xàbia</text>
+    <rect y="686" width="390" height="158" fill="#FFFFFF"/>
+    <rect x="21" y="733" width="348" height="60" rx="30" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+    <text x="195" y="769" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">On my way</text>
+  </g>
+  <rect id="scrim" width="390" height="844" fill="#15171C" opacity="0.4"/>
+  <g id="sheet">
+    <path d="M0 152a32 32 0 0 1 32-32h326a32 32 0 0 1 32 32V844H0z" fill="#FFFFFF"/>
+    <rect x="171" y="130" width="48" height="5" rx="2.5" fill="#DED8CB"/>
+    <text x="20" y="172" font-size="20" font-weight="700" fill="#15171C">On my way</text>
+    <text x="370" y="171" font-size="17" font-weight="700" fill="#2438B5" text-anchor="end" text-decoration="underline">Close</text>
+    <text x="20" y="196" font-size="14" font-weight="500" fill="#555A66">BB-1042 · today 09:00–10:00 Spain time</text>
+    <text x="20" y="228" font-size="14" font-weight="600" fill="#15171C">When will you arrive?</text>
+    <g id="arrival-chips">
+      <rect x="21" y="241" width="165" height="62" rx="15" fill="#FFFFFF" stroke="#747986" stroke-width="2"/>
+      <text x="36" y="268" font-size="17" font-weight="700" fill="#15171C">09:05–09:15</text>
+      <text x="36" y="289" font-size="14" font-weight="500" fill="#555A66">About 10 min</text>
+      <rect x="203" y="240" width="167" height="64" rx="16" fill="#15171C"/>
+      <text x="219" y="268" font-size="17" font-weight="700" fill="#FFFFFF">09:10–09:20</text>
+      <text x="219" y="289" font-size="14" font-weight="500" fill="#FFFFFF">About 15 min</text>
+      <path d="m339 272 4.5 4.5 8-9" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="21" y="321" width="165" height="62" rx="15" fill="#FFFFFF" stroke="#747986" stroke-width="2"/>
+      <text x="36" y="348" font-size="17" font-weight="700" fill="#15171C">09:15–09:25</text>
+      <text x="36" y="369" font-size="14" font-weight="500" fill="#555A66">About 20 min</text>
+      <rect x="204" y="321" width="165" height="62" rx="15" fill="#FFFFFF" stroke="#747986" stroke-width="2"/>
+      <text x="219" y="348" font-size="17" font-weight="700" fill="#15171C">09:25–09:35</text>
+      <text x="219" y="369" font-size="14" font-weight="500" fill="#555A66">About 30 min</text>
+    </g>
+    <text x="20" y="412" font-size="14" font-weight="700" fill="#2438B5" text-decoration="underline">Another time</text>
+    <text x="370" y="412" font-size="14" font-weight="500" fill="#555A66" text-anchor="end">Spain time</text>
+    <g id="who-sees-this">
+      <rect x="20.5" y="430.5" width="349" height="150" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+      <circle cx="56" cy="462" r="16" fill="#DDEBFF"/><text x="56" y="467" font-size="12" font-weight="700" fill="#15171C" text-anchor="middle">MR</text>
+      <text x="84" y="458" font-size="17" font-weight="700" fill="#15171C">Mateo, your foreman</text>
+      <text x="84" y="479" font-size="14" font-weight="500" fill="#555A66">Your name, on the way, 09:10–09:20</text>
+      <path d="M40 494.5h310" stroke="#DED8CB"/>
+      <rect x="40" y="508" width="32" height="32" rx="12" fill="#ECE8DE"/><path transform="translate(46 514) scale(0.8333)" d="M4 11l8-7 8 7v9H4zm6 9v-6h4v6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="84" y="522" font-size="17" font-weight="700" fill="#15171C">The customer</text>
+      <text x="84" y="543" font-size="14" font-weight="500" fill="#555A66">Nothing new. The crew’s arrival time</text>
+      <text x="84" y="563" font-size="14" font-weight="500" fill="#555A66">was shared by Mateo at 08:52.</text>
+    </g>
+    <g id="no-location">
+      <rect x="20" y="594" width="350" height="44" rx="22" fill="#E1F3E4"/>
+      <path transform="translate(34 604)" d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10zM4 4l16 16" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="68" y="621" font-size="14" font-weight="600" fill="#1E5A32">No location is used · it is your estimate</text>
+    </g>
+    <g id="sheet-dock">
+      <path d="M0 686.5h390" stroke="#DED8CB"/>
+      <text x="195" y="712" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Sent at once · Mateo can correct it</text>
+      <rect x="21" y="733" width="348" height="60" rx="30" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+      <text x="195" y="769" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">I’m on my way</text>
+    </g>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

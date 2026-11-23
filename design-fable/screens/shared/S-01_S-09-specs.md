@@ -20,11 +20,11 @@ The artboards are separate scenarios from the [story](../inventory.md#story-and-
 
 **Purpose and routes.** Explain the app in one glance before sign-in and let the person choose the app language. First launch and signed-out re-entry land here. **Get started** opens S-02. There are no tabs, no Back and no implied role.
 
-**Layout and data.** Brand row, a two-line promise, then one example live capsule at card size: the terrace door repair, "On the way", arriving 09:10–09:20 Spain time, the day line and its provenance. The capsule carries an **Example** badge and does not pulse. A caption says the same card appears in the app, on the Lock Screen and in notifications. The **App language** card holds two chips, English and Português, each written in its own language, with a line naming the phone's language. The dock has the context line "Next: sign in with your email".
+**Layout and data.** The welcome names no service area. The **Example** capsule shows what the person would see *in the app*: the terrace door repair, the crew’s stage, its declared arrival band and who shared it. It does not pulse. Following a visit from C-09 is optional and starts in the foreground; by default its Lock Screen card shows **only the stage**. Details require a separate choice in S-18 and OS permission to display previews. Ordinary push notifications stay generic (“BookBuddy · You have an update”) regardless of that choice. Below the example, the **App language** card offers English and Português, each in its own language. **Get started** leads to email sign-in.
 
 **Interactions and states.** The app starts in the device language if it is English or Portuguese (`en-*` resolves to English, any Portuguese variant to `pt-PT`). Tapping a chip switches the whole screen at once, saves the choice on the device and sends nothing. *Other device language:* English is selected and the line reads "Your phone's language isn't available yet. Choose English or Português." *Invite detected:* an `info-soft` strip above the dock reads "Sign in to open your invitation" (or "your update"); only the opaque link is kept and no sender, business or job is previewed. The screen works offline; S-02 explains why a code cannot be requested.
 
-**Platform, accessibility and RTL.** Android system Back leaves the app at this root. Reading order: brand, promise, example (announced once as "Example: crew on the way, arriving 09:10 to 09:20 Spain time"), language chips with selected state, context line, Get started. No flags. The Portuguese artboard proves expansion: the heading wraps to two full lines, the zone label takes its own line under the state, and nothing shrinks. In a future RTL language the day line runs right to left and times stay in their own order.
+**Platform, accessibility and RTL.** Android system Back leaves the app at this root. Reading order: brand, promise, example (announce it as an in-app example, then explain what stays hidden on the Lock Screen), language selection, context line, Get started. No flags. In Portuguese, “Concluído” sits under its own bead on the next baseline; provenance follows on a separate line. Do not shrink either label. In a future RTL language the day line runs right to left and times stay in their own order.
 
 ## S-02 Sign in or create account
 
@@ -52,6 +52,8 @@ The artboards are separate scenarios from the [story](../inventory.md#story-and-
 
 **Interactions and states.** *Waiting:* the button is disabled until six digits are present ("Enter all 6 digits to continue"); paste and the system's code suggestion fill the field but never submit it. *Wrong code:* the field is cleared and outlined in `critical-ink`, with "That code didn't match", the number of tries left, and **Send a new code** as the first link. An expired code says so instead. *Locked out:* the field is removed. A `critical-soft` card gives the time sign-in resumes in the viewer's own time ("Try again at 09:56 · 15 minutes from now") and says old codes no longer work. A second card says what does not change: devices already signed in stay signed in, and bookings and visits carry on. The dock button **Send a new code** is disabled until that time. Help opens S-16.
 
+The [sign-in rules](../../../docs/reports/2026-11-23-open-question-suggestions/product-and-platform.md) bind a single-use code to its email and attempt for 10 minutes. The first resend is available after 60 seconds, up to three sends in 30 minutes; a new code invalidates the old one without resetting failures. Five failed checks in that window pause both checking and reissue for 15 minutes. A valid email code verifies the mailbox, not the authority to grant access.
+
 **Platform, accessibility and RTL.** Numeric keyboard and the system one-time-code suggestion; the clipboard is never read unprompted. The six positions are one accessible field labelled "6-digit code". Errors are announced once and focus returns to the field. The resend countdown is announced when it ends, not on every tick. Digits keep their order in RTL.
 
 ## S-04 First setup
@@ -74,9 +76,11 @@ The artboards are separate scenarios from the [story](../inventory.md#story-and-
 
 **Purpose and routes.** Confirm a crew, business or place grant sent from P-05 or C-14. Opened from a link after sign-in. **Join the crew** opens the granted role's Now, or S-16 in pending-eligibility mode if work is still blocked. **Decline** confirms through S-17 and returns to the previous root.
 
-**Layout and data.** The inviter as a crew dot with name, role and business; the heading "Join the crew at Reformas Ruiz"; a role card ("You would join as Worker") with three things the role can do; and a `subtle` card, **What joining doesn't do**: it is not a shift, each shift is offered and then confirmed by the foreman before travel, and location is never collected. Then who sent it and when. The dock shows the expiry date, a quiet Decline and the primary action. A place invitation names the place and the exact permissions instead.
+**Layout and data.** The role card names Mateo, Reformas Ruiz and the Worker role. Joining gives Diego a crew membership, not eligibility, an assignment or permission to travel. The single-use P-05 link is bound to the verified `diego@example.com` address, Reformas Ruiz and the specified grant. Sent Sat, 14 Nov at 10:12 Spain time, it expires 48 hours later: Mon, 16 Nov at 10:12 Spain time. The dock shows that deadline with **Decline** and **Join the crew**. C-14 place invitations name the place and its exact permissions; [property delegation](../../../docs/reports/2026-11-23-open-question-suggestions/product-and-platform.md#3-property-validation-invitations-and-transfers) has separate limits.
 
-**Interactions and states.** *Valid:* both actions need a connection; the server rechecks the account, the invitation and the inviter's authority, and the app moves on only after it confirms. *Wrong account:* "This invitation isn't for this account", the viewer's own email, **Use a different account** and help; the intended recipient is never shown. *Expired:* a neutral badge with the date, "Nothing changed on your account", the sender, and the fact that only the sender can issue a new one. The dock offers **Done** only. An invitation already accepted opens the role, never a second confirmation.
+**Interactions and states.** Accept and Decline require an online check of recipient, business, grant, expiry and inviter authority. Only the first confirmed acceptance grants membership; reopening the link never grants it again. A wrong account sees only “This invitation isn't for this account”, its own email, **Use a different account** and help. An expired link grants nothing: **Done** returns to the safe root; Diego may ask an authorised Reformas Ruiz admin to reissue it in P-05. Reissue invalidates the previous link and starts a fresh 48 hours. Per address and business: at most one reissue in 24 hours and two in a rolling seven days. A wrong mailbox requires withdrawal and a new invitation, not an identity transfer.
+
+A provider member invitation can grant **Worker** or **Foreman**, not **Provider admin**. Adding an admin requires local service verification. Email verification, an invitation or an S-17 tap alone never activates high-impact powers: require the approved recent passkey check where supported or independently verified local operations. An existing admin with a verified grant can *switch* to it in S-07; that switch grants no new rights.
 
 **Platform, accessibility and RTL.** Signed-out visitors see none of this; they pass through S-01 to S-03 first. Role names and permissions are localised; people and business names are not. Join is an ink button: it changes access, not anything others see live.
 
@@ -86,11 +90,11 @@ The artboards are separate scenarios from the [story](../inventory.md#story-and-
 
 ![S-06 You — multi-role](S-06-you--multi-role.svg)
 
-**Purpose and routes.** Identity, the active role, places and settings in one place. Opened from the identity chip on every tab root; Back returns to that root. Rows open C-13 (customers), S-12, S-18 and S-16. **Switch** opens S-07. **Sign out** confirms through S-17.
+**Purpose and routes.** Identity, active role, places and settings. The identity chip opens You from any tab root. Rows open C-13 (customers), S-12, S-18 and S-16. **Switch** opens S-07. **Sign out** opens S-17 to confirm leaving *this device*, even offline. On confirmation, lock local access and hide the previous account’s content immediately; do not wait for server revocation or claim other devices are signed out.
 
 **Layout and data.** Avatar, name, verified email and an Edit link. The **role card** says what the person is acting as, where, and what that means here ("Customer · Villa Mar · Xàbia · you approve quotes here"). The settings card has one row per destination with its current value. Sign out is a quiet outlined button with a `critical-ink` label, well apart from the rows. The screen has no dock.
 
-**Interactions and states.** *Single role:* the card says "Your only role. An invitation adds another." and has no Switch. *Multi-role:* the card names the other roles ("Also yours: Provider admin") and shows Switch. *Pending work:* an `attention-soft` banner above the settings reads "2 items saved on this device · pending sync", and Sign out first asks whether to stay and send them. Places appears only for customers. Edit changes the display name; the email changes only through support (S-16).
+**Interactions and states.** *Single role:* no Switch. *Multi-role:* the role card lists other verified roles and shows Switch. *Pending work:* distinguish editable drafts from pending attendance, submitted uploads and sends with an unknown outcome. Offer to return to work or sign out locally with these records protected for the originating account, role and business. Only the author may explicitly discard a draft that was never submitted. Never silently delete, send or mark pending work complete on sign-out or switch. Resolve it under the same verified account after access is rechecked; never expose it to another identity. Places is customer-only. Edit changes the display name; loss of mailbox access goes to the verified recovery route in S-16.
 
 **Platform, accessibility and RTL.** The identity chip is announced as "You, Claire Martin, Customer". Row labels and values stack at large text. The role and place names are isolated in RTL and chevrons mirror.
 
@@ -100,7 +104,7 @@ The artboards are separate scenarios from the [story](../inventory.md#story-and-
 
 **Purpose and routes.** Move to another granted role or business without signing out. Opened from S-06, or when a link needs a role other than the active one. **Switch to Provider admin** opens that role's Now, or the linked record under its parent. Close leaves everything as it is.
 
-**Layout and data.** A sheet over the dimmed S-06: handle, title and Close, "You stay signed in as Mateo Ruiz. Only what you act as changes.", then one row per role and business. **Current** is a badge on the active row; the radio marks the role about to be chosen. If something is live in the current role, a note with the live bead says so: "BB-1042 stays live under Foreman. Its alerts still arrive on this phone." The dock names the target role.
+**Layout and data.** A sheet over the dimmed S-06 shows each granted role with its business. **Current** marks the active role; the radio marks the proposed selection. The note distinguishes BB-1042’s continuing live visit from optional alerts: “You can still get alerts for this role, if enabled.” Neither an enabled alert nor a published update proves delivery or reading. The in-app bell stays scoped to the active role and business. The dock names the target role.
 
 **Interactions and states.** *Multiple:* tapping a row selects it; nothing switches until the dock button is pressed and the server confirms the grant. The button is disabled while the current role is the selection. *Pending draft:* the context line becomes "1 draft stays under Foreman. It is not sent." A draft that cannot be kept blocks the switch and says why. A link-driven sheet lists only the roles that can open the link and describes it safely ("Open a shift offer"). Switching needs a connection. A live visit, shift or cover search is never ended by a switch.
 
@@ -130,7 +134,7 @@ The artboards are separate scenarios from the [story](../inventory.md#story-and-
 
 **Interactions and states.** *Unread:* as drawn for Claire at 07:58 her time; a stamp is marked read when its record is shown. *Cover offer:* under **Needs you** the offer appears as the offer capsule at card size with the offer clock and "Reply by 08:42 Spain time", and the dock becomes **Open offer**, an ink button because it only opens W-03. The line beneath says nothing is accepted from here. *Expired:* the capsule is replaced by a plain stamp, "Offer closed · 08:42" or "Filled by someone else", with a static glyph and no lime; it opens W-03 read-only and the dock disappears. A record the account can no longer open leads to S-16 without saying who holds it.
 
-**Platform, accessibility and RTL.** Each row is one target with event, subject, time and unread state. The offer clock's ring is decorative; the deadline is read as text and not on every tick. The worker artboard is in Field mode, so the dock button is 62 high. Lock-screen pushes for the same events are S-19 and stay generic.
+**Platform, accessibility and RTL.** Each stamp is one target with event, subject, time and unread state. The offer deadline is read as text, not on every tick. The Field mode dock button is 62 high. These are authorised *in-app* records; S-19 ordinary pushes say only “BookBuddy · You have an update”. Publishing a stamp does not mean an alert reached the recipient; opening a push does not start a live card.
 
 ## Navigation
 
@@ -148,7 +152,8 @@ flowchart TD
     Check -->|Record in another role| Switch[S-07 Switch role sheet]
     Check -->|No access| Help[S-16 Help and access]
     Invite -->|Joined| Now
-    Invite -->|Eligibility pending or expired| Help
+    Invite -->|Eligibility pending| Help
+    Invite -->|Expired, Done| Prior[Prior safe root]
     Now -->|Identity chip| You[S-06 You]
     You --> Switch
     Switch -->|Confirmed| Now
@@ -156,7 +161,7 @@ flowchart TD
     You --> Display[S-12 Language and display]
     You --> Privacy[S-18 Live updates and privacy]
     You --> Help
-    You -->|Sign out via S-17| Welcome
+    You -->|Local sign-out via S-17, including offline| Welcome
     Now -->|Messages tab| Inbox[S-08 Messages]
     Inbox --> Chat[S-10 Job chat]
     Now -->|Bell| Alerts[S-09 Notifications]
@@ -173,10 +178,6 @@ flowchart TD
 - **Lime before sign-in.** S-01 uses lime in the brand glyph and in the example capsule although nothing is live. The capsule is labelled Example and does not pulse. The stricter alternative is to draw it in the quiet state. Confirm which reading of "lime means live" applies before sign-in.
 - **Screens without a dock.** S-06, and S-09 when nothing needs the viewer, have no primary action, so they show no dock. S-09 gains one only for an item under Needs you. Confirm that "one next step" does not require an invented action on these screens.
 - **Dock with a context line.** The conventions fix the dock at y=724 but give no geometry for the context line. This slice grows the dock upward to y=692 (686 in Field mode) and keeps the button at its usual position. Other slices should match or the lead should set the rule.
-- **Sign-in policy fixtures.** Six digits, the 0:42 resend wait, "2 tries left" and the 15-minute pause are drawings, not backend commitments. Confirm the real values, and whether showing the number of tries left is acceptable.
 - **Time and reading defaults in S-04.** The drawing turns "Show my time as well" on when the phone's zone differs from Spain time. Confirm the default, and which reading languages are enabled at launch beside English and Português.
 - **Foreman and crew UI language.** S-08 shows Mateo with an English UI and Español as his reading language, so the chrome is English and the previews are Spanish. This follows the owner's decision that Spanish is not a launch UI language. Confirm that list previews show the translation and not the original.
-- **Alerts across roles.** S-07 tells Mateo that BB-1042's alerts still arrive while he acts as Provider admin. That assumes pushes are sent for every granted role while the in-app bell stays scoped to the active one. Confirm, and decide whether the identity chip should show a mark for unread items in another role.
 - **Offer capsule in the inbox.** S-09 draws the cover offer as a card-size capsule, the same object as on W-01. Confirm this does not break "one capsule per shift", or replace it with a stamp row.
-- **Invitation fixture.** The story has no invitation event. S-05 uses Diego Torres, invited by Mateo on Sat, 14 Nov with seven days' validity. Align the recipient and the validity with P-05.
-- **Short Portuguese stage labels.** The day line fits in `pt-PT` only with short labels ("A caminho", "No local", "Em obra", "Concluído"). Add a length note to the catalog context and have a native speaker review them.
