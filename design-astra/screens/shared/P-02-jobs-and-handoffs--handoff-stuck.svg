@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-<title id="screen-title">P-02 Jobs and handoffs — expired, no eligible lead</title>
-<desc id="screen-desc">Before booking BB-1042, Mateo’s intake offer has expired and no authorised replacement lead is available. Needs action is selected. The request remains open, not booked; the only next step shown is to contact local service.</desc>
+<title id="screen-title">P-02 Jobs and handoffs — expired first intake</title>
+<desc id="screen-desc">First intake expired at 10:00 Spain time. No foreman accepted and no eligible alternate is available. The request remains open and unbooked. Only contact, not assignment or cancellation, is offered.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <g id="status-bar" aria-hidden="true">
 <text x="20" y="29" fill="#152C26" font-size="15" font-weight="700">9:41</text>
@@ -23,8 +23,8 @@
 <path d="M339 79h14l-1.5-2v-4a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="content">
-<text x="20" y="149" fill="#152C26" font-size="28" font-weight="700">Jobs and handoffs</text>
-<text x="20" y="176" fill="#425B52" font-size="15" font-weight="400">See who is accountable for each job.</text>
+<text x="20" y="150" font-size="28" font-weight="700" fill="#152C26">Jobs and handoffs</text>
+<text x="20" y="177" font-size="15" font-weight="400" fill="#425B52">Named leads, quote reviews and fee records.</text>
 <rect x="20.5" y="196.5" width="115" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
 <text x="78" y="226" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">All active</text>
 <rect x="144.5" y="196.5" width="147" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
@@ -32,30 +32,24 @@
 <text x="176" y="226" fill="#0B5747" font-size="16" font-weight="650">Needs action</text>
 <rect x="300.5" y="196.5" width="69" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
 <text x="335" y="226" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">Past</text>
-<g id="selected-job">
-<rect x="20.5" y="260.5" width="349" height="131" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="293" fill="#152C26" font-size="20" font-weight="650">Terrace door repair</text>
-<text x="36" y="318" fill="#425B52" font-size="15" font-weight="400">BB-1042 · Villa Mar · Xàbia</text>
-<g transform="translate(334 274)" aria-hidden="true"><path d="m6 15 6-6 6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<path d="M36 332.5h318" stroke="#D4E1DB"/>
-<rect x="36" y="344" width="127" height="28" rx="14" fill="#E5F0FA"/>
-<g transform="translate(44 350) scale(0.6666666666666666)" aria-hidden="true"><path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm-2 3 10 6 10-6" fill="none" stroke="#234C78" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="66" y="362" fill="#234C78" font-size="12" font-weight="550">Request sent</text>
-<text x="176" y="362" fill="#425B52" font-size="13" font-weight="450">No visit booked</text>
+<g id="expired-intake">
+<rect x="20" y="262" width="350" height="163" rx="16" fill="#FFF1D5"/>
+<g transform="translate(36 280)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z M12 6v7l4 2" fill="none" stroke="#704500" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="72" y="298" font-size="13" font-weight="650" fill="#704500">HANDOFF EXPIRED</text>
+<text x="36" y="337" font-size="22" font-weight="700" fill="#704500">No accountable foreman</text>
+<text x="36" y="365" font-size="15" font-weight="400" fill="#704500">Mateo Ruiz did not accept by the deadline.</text>
+<text x="36" y="399" font-size="13" font-weight="450" fill="#704500">Mon, 23 Nov · 10:00 Spain time</text>
 </g>
-<rect x="20" y="408" width="350" height="94" rx="16" fill="#FFF1D5"/>
-<g transform="translate(36 424) scale(0.6666666666666666)" aria-hidden="true"><path d="m12 3 10 17H2L12 3zm0 6v5m0 3h.01" fill="none" stroke="#704500" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="437" fill="#704500" font-size="16" font-weight="650">Handoff expired</text>
-<text x="64" y="460" fill="#704500" font-size="15" font-weight="400">Mateo Ruiz did not accept in time.</text>
-<text x="64" y="482" fill="#704500" font-size="15" font-weight="400">No foreman has taken ownership.</text>
-<g id="resolution">
-<rect x="20.5" y="518.5" width="349" height="201" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="552" fill="#152C26" font-size="20" font-weight="650">No eligible foreman</text>
-<text x="36" y="579" fill="#425B52" font-size="15" font-weight="400">No other authorised lead can take</text>
-<text x="36" y="601" fill="#425B52" font-size="15" font-weight="400">this job right now.</text>
-<rect x="36" y="620" width="318" height="48" rx="12" fill="#0B6250"/>
-<text x="195" y="650" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Contact local service</text>
-<text x="36" y="693" fill="#425B52" font-size="13" font-weight="450">The request stays open while you get help.</text>
+<g id="request">
+<text x="20" y="466" font-size="20" font-weight="650" fill="#152C26">Terrace door repair</text>
+<text x="20" y="490" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Villa Mar · Xàbia</text>
+<path d="M20 508H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="541" font-size="16" font-weight="650" fill="#152C26">Request sent · No visit booked</text>
+<text x="20" y="566" font-size="13" font-weight="450" fill="#425B52">No eligible alternate at Reformas Ruiz.</text>
+<text x="20" y="609" font-size="15" font-weight="400" fill="#425B52">The request stays open. Contact the local</text>
+<text x="20" y="632" font-size="15" font-weight="400" fill="#425B52">desk to resolve the handoff.</text>
+<rect x="20" y="655" width="350" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="685" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Contact local service</text>
 </g>
 </g>
 <g id="tab-bar">

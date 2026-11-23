@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-<title id="screen-title">P-02 Jobs and handoffs — accepted owner</title>
-<desc id="screen-desc">Provider admin list showing the booked terrace door repair. Mateo Ruiz accepted accountability; reviewing reassignment does not change the named contact.</desc>
+<title id="screen-title">P-02 Jobs and handoffs — accepted ownership</title>
+<desc id="screen-desc">Mateo Ruiz owns the booked BB-1042 visit until an eligible successor accepts. The separate commercial queue is empty and there is no fee on the booked visit.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <g id="status-bar" aria-hidden="true">
 <text x="20" y="29" fill="#152C26" font-size="15" font-weight="700">9:41</text>
@@ -23,8 +23,8 @@
 <path d="M339 79h14l-1.5-2v-4a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="content">
-<text x="20" y="149" fill="#152C26" font-size="28" font-weight="700">Jobs and handoffs</text>
-<text x="20" y="176" fill="#425B52" font-size="15" font-weight="400">See who is accountable for each job.</text>
+<text x="20" y="150" font-size="28" font-weight="700" fill="#152C26">Jobs and handoffs</text>
+<text x="20" y="177" font-size="15" font-weight="400" fill="#425B52">Named leads, quote reviews and fee records.</text>
 <rect x="20.5" y="196.5" width="115" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
 <g transform="translate(30 212) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="#0B5747" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="52" y="226" fill="#0B5747" font-size="16" font-weight="650">All active</text>
@@ -32,34 +32,35 @@
 <text x="218" y="226" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">Needs action</text>
 <rect x="300.5" y="196.5" width="69" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
 <text x="335" y="226" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">Past</text>
-<g id="selected-job">
-<rect x="20.5" y="260.5" width="349" height="151" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="293" fill="#152C26" font-size="20" font-weight="650">Terrace door repair</text>
-<text x="36" y="318" fill="#425B52" font-size="15" font-weight="400">BB-1042 · Villa Mar · Xàbia</text>
-<g transform="translate(334 274)" aria-hidden="true"><path d="m6 15 6-6 6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<path d="M36 332.5h318" stroke="#D4E1DB"/>
-<rect x="36" y="344" width="86" height="28" rx="14" fill="#E7F4E8"/>
-<g transform="translate(44 350) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="#245936" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="66" y="362" fill="#245936" font-size="12" font-weight="550">Booked</text>
-<text x="36" y="395" fill="#425B52" font-size="13" font-weight="450">Tue, 24 Nov · 09:00–10:00 · Spain time</text>
+<g id="named-handoff">
+<rect x="20" y="262" width="350" height="254" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="289" font-size="13" font-weight="650" fill="#425B52">BOOKED VISIT</text>
+<text x="354" y="289" font-size="13" font-weight="550" fill="#425B52" text-anchor="end">BB-1042</text>
+<text x="36" y="323" font-size="22" font-weight="700" fill="#152C26">Terrace door repair</text>
+<text x="36" y="347" font-size="13" font-weight="450" fill="#425B52">Villa Mar · Xàbia</text>
+<text x="36" y="369" font-size="13" font-weight="450" fill="#425B52">Tue, 24 Nov · 09:00–10:00 Spain time</text>
+<path d="M36 389H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="57" cy="424" r="19" fill="#DCF2EA"/>
+<text x="57" y="429" font-size="12" font-weight="700" fill="#0B5747" text-anchor="middle">MR</text>
+<text x="88" y="422" font-size="16" font-weight="650" fill="#152C26">Mateo Ruiz</text>
+<text x="88" y="444" font-size="13" font-weight="450" fill="#425B52">Accountable foreman · Accepted</text>
+<rect x="36" y="459" width="318" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="195" y="489" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Review reassignment</text>
 </g>
-<text x="20" y="448" fill="#152C26" font-size="20" font-weight="650">Job ownership</text>
-<g id="ownership">
-<rect x="20.5" y="464.5" width="349" height="245" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="482" width="32" height="32" rx="8" fill="#DCF2EA"/>
-<g transform="translate(40 486)" aria-hidden="true"><path d="M16 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM4 20a8 8 0 0 1 16 0" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="80" y="497" fill="#152C26" font-size="16" font-weight="650">Mateo Ruiz</text>
-<text x="80" y="516" fill="#425B52" font-size="13" font-weight="450">Accountable foreman</text>
-<rect x="249" y="485" width="105" height="28" rx="14" fill="#E7F4E8"/>
-<g transform="translate(257 491) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="#245936" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="279" y="503" fill="#245936" font-size="12" font-weight="550">Accepted</text>
-<path d="M36 534.5h318" stroke="#D4E1DB"/>
-<text x="36" y="560" fill="#425B52" font-size="15" font-weight="400">Mateo remains the contact if you</text>
-<text x="36" y="582" fill="#425B52" font-size="15" font-weight="400">offer this job to another foreman.</text>
-<rect x="36.5" y="608.5" width="317" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<text x="195" y="638" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Review reassignment</text>
-<text x="36" y="684" fill="#425B52" font-size="13" font-weight="450">Ownership changes only after acceptance.</text>
-</g>
+<text x="20" y="543" font-size="13" font-weight="450" fill="#425B52">Mateo stays responsible until a successor accepts.</text>
+<text x="20" y="586" font-size="20" font-weight="650" fill="#152C26">Business records</text>
+<rect x="20" y="602" width="350" height="131" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="617" width="36" height="36" rx="9" fill="#EBF2EF"/>
+<g transform="translate(42 623)" aria-hidden="true"><path d="M5 2h9l5 5v15H5z M14 2v5h5M8 12h8m-8 4h8" fill="none" stroke="#425B52" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="88" y="631" font-size="16" font-weight="650" fill="#152C26">Commercial review</text>
+<text x="88" y="651" font-size="13" font-weight="450" fill="#425B52">No versions awaiting a decision</text>
+<path d="m346 631 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 668H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="36" y="683" width="36" height="36" rx="9" fill="#EBF2EF"/>
+<g transform="translate(42 689)" aria-hidden="true"><path d="M5 2h14v20l-4-2-3 2-3-2-4 2z M8 7h8m-8 4h8m-8 4h5" fill="none" stroke="#425B52" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="88" y="697" font-size="16" font-weight="650" fill="#152C26">Provider fee record</text>
+<text x="88" y="717" font-size="13" font-weight="450" fill="#425B52">No fee · Booked, not signed off or paid</text>
+<path d="m346 697 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="tab-bar">
 <rect x="0" y="746" width="390" height="98" fill="#FFFFFF"/>

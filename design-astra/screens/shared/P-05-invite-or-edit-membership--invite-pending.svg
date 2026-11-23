@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-<title id="screen-title">P-05 Invite or edit membership — invitation pending</title>
-<desc id="screen-desc">Over a dimmed People screen, the admin can review Nadia Benali’s pending Worker invitation for Reformas Ruiz. Accepted access has not been granted. Resend and withdraw are distinct actions.</desc>
+<title id="screen-title">P-05 Invitation pending</title>
+<desc id="screen-desc">Alternative snapshot before Nadia accepts. The single-use Worker invitation is bound to her exact verified address. The 48-hour expiry and earliest possible reissue are separate; no role is active and reissue is unavailable.</desc>
 <g id="parent-screen" aria-hidden="true">
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <g id="status-bar" aria-hidden="true">
@@ -24,35 +24,24 @@
 <path d="M339 79h14l-1.5-2v-4a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="content">
-<text x="20" y="149" fill="#152C26" font-size="28" font-weight="700">People and access</text>
-<text x="20" y="176" fill="#425B52" font-size="15" font-weight="400">Manage who can act for Reformas Ruiz.</text>
-<rect x="20" y="196" width="176" height="48" rx="12" fill="#0B6250"/>
-<g transform="translate(36 208)" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="68" y="226" fill="#FFFFFF" font-size="16" font-weight="650">Invite a person</text>
-<text x="20" y="283" fill="#152C26" font-size="20" font-weight="650">Pending invitations</text>
-<g id="pending-invites">
-<rect x="20.5" y="300.5" width="349" height="83" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="322" width="32" height="32" rx="8" fill="#FFF1D5"/>
-<g transform="translate(40 326)" aria-hidden="true"><path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm-2 3 10 6 10-6" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="80" y="337" fill="#152C26" font-size="16" font-weight="650">Nadia Benali</text>
-<text x="80" y="358" fill="#425B52" font-size="13" font-weight="450">Worker · waiting for acceptance</text>
-<g transform="translate(334 326)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-</g>
-<text x="20" y="420" fill="#152C26" font-size="20" font-weight="650">Active members</text>
-<rect x="20.5" y="436.5" width="349" height="75" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<circle cx="54" cy="474" r="18" fill="#DCF2EA"/>
-<text x="54" y="478" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">MR</text>
-<text x="84" y="470" fill="#152C26" font-size="16" font-weight="650">Mateo Ruiz</text>
-<text x="84" y="491" fill="#425B52" font-size="13" font-weight="450">Provider admin · Foreman</text>
-<rect x="266" y="461" width="48" height="28" rx="14" fill="#EBF2EF"/>
-<text x="278" y="479" fill="#425B52" font-size="12" font-weight="550">You</text>
-<g transform="translate(334 462)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<rect x="20.5" y="532.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="552" width="32" height="32" rx="8" fill="#EBF2EF"/>
-<g transform="translate(40 556)" aria-hidden="true"><path d="M12 3 5 6v5c0 4 2 7 7 10 5-3 7-6 7-10V6l-7-3zm-3 9 2 2 4-4" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="80" y="562" fill="#152C26" font-size="16" font-weight="650">Check work eligibility</text>
-<text x="80" y="583" fill="#425B52" font-size="13" font-weight="450">Separate from membership and access</text>
-<g transform="translate(334 556)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="20" y="150" font-size="28" font-weight="700" fill="#152C26">People and access</text>
+<text x="20" y="177" font-size="15" font-weight="400" fill="#425B52">Memberships in Reformas Ruiz</text>
+<rect x="20" y="198" width="350" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="228" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Invite a person</text>
+<text x="20" y="284" font-size="20" font-weight="650" fill="#152C26">Pending invitations</text>
+<rect x="20" y="305" width="350" height="75" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<circle cx="56" cy="339" r="19" fill="#DCF2EA"/>
+<text x="56" y="344" font-size="12" font-weight="700" fill="#0B5747" text-anchor="middle">NB</text>
+<text x="88" y="336" font-size="16" font-weight="650" fill="#152C26">Nadia Benali</text>
+<text x="88" y="358" font-size="13" font-weight="450" fill="#425B52">Worker · Waiting for acceptance</text>
+<path d="m347 335 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="428" font-size="20" font-weight="650" fill="#152C26">Active members</text>
+<rect x="20" y="448" width="350" height="74" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<circle cx="56" cy="482" r="19" fill="#DCF2EA"/>
+<text x="56" y="487" font-size="12" font-weight="700" fill="#0B5747" text-anchor="middle">MR</text>
+<text x="88" y="479" font-size="16" font-weight="650" fill="#152C26">Mateo Ruiz · You</text>
+<text x="88" y="501" font-size="13" font-weight="450" fill="#425B52">Provider admin · Foreman</text>
+<path d="m347 478 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="tab-bar">
 <rect x="0" y="746" width="390" height="98" fill="#FFFFFF"/>
@@ -68,35 +57,37 @@
 <text x="341" y="800" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Account</text>
 </g>
 </g>
-<g id="scrim" aria-hidden="true">
+<g id="scrim">
 <rect width="390" height="844" fill="#101A18" opacity=".4"/>
 </g>
 <g id="sheet">
-<path d="M0 324a24 24 0 0 1 24-24h342a24 24 0 0 1 24 24v520H0z" fill="#FFFFFF"/>
-<rect x="175" y="308" width="40" height="4" rx="2" fill="#70877D"/>
-<text x="20" y="339" fill="#152C26" font-size="20" font-weight="650">Invitation pending</text>
-<rect x="322.5" y="316.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<g transform="translate(334 328)" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="20" y="362" fill="#152C26" font-size="15" font-weight="400">Nadia Benali · Reformas Ruiz</text>
-<text x="20" y="381" fill="#425B52" font-size="13" font-weight="450">Acting as Provider admin</text>
-<path d="M20 388.5h350" stroke="#D4E1DB"/>
+<path d="M0 214a24 24 0 0 1 24-24h342a24 24 0 0 1 24 24v630H0z" fill="#FFFFFF"/>
+<rect x="175" y="198" width="40" height="4" rx="2" fill="#70877D"/>
+<text x="20" y="237" font-size="22" font-weight="700" fill="#152C26">Invitation pending</text>
+<rect x="322" y="206" width="48" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<path d="M340 224l12 12m0-12-12 12" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="262" font-size="13" font-weight="450" fill="#425B52">Reformas Ruiz · Acting as Provider admin</text>
+<path d="M20 287H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
 <g id="sheet-content">
-<text x="20" y="416" fill="#152C26" font-size="16" font-weight="650">Recipient email</text>
-<text x="20" y="441" fill="#152C26" font-size="15" font-weight="400">nadia@example.com</text>
-<path d="M20 455.5h350" stroke="#D4E1DB"/>
-<text x="20" y="482" fill="#152C26" font-size="16" font-weight="650">Invited role</text>
-<text x="20" y="507" fill="#152C26" font-size="15" font-weight="400">Worker · no access until accepted</text>
-<path d="M20 520.5h350" stroke="#D4E1DB"/>
-<text x="20" y="548" fill="#152C26" font-size="16" font-weight="650">Invite link expires</text>
-<text x="20" y="573" fill="#152C26" font-size="15" font-weight="400">Wed, 25 Nov · 17:00 · Spain time</text>
-<text x="20" y="607" fill="#425B52" font-size="13" font-weight="450">Sent Sun, 22 Nov · 17:00 Spain time</text>
-<rect x="20" y="648" width="350" height="48" rx="12" fill="#FCE9E8"/>
-<text x="195" y="678" fill="#853531" font-size="16" font-weight="650" text-anchor="middle">Withdraw invitation</text>
+<g transform="translate(20 328)" aria-hidden="true"><path d="M2 5h20v15H2z M2 6l10 7L22 6" fill="none" stroke="#0B5747" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="56" y="347" font-size="13" font-weight="650" fill="#425B52">SENT · NOT ACCEPTED</text>
+<text x="20" y="385" font-size="22" font-weight="700" fill="#152C26">nadia@example.com</text>
+<text x="20" y="411" font-size="13" font-weight="450" fill="#425B52">Invited as Worker · No access yet</text>
+<path d="M20 431H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="461" font-size="16" font-weight="650" fill="#152C26">Link sent</text>
+<text x="20" y="485" font-size="13" font-weight="450" fill="#425B52">Sun, 22 Nov · 17:00 Spain time</text>
+<path d="M20 504H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="535" font-size="16" font-weight="650" fill="#152C26">Single-use link expires</text>
+<text x="20" y="563" font-size="16" font-weight="550" fill="#152C26">Tue, 24 Nov · 17:00 Spain time</text>
+<text x="20" y="588" font-size="13" font-weight="450" fill="#425B52">This deadline is not the end of membership.</text>
+<rect x="20" y="623" width="350" height="48" rx="12" fill="#FCE9E8"/>
+<text x="195" y="653" font-size="16" font-weight="650" fill="#853531" text-anchor="middle">Withdraw invitation</text>
+<text x="20" y="706" font-size="13" font-weight="450" fill="#425B52">Earliest reissue: Mon, 23 Nov · 17:00 Spain time.</text>
 </g>
 <g id="sheet-footer">
-<path d="M0 744.5h390" stroke="#D4E1DB"/>
-<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
-<text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Resend invitation</text>
+<path d="M0 744H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="755" width="350" height="48" rx="12" fill="#EBF2EF"/>
+<text x="195" y="785" font-size="16" font-weight="650" fill="#425B52" text-anchor="middle">Reissue invitation</text>
 </g>
 </g>
 <g id="home-indicator" aria-hidden="true">

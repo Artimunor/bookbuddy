@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-<title id="screen-title">P-01 Business overview — active business</title>
-<desc id="screen-desc">In Provider admin for Reformas Ruiz, Mateo sees one active job, two active members, the booked BB-1042 visit and links to business readiness and people. Overview is selected.</desc>
+<title id="screen-title">P-01 Business overview — booked visit and free-start statement</title>
+<desc id="screen-desc">One booked repair has an accountable foreman. The November provider fee is zero in the free start. Customers still pay Reformas Ruiz for the repair. Business and eligibility and People and access open scoped details.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <g id="status-bar" aria-hidden="true">
 <text x="20" y="29" fill="#152C26" font-size="15" font-weight="700">9:41</text>
@@ -23,45 +23,42 @@
 <path d="M339 79h14l-1.5-2v-4a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="content">
-<text x="20" y="149" fill="#152C26" font-size="28" font-weight="700">Business overview</text>
-<text x="20" y="176" fill="#425B52" font-size="15" font-weight="400">Track job ownership and team readiness.</text>
-<g id="summary">
-<rect x="20" y="198" width="350" height="124" rx="16" fill="#DCF2EA"/>
-<text x="36" y="225" fill="#0B5747" font-size="12" font-weight="650">BUSINESS AT A GLANCE</text>
-<text x="36" y="267" fill="#152C26" font-size="32" font-weight="700">1</text>
-<text x="212" y="267" fill="#152C26" font-size="32" font-weight="700">2</text>
-<text x="36" y="294" fill="#425B52" font-size="13" font-weight="450">Active job</text>
-<text x="212" y="294" fill="#425B52" font-size="13" font-weight="450">Active members</text>
-<path d="M194.5 246v50" stroke="#D4E1DB"/>
-</g>
-<text x="20" y="359" fill="#152C26" font-size="20" font-weight="650">Next visit</text>
+<text x="20" y="150" font-size="28" font-weight="700" fill="#152C26">Business overview</text>
+<text x="20" y="177" font-size="15" font-weight="400" fill="#425B52">1 active job · 2 active members</text>
 <g id="next-visit">
-<rect x="20.5" y="374.5" width="349" height="131" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="407" fill="#152C26" font-size="20" font-weight="650">Terrace door repair</text>
-<text x="36" y="432" fill="#425B52" font-size="15" font-weight="400">BB-1042 · Villa Mar · Xàbia</text>
-<rect x="268" y="416" width="86" height="28" rx="14" fill="#E7F4E8"/>
-<g transform="translate(276 422) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="#245936" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="298" y="434" fill="#245936" font-size="12" font-weight="550">Booked</text>
-<path d="M36 448.5h318" stroke="#D4E1DB"/>
-<rect x="36" y="460" width="32" height="32" rx="8" fill="#EBF2EF"/>
-<g transform="translate(40 464)" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm2-2v4m10-4v4M3 10h18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="80" y="475" fill="#152C26" font-size="16" font-weight="650">Tue, 24 Nov · 09:00–10:00</text>
-<text x="80" y="494" fill="#425B52" font-size="13" font-weight="450">Spain time · Mateo Ruiz</text>
-<g transform="translate(334 464)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="20" y="200" width="350" height="156" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="226" font-size="13" font-weight="650" fill="#425B52">NEXT VISIT</text>
+<text x="354" y="226" font-size="13" font-weight="650" fill="#0B5747" text-anchor="end">Booked</text>
+<text x="36" y="264" font-size="22" font-weight="700" fill="#152C26">Terrace door repair</text>
+<text x="36" y="286" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Villa Mar · Xàbia</text>
+<path d="M36 302H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="327" font-size="16" font-weight="650" fill="#152C26">Tue, 24 Nov · 09:00–10:00</text>
+<text x="36" y="347" font-size="13" font-weight="450" fill="#425B52">Spain time · Mateo Ruiz, foreman</text>
+<path d="m346 323 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
-<text x="20" y="542" fill="#152C26" font-size="20" font-weight="650">Business readiness</text>
-<rect x="20.5" y="556.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="576" width="32" height="32" rx="8" fill="#E7F4E8"/>
-<g transform="translate(40 580)" aria-hidden="true"><path d="M12 3 5 6v5c0 4 2 7 7 10 5-3 7-6 7-10V6l-7-3zm-3 9 2 2 4-4" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="80" y="586" fill="#152C26" font-size="16" font-weight="650">Business and eligibility</text>
-<text x="80" y="607" fill="#425B52" font-size="13" font-weight="450">Approved for construction repairs</text>
-<g transform="translate(334 580)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<rect x="20.5" y="644.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="664" width="32" height="32" rx="8" fill="#EBF2EF"/>
-<g transform="translate(40 668)" aria-hidden="true"><path d="M14 7.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0zM3 20v-1a6 6 0 0 1 6-6h3a6 6 0 0 1 6 6v1m-1-15a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 5v1" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="80" y="674" fill="#152C26" font-size="16" font-weight="650">People and access</text>
-<text x="80" y="695" fill="#425B52" font-size="13" font-weight="450">Manage memberships and invitations</text>
-<g transform="translate(334 668)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g id="provider-fee">
+<text x="20" y="395" font-size="20" font-weight="650" fill="#152C26">Provider fee statement</text>
+<rect x="20" y="411" width="350" height="121" rx="16" fill="#DCF2EA"/>
+<g transform="translate(36 429)" aria-hidden="true"><path d="M5 2h14v20l-4-2-3 2-3-2-4 2z M8 7h8m-8 4h8m-8 4h5" fill="none" stroke="#0B5747" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="74" y="445" font-size="13" font-weight="650" fill="#0B5747">November · Free start</text>
+<text x="36" y="478" font-size="22" font-weight="700" fill="#152C26">€0 BookBuddy fee</text>
+<text x="36" y="508" font-size="15" font-weight="400" fill="#152C26">First 30 completed paid jobs: no fee.</text>
+<path d="m346 465 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text x="20" y="557" font-size="13" font-weight="450" fill="#425B52">Customers pay Reformas Ruiz directly.</text>
+<text x="20" y="596" font-size="20" font-weight="650" fill="#152C26">Business readiness</text>
+<rect x="20" y="610" width="350" height="124" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="623" width="36" height="36" rx="9" fill="#EBF2EF"/>
+<g transform="translate(42 629)" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5z M8 12l3 3 5-6" fill="none" stroke="#425B52" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="88" y="637" font-size="16" font-weight="650" fill="#152C26">Business and eligibility</text>
+<text x="88" y="657" font-size="13" font-weight="450" fill="#425B52">Approved for specified repairs</text>
+<path d="m346 637 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 672H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="36" y="686" width="36" height="36" rx="9" fill="#EBF2EF"/>
+<g transform="translate(42 692)" aria-hidden="true"><path d="M14 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z M3 21v-2a7.5 7.5 0 0 1 15 0v2m-1-17a3.5 3.5 0 0 1 0 7m2 3a6 6 0 0 1 3 5" fill="none" stroke="#425B52" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="88" y="700" font-size="16" font-weight="650" fill="#152C26">People and access</text>
+<text x="88" y="720" font-size="13" font-weight="450" fill="#425B52">2 members · No pending invitations</text>
+<path d="m346 700 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="tab-bar">
 <rect x="0" y="746" width="390" height="98" fill="#FFFFFF"/>
