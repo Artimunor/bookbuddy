@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">F-04 Scope and quote editor — pending business review</title>
+  <desc id="screen-desc">Quote version 1 and its €240.00 total are visible as a read-only review snapshot. Publishing is blocked while Reformas Ruiz reviews the quote. Claire Martin has not received it.</desc>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+  <g id="header">
+  <g transform="translate(20 64)" aria-hidden="true"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Scope and quote editor</text>
+  <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
+  <path d="M0 107.5h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="content">
+  <rect x="20" y="124" width="350" height="64" rx="16" fill="#FFF1D5"/>
+  <g transform="translate(36 140) scale(0.6666666666666666)" aria-hidden="true"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 4v5l3 2" fill="none" stroke="#704500" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="64" y="150" fill="#704500" font-size="16" font-weight="650">Pending business review</text>
+  <text x="64" y="171" fill="#704500" font-size="13" font-weight="550">Version 1 · Reformas Ruiz · Not sent to Claire</text>
+  
+  <text x="20" y="222" fill="#152C26" font-size="20" font-weight="650">Work and exclusions</text>
+  
+  <rect x="20.5" y="238.5" width="349" height="193" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+  <text x="36" y="262" fill="#0B5747" font-size="12" font-weight="550">Translation · English</text>
+  <text x="36" y="285" fill="#152C26" font-size="15" font-weight="400" xml:lang="en">Adjust the terrace door and replace</text>
+  <text x="36" y="307" fill="#152C26" font-size="15" font-weight="400" xml:lang="en">the rollers. Excludes glass replacement.</text>
+  <path d="M36 322.5h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="344" fill="#425B52" font-size="12" font-weight="550">Original · Español</text>
+  <text x="36" y="368" fill="#152C26" font-size="15" font-weight="400" xml:lang="es">Ajustar la puerta de la terraza y sustituir</text>
+  <text x="36" y="390" fill="#152C26" font-size="15" font-weight="400" xml:lang="es">los rodillos.</text>
+  <text x="36" y="412" fill="#152C26" font-size="15" font-weight="400" xml:lang="es">No incluye la sustitución del vidrio.</text>
+  <text x="20" y="468" fill="#152C26" font-size="20" font-weight="650">Cost lines</text>
+  
+  <rect x="20.5" y="484.5" width="349" height="113" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+  <text x="36" y="512" fill="#152C26" font-size="15" font-weight="400">Labour</text>
+  <text x="354" y="512" fill="#152C26" font-size="15" font-weight="550" text-anchor="end">€160.00</text>
+  <text x="36" y="535" fill="#152C26" font-size="15" font-weight="400">Rollers</text>
+  <text x="354" y="535" fill="#152C26" font-size="15" font-weight="550" text-anchor="end">€80.00</text>
+  <path d="M36 548.5h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="578" fill="#152C26" font-size="16" font-weight="650">Total · EUR</text>
+  <text x="354" y="578" fill="#152C26" font-size="20" font-weight="650" text-anchor="end">€240.00</text>
+  <rect x="20.5" y="614.5" width="349" height="55" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+  <rect x="36" y="626" width="32" height="32" rx="8" fill="#EBF2EF"/>
+  <g transform="translate(42 632) scale(0.8333333333333334)" aria-hidden="true"><path d="M6 3h8l4 4v14H6zm8 0v5h4M9 12h6m-6 4h6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="80" y="637" fill="#152C26" font-size="16" font-weight="650">Terms and evidence</text>
+  <text x="80" y="657" fill="#425B52" font-size="13" font-weight="450">Review conditions and attachments</text>
+  <g transform="translate(338 634) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
+  
+  <text x="20" y="708" fill="#425B52" font-size="13" font-weight="450">Only an authorised publisher can send this quote.</text>
+  </g>
+  <g id="footer">
+  <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+  <path d="M0 744.5h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="752" width="350" height="48" rx="12" fill="#EBF2EF"/>
+  
+  <text x="195" y="782" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">Publish quote</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>
