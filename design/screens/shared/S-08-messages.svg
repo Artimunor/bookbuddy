@@ -2,7 +2,6 @@
   <title id="screen-title">S-08 Messages — Worker view</title>
   <desc id="screen-desc">Nadia sees only granted conversations in Reformas Ruiz. The crew-only conversation has one unread message. A separate job conversation shows Nadia’s most recent message.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
-  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,16 +15,17 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-    <text x="20" y="75" fill="#152C26" font-size="28" font-weight="700">Messages</text>
-    <text x="20" y="96" fill="#425B52" font-size="13" font-weight="450">Worker · Reformas Ruiz</text>
+    <text x="20" y="75" font-size="16" font-weight="700" fill="#152C26" text-anchor="start">Reformas Ruiz</text>
+    <text x="20" y="95" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Worker</text>
     <rect x="266.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <g transform="translate(278 65) scale(1)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <g transform="translate(278 64) scale(1)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4Zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
     <rect x="322.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <circle cx="346" cy="76" r="14" fill="#DCF2EA"/>
-    <text x="346" y="81" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">NB</text>
-    <path d="M0 107.5h390" stroke="#D4E1DB"/>
+    <circle cx="346" cy="76" r="15" fill="#DCF2EA"/>
+    <text x="346" y="81" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">NB</text>
   </g>
   <g id="content">
+    <text x="20" y="149" font-size="28" font-weight="700" fill="#152C26" text-anchor="start">Messages</text>
+    <g transform="translate(0 48)">
     <g id="job-search">
     <text x="20" y="139" fill="#152C26" font-size="16" font-weight="650">Search jobs</text>
     <rect x="20.5" y="150.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
@@ -57,19 +57,15 @@
     <text x="36" y="571" fill="#425B52" font-size="13" font-weight="450">Villa Mar · Xàbia</text>
     <text x="36" y="598" fill="#425B52" font-size="15" font-weight="400">You: I’ll be at the gate at 09:00.</text>
     <text x="20" y="654" fill="#425B52" font-size="13" font-weight="450">Message times shown in Spain time</text>
+    </g>
   </g>
   <g id="tab-bar">
-    <rect x="0" y="746" width="390" height="98" rx="0" fill="#FFFFFF"/>
-    <path d="M0 746.5h390" stroke="#D4E1DB"/>
-    <g transform="translate(39 758) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm2-2v5m10-5v5M3 9h18m-13 4h2m4 0h2m-8 4h2" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="49" y="800" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Today</text>
-    <g transform="translate(136 758) scale(0.8333333333333334)" aria-hidden="true"><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2M3 7h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Zm-1 5a23 23 0 0 0 20 0" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="146" y="800" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">My shifts</text>
-    <g transform="translate(234 758) scale(0.8333333333333334)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Zm-10-6v6l4 2" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="244" y="800" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Availability</text>
-    <rect x="317" y="753" width="48" height="30" rx="15" fill="#DCF2EA"/>
-    <g transform="translate(331 758) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 3h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-7l-7 4v-4a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zm2 6h10m-10 4h7" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="341" y="800" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">Messages</text>
+    <rect x="0" y="746" width="390" height="98" fill="#FFFFFF"/>
+    <path d="M0 746.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(37 757) scale(1)" aria-hidden="true"><path d="M2 11l10-9 10 9m-18-1v11h16V10m-10 11v-6h4v6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="49" y="800" font-size="12" font-weight="550" fill="#425B52" text-anchor="middle">Today</text>
+    <g transform="translate(134 757) scale(1)" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2-3v6m10-6v6M3 11h18" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="146" y="800" font-size="12" font-weight="550" fill="#425B52" text-anchor="middle">My shifts</text>
+    <g transform="translate(232 757) scale(1)" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm3-2v5m10-5v5M2 10h20m-14 5 2.5 2.5 4.5-4.5" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="244" y="800" font-size="12" font-weight="550" fill="#425B52" text-anchor="middle">Availability</text>
+    <rect x="317" y="753" width="48" height="30" rx="15" fill="#DCF2EA"/><g transform="translate(329 757) scale(1)" aria-hidden="true"><path d="M5 3h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-7l-7 4v-4a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 6h10m-10 4h7" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="341" y="800" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">Messages</text>
   </g>
   <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

@@ -40,7 +40,7 @@
 <rect x="20" y="296" width="350" height="84" rx="16" fill="#E5F0FA"/>
 <g transform="translate(44 319)" aria-hidden="true"><path d="M-7-5h14v12h-14zM-4-8v5m8-5v5M-7-1h14" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="64" y="325" fill="#234C78" font-size="16" font-weight="650">Next available · Sat, 28 Nov</text>
-<text x="64" y="346" fill="#234C78" font-size="13" font-weight="450"><tspan x="64">10:00–10:45 · Spain time</tspan><tspan x="64" dy="18">2 places left at this time</tspan></text>
+<text x="64" y="346" fill="#234C78" font-size="13" font-weight="450"><tspan x="64">10:00–10:45 · Spain time</tspan><tspan x="64" dy="18">3 places left at this time</tspan></text>
 </g>
 <g id="venue-and-language">
 <rect x="20.5" y="392.5" width="349" height="115" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
@@ -112,7 +112,7 @@
 <circle cx="44" cy="530" r="8" fill="#FFFFFF" stroke="#0B6250" stroke-width="1.75"/>
 <circle cx="44" cy="530" r="4" fill="#0B6250"/>
 <text x="64" y="536" fill="#152C26" font-size="16" font-weight="650">10:00–10:45</text>
-<text x="354" y="536" fill="#0B5747" font-size="13" font-weight="650" text-anchor="end">2 places left</text>
+<text x="354" y="536" fill="#0B5747" font-size="13" font-weight="650" text-anchor="end">3 places left</text>
 </g>
 <g>
 <rect x="20.5" y="564.5" width="349" height="51" rx="12" fill="#FFFFFF" stroke="#70877D"/>

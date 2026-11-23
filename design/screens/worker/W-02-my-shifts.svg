@@ -18,9 +18,9 @@
   <rect x="20" y="196" width="350" height="48" rx="12" fill="#EBF2EF"/>
   <rect x="24.5" y="200.5" width="110" height="39" rx="8" fill="#DCF2EA" stroke="#0B6250"/>
   <g transform="translate(35 211) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 4 4 10-9" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="86" y="225" font-size="14" font-weight="650" fill="#0B5747" text-anchor="middle">Upcoming</text>
-  <text x="195" y="225" font-size="14" font-weight="550" fill="#425B52" text-anchor="middle">Offers</text>
-  <text x="309" y="225" font-size="14" font-weight="550" fill="#425B52" text-anchor="middle">Past</text>
+  <text x="86" y="225" font-size="15" font-weight="650" fill="#0B5747" text-anchor="middle">Upcoming</text>
+  <text x="195" y="225" font-size="15" font-weight="550" fill="#425B52" text-anchor="middle">Offers</text>
+  <text x="309" y="225" font-size="15" font-weight="550" fill="#425B52" text-anchor="middle">Past</text>
   <g transform="translate(20 263) scale(1)" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2-3v6m10-6v6M3 11h18" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
   <text x="56" y="282" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Tue, 24 Nov</text>
   <rect x="20.5" y="300.5" width="349" height="167" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>

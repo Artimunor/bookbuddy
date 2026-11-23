@@ -16,30 +16,30 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
     <circle cx="36" cy="76" r="16" fill="#DCF2EA"/>
-    <g aria-hidden="true" transform="translate(26 66) scale(0.8333333333333334)"><path d="m3 11 9-7 9 7M5.5 10v9h13v-9M10 19v-5h4v5" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="60" y="75" font-size="16" font-weight="700" fill="#152C26">Reformas Ruiz</text>
-    <text x="60" y="94" font-size="13" font-weight="450" fill="#425B52">Foreman</text>
-    <rect x="266.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <g aria-hidden="true" transform="translate(278 64) scale(1)"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4zM9.5 18a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <rect x="322.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <circle cx="346" cy="76" r="14" fill="#DCF2EA"/><text x="346" y="80.5" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">MR</text>
+    <g transform="translate(26 66) scale(0.8333333333333334)" aria-hidden="true"><path d="m3 12 9-8 9 8m-16-2v10h14V10m-9 6 2 2 4-5" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="60" y="75" fill="#152C26" font-size="16" font-weight="650">Reformas Ruiz</text>
+    <text x="60" y="94" fill="#425B52" font-size="13" font-weight="450">Foreman</text>
+    <rect x="270.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <g transform="translate(282 64)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <circle cx="346" cy="76" r="20" fill="#DCF2EA"/>
+    <text x="346" y="80" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">MR</text>
   </g>
   <g id="content">
     <text x="20" y="149" font-size="28" font-weight="700" fill="#152C26">Team roster</text>
-    <text x="20" y="176" font-size="15" font-weight="400" fill="#425B52">Find crew by skills and availability.</text>
     <g id="search">
+    <text x="20" y="180" font-size="16" font-weight="650" fill="#152C26">Search team</text>
     <rect x="20.5" y="196.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
     <g aria-hidden="true" transform="translate(34 210) scale(0.8333333333333334)"><path d="M15.5 15.5 20 20m-2.5-9.5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="226" font-size="15" font-weight="400" fill="#425B52">Search names and skills</text>
+    <text x="64" y="226" font-size="15" font-weight="400" fill="#425B52">Name or skill</text>
   </g>
     <g id="filters">
-    <rect x="20.5" y="256.5" width="109" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
+    <rect x="20.5" y="256.5" width="105" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
     <g aria-hidden="true" transform="translate(34.5 271.5) scale(0.7083333333333334)"><path d="m5 12 4 4L19 6" fill="none" stroke="#0B5747" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="57" y="286" font-size="15" font-weight="650" fill="#0B5747">All team</text>
-    <rect x="138.5" y="256.5" width="104" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/><text x="190.5" y="286" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Available</text>
-    <rect x="251.5" y="256.5" width="118" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <g aria-hidden="true" transform="translate(263.5 270.5) scale(0.7916666666666666)"><path d="M3 6h18M6 12h12m-9 6h6" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="289" y="286" font-size="15" font-weight="650" fill="#152C26">More filters</text>
+    <text x="53" y="286" font-size="16" font-weight="650" fill="#0B5747">All team</text>
+    <rect x="134.5" y="256.5" width="101" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <text x="185" y="286" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Available</text>
+    <rect x="244.5" y="256.5" width="125" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <text x="307" y="286" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle">More filters</text>
   </g>
     <rect x="20" y="320" width="350" height="64" rx="16" fill="#E5F0FA"/><g aria-hidden="true" transform="translate(35 333) scale(0.75)"><path d="M12 2.5 20 6v5c0 5-3.2 8.2-8 10.5C7.2 19.2 4 16 4 11V6zM8 12l2.6 2.5L16 9" fill="none" stroke="#234C78" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g><text x="64" y="347" font-size="16" font-weight="650" fill="#234C78">Eligibility summary</text><text x="64" y="369" font-size="13" font-weight="450" fill="#234C78"><tspan x="64">3 approved · 1 pending review</tspan></text>
     <text x="20" y="416" font-size="20" font-weight="650" fill="#152C26">Team members</text>

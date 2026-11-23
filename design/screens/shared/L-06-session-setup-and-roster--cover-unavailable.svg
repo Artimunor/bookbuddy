@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">L-06 Session setup and roster — no cover confirmed</title>
-<desc id="screen-desc">The coordinator sees that Elena Costa cannot attend, own-team cover is unavailable, no approved external cover exists and new bookings are paused. Six existing bookings are unchanged. The coordinator can reach local support or review cover history.</desc>
+<desc id="screen-desc">The coordinator sees that Elena Costa cannot attend, own-team cover is unavailable, no approved external cover exists and new bookings are paused. Six of eight places are booked and existing bookings remain valid. The coordinator can reach local support or review cover history.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
@@ -62,7 +62,7 @@
 </g>
 <g id="gap-summary">
 <text x="20" y="643" fill="#425B52" font-size="13" font-weight="450">Elena Costa can’t attend.</text>
-<text x="20" y="664" fill="#425B52" font-size="13" font-weight="450">6 bookings remain. No time change or cancellation.</text>
+<text x="20" y="664" fill="#425B52" font-size="13" font-weight="450"><tspan x="20">Existing bookings remain valid.</tspan><tspan x="20" dy="18">No time change or cancellation.</tspan></text>
 <text x="20" y="706" fill="#0B5747" font-size="16" font-weight="650">View cover history</text>
 <g transform="translate(346 701)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 </g>

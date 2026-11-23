@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">L-02 Session detail — Mat Pilates</title>
-<desc id="screen-desc">Estudi Mar Pilates offers an English-language, beginner-friendly group mat class with step-free studio entry. The next 45-minute class has two places left. It costs sixteen euros per person.</desc>
+<desc id="screen-desc">Estudi Mar Pilates offers an English-language, beginner-friendly group mat class with step-free studio entry. The next 45-minute class has three places left. It costs sixteen euros per person.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
@@ -40,7 +40,7 @@
 <rect x="20" y="296" width="350" height="84" rx="16" fill="#E5F0FA"/>
 <g transform="translate(44 319)" aria-hidden="true"><path d="M-7-5h14v12h-14zM-4-8v5m8-5v5M-7-1h14" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="64" y="325" fill="#234C78" font-size="16" font-weight="650">Next available · Sat, 28 Nov</text>
-<text x="64" y="346" fill="#234C78" font-size="13" font-weight="450"><tspan x="64">10:00–10:45 · Spain time</tspan><tspan x="64" dy="18">2 places left at this time</tspan></text>
+<text x="64" y="346" fill="#234C78" font-size="13" font-weight="450"><tspan x="64">10:00–10:45 · Spain time</tspan><tspan x="64" dy="18">3 places left at this time</tspan></text>
 </g>
 <g id="venue-and-language">
 <rect x="20.5" y="392.5" width="349" height="115" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>

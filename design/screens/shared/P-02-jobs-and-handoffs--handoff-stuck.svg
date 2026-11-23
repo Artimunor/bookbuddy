@@ -25,13 +25,13 @@
 <g id="content">
 <text x="20" y="149" fill="#152C26" font-size="28" font-weight="700">Jobs and handoffs</text>
 <text x="20" y="176" fill="#425B52" font-size="15" font-weight="400">See who is accountable for each job.</text>
-<rect x="20.5" y="196.5" width="101" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<text x="71" y="225" fill="#425B52" font-size="13" font-weight="650" text-anchor="middle">All active</text>
-<rect x="130.5" y="196.5" width="131" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
-<g transform="translate(140 212) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="#0B5747" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="162" y="225" fill="#0B5747" font-size="13" font-weight="650">Needs action</text>
-<rect x="270.5" y="196.5" width="73" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<text x="307" y="225" fill="#425B52" font-size="13" font-weight="650" text-anchor="middle">Past</text>
+<rect x="20.5" y="196.5" width="115" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="78" y="226" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">All active</text>
+<rect x="144.5" y="196.5" width="147" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
+<g transform="translate(154 212) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5L20 7" fill="none" stroke="#0B5747" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="176" y="226" fill="#0B5747" font-size="16" font-weight="650">Needs action</text>
+<rect x="300.5" y="196.5" width="69" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="335" y="226" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">Past</text>
 <g id="selected-job">
 <rect x="20.5" y="260.5" width="349" height="131" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
 <text x="36" y="293" fill="#152C26" font-size="20" font-weight="650">Terrace door repair</text>

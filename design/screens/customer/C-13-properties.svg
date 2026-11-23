@@ -25,9 +25,11 @@
 <g id="content">
 <text x="20" y="150" font-size="28" font-weight="700" fill="#152C26">Properties</text>
 <text x="20" y="178" font-size="15" font-weight="400" fill="#425B52">Find a site and manage who can access it.</text>
-<rect x="20.5" y="198.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<g aria-hidden="true" transform="translate(34 210)"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zm5 11.5 4.5 4.5" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="70" y="228" font-size="15" font-weight="400" fill="#425B52">Search properties</text>
+<text x="20" y="211" font-size="16" font-weight="650" fill="#152C26">Search properties</text>
+<rect x="20.5" y="222.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<g aria-hidden="true" transform="translate(34 234)"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zm5 11.5 4.5 4.5" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="70" y="252" font-size="15" font-weight="400" fill="#425B52">Name or location</text>
+<g id="property-results" transform="translate(0 24)">
 <rect x="20.5" y="260.5" width="96" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
 <g aria-hidden="true" transform="translate(32 276) scale(0.6666666666666666)"><path d="m5 12 4 4 10-10" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="55" y="290" font-size="16" font-weight="650" fill="#0B5747">Active</text>
@@ -46,6 +48,7 @@
 <text x="36" y="553" font-size="20" font-weight="650" fill="#152C26">Add a property</text>
 <text x="36" y="578" font-size="15" font-weight="400" fill="#425B52">Save a site for your next repair.</text>
 <rect x="36" y="590" width="176" height="48" rx="12" fill="#0B6250"/><g aria-hidden="true" transform="translate(52 602)"><path d="M12 5v14M5 12h14" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="86" y="620" font-size="16" font-weight="650" fill="#FFFFFF">Add property</text>
+</g>
 </g>
 <g id="tab-bar">
     <rect y="746" width="390" height="98" fill="#FFFFFF"/>

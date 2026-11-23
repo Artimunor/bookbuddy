@@ -34,12 +34,12 @@
   <text x="195" y="228" fill="#0B5747" font-size="15" font-weight="650" text-anchor="middle">Active</text>
   <text x="310" y="228" fill="#425B52" font-size="15" font-weight="550" text-anchor="middle">Archived</text>
   </g>
-  <rect x="20" y="262" width="144" height="48" rx="24" fill="#FFFFFF" stroke="#70877D"/>
-  <g transform="translate(28 278) scale(0.6666666666666666)" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="#0B5747" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="101" y="290" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">All properties</text>
-  <rect x="172" y="262" width="123" height="48" rx="24" fill="#FFFFFF" stroke="#70877D"/>
-  <g transform="translate(180 278) scale(0.6666666666666666)" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="#0B5747" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="242.5" y="290" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">All stages</text>
+  <rect x="20.5" y="262.5" width="159" height="47" rx="24" fill="#FFFFFF" stroke="#70877D"/>
+  <g transform="translate(32 278) scale(0.6666666666666666)" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="#0B5747" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="109" y="292" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">All properties</text>
+  <rect x="188.5" y="262.5" width="137" height="47" rx="24" fill="#FFFFFF" stroke="#70877D"/>
+  <g transform="translate(200 278) scale(0.6666666666666666)" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="#0B5747" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="266" y="292" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">All stages</text>
   <text x="20" y="354" fill="#152C26" font-size="20" font-weight="650">Active jobs</text>
   <rect x="306" y="332" width="64" height="28" rx="14" fill="#EBF2EF"/>
   

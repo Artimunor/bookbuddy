@@ -29,7 +29,15 @@
     <text x="36" y="176" font-size="16" font-weight="650" fill="#152C26" style="font-variant-numeric: tabular-nums">Tue, 24 Nov · 09:00–10:00</text>
     <text x="36" y="204" font-size="13" font-weight="450" fill="#425B52" style="font-variant-numeric: tabular-nums">Spain time · Own team exhausted at 08:42</text>
   </g>
-    <rect x="20" y="236" width="350" height="80" rx="16" fill="#E5F0FA"/><g aria-hidden="true" transform="translate(35 249) scale(0.75)"><path d="m5 12 4 4L19 6" fill="none" stroke="#234C78" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g><text x="64" y="263" font-size="16" font-weight="650" fill="#234C78">First valid reply received</text><text x="64" y="285" font-size="13" font-weight="450" fill="#234C78"><tspan x="64">Accepted · confirmation required</tspan></text>
+    <g id="provisional-acceptance">
+      <rect x="20" y="236" width="350" height="80" rx="16" fill="#E5F0FA"/>
+      <g aria-hidden="true" transform="translate(35 249) scale(0.75)"><path d="m5 12 4 4L19 6" fill="none" stroke="#234C78" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <text x="64" y="263" font-size="16" font-weight="650" fill="#234C78">Accepted · confirmation required</text>
+      <text x="64" y="285" font-size="13" font-weight="450" fill="#234C78">
+        <tspan x="64">First valid acceptance reserves the</tspan>
+        <tspan x="64" dy="18">place for foreman confirmation.</tspan>
+      </text>
+    </g>
     <text x="20" y="355" font-size="20" font-weight="650" fill="#152C26">Live responses</text>
     <text x="370" y="355" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">1 accepted · 1 declined</text>
     <g id="latest-offer-responses">

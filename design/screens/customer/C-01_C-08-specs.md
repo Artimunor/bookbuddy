@@ -31,7 +31,7 @@ Claire Martin requests a terrace door repair at Villa Mar in Xàbia. The eight s
 
 **Purpose and routes.** First step from C-01, a resumed draft, or the description Edit link on C-04. Continue to C-03 in the normal flow; when editing from Review, return to C-04 after a valid edit. Back to Jobs leaves a draft if there is content worth saving.
 
-**Layout and data.** Stack title, step indicator (`Step 1 of 3`), Description multiline input and source label, Photos and voice section with privacy hint and attachment tray, Add photo or voice secondary button, draft/status feedback, pinned Continue. Claire writes `La porte de la terrasse coince quand je la ferme.` Photo: Terrace door photo. Voice: 0:18, original French. The illustrated photo tile is a synthetic preview, not completion evidence.
+**Layout and data.** Stack title, step indicator (`Step 1 of 3`), Description multiline input and source label, Photos and voice section with privacy hint and attachment tray, Add photo or voice secondary button, draft/status feedback, pinned Continue. Claire writes `La porte de la terrasse coince quand je la ferme.` Photo: Terrace door photo, labelled `Added to draft` once ready; that does not mean the request was sent. Voice: 0:18, original French. The illustrated photo tile is a synthetic preview, not completion evidence.
 
 **Interactions.** Tap the input to type or dictate in any language; the app does not change the original. Add opens S-14, which leads to the native camera/photo library or the in-app record/review controls. Permission is asked at use, not on entry. In the tray, tap a thumbnail or voice title for S-15, or Play to hear the original inline. Play becomes Pause; no autoplay. Each Remove control is named for the item. For an incomplete upload, removing the item cancels that attachment; during review this is an explicit action, never an automatic omission. If discarding the only original voice description, warn that a description will still be needed. Continue requires non-whitespace text or a valid recorded voice description; a photo alone is supplemental. If invalid, show an inline error, scroll to and focus Description, and explain the voice alternative. A captured original can advance with upload pending, but C-04 cannot send it until the upload is complete or intentionally removed.
 
@@ -103,21 +103,23 @@ Claire Martin requests a terrace door repair at Villa Mar in Xàbia. The eight s
 
 ![C-06 Superseded quote](C-06-quote-and-scope--superseded.svg)
 
-**Purpose and routes.** Inspect a versioned offer from C-05 or an authorised S-09 quote link; Back to job detail. `Review approval` opens C-07 for this exact version; `Ask Mateo` opens S-10 in the Job conversation with a return to the same version and scroll position. Only a fresh, authorised confirmation in C-07 records approval.
+**Purpose and routes.** Inspect a versioned offer from C-05 or an authorised quote link. When opened from the live S-09 inbox, Back restores that inbox’s filter, scroll position and focus on the triggering notification. When entered from the job or opened on cold launch, C-05 is the parent. `Review approval` opens C-07 for this exact version; Cancel restores the same quote version, position and trigger. `Ask Mateo` opens S-10 in the Job conversation and returns to the same version and scroll position. Only a fresh, authorised confirmation in C-07 records approval.
 
-**Layout and data.** Stack header with job/property; quote card with provider, named foreman, version and total; price breakdown; Translation / Original scope and exclusions; approval and booking terms, Decline and Version history; pinned clarification and approval buttons. Fixture: Reformas Ruiz, Mateo Ruiz, V1, labour €160.00 plus rollers €80.00, total €240.00 EUR. Adjust the terrace door and replace the rollers; excludes glass replacement. Exact Spanish original: `Ajustar la puerta de la terraza y sustituir los rodillos.` `No incluye la sustitución del vidrio.` Display issued terms and expiry when recorded, in their original language with a labelled translation; do not invent tax, expiry or cancellation terms. Approval does not take payment or book a visit.
+**Layout and data.** Stack header with job/property; quote card with provider, named foreman, version and total; price breakdown; Translation / Original scope and exclusions; attachment rows; approval and booking terms, Decline and Version history; pinned clarification and approval buttons. Use the cost rows and customer-visible attachments of the issued version, not the latest draft or job gallery. Show each translated cost description above its exact original where different, and the amount only once. Fixture: Reformas Ruiz, Mateo Ruiz, version 1; Labour / `Mano de obra` €160.00 and Rollers / `Rodillos` €80.00, total €240.00 EUR. Adjust the terrace door and replace the rollers; excludes glass replacement. Exact Spanish original: `Ajustar la puerta de la terraza y sustituir los rodillos.` `No incluye la sustitución del vidrio.` The fixture includes `Terrace door photo`, explicitly shared with version 1. Display issued terms and expiry when recorded, in their original language with a labelled translation; do not invent tax, expiry or cancellation terms. Approval does not take payment or book a visit.
 
 **Interactions.** Review approval requires a fresh current, valid quote and approval grant for the property (not the quote author's own account). If the view is old, offer `View current quote`, which opens that version at its title; no direct approval from a stale link. Version history opens a bounded list of authorised versions and dispositions; selecting a version closes that list and displays the immutable record. For a long list, use a full-height sheet. `Ask Mateo` makes no commercial decision; a chat reply cannot amend a quote. `Decline quote` opens S-17 with version, property, actor and effect; submit only against the current quote online. Definitive decline shows the recorded outcome and may return the job to Scoping; a failed or uncertain decline leaves it unchanged until reconciled.
 
+Tap an issued attachment row to open S-15 in read-only mode for that exact quote version, including when a prior version remains readable. Closing S-15 returns to the same version and scroll position and restores focus to the originating row. The viewer cannot edit, remove or replace issued evidence. The customer version includes only evidence explicitly shared in F-04; private or unreceived evidence never appears here. If issued evidence is temporarily unavailable, keep its row with an explanation and a retry or reconnect path rather than silently omitting it; if access is revoked, stop showing restricted content.
+
 **States and edges.** Current/approvable: both clarification and approval available. Current/read-only: show `You can view this quote, but can’t approve it`; no decline/approve if the decision grant is absent; show scoped approver information only if permitted. Clarification: original and financial terms remain unchanged while the conversation is open. Superseded: read-only older total and scope, explicit replaced-by version and CTA to review it; no old decline or approve. Expired: explicit expiry in Spain time, `Ask Mateo for an updated quote`; do not relabel an expired quote as superseded unless a successor exists. Declined: show action time and actor where permitted, no repeated decline. Approved: show exact approved record, clear decision controls, point back to C-05 for scheduling; any later proposed change uses C-15. Cached/offline: show current-as-of time and disable all consequential actions until rechecked; translation unavailable keeps the original readable. If required scope, version or commercial terms cannot be retrieved, treat it as incomplete rather than asking the viewer to approve partial details.
 
-**Platform, access and localisation.** Use native stack navigation and native/Material sheet for version history. Focus: Back, title/context, live version warning if present, quote version and total, line items, scope translation then original, terms, version actions, Ask Mateo and Review approval (or View current quote). Pair line labels with their amounts for screen readers, use tabular figures, never abbreviate the total, and stack the footer at larger sizes. Preserve precise EUR values, source/legal language and scope exclusions in both directions; numbers and currency are bidi-isolated.
+**Platform, access and localisation.** Use native stack navigation and native/Material sheet for version history. Focus: Back, title/context, live version warning if present, quote version and total, line items, scope translation then original, issued attachment rows, terms, version actions, Ask Mateo and Review approval (or View current quote). Pair each cost description and original with the single amount for screen readers; announce the attachment name, quote version and preview action. Use tabular figures, never abbreviate the total, and stack the footer at larger sizes. Preserve precise EUR values, source/legal language and scope exclusions in both directions; numbers and currency are bidi-isolated.
 
 ## C-07 Approve current quote
 
 ![C-07 Approve current quote](C-07-approve-current-quote.svg)
 
-**Purpose and routes.** Record explicit, authorised approval of the reviewed quote. Only C-06 opens this modal. Cancel returns to the same place on C-06. Approval success closes to C-06 with a confirmed receipt and a route back to C-05 for scheduling; it does not skip to a booked screen.
+**Purpose and routes.** Record explicit, authorised approval of the reviewed quote. Only C-06 opens this modal. Cancel restores the same C-06 version, scroll position and trigger. Approval success closes to C-06 with a confirmed receipt and a route to C-05 for scheduling; it does not skip to a booked screen or change where Back returns.
 
 **Layout and data.** Confirmation dialog over a dimmed C-06, with a title, job/reference and property, version and EUR total, provider, actor/role, effects, Cancel, and the explicit `Approve €240.00` primary button. Fixture: BB-1042, Villa Mar · Xàbia; Reformas Ruiz V1; Claire Martin · Customer. Copy states that this agrees to the documented scope and price without booking a visit or taking payment.
 
@@ -169,15 +171,18 @@ flowchart TD
     Properties --> Site
     Site <--> Job
     Send -->|Confirmed request receipt| Job
-    Bell --> Job & Quote["C-06 Quote and scope"] & Visit["C-08 Schedule a visit"]
-    Job --> Quote & Visit
+    Bell --> Job & Visit["C-08 Schedule a visit"]
+    Bell <-->|Warm open / Back to saved filter and position| Quote["C-06 Quote and scope"]
+    Job -->|Job entry or cold-link parent| Quote
+    Job --> Visit
     Inbox --> Chat["S-10 Job chat"]
     Job --> Chat
     Quote <-->|Ask / return| Chat
+    Quote <-->|Issued attachment / Close to same version| Media
     Visit <-->|Ask / return| Chat
     Quote <-->|Review approval / cancel or receipt| Approve["C-07 Approve current quote"]
     Quote <-->|Decline / outcome| Decline["S-17 Confirmation"]
-    Quote -->|Back to job| Job
+    Quote -->|Back after job entry or cold launch| Job
     Visit -->|Confirmed or request recorded| Job
     Job --> Day["C-09 Job day"] & Signoff["C-10 Completion"] & Payment["C-11 Payment"] & Review["C-12 Review"] & Change["C-15 Job change"] & Issue["C-16 Issue or case"] & Manage["C-17 Cancel or reschedule"]
     Change -->|Timing affected| Visit

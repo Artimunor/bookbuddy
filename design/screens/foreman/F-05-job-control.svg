@@ -58,14 +58,15 @@
   <g transform="translate(209 546) scale(0.8333333333333334)" aria-hidden="true"><path d="m5 12 5 5 9-10" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
   <text x="237" y="562" fill="#0B5747" font-size="16" font-weight="650">Completion</text>
   <text x="20" y="619" fill="#152C26" font-size="20" font-weight="650">Job timeline</text>
+  <text x="370" y="619" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">Spain time</text>
   <rect x="20.5" y="636.5" width="349" height="99" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
   <circle cx="44" cy="660" r="4" fill="#245936"/>
   <path d="M44 668v24" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
   <circle cx="44" cy="703" r="4" fill="#234C78"/>
   <text x="60" y="662" fill="#152C26" font-size="16" font-weight="650">Work visit booked</text>
-  <text x="60" y="681" fill="#425B52" font-size="13" font-weight="450">Mon, 23 Nov · 08:36 Spain time</text>
+  <text x="60" y="681" fill="#425B52" font-size="13" font-weight="450">Mon, 23 Nov · 08:36</text>
   <text x="60" y="705" fill="#152C26" font-size="16" font-weight="650">Quote v1 approved</text>
-  <text x="60" y="724" fill="#425B52" font-size="13" font-weight="450">Claire Martin · €240.00</text>
+  <text x="60" y="724" fill="#425B52" font-size="13" font-weight="450">Mon, 23 Nov · 08:20 · Claire Martin · €240.00</text>
   </g>
   <g id="footer">
   <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>

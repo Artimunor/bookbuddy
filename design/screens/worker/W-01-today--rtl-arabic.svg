@@ -31,7 +31,9 @@
   <path d="M36 492.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
   <rect x="322" y="505" width="32" height="32" rx="8" fill="#EBF2EF"/><g transform="translate(328 511) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2-3v6m10-6v6M3 11h18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
   <text x="310" y="520" font-size="16" font-weight="650" fill="#152C26" text-anchor="start" direction="rtl" unicode-bidi="embed" xml:lang="ar">الثلاثاء، ٢٤ نوفمبر</text>
-  <text x="176" y="520" font-size="16" font-weight="650" fill="#152C26" direction="ltr" text-anchor="end"><tspan x="132">٠٩:٠٠</tspan><tspan x="141" text-anchor="middle">–</tspan><tspan x="176">١٠:٠٠</tspan></text>
+  <text x="127" y="520" font-size="16" font-weight="650" fill="#152C26" text-anchor="end" direction="ltr" unicode-bidi="isolate">٠٩:٠٠</text>
+  <text x="135" y="520" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle" direction="ltr" unicode-bidi="isolate">–</text>
+  <text x="144" y="520" font-size="16" font-weight="650" fill="#152C26" text-anchor="start" direction="ltr" unicode-bidi="isolate">١٠:٠٠</text>
   <text x="310" y="540" font-size="13" font-weight="450" fill="#425B52" text-anchor="start" direction="rtl" unicode-bidi="embed" xml:lang="ar">بتوقيت إسبانيا</text>
   <text x="216" y="540" font-size="13" font-weight="450" fill="#425B52" text-anchor="end" direction="ltr" unicode-bidi="embed">Mateo Ruiz</text>
   <g transform="translate(36 515) scale(0.6666666666666666) translate(24 0) scale(-1 1)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>

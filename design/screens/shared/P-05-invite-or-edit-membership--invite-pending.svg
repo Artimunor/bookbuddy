@@ -82,14 +82,14 @@
 <path d="M20 388.5h350" stroke="#D4E1DB"/>
 <g id="sheet-content">
 <text x="20" y="416" fill="#152C26" font-size="16" font-weight="650">Recipient email</text>
-<text x="20" y="441" fill="#152C26" font-size="15" font-weight="400">nadia.benali@example.com</text>
+<text x="20" y="441" fill="#152C26" font-size="15" font-weight="400">nadia@example.com</text>
 <path d="M20 455.5h350" stroke="#D4E1DB"/>
 <text x="20" y="482" fill="#152C26" font-size="16" font-weight="650">Invited role</text>
 <text x="20" y="507" fill="#152C26" font-size="15" font-weight="400">Worker · no access until accepted</text>
 <path d="M20 520.5h350" stroke="#D4E1DB"/>
 <text x="20" y="548" fill="#152C26" font-size="16" font-weight="650">Invite link expires</text>
 <text x="20" y="573" fill="#152C26" font-size="15" font-weight="400">Wed, 25 Nov · 17:00 · Spain time</text>
-<text x="20" y="607" fill="#425B52" font-size="13" font-weight="450">Sent Mon, 23 Nov · 09:18 · Spain time</text>
+<text x="20" y="607" fill="#425B52" font-size="13" font-weight="450">Sent Sun, 22 Nov · 17:00 Spain time</text>
 <rect x="20" y="648" width="350" height="48" rx="12" fill="#FCE9E8"/>
 <text x="195" y="678" fill="#853531" font-size="16" font-weight="650" text-anchor="middle">Withdraw invitation</text>
 </g>

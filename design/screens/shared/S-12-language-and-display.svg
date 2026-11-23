@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="preferences-title preferences-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="preferences-title">S-12 Language and display</title>
-<desc id="preferences-desc">Account language and display preferences. App language and chat translation are separate. A Claire Martin message previews English translation above original French. Appearance, large controls and site and local time display can be changed.</desc>
+<desc id="preferences-desc">Account language and display preferences. App language and reading language are separate. Reading language sets the preferred translation for messages, work documents and instructions. A Claire Martin message previews English translation above original French. Appearance, large controls and site and local time display can be changed.</desc>
 <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
 <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
@@ -32,11 +32,11 @@
 <text x="331" y="179" font-size="15" font-weight="650" fill="#0B5747" text-anchor="end">English</text>
 <g aria-hidden="true" transform="translate(339 168) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 </g>
-<g id="chat-translation">
+<g id="reading-language">
 <rect x="20.5" y="228.5" width="349" height="67" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
 <g aria-hidden="true" transform="translate(36 245) scale(0.8333333333333334)"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 5h10m-10 4h6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="68" y="255" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Chat translation</text>
-<text x="68" y="276" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Reading language for messages</text>
+<text x="68" y="255" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Reading language</text>
+<text x="68" y="276" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Messages, work docs and instructions</text>
 <text x="331" y="255" font-size="15" font-weight="650" fill="#0B5747" text-anchor="end">English</text>
 <g aria-hidden="true" transform="translate(339 244) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
 </g>

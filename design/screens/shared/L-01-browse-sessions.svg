@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">L-01 Browse sessions — nearby results</title>
-<desc id="screen-desc">Claire browses four services in Xàbia. Location and category filters are above matching Pilates, massage, tennis coaching and walking tour cards showing advertised language and venue access or booking type.</desc>
+<desc id="screen-desc">Claire browses four services in Xàbia: Mat Pilates at €16.00 per person, relaxation massage at €48.00 per appointment, tennis coaching at €32.00 per appointment and an old town walking tour at €22.00 per person. Each card shows the advertised language and venue access.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
@@ -62,6 +62,7 @@
 </g>
 <text x="80" y="368" fill="#152C26" font-size="16" font-weight="650">Mat Pilates</text>
 <text x="354" y="368" fill="#152C26" font-size="15" font-weight="650" text-anchor="end">€16.00</text>
+<text x="354" y="390" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">per person</text>
 <text x="80" y="390" fill="#425B52" font-size="13" font-weight="450">Estudi Mar Pilates · Xàbia</text>
 <text x="80" y="411" fill="#425B52" font-size="13" font-weight="450">45 min · English · Group class</text>
 <text x="80" y="432" fill="#425B52" font-size="13" font-weight="450">Step-free studio entry</text>
@@ -75,6 +76,7 @@
 </g>
 <text x="80" y="492" fill="#152C26" font-size="16" font-weight="650">Relaxation massage</text>
 <text x="354" y="492" fill="#152C26" font-size="15" font-weight="650" text-anchor="end">€48.00</text>
+<text x="354" y="514" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">per appointment</text>
 <text x="80" y="514" fill="#425B52" font-size="13" font-weight="450">Calma Massage · Xàbia</text>
 <text x="80" y="535" fill="#425B52" font-size="13" font-weight="450">60 min · Spanish · Private</text>
 <text x="80" y="556" fill="#425B52" font-size="13" font-weight="450">Step-free treatment room</text>
@@ -88,6 +90,7 @@
 </g>
 <text x="80" y="616" fill="#152C26" font-size="16" font-weight="650">Tennis coaching</text>
 <text x="354" y="616" fill="#152C26" font-size="15" font-weight="650" text-anchor="end">€32.00</text>
+<text x="354" y="638" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">per appointment</text>
 <text x="80" y="638" fill="#425B52" font-size="13" font-weight="450">Arenal Tennis · Xàbia</text>
 <text x="80" y="659" fill="#425B52" font-size="13" font-weight="450">60 min · English · Private</text>
 <text x="80" y="680" fill="#425B52" font-size="13" font-weight="450">Step-free court access</text>
@@ -101,6 +104,7 @@
 </g>
 <text x="80" y="740" fill="#152C26" font-size="16" font-weight="650">Old town walking tour</text>
 <text x="354" y="740" fill="#152C26" font-size="15" font-weight="650" text-anchor="end">€22.00</text>
+<text x="354" y="762" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">per person</text>
 <text x="80" y="762" fill="#425B52" font-size="13" font-weight="450">Rutes Xàbia · Xàbia</text>
 <text x="80" y="783" fill="#425B52" font-size="13" font-weight="450">90 min · English · Group tour</text>
 <text x="80" y="804" fill="#425B52" font-size="13" font-weight="450">Steps and uneven paving</text>

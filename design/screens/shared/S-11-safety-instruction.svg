@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="safety-title safety-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="safety-title">S-11 Safety instruction — ready for worker acknowledgement</title>
-<desc id="safety-desc">Mateo Ruiz has verified Nadia Benali’s understanding of version 1. Nadia can explicitly acknowledge this version online. Until her acknowledgement is confirmed, the affected work remains on hold.</desc>
+<desc id="safety-desc">Mateo Ruiz has verified Nadia Benali’s understanding of version 1. Nadia can explicitly acknowledge this version online or ask Mateo privately for clarification. Until her acknowledgement is confirmed, the affected work remains on hold.</desc>
 <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
 <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
@@ -56,7 +56,7 @@
 <text x="20" y="651" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Only you can acknowledge this instruction.</text>
 <rect x="20.5" y="672.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
 <g aria-hidden="true" transform="translate(34 684) scale(1)"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 5h10m-10 4h6" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="68" y="702" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Ask Mateo to clarify</text>
+<text x="68" y="702" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Ask Mateo privately</text>
 </g>
 <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
 <path d="M0 744.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>

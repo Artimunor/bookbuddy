@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">C-14 Property details and people</title>
-<desc id="screen-desc">Claire sees the site locality and contact, access note, active job and her owner access. Separate controls edit property details or invite someone.</desc>
+<desc id="screen-desc">Claire sees the site locality and contact, access note, the booked work visit and its Spain-time window, and her owner access. Separate controls edit property details or invite someone.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/><g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
@@ -34,16 +34,19 @@
 <text x="72" y="349" font-size="13" font-weight="450" fill="#425B52">Mateo will meet the crew at the gate.</text>
 <text x="72" y="371" font-size="13" font-weight="450" fill="#425B52">Visible only to authorised people.</text>
 <text x="20" y="434" font-size="20" font-weight="650" fill="#152C26">Jobs at this property</text>
-<rect x="20.5" y="448.5" width="349" height="83" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="20.5" y="448.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
 <text x="36" y="482" font-size="16" font-weight="650" fill="#152C26">Terrace door repair</text>
 <text x="36" y="506" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Booked</text>
-<g aria-hidden="true" transform="translate(334 478)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="36" y="530" font-size="13" font-weight="450" fill="#425B52">Tue, 24 Nov · 09:00–10:00 Spain time</text>
+<g aria-hidden="true" transform="translate(334 490)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g id="property-people" transform="translate(0 20)">
 <text x="20" y="575" font-size="20" font-weight="650" fill="#152C26">People and permissions</text>
 <rect x="20.5" y="590.5" width="349" height="81" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
 <circle cx="56" cy="631" r="20" fill="#E5F0FA"/><text x="56" y="636" font-size="13" font-weight="650" fill="#234C78" text-anchor="middle">CM</text>
 <text x="88" y="625" font-size="16" font-weight="650" fill="#152C26">Claire Martin</text>
 <text x="88" y="649" font-size="13" font-weight="450" fill="#425B52">Owner · You</text>
-<text x="20" y="715" font-size="16" font-weight="650" fill="#0B5747">Permission details</text>
+</g>
+<text x="20" y="725" font-size="16" font-weight="650" fill="#0B5747">Permission details</text>
 </g>
 <g id="action-bar">
 <rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>

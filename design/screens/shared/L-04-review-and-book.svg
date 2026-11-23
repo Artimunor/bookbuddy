@@ -43,12 +43,13 @@
 <text x="264" y="369" fill="#0B5747" font-size="16" font-weight="650">Change slot</text>
 </g>
 <g id="price-summary">
-<rect x="20.5" y="402.5" width="349" height="115" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="20.5" y="402.5" width="349" height="123" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
 <text x="36" y="434" fill="#152C26" font-size="16" font-weight="650">Total</text>
 <text x="354" y="434" fill="#152C26" font-size="15" font-weight="650" text-anchor="end">€16.00</text>
-<path d="M36 449.5h318" stroke="#D4E1DB"/>
-<text x="36" y="478" fill="#152C26" font-size="15" font-weight="400">Pay at the studio.</text>
-<text x="36" y="500" fill="#425B52" font-size="13" font-weight="450">No payment is taken in the app.</text>
+<text x="36" y="452" fill="#425B52" font-size="13" font-weight="450">1 place at €16.00 per person</text>
+<path d="M36 465.5h318" stroke="#D4E1DB"/>
+<text x="36" y="490" fill="#152C26" font-size="15" font-weight="400">Pay at the studio.</text>
+<text x="36" y="512" fill="#425B52" font-size="13" font-weight="450">No payment is taken in the app.</text>
 </g>
 <g id="booking-terms">
 <text x="20" y="554" fill="#152C26" font-size="20" font-weight="650">Cancellation terms</text>
