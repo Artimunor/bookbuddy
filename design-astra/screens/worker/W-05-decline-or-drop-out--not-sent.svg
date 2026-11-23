@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-05-decline-or-drop-out--not-sent-title W-05-decline-or-drop-out--not-sent-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="W-05-decline-or-drop-out--not-sent-title">W-05 Drop out — foreman not notified</title>
+<desc id="W-05-decline-or-drop-out--not-sent-desc">The dropout report was not sent. The confirmed shift still stands. Call the verified provider work line now. No reason is sent to the customer.</desc>
+<g id="parent" aria-hidden="true">
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
+<g id="status-bar" aria-hidden="true"><text x="20" y="29" font-size="15" font-weight="700" fill="#152C26" text-anchor="start">9:41</text><g><rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/><rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/><rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/><rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="332" cy="29" r="1.1" fill="#152C26"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/><path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26" stroke="#152C26" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g id="header">
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Shift detail</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">Nadia Benali · Reformas Ruiz</text>
+</g>
+<g id="content">
+<g id="shift-ticket">
+<rect x="20" y="118" width="350" height="165" rx="20" fill="#123C33"/>
+<path d="M40 145l10-6 10 6v13h-20z m6 13v-10h8v10" fill="none" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="153" font-size="13" font-weight="650" fill="#C9F2CC">CONFIRMED SHIFT</text>
+<text x="350" y="153" font-size="13" font-weight="550" fill="#FFFFFF" text-anchor="end">BB-1042</text>
+<text x="40" y="194" font-size="28" font-weight="700" fill="#FFFFFF">Terrace door repair</text>
+<text x="40" y="220" font-size="15" font-weight="400" fill="#FFFFFF">Villa Mar · Xàbia</text>
+<path d="M32 237h326" fill="none" stroke="#7AA99B" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 5"/>
+<circle cx="20" cy="237" r="5" fill="#FAF7EF"/>
+<circle cx="370" cy="237" r="5" fill="#FAF7EF"/>
+<text x="40" y="265" font-size="15" font-weight="650" fill="#FFFFFF">Tue, 24 Nov · 09:00–10:00 Spain time</text>
+</g>
+<rect x="20" y="307" width="350" height="106" rx="16" fill="#FFF1D5"/>
+<path d="m45 325 9 16h-18z m0 5v4m0 3v1" fill="none" stroke="#704500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="338" font-size="13" font-weight="700" fill="#704500">SAFETY HOLD · TERRACE DOOR</text>
+<text x="36" y="368" font-size="20" font-weight="700" fill="#704500">Do not start this task.</text>
+<text x="36" y="397" font-size="15" font-weight="650" fill="#704500">Open my briefing and arrival plan</text>
+<path d="m341 387 5 5-5 5" fill="none" stroke="#704500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="454" font-size="20" font-weight="650" fill="#152C26">On this shift</text>
+<rect x="20" y="470" width="350" height="185" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="494" font-size="16" font-weight="650" fill="#152C26">View live shift</text>
+<text x="36" y="516" font-size="13" font-weight="450" fill="#425B52">No arrival recorded</text>
+<path d="m342 494 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 531h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="555" font-size="16" font-weight="650" fill="#152C26">Contact Mateo Ruiz</text>
+<text x="36" y="577" font-size="13" font-weight="450" fill="#425B52">Your foreman · Crew only</text>
+<path d="m342 555 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 593h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="617" font-size="16" font-weight="650" fill="#152C26">Progress photos</text>
+<text x="36" y="639" font-size="13" font-weight="450" fill="#425B52">Available after check-in and briefing.</text>
+<text x="20" y="702" font-size="16" font-weight="650" fill="#853531">Can’t attend this shift</text>
+</g>
+<g id="fixed-action">
+<rect x="0" y="736" width="390" height="108" rx="0" fill="#FFFFFF"/>
+<path d="M0 736h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="748" width="350" height="56" rx="12" fill="#0B6250"/>
+<text x="195" y="781.6" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Check in</text>
+</g>
+</g>
+<rect width="390" height="844" fill="#101A18" opacity="0.4"/>
+<g id="bottom-sheet">
+<path d="M24 270H366a24 24 0 0 1 24 24V844H0V294a24 24 0 0 1 24-24Z" fill="#FFFFFF"/>
+<rect x="174" y="278" width="42" height="4" rx="2" fill="#70877D"/>
+<text x="20" y="324" font-size="22" font-weight="700" fill="#152C26">Report not sent</text>
+<rect x="314" y="288" width="56" height="56" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<path d="m335 309 14 14m0-14-14 14" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="351" font-size="13" font-weight="450" fill="#425B52">Nadia Benali · Worker · Reformas Ruiz</text>
+<text x="20" y="398" font-size="20" font-weight="650" fill="#152C26">Terrace door repair</text>
+<text x="20" y="423" font-size="15" font-weight="400" fill="#425B52">BB-1042 · Villa Mar · Xàbia</text>
+<text x="20" y="447" font-size="15" font-weight="400" fill="#425B52">Tue, 24 Nov · 09:00–10:00 Spain time</text>
+<rect x="20" y="470" width="350" height="104" rx="16" fill="#FCE9E8"/>
+<path d="m44 489 9 16h-18z m0 5v4m0 3v1" fill="none" stroke="#853531" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="503" font-size="16" font-weight="650" fill="#853531">Foreman not notified</text>
+<text x="36" y="532" font-size="15" font-weight="400" fill="#853531">Your assignment is still confirmed.</text>
+<text x="36" y="554" font-size="15" font-weight="400" fill="#853531">Call the provider’s work line now.</text>
+<text x="20" y="622" font-size="15" font-weight="400" fill="#152C26">If no one answers within five minutes,</text>
+<text x="20" y="644" font-size="15" font-weight="400" fill="#152C26">call the duty backup or local desk.</text>
+<rect x="20" y="748" width="350" height="56" rx="12" fill="#0B6250"/>
+<text x="195" y="781.6" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Call provider work line</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

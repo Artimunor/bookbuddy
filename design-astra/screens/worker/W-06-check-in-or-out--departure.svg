@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-06-check-in-or-out--departure-title W-06-check-in-or-out--departure-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="W-06-check-in-or-out--departure-title">W-06 Record departure — review before check-out</title>
+<desc id="W-06-check-in-or-out--departure-desc">W-06 over the authenticated live shift. Nadia reviews the actual departure before recording it. Opening the sheet neither stops the clock nor records attendance.</desc>
+<g id="parent" aria-hidden="true">
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
+<g id="status-bar" aria-hidden="true"><text x="20" y="29" font-size="15" font-weight="700" fill="#152C26" text-anchor="start">9:41</text><g><rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/><rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/><rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/><rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="332" cy="29" r="1.1" fill="#152C26"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/><path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26" stroke="#152C26" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g id="header">
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Live shift card</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">Tue, 24 Nov · Spain time</text>
+</g>
+<g id="content">
+<g id="attendance-receipt">
+<rect x="20" y="118" width="350" height="210" rx="20" fill="#123C33"/>
+<path d="M40 146l10-6 10 6v13h-20z m6 13v-10h8v10" fill="none" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="72" y="154" font-size="13" font-weight="650" fill="#C9F2CC">YOUR SHIFT</text>
+<text x="350" y="154" font-size="13" font-weight="550" fill="#FFFFFF" text-anchor="end">BB-1042</text>
+<text x="40" y="193" font-size="18" font-weight="650" fill="#FFFFFF">Since check-in</text>
+<text x="40" y="236" font-size="36" font-weight="700" fill="#FFFFFF">27 min</text>
+<text x="40" y="265" font-size="15" font-weight="400" fill="#FFFFFF">Arrival recorded · 09:14 Spain time</text>
+<path d="M32 283h326" fill="none" stroke="#7AA99B" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 5"/>
+<circle cx="20" cy="283" r="5" fill="#FAF7EF"/>
+<circle cx="370" cy="283" r="5" fill="#FAF7EF"/>
+<circle cx="48" cy="307" r="8" fill="#C9F2CC"/>
+<path d="m44 307 3 3 5-6" fill="none" stroke="#123C33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="313" font-size="13" font-weight="650" fill="#C9F2CC">Confirmed arrival</text>
+</g>
+<g id="safety-hold">
+<rect x="20" y="352" width="350" height="158" rx="16" fill="#FFF1D5"/>
+<path d="m48 369 9 16h-18z m0 5v4m0 3v1" fill="none" stroke="#704500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="68" y="383" font-size="13" font-weight="700" fill="#704500">SAFETY HOLD · TERRACE DOOR</text>
+<text x="40" y="413" font-size="22" font-weight="700" fill="#704500">Do not start this task.</text>
+<text x="40" y="437" font-size="15" font-weight="400" fill="#704500">Mateo must verify your teach-back; then you</text>
+<text x="40" y="459" font-size="15" font-weight="400" fill="#704500">must acknowledge the same version online.</text>
+<text x="40" y="491" font-size="16" font-weight="650" fill="#704500">Open my briefing</text>
+<path d="m338 480 5 5-5 5" fill="none" stroke="#704500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text x="20" y="552" font-size="20" font-weight="650" fill="#152C26">Device status · off</text>
+<text x="20" y="582" font-size="15" font-weight="400" fill="#425B52">Show a generic shift and hold on this phone.</text>
+<text x="20" y="605" font-size="15" font-weight="400" fill="#425B52">No names, site details or work clearance.</text>
+<rect x="20" y="625" width="350" height="56" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="195" y="658.6" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Show shift on Lock Screen</text>
+<text x="20" y="710" font-size="13" font-weight="550" fill="#425B52">Site attendance only · not hours worked</text>
+</g>
+<g id="fixed-action">
+<rect x="0" y="736" width="390" height="108" rx="0" fill="#FFFFFF"/>
+<path d="M0 736h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="748" width="350" height="56" rx="12" fill="#0B6250"/>
+<text x="195" y="781.6" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Review check-out</text>
+</g>
+</g>
+<rect width="390" height="844" fill="#101A18" opacity="0.4"/>
+<g id="bottom-sheet">
+<path d="M24 238H366a24 24 0 0 1 24 24V844H0V262a24 24 0 0 1 24-24Z" fill="#FFFFFF"/>
+<rect x="174" y="246" width="42" height="4" rx="2" fill="#70877D"/>
+<text x="20" y="292" font-size="22" font-weight="700" fill="#152C26">Record departure</text>
+<rect x="314" y="256" width="56" height="56" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<path d="m335 277 14 14m0-14-14 14" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="319" font-size="13" font-weight="450" fill="#425B52">Nadia Benali · Villa Mar · Xàbia</text>
+<text x="20" y="357" font-size="18" font-weight="650" fill="#152C26">Terrace door repair · BB-1042</text>
+<text x="20" y="384" font-size="15" font-weight="400" fill="#425B52">Tue, 24 Nov · Spain time</text>
+<text x="20" y="426" font-size="16" font-weight="650" fill="#152C26">Actual departure time</text>
+<rect x="20" y="438" width="350" height="60" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="36" y="477" font-size="25" font-weight="700" fill="#152C26">09:56</text>
+<text x="352" y="475" font-size="15" font-weight="650" fill="#0B5747" text-anchor="end">Edit time</text>
+<text x="20" y="527" font-size="15" font-weight="400" fill="#425B52">Arrival recorded at 09:14.</text>
+<rect x="20" y="554" width="350" height="98" rx="16" fill="#E5F0FA"/>
+<path d="M37 578a8 8 0 1 0 16 0 8 8 0 0 0-16 0m8 0v4m0-8v1" fill="none" stroke="#234C78" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="584" font-size="16" font-weight="650" fill="#234C78">Attendance only</text>
+<text x="36" y="610" font-size="15" font-weight="400" fill="#234C78">Departure stops “Since check-in”.</text>
+<text x="36" y="632" font-size="15" font-weight="400" fill="#234C78">It does not sign off any work.</text>
+<text x="20" y="701" font-size="15" font-weight="400" fill="#425B52">Not a record of hours worked.</text>
+<rect x="20" y="740" width="350" height="64" rx="12" fill="#0B6250"/>
+<text x="195" y="777.6" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Record check-out</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>
