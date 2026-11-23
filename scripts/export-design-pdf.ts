@@ -2,13 +2,24 @@ import type { Subprocess } from 'bun';
 import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';
-import { dirname, resolve, join } from 'node:path';
+import { dirname, resolve, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseArgs } from 'node:util';
 
 // No dependencies or network: Bun plus existing local Chromium and Mermaid.
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const design = join(root, 'design');
-const output = join(root, 'exports/bookbuddy-design.pdf');
+const { values } = parseArgs({
+  args: Bun.argv.slice(2), strict: true, allowPositionals: false,
+  options: {
+    source: { type: 'string', default: 'design' },
+    out: { type: 'string', default: 'exports/bookbuddy-design.pdf' },
+    title: { type: 'string', default: 'BookBuddy: app design' },
+  },
+});
+const design = resolve(root, values.source);
+const output = resolve(root, values.out);
+const bookTitle = values.title;
+const sourceLabel = relative(root, design) || '.';
 const home = homedir();
 const sources = new Map<string, string>();
 const running = new Set<Subprocess<'ignore', 'pipe', 'pipe'>>();
@@ -16,8 +27,37 @@ const temp = await mkdtemp(join(tmpdir(), 'bookbuddy-design-'));
 const escape = (text: string) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 type Spec = { file: string; title: string; questions: string; navigation: string[] };
-type Screen = { file: string; title: string; id: string };
+type Screen = { file: string; title: string; id: string; purpose: string; ownsSystemChrome: boolean };
+type InventoryEntry = { id: string; name: string; purpose: string; deferred: boolean; ownsSystemChrome: boolean };
 type Diagram = { title: string; source: string; file: string };
+
+function inventoryEntries(text: string): InventoryEntry[] {
+  const entries: InventoryEntry[] = [];
+  const headings: { depth: number; title: string }[] = [];
+  const seen = new Set<string>();
+  for (const line of text.split('\n')) {
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) {
+      while (headings.at(-1) && headings.at(-1)!.depth >= heading[1].length) headings.pop();
+      headings.push({ depth: heading[1].length, title: heading[2] });
+    }
+    const row = line.match(/^\|\s*(?:\*\*)?([CFWSPL]-\d{2})(?:\*\*)?(?:\s*★)?\s*\|\s*([^|]+)\|/);
+    if (!row) continue;
+    if (seen.has(row[1])) throw new Error(`Duplicate inventory ID: ${row[1]}.`);
+    seen.add(row[1]);
+    const deferred = headings.some(item => /^Later\b/i.test(item.title))
+      || /\[Later\]|\blater only\b/i.test(row[2])
+      || /\bunbuilt\b|\bnot (?:yet )?(?:built|drawn)\b/i.test(line);
+    // OS/System entries that own Lock Screen/Live Activity/Island chrome retain that
+    // source artwork verbatim. This is inventory-derived, not a track-specific ID list:
+    // no second export-frame Island is overlaid on any primary or state of that ID.
+    const ownsSystemChrome = /\[(?:OS|System)\b/i.test(row[2])
+      && /Lock Screen|Dynamic Island|Live Activity/i.test(line);
+    entries.push({ id: row[1], name: row[2].trim(), purpose: line.split('|')[4]?.trim() ?? '', deferred, ownsSystemChrome });
+  }
+  if (!entries.length) throw new Error(`No screen ID rows found in ${sourceLabel}/screens/inventory.md.`);
+  return entries;
+}
 
 async function existing(candidates: string[], label: string) {
   for (const candidate of candidates) if (candidate && await Bun.file(candidate).exists()) return candidate;
@@ -137,7 +177,7 @@ function caption(text: string, screen: Screen) {
     return { label, text: plain(block.replace(/^\s*-?\s*\*\*[^*]+\*\*\s*/, '')) };
   });
   const purpose = blocks.find(block => /purpose/i.test(block.label));
-  if (!purpose) throw new Error(`Missing purpose paragraph: ${screen.id}.`);
+  if (!purpose && !screen.purpose) throw new Error(`Missing spec/inventory purpose: ${screen.id}.`);
   const tokens = screen.file.split('--')[1]?.replace('.svg', '').split('-').filter(token => token.length > 3) ?? [];
   const candidates = blocks.filter(block => /interaction|action|state|recovery|geofence|offline|material change/i.test(block.label))
     .flatMap(block => block.text.split(/(?<=[.!?])\s+(?=[A-Z‘“])/));
@@ -145,9 +185,9 @@ function caption(text: string, screen: Screen) {
   const ranked = candidates.map((sentence, index) => ({ sentence, index, score: tokens.reduce((score, token) => score + (sentence.toLowerCase().includes(token) ? 5 : 0), 0) }));
   ranked.sort((a, b) => b.score - a.score || a.index - b.index);
   const bullets = [...new Set(ranked.map(item => excerpt(item.sentence, 130)).filter(Boolean))].slice(0, 4);
-  return { purpose: excerpt(purpose.text, 130), bullets };
+  return { purpose: excerpt(purpose?.text ?? screen.purpose, 130), bullets };
 }
-function phone(source: string) {
+function phone(source: string, ownsSystemChrome: boolean) {
   if (!/viewBox="0 0 390 844"/.test(source)) throw new Error('Mockups must use the 390×844 display viewport.');
   const mockup = source.replace(/<\?xml[^>]*\?>/g, '').replace(/<svg\b/, '<svg x="30" y="28"');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="450" height="908" viewBox="0 0 450 908">
@@ -165,15 +205,15 @@ function phone(source: string) {
   <rect x="17" y="14" width="416" height="872" rx="65" fill="url(#bb-titanium)" stroke="url(#bb-edge)" stroke-width="2"/>
   <rect x="21" y="18" width="408" height="864" rx="61" fill="#090a0a" stroke="#20211f" stroke-width="1"/>
   <g clip-path="url(#bb-display)">${mockup}</g>
-  <rect x="168" y="36" width="114" height="30" rx="15" fill="#060707"/>
-  <circle cx="266" cy="51" r="5" fill="#12161c"/><circle cx="266" cy="51" r="2.4" fill="#1b2330"/>
+  ${ownsSystemChrome ? '' : `<rect x="168" y="36" width="114" height="30" rx="15" fill="#060707"/>
+  <circle cx="266" cy="51" r="5" fill="#12161c"/><circle cx="266" cy="51" r="2.4" fill="#1b2330"/>`}
   <rect x="18.5" y="15.5" width="413" height="869" rx="64" fill="none" stroke="#f0eee7" stroke-opacity=".38" stroke-width=".7"/>
   </svg>`;
 }
 let pageNumber = 0;
 function page(content: string, file: string, options: { id?: string; className?: string } = {}) {
   pageNumber++;
-  return `<section class="page ${options.className ?? ''}"${options.id ? ` id="${options.id}"` : ''}>${content}<footer><a href="${pathToFileURL(join(design,file)).href}">Full spec: design/${escape(file)}</a><span>${pageNumber}</span></footer></section>`;
+  return `<section class="page ${options.className ?? ''}"${options.id ? ` id="${options.id}"` : ''}>${content}<footer><a href="${pathToFileURL(join(design,file)).href}">Full spec: ${escape(relative(root,join(design,file)))}</a><span>${pageNumber}</span></footer></section>`;
 }
 const css = `
 @page { size:A4; margin:0; } @page wide { size:A4 landscape; margin:0; }
@@ -202,21 +242,12 @@ table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:9pt;
 
 try {
   if (typeof Bun.markdown?.html !== 'function') throw new Error('Bun.markdown.html is unavailable.');
-  // Only standalone Chromium/test builds; never attach to a user's Chrome session.
-  const candidates = [process.env.BOOKBUDDY_CHROMIUM ?? '', '/Applications/Chromium.app/Contents/MacOS/Chromium'];
-  for await (const name of new Bun.Glob('chromium_headless_shell-*/chrome-headless-shell-mac-arm64/chrome-headless-shell').scan(join(home,'Library/Caches/ms-playwright'))) candidates.push(join(home,'Library/Caches/ms-playwright',name));
-  const chromium = await existing(candidates,'Chromium');
-  const mermaidPath = await existing([process.env.BOOKBUDDY_MERMAID ?? '',join(home,'workspace/projects/mouseion/node_modules/.bun/mermaid@11.14.0/node_modules/mermaid/dist/mermaid.min.js')],'Mermaid');
-  const mermaid = await Bun.file(mermaidPath).text();
   const readme = await snapshot('README.md');
   for (const file of ['foundation/personas-and-roles.md','foundation/information-architecture.md','foundation/core-flows.md','system/design-system.md','screens/inventory.md']) await snapshot(file);
   const specFiles = (await Array.fromAsync(new Bun.Glob('screens/**/*-specs.md').scan(design))).sort();
   for (const file of specFiles) await snapshot(file);
   const svgFiles = (await Array.fromAsync(new Bun.Glob('screens/**/*.svg').scan(design))).sort();
   for (const file of svgFiles) await snapshot(file);
-  const gallery: Screen[] = [...readme.matchAll(/<img\s+src="([^"]+\.svg)"[^>]*alt="([^"]*)"/g)].map(match=>({file:match[1],title:match[2],id:match[1].match(/\/([CFWSPL]-\d{2})-/)![1]}));
-  const listed = new Set(gallery.map(screen=>screen.file));
-  if (listed.size !== gallery.length || svgFiles.length !== listed.size || svgFiles.some(file=>!listed.has(file))) throw new Error('The gallery must list every SVG exactly once.');
   const specs: Spec[] = [];
   const screenSpecs = new Map<string,{spec:Spec;text:string}>();
   for (const file of specFiles) {
@@ -232,10 +263,46 @@ try {
     }
     specs.push(spec);
   }
-  for (const screen of gallery) if (!screenSpecs.has(screen.id)) throw new Error(`No specification section for ${screen.file}.`);
-  for (const id of screenSpecs.keys()) if (!gallery.some(screen=>screen.id===id)) throw new Error(`No mockup for specification ${id}.`);
-  const chapters = [{title:'Customer',prefix:'C'},{title:'Foreman',prefix:'F'},{title:'Worker',prefix:'W'},{title:'Shared',prefix:'S'},{title:'Provider admin (P-)',prefix:'P'},{title:'Later categories (L-)',prefix:'L'}];
-  let body = page(`<h1>BookBuddy: app design</h1>${markdown(readme.split('\n\n')[1],'README.md')}`,'README.md',{className:'cover'});
+  const inventory = inventoryEntries(sources.get('screens/inventory.md')!);
+  const inventoryIDs = new Set(inventory.map(entry => entry.id));
+  const svgByID = new Map<string, string[]>();
+  const problems: string[] = [];
+  for (const file of svgFiles) {
+    const id = file.match(/\/([CFWSPL]-\d{2})-/)?.[1];
+    if (!id) { problems.push(`SVG filename has no screen ID: ${file}`); continue; }
+    const files = svgByID.get(id) ?? [];
+    files.push(file); svgByID.set(id,files);
+    if (!inventoryIDs.has(id)) problems.push(`SVG is not in the inventory: ${file}`);
+    if (!screenSpecs.has(id)) problems.push(`SVG has no ## ${id} spec section: ${file}`);
+  }
+  const screenList: Screen[] = [];
+  const missing: string[] = [];
+  for (const entry of inventory) {
+    const files = svgByID.get(entry.id) ?? [];
+    const primary = files.filter(file => !file.includes('--'));
+    if (entry.deferred) console.warn(`Warning: ${entry.id} is explicitly later/unbuilt${primary.length ? '; including available artwork.' : '; no primary SVG, skipping.'}`);
+    if (!primary.length) { if (!entry.deferred) missing.push(entry.id); continue; }
+    if (primary.length !== 1) { problems.push(`Multiple primary SVGs for ${entry.id}: ${primary.join(', ')}`); continue; }
+    const ordered = [...primary,...files.filter(file => file.includes('--')).sort()];
+    for (const file of ordered) {
+      const svgTitle = sources.get(file)!.match(/<title\b[^>]*>([\s\S]*?)<\/title>/)?.[1]?.trim() ?? '';
+      const state = file.includes('--') ? (svgTitle.split(' — ').slice(1).join(' — ') || file.split('--')[1].replace(/\.svg$/,'').replaceAll('-',' ')) : '';
+      screenList.push({ file, id: entry.id, title: `${entry.id} ${entry.name}${state ? ' — '+state : ''}`, purpose: entry.purpose, ownsSystemChrome: entry.ownsSystemChrome });
+    }
+  }
+  if (missing.length) problems.unshift(`Inventory IDs missing primary SVG (${missing.length}): ${missing.join(', ')}`);
+  if (problems.length) throw new Error(`Incomplete source ${sourceLabel}:\n- ${problems.join('\n- ')}`);
+  for (const id of screenSpecs.keys()) if (!inventoryIDs.has(id)) throw new Error(`Spec ${id} is absent from the inventory.`);
+  if (!screenList.length) throw new Error(`No built screens in ${sourceLabel}.`);
+  // Validate all source contracts before loading Mermaid or launching a browser.
+  const candidates = [process.env.BOOKBUDDY_CHROMIUM ?? '', '/Applications/Chromium.app/Contents/MacOS/Chromium'];
+  for await (const name of new Bun.Glob('chromium_headless_shell-*/chrome-headless-shell-mac-arm64/chrome-headless-shell').scan(join(home,'Library/Caches/ms-playwright'))) candidates.push(join(home,'Library/Caches/ms-playwright',name));
+  const chromium = await existing(candidates,'Chromium');
+  const mermaidPath = await existing([process.env.BOOKBUDDY_MERMAID ?? '',join(home,'workspace/projects/mouseion/node_modules/.bun/mermaid@11.14.0/node_modules/mermaid/dist/mermaid.min.js')],'Mermaid');
+  const mermaid = await Bun.file(mermaidPath).text();
+  const chapterTitles: Record<string,string> = {C:'Customer',F:'Foreman',W:'Worker',S:'Shared',P:'Provider admin (P-)',L:'Later categories (L-)'};
+  const chapters = [...new Set(screenList.map(screen=>screen.id[0]))].map(prefix=>({title:chapterTitles[prefix],prefix}));
+  let body = page(`<h1>${escape(bookTitle)}</h1>${markdown(readme.split('\n\n')[1],'README.md')}`,'README.md',{className:'cover'});
   body += page(`<h1>BookBuddy app design</h1>${[['roles','Personas and roles'],['maps','Information architecture'],['flows','Core flows'],['system','Design system'],...chapters.map(chapter=>['chapter-'+chapter.prefix,chapter.title]),['questions','Open design questions']].map(([id,title])=>`<a href="#${id}"><span>${escape(title)}</span><b class="contents-page" data-target="${id}"></b></a>`).join('')}`,'README.md',{className:'contents'});
   const roleSource = sources.get('foundation/personas-and-roles.md')!;
   const roleRows = roleSource.split('## Mobile roles and guardrails')[1].split('## Internal operations')[0].split('\n').filter(line=>/^\| (Customer|Foreman|Worker|Provider admin) \|/.test(line)).map(line=>line.split('|').slice(1,-1).map(cell=>cell.trim()));
@@ -256,16 +323,16 @@ try {
   const components = system.split('## Component inventory')[1].split('## iOS')[0].split('\n').filter(line=>/^\| [A-Z]/.test(line)).slice(1).map(line=>line.split('|')[1].trim());
   body += page(`<h1>Design system</h1><p>${escape(excerpt(system.split('## Brand direction')[1].split('\n\n')[1],180))}</p><div class="system-grid"><div><h2>Colour tokens</h2><div class="swatches">${swatches.map(row=>`<div class="swatch"><i style="background:${row[1].split(' / ')[0]}"></i><span>${escape(row[0])}<br>${escape(row[1])}</span></div>`).join('')}</div><h2>Component inventory</h2><p class="components">${components.map(escape).join(' · ')}</p></div><div><h2>Foundations</h2>${markdown('| Style | Size / line height | Weight and use |\n| --- | --- | --- |\n'+scale.join('\n'),'system/design-system.md')}</div></div>`,'system/design-system.md',{id:'system'});
   for (const chapter of chapters) {
-    const chapterSpecs = specs.filter(spec=>[...screenSpecs.values()].some(screen=>screen.spec===spec&&gallery.some(item=>item.id.startsWith(chapter.prefix+'-')&&screenSpecs.get(item.id)===screen)));
+    const chapterSpecs = specs.filter(spec=>screenList.some(screen=>screen.id.startsWith(chapter.prefix+'-')&&screenSpecs.get(screen.id)!.spec===spec));
     let first = true;
     for (const spec of chapterSpecs) for (const source of spec.navigation) { addDiagram({title:first?chapter.title:spec.title,source,file:spec.file},first?'chapter-'+chapter.prefix:undefined); first=false; }
     if (first) throw new Error(`Missing navigation diagram: ${chapter.title}.`);
-    for (const screen of gallery.filter(item=>item.id.startsWith(chapter.prefix+'-'))) {
+    for (const screen of screenList.filter(item=>item.id.startsWith(chapter.prefix+'-'))) {
       const {spec,text} = screenSpecs.get(screen.id)!;
       const summary = caption(text,screen);
       const [baseName,...stateParts] = screen.title.replace(new RegExp('^'+screen.id+'\\s*'),'').split(' — ');
       const state = stateParts.join(' — ');
-      const frame = phone(sources.get(screen.file)!);
+      const frame = phone(sources.get(screen.file)!,screen.ownsSystemChrome);
       body += page(`<div class="screen-layout"><img class="device" alt="${escape(screen.title)}" src="data:image/svg+xml;base64,${Buffer.from(frame).toString('base64')}"><div class="caption"><p class="screen-id">${screen.id}</p><h1>${escape(baseName)}</h1>${state?`<p class="state">${escape(state)}</p>`:''}<p class="purpose">${escape(summary.purpose)}</p><ul>${summary.bullets.map(bullet=>`<li>${escape(bullet)}</li>`).join('')}</ul></div></div>`,spec.file,{id:screen.file.replaceAll(/[^a-z\d]/gi,'-'),className:'screen-page'});
     }
   }
@@ -291,20 +358,20 @@ try {
     for(const page of pages){const box=page.getBoundingClientRect();for(const element of page.querySelectorAll('.caption,.questions,.system-grid,.roles,.diagram-stage')){const rect=element.getBoundingClientRect();if(rect.bottom>box.bottom-24||rect.right>box.right-24)throw new Error('Page overflow: '+(pages.indexOf(page)+1));}}
     document.documentElement.dataset.ready='true';document.documentElement.dataset.mockups=String(document.querySelectorAll('.device').length);document.documentElement.dataset.diagrams=String(document.querySelectorAll('.mermaid svg').length);
   }catch(error){document.documentElement.dataset.error=error.message||JSON.stringify(error);}})();`;
-  await Bun.write(join(temp,'render.html'),`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:;"><title>BookBuddy: app design</title><style>${css}</style></head><body>${body}<script>${mermaid}</script><script>${renderScript}</script></body></html>`);
+  await Bun.write(join(temp,'render.html'),`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:;"><title>${escape(bookTitle)}</title><style>${css}</style></head><body>${body}<script>${mermaid}</script><script>${renderScript}</script></body></html>`);
   const flags=['--headless','--no-sandbox','--disable-gpu','--disable-background-networking','--disable-component-update','--no-first-run','--no-default-browser-check',`--user-data-dir=${join(temp,'profile')}`];
   const rendered=await command([chromium,...flags,'--virtual-time-budget=60000','--dump-dom',pathToFileURL(join(temp,'render.html')).href]);
   const error=rendered.match(/data-error="([^"]*)"/)?.[1];
   if(error||!rendered.includes('data-ready="true"'))throw new Error('Rendering did not finish: '+(error??'missing ready flag'));
   const expectedDiagrams=(body.match(/class="mermaid"/g)??[]).length;
-  if(!rendered.includes(`data-mockups="${gallery.length}"`)||!rendered.includes(`data-diagrams="${expectedDiagrams}"`))throw new Error('Incomplete mockup/diagram rendering.');
+  if(!rendered.includes(`data-mockups="${screenList.length}"`)||!rendered.includes(`data-diagrams="${expectedDiagrams}"`))throw new Error('Incomplete mockup/diagram rendering.');
   await Bun.write(join(temp,'print.html'),rendered.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,''));
   await command([chromium,...flags,'--virtual-time-budget=1000','--no-pdf-header-footer',`--print-to-pdf=${join(temp,'book.pdf')}`,pathToFileURL(join(temp,'print.html')).href]);
   const pdf=Bun.file(join(temp,'book.pdf'));
   if(pdf.size<100_000||!(await pdf.slice(0,5).text()).startsWith('%PDF-'))throw new Error('Chromium did not produce a non-trivial PDF.');
   for(const [file,text]of sources)if(hash(await Bun.file(join(design,file)).text())!==hash(text))throw new Error(`Source changed during export: ${file}. Rebuild; prior PDF is untouched.`);
   await mkdir(dirname(output),{recursive:true});await Bun.write(output,pdf);
-  console.log(JSON.stringify({output,bytes:pdf.size,pages:pageNumber,mockups:gallery.length,diagrams:expectedDiagrams,sourceSnapshot:hash([...sources].map(([name,text])=>name+'\\0'+hash(text)).join('\\n'))},null,2));
+  console.log(JSON.stringify({source:sourceLabel,title:bookTitle,output,bytes:pdf.size,pages:pageNumber,mockups:screenList.length,diagrams:expectedDiagrams,nativeChromeScreens:screenList.filter(screen=>screen.ownsSystemChrome).map(screen=>screen.file),sourceSnapshot:hash([...sources].map(([name,text])=>name+'\\0'+hash(text)).join('\\n'))},null,2));
 }finally{
   for(const child of running)child.kill('SIGTERM');
   await Promise.all([...running].map(child=>child.exited));
