@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="S-05-accept-an-invitation-title S-05-accept-an-invitation-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="S-05-accept-an-invitation-title">S-05 Accept an invitation — valid</title>
+  <desc id="S-05-accept-an-invitation-desc">Diego Torres, signed in as diego@example.com on Monday 16 November, reviews a crew invitation. Mateo Ruiz, provider admin at Reformas Ruiz in Xàbia, invites him to join the crew as Worker. The card lists what a worker can do: answer shift offers, run his own shifts and check in, and message the foreman in Crew only chat. A second card says joining is not a shift, each shift is offered and then confirmed by the foreman before travel, and location is never collected. Sent on Saturday 14 November, valid until Saturday 21 November. Actions: Decline, and Join the crew.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Invitation</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">Signed in as diego@example.com</text>
+    
+  </g>
+  <g id="content">
+    <circle cx="40" cy="144" r="20" fill="#DDEBFF"/><text x="40" y="149" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">MR</text>
+    <text x="72" y="140" font-size="17" font-weight="700" fill="#15171C">Mateo Ruiz invites you</text>
+    <text x="72" y="160" font-size="14" font-weight="500" fill="#555A66">Provider admin · Reformas Ruiz, Xàbia</text>
+    <text x="20" y="206" font-size="28" font-weight="800" fill="#15171C">Join the crew at</text>
+    <text x="20" y="240" font-size="28" font-weight="800" fill="#15171C">Reformas Ruiz</text>
+    <rect x="20.5" y="260.5" width="349" height="163" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+    <text x="40" y="290" font-size="12" font-weight="600" fill="#555A66">You would join as</text>
+    <text x="40" y="316" font-size="20" font-weight="700" fill="#15171C">Worker</text>
+    <path d="M40 332.5h310" stroke="#DED8CB"/>
+    <path transform="translate(40 342) scale(0.8333)" d="m5 12 5 5 9-10" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="70" y="358" font-size="14" font-weight="500" fill="#15171C">Answer shift offers sent to you</text>
+    <path transform="translate(40 368) scale(0.8333)" d="m5 12 5 5 9-10" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="70" y="384" font-size="14" font-weight="500" fill="#15171C">Run your own shifts and check in</text>
+    <path transform="translate(40 394) scale(0.8333)" d="m5 12 5 5 9-10" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="70" y="410" font-size="14" font-weight="500" fill="#15171C">Message your foreman in Crew only chat</text>
+    <rect x="20" y="440" width="350" height="124" rx="24" fill="#ECE8DE"/>
+    <text x="40" y="472" font-size="17" font-weight="700" fill="#15171C">What joining doesn’t do</text>
+    <text x="40" y="496" font-size="14" font-weight="500" fill="#555A66">It isn’t a shift. Each shift is offered, then</text>
+    <text x="40" y="516" font-size="14" font-weight="500" fill="#555A66">confirmed by the foreman before you travel.</text>
+    <text x="40" y="544" font-size="14" font-weight="600" fill="#15171C">Your location is never collected.</text>
+    <text x="20" y="596" font-size="14" font-weight="500" fill="#555A66">Sent by Mateo Ruiz · Sat, 14 Nov</text>
+    <text x="20" y="640" font-size="14" font-weight="700" fill="#2438B5">Use a different account</text><path d="M20 644.5h150.6" stroke="#2438B5" stroke-width="1.5"/>
+  </g>
+  <g id="dock">
+    <rect y="692" width="390" height="152" fill="#FFFFFF"/>
+    <path d="M0 692.5h390" stroke="#DED8CB"/>
+    <text x="195" y="718" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Valid until Sat, 21 Nov</text>
+    <rect x="20.5" y="738.5" width="107" height="55" rx="27.5" fill="#FFFFFF" stroke="#747986"/>
+    <text x="74" y="772" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">Decline</text>
+    <rect x="142" y="738" width="228" height="56" rx="28" fill="#15171C"/>
+    <text x="256" y="772" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Join the crew</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

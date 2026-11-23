@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="S-09-notifications--cover-offer-title S-09-notifications--cover-offer-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="S-09-notifications--cover-offer-title">S-09 Notifications — cover offer</title>
+  <desc id="S-09-notifications--cover-offer-desc">Worker view for Diego Torres at Reformas Ruiz at 08:36 Spain time on Tuesday 24 November, Field mode on. Under Needs you, a lime offer card: cover offer from Reformas Ruiz for today 09:00 to 10:00 Spain time, terrace door adjustment in Xàbia; the offer clock shows 6 minutes left and Reply by 08:42 Spain time. A line says opening the offer accepts nothing. Earlier: he joined Reformas Ruiz as Worker on 16 November after an invitation from Mateo Ruiz on 14 November. One action: Open offer.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">8:36</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Notifications</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">Worker · Reformas Ruiz</text>
+    
+  </g>
+  <g id="needs-you">
+    <text x="20" y="142" font-size="20" font-weight="700" fill="#15171C">Needs you</text>
+    <text x="370" y="142" font-size="14" font-weight="500" fill="#555A66" text-anchor="end">Spain time</text>
+    <rect x="21" y="157" width="348" height="212" rx="31" fill="#D6F33C" stroke="#15171C" stroke-width="2"/>
+    <rect x="40" y="176" width="104" height="28" rx="14" fill="#15171C"/>
+    <text x="92" y="195" font-size="12" font-weight="600" fill="#FFFFFF" text-anchor="middle">Cover offer</text>
+    <text x="350" y="195" font-size="14" font-weight="600" fill="#15171C" text-anchor="end">Reformas Ruiz</text>
+    <text x="40" y="238" font-size="20" font-weight="700" fill="#15171C">Today 09:00–10:00</text>
+    <text x="40" y="260" font-size="14" font-weight="500" fill="#15171C">Spain time · Terrace door adjustment · Xàbia</text>
+    <path d="M40 276.5h310" stroke="#15171C"/>
+    <circle cx="72" cy="322" r="28" fill="none" stroke="#BFDC22" stroke-width="6"/>
+    <path d="M72 294a28 28 0 1 1-24.25 14" fill="none" stroke="#15171C" stroke-width="6" stroke-linecap="round"/>
+    <text x="72" y="322" font-size="20" font-weight="800" fill="#15171C" text-anchor="middle">6</text>
+    <text x="72" y="336" font-size="12" font-weight="600" fill="#15171C" text-anchor="middle">min</text>
+    <text x="116" y="316" font-size="20" font-weight="700" fill="#15171C">Reply by 08:42</text>
+    <text x="116" y="338" font-size="14" font-weight="500" fill="#15171C">Spain time · the offer closes then</text>
+    <text x="20" y="396" font-size="14" font-weight="500" fill="#555A66">Opens the offer. Nothing is accepted from here.</text>
+  </g>
+  <g id="earlier">
+    <text x="20" y="444" font-size="20" font-weight="700" fill="#15171C">Earlier</text>
+    <rect x="20.5" y="458.5" width="349" height="143" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+    <rect x="36" y="474" width="32" height="32" rx="12" fill="#ECE8DE"/><path transform="translate(42 480) scale(0.8333)" d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-6 8a6 6 0 0 1 12 0m1-8a3 3 0 1 0 0-6m2 14a6 6 0 0 0-3-5" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="80" y="488" font-size="17" font-weight="700" fill="#15171C">You joined Reformas Ruiz</text><text x="354" y="488" font-size="14" font-weight="600" fill="#555A66" text-anchor="end">16 Nov</text><text x="80" y="508" font-size="14" font-weight="500" fill="#555A66">Worker · own crew</text><path d="M36 530.5h318" stroke="#DED8CB"/>
+    <rect x="36" y="546" width="32" height="32" rx="12" fill="#ECE8DE"/><path transform="translate(42 552) scale(0.8333)" d="M4 6h16v12H4zm0 1 8 6 8-6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="80" y="560" font-size="17" font-weight="700" fill="#15171C">Invitation received</text><text x="354" y="560" font-size="14" font-weight="600" fill="#555A66" text-anchor="end">14 Nov</text><text x="80" y="580" font-size="14" font-weight="500" fill="#555A66">From Mateo Ruiz · Reformas Ruiz</text>
+  </g>
+  <g id="dock">
+    <rect y="686" width="390" height="158" fill="#FFFFFF"/>
+    <path d="M0 686.5h390" stroke="#DED8CB"/>
+    <text x="195" y="712" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Reply by 08:42 Spain time · opening doesn’t accept</text>
+    <rect x="20" y="732" width="350" height="62" rx="31" fill="#15171C"/>
+    <text x="195" y="769" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Open offer</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

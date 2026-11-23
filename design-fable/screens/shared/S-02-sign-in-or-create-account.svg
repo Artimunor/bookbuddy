@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="S-02-sign-in-or-create-account-title S-02-sign-in-or-create-account-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="S-02-sign-in-or-create-account-title">S-02 Sign in or create account — new</title>
+  <desc id="S-02-sign-in-or-create-account-desc">Signed-out view after the welcome screen. One email field holds claire@example.com. The page says a 6-digit code will be emailed and no password is needed, that the steps are the same for new and returning people, and that one sign-in covers every role and roles are added by invitation. A link offers help with signing in. One action: Send code.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Sign in or create account</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">One account for every role</text>
+    
+  </g>
+  <g id="content">
+    <text x="20" y="152" font-size="28" font-weight="800" fill="#15171C">What’s your email?</text>
+    <text x="20" y="182" font-size="16" font-weight="400" fill="#15171C">We’ll email you a 6-digit code.</text>
+    <text x="20" y="206" font-size="16" font-weight="400" fill="#15171C">No password to remember.</text>
+    <text x="20" y="246" font-size="14" font-weight="600" fill="#15171C">Email address</text>
+    <rect x="20.5" y="256.5" width="349" height="55" rx="16" fill="#FFFFFF" stroke="#747986"/>
+    <path transform="translate(36 272)" d="M4 6h16v12H4zm0 1 8 6 8-6" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="72" y="290" font-size="16" font-weight="400" fill="#15171C">claire@example.com</text>
+    <text x="20" y="334" font-size="14" font-weight="500" fill="#555A66">New or returning, the steps are the same.</text>
+    <rect x="20" y="358" width="350" height="96" rx="24" fill="#ECE8DE"/>
+    <rect x="36" y="374" width="32" height="32" rx="12" fill="#FFFFFF"/><path transform="translate(42 380) scale(0.8333)" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 8a7 7 0 0 1 14 0" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="80" y="390" font-size="17" font-weight="700" fill="#15171C">One sign-in, every role</text>
+    <text x="80" y="412" font-size="14" font-weight="500" fill="#555A66">Customer, crew or business: roles are</text>
+    <text x="80" y="432" font-size="14" font-weight="500" fill="#555A66">added by invitation, never by this form.</text>
+    <text x="20" y="490" font-size="14" font-weight="700" fill="#2438B5">Trouble signing in?</text><path d="M20 494.5h122.5" stroke="#2438B5" stroke-width="1.5"/>
+  </g>
+  <g id="dock">
+    <rect y="692" width="390" height="152" fill="#FFFFFF"/>
+    <path d="M0 692.5h390" stroke="#DED8CB"/>
+    <text x="195" y="718" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Next: enter the code from your email</text>
+    <rect x="20" y="738" width="350" height="56" rx="28" fill="#15171C"/>
+    <text x="195" y="772" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Send code</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

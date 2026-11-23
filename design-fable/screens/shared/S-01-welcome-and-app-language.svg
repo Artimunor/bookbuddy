@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="S-01-welcome-and-app-language-title S-01-welcome-and-app-language-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="S-01-welcome-and-app-language-title">S-01 Welcome and app language — English</title>
+  <desc id="S-01-welcome-and-app-language-desc">First launch on a phone set to English, before sign-in. The page says repairs can be followed live, shows a labelled example of the live card for a terrace door repair, on the way and arriving 09:10 to 09:20 Spain time, and offers the app language as two choices, English selected and Português. One action: Get started, which leads to sign-in by email.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="brand">
+    <circle cx="40" cy="76" r="20" fill="#15171C"/><circle cx="40" cy="76" r="9" fill="none" stroke="#D6F33C" stroke-width="1.5"/><circle cx="40" cy="76" r="5" fill="#D6F33C"/>
+    <text x="72" y="72" font-size="17" font-weight="700" fill="#15171C">BookBuddy</text>
+    <text x="72" y="92" font-size="14" font-weight="500" fill="#555A66">Costa Blanca</text>
+  </g>
+  <g id="intro">
+    <text x="20" y="150" font-size="28" font-weight="800" fill="#15171C">Repairs you can</text>
+    <text x="20" y="184" font-size="28" font-weight="800" fill="#15171C">follow, live.</text>
+    <text x="20" y="214" font-size="16" font-weight="400" fill="#15171C">A local crew on the Costa Blanca, and each</text>
+    <text x="20" y="238" font-size="16" font-weight="400" fill="#15171C">step shared as it happens. No tracking.</text>
+  </g>
+  <g id="example-capsule">
+    <rect x="20" y="258" width="350" height="200" rx="32" fill="#15171C"/>
+    <circle cx="46" cy="285" r="9" fill="none" stroke="#D6F33C" stroke-width="1.5"/><circle cx="46" cy="285" r="5" fill="#D6F33C"/>
+    <text x="64" y="290" font-size="14" font-weight="600" fill="#F6F3EC">Terrace door repair</text>
+    <rect x="278" y="271" width="72" height="28" rx="14" fill="#3B404B"/>
+    <text x="314" y="290" font-size="12" font-weight="600" fill="#F6F3EC" text-anchor="middle">Example</text>
+    <text x="40" y="334" font-size="28" font-weight="800" fill="#F6F3EC">On the way</text>
+    <text x="350" y="332" font-size="20" font-weight="700" fill="#D6F33C" text-anchor="end">09:10–09:20</text>
+    <text x="40" y="356" font-size="14" font-weight="500" fill="#B1B5C0">Arriving · Spain time</text>
+    <g id="job-line"><path d="M50 386H340" stroke="#3B404B" stroke-width="6" stroke-linecap="round"/><path d="M50 386H158.8" stroke="#D6F33C" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="386" r="10" fill="#D6F33C"/><path d="m46 386 3 3 5-6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="122.5" cy="386" r="15" fill="none" stroke="#D6F33C" stroke-width="2"/><circle cx="122.5" cy="386" r="10" fill="#D6F33C"/><circle cx="122.5" cy="386" r="3" fill="#15171C"/><circle cx="195" cy="386" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><circle cx="267.5" cy="386" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><circle cx="340" cy="386" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><text x="122.5" y="418" font-size="12" font-weight="600" fill="#F6F3EC" text-anchor="middle">On the way</text><text x="195" y="418" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="middle">On site</text><text x="267.5" y="418" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="middle">Working</text><text x="350" y="418" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="end">Finished</text></g>
+    <text x="40" y="442" font-size="12" font-weight="600" fill="#B1B5C0">Shared by Mateo · 08:52 Spain time</text>
+  </g>
+  <text x="20" y="482" font-size="14" font-weight="500" fill="#555A66">One live card per booking: in the app, on your</text>
+  <text x="20" y="502" font-size="14" font-weight="500" fill="#555A66">Lock Screen and in your notifications.</text>
+  <g id="app-language">
+    <rect x="20.5" y="524.5" width="349" height="135" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+    <path transform="translate(40 538)" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm-9 9h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="76" y="556" font-size="17" font-weight="700" fill="#15171C">App language</text>
+    <text x="40" y="580" font-size="14" font-weight="500" fill="#555A66">Your phone is set to English.</text>
+    <rect x="40" y="596" width="149" height="40" rx="20" fill="#15171C"/><path d="m58 616 4 4 7-8" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="78" y="621" font-size="14" font-weight="700" fill="#FFFFFF">English</text><rect x="201.5" y="596.5" width="148" height="39" rx="19.5" fill="#FFFFFF" stroke="#747986"/><text x="275.5" y="621" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Português</text>
+  </g>
+  <g id="dock">
+    <rect y="692" width="390" height="152" fill="#FFFFFF"/>
+    <path d="M0 692.5h390" stroke="#DED8CB"/>
+    <text x="195" y="718" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Next: sign in with your email</text>
+    <rect x="20" y="738" width="350" height="56" rx="28" fill="#15171C"/>
+    <text x="195" y="772" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Get started</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="S-05-accept-an-invitation--expired-title S-05-accept-an-invitation--expired-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="S-05-accept-an-invitation--expired-title">S-05 Accept an invitation — expired</title>
+  <desc id="S-05-accept-an-invitation--expired-desc">Diego Torres, signed in as diego@example.com, opens a crew invitation after it ran out. The page says the invitation expired on Saturday 21 November and nothing changed on his account. A card names the sender, Mateo Ruiz at Reformas Ruiz, sent Saturday 14 November, and says only the person who invited him can send a new one. A link opens help with access. There is nothing to accept or decline. One action: Done.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Invitation</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">Signed in as diego@example.com</text>
+    
+  </g>
+  <g id="content">
+    <rect x="20" y="124" width="196" height="32" rx="16" fill="#ECE8DE"/>
+    <path transform="translate(30 130) scale(0.8333)" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 4v5l3 2" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="58" y="145" font-size="12" font-weight="600" fill="#15171C">Expired · Sat, 21 Nov</text>
+    <text x="20" y="204" font-size="28" font-weight="800" fill="#15171C">This invitation</text>
+    <text x="20" y="238" font-size="28" font-weight="800" fill="#15171C">has expired</text>
+    <text x="20" y="270" font-size="16" font-weight="400" fill="#15171C">It ran out on Sat, 21 Nov. Nothing</text>
+    <text x="20" y="294" font-size="16" font-weight="400" fill="#15171C">changed on your account.</text>
+    <rect x="20.5" y="320.5" width="349" height="147" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+    <circle cx="60" cy="360" r="20" fill="#DDEBFF"/><text x="60" y="365" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">MR</text>
+    <text x="92" y="356" font-size="17" font-weight="700" fill="#15171C">Mateo Ruiz</text>
+    <text x="92" y="376" font-size="14" font-weight="500" fill="#555A66">Reformas Ruiz · sent Sat, 14 Nov</text>
+    <path d="M40 400.5h310" stroke="#DED8CB"/>
+    <text x="40" y="428" font-size="14" font-weight="500" fill="#555A66">Ask Mateo for a new invitation. Only the</text>
+    <text x="40" y="448" font-size="14" font-weight="500" fill="#555A66">person who invited you can send another.</text>
+    <text x="20" y="520" font-size="14" font-weight="700" fill="#2438B5">Get help with access</text><path d="M20 524.5h136.2" stroke="#2438B5" stroke-width="1.5"/>
+  </g>
+  <g id="dock">
+    <rect y="692" width="390" height="152" fill="#FFFFFF"/>
+    <path d="M0 692.5h390" stroke="#DED8CB"/>
+    <text x="195" y="718" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">You stay signed in as diego@example.com</text>
+    <rect x="20" y="738" width="350" height="56" rx="28" fill="#15171C"/>
+    <text x="195" y="772" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Done</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

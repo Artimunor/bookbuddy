@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="S-03-verify-code-title S-03-verify-code-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="S-03-verify-code-title">S-03 Verify code — waiting</title>
+  <desc id="S-03-verify-code-desc">Signed-out view after a code was requested for claire@example.com. One code field with six positions holds the first three digits typed so far. A line says a new code can be sent in 0:42 and suggests checking spam. Links: change email address, get help signing in. The Verify code button is disabled and the dock says to enter all 6 digits.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    <path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Enter your code</text>
+    <text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">Sign in or create account</text>
+    
+  </g>
+  <g id="content">
+    <text x="20" y="152" font-size="28" font-weight="800" fill="#15171C">Check your email</text>
+    <text x="20" y="182" font-size="16" font-weight="400" fill="#15171C">We sent a 6-digit code to</text>
+    <text x="20" y="206" font-size="16" font-weight="700" fill="#15171C">claire@example.com</text>
+    <text x="20" y="246" font-size="14" font-weight="600" fill="#15171C">6-digit code</text>
+    <rect x="21" y="257" width="348" height="70" rx="16" fill="#FFFFFF" stroke="#2438B5" stroke-width="2"/><path d="M78.5 274v36" stroke="#DED8CB"/><path d="M136.5 274v36" stroke="#DED8CB"/><path d="M195 274v36" stroke="#DED8CB"/><path d="M253.5 274v36" stroke="#DED8CB"/><path d="M311.5 274v36" stroke="#DED8CB"/><text x="49.5" y="302" font-size="28" font-weight="800" fill="#15171C" text-anchor="middle">4</text><text x="107.5" y="302" font-size="28" font-weight="800" fill="#15171C" text-anchor="middle">8</text><text x="166" y="302" font-size="28" font-weight="800" fill="#15171C" text-anchor="middle">2</text><circle cx="224" cy="292" r="3" fill="#747986"/><circle cx="282.5" cy="292" r="3" fill="#747986"/><circle cx="340.5" cy="292" r="3" fill="#747986"/>
+    <text x="20" y="352" font-size="14" font-weight="500" fill="#555A66">You can ask for a new code in 0:42.</text>
+    <text x="20" y="372" font-size="14" font-weight="500" fill="#555A66">Not there yet? Check your spam folder.</text>
+    <text x="20" y="420" font-size="14" font-weight="700" fill="#2438B5">Change email address</text><path d="M20 424.5h142.1" stroke="#2438B5" stroke-width="1.5"/>
+    <text x="20" y="464" font-size="14" font-weight="700" fill="#2438B5">Get help signing in</text><path d="M20 468.5h120.3" stroke="#2438B5" stroke-width="1.5"/>
+  </g>
+  <g id="dock">
+    <rect y="692" width="390" height="152" fill="#FFFFFF"/>
+    <path d="M0 692.5h390" stroke="#DED8CB"/>
+    <text x="195" y="718" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Enter all 6 digits to continue</text>
+    <rect x="20" y="738" width="350" height="56" rx="28" fill="#ECE8DE"/>
+    <text x="195" y="772" font-size="17" font-weight="700" fill="#555A66" text-anchor="middle">Verify code</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

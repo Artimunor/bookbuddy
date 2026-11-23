@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="S-04-first-setup-title S-04-first-setup-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="S-04-first-setup-title">S-04 First setup — defaults</title>
+  <desc id="S-04-first-setup-desc">First setup for the newly verified account claire@example.com. Three choices with defaults: the name Claire Martin, shown to the provider and crew; the reading language English, with the note that other languages are translated and the original always stays beneath; and Show my time as well, switched on because the phone is on UK time. A preview shows an example visit as 09:00 to 10:00 Spain time with 08:00 to 09:00 your time beneath. Permissions are asked later. One action: Continue.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header">
+    
+    <text x="20" y="72" font-size="20" font-weight="700" fill="#15171C">First setup</text>
+    <text x="20" y="94" font-size="14" font-weight="500" fill="#555A66">Signed in as claire@example.com</text>
+    
+  </g>
+  <g id="content">
+    <text x="20" y="134" font-size="14" font-weight="600" fill="#15171C">Your name</text>
+    <rect x="20.5" y="144.5" width="349" height="55" rx="16" fill="#FFFFFF" stroke="#747986"/>
+    <text x="40" y="178" font-size="16" font-weight="400" fill="#15171C">Claire Martin</text>
+    <text x="20" y="222" font-size="14" font-weight="500" fill="#555A66">Shown to your provider and crew.</text>
+    <text x="20" y="258" font-size="14" font-weight="600" fill="#15171C">Read messages in</text>
+    <rect x="20.5" y="268.5" width="349" height="55" rx="16" fill="#FFFFFF" stroke="#747986"/>
+    <path transform="translate(36 284)" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm-9 9h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="72" y="302" font-size="16" font-weight="400" fill="#15171C">English</text>
+    <path transform="translate(326 284)" d="m10 6 6 6-6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="20" y="346" font-size="14" font-weight="500" fill="#555A66">Other languages are translated for you. The</text>
+    <text x="20" y="366" font-size="14" font-weight="500" fill="#555A66">original always stays beneath the translation.</text>
+    <rect x="20.5" y="386.5" width="349" height="213" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+    <text x="40" y="420" font-size="17" font-weight="700" fill="#15171C">Show my time as well</text>
+    <text x="40" y="442" font-size="14" font-weight="500" fill="#555A66">Your phone is on UK time</text>
+    <rect x="294" y="408" width="56" height="32" rx="16" fill="#15171C"/><circle cx="334" cy="424" r="12" fill="#FFFFFF"/>
+    <path d="M40 460.5h310" stroke="#DED8CB"/>
+    <text x="40" y="484" font-size="12" font-weight="600" fill="#555A66">Example visit time</text>
+    <rect x="36" y="494" width="318" height="90" rx="16" fill="#ECE8DE"/>
+    <text x="52" y="524" font-size="20" font-weight="700" fill="#15171C">Tue, 24 Nov · 09:00–10:00</text>
+    <text x="52" y="546" font-size="14" font-weight="600" fill="#15171C">Spain time</text>
+    <text x="52" y="568" font-size="14" font-weight="500" fill="#555A66">08:00–09:00 your time</text>
+    <text x="20" y="632" font-size="14" font-weight="500" fill="#555A66">Camera, microphone and notifications are</text>
+    <text x="20" y="652" font-size="14" font-weight="500" fill="#555A66">asked for later, only when you use them.</text>
+  </g>
+  <g id="dock">
+    <rect y="692" width="390" height="152" fill="#FFFFFF"/>
+    <path d="M0 692.5h390" stroke="#DED8CB"/>
+    <text x="195" y="718" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">You can change all of this later in You</text>
+    <rect x="20" y="738" width="350" height="56" rx="28" fill="#15171C"/>
+    <text x="195" y="772" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Continue</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>
