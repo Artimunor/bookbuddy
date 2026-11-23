@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">F-10 Fill shift · no own cover</title>
+  <desc id="screen-desc">Late-dropout alternative: the 08:32 dropout leaves eight minutes to the 08:40 safe staffing cutoff, too little for a reply and review. No offers were sent. Mateo reported risk at 08:33, promised an 08:48 update and can call the duty lead or propose a revised visit.</desc>
+  <rect width="390" height="844" fill="#FAF7EF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+<g id="header">
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Fill shift</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Tue, 24 Nov · Spain time</text>
+</g>
+<g id="content">
+<rect x="20" y="120" width="350" height="150" rx="16" fill="#FFF1D5"/>
+<path d="M39 154l9-16 9 16z M48 144v4m0 3v.5" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="152" font-size="13" font-weight="650" fill="#704500">DELIVERY AT RISK</text>
+<text x="38" y="185" font-size="23" font-weight="700" fill="#704500">No safe own-crew cover</text>
+<text x="38" y="212" font-size="15" font-weight="400" fill="#704500">Nadia reported a gap at 08:32. There isn’t</text>
+<text x="38" y="234" font-size="15" font-weight="400" fill="#704500">time for a reply and review before 08:40.</text>
+<text x="38" y="256" font-size="15" font-weight="400" fill="#704500">No offer was sent.</text>
+<text x="20" y="309" font-size="20" font-weight="700" fill="#152C26">What Claire has been told</text>
+<rect x="20" y="324" width="350" height="144" rx="16" fill="#FFFFFF"/>
+<text x="38" y="352" font-size="13" font-weight="650" fill="#0B5747">PUBLISHED · 08:33 SPAIN TIME</text>
+<text x="38" y="380" font-size="16" font-weight="650" fill="#152C26">Crew cover being arranged</text>
+<text x="38" y="405" font-size="13" font-weight="450" fill="#425B52">09:00–10:00 remains the agreed window.</text>
+<path d="M36 421H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="38" y="450" font-size="16" font-weight="650" fill="#0B5747">Next report by 08:48</text>
+<path d="m340 439 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="510" font-size="20" font-weight="700" fill="#152C26">Plan a different visit</text>
+<text x="20" y="539" font-size="15" font-weight="400" fill="#425B52">Check another window with your crew, then</text>
+<text x="20" y="561" font-size="15" font-weight="400" fill="#425B52">ask Claire to agree. No rescheduling fee.</text>
+<path d="M20 585H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="618" font-size="16" font-weight="650" fill="#0B5747">Call provider duty line</text>
+<text x="20" y="640" font-size="13" font-weight="450" fill="#425B52">Speak to Reformas Ruiz’s duty lead or backup.</text>
+<path d="m355 615 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="690" font-size="16" font-weight="650" fill="#0B5747">Contact local service</text>
+<text x="20" y="712" font-size="13" font-weight="450" fill="#425B52">If your business cannot deliver the repair.</text>
+<path d="m355 687 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="action-bar">
+<rect x="0" y="736" width="390" height="108" rx="0" fill="#FFFFFF"/>
+<path d="M0 736H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="746" width="350" height="56" rx="12" fill="#0B6250"/>
+<text x="195" y="779.5" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Propose a revised visit</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

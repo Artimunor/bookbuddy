@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-  <title id="screen-title">F-01 Today — urgent crew gap</title>
-  <desc id="screen-desc">On Tuesday 24 November at 08:32 Spain time, Nadia Benali reports she cannot attend the 09:00–10:00 terrace door repair. The visit remains booked under Today’s agenda, but the shift is open and needs cover now. Mateo Ruiz can enter the Fill shift workflow.</desc>
-  <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+  <title id="screen-title">F-01 Today — booked visit at risk</title>
+  <desc id="screen-desc">Tuesday contingency: Nadia reported a dropout at 08:12 Spain time. The shift is open but Claire’s 09:00–10:00 window remains booked. Use the provider duty route or a revised visit when there is no safe time for an internal round. Warn Claire through a separate customer-safe update.</desc>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -14,43 +14,42 @@
     <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
-  <g id="header">
-  <circle cx="36" cy="76" r="16" fill="#DCF2EA"/>
-  <g transform="translate(26 66) scale(0.8333333333333334)" aria-hidden="true"><path d="m3 12 9-8 9 8m-16-2v10h14V10m-9 6 2 2 4-5" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="60" y="75" fill="#152C26" font-size="16" font-weight="650">Reformas Ruiz</text>
-  <text x="60" y="94" fill="#425B52" font-size="13" font-weight="450">Foreman</text>
-  <rect x="270.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-  <g transform="translate(282 64)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <circle cx="346" cy="76" r="20" fill="#DCF2EA"/>
-  <text x="346" y="80" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">MR</text>
-  </g>
+<g id="header">
+  <text x="20" y="75" font-size="16" font-weight="700" fill="#152C26" text-anchor="start">Reformas Ruiz</text>
+  <text x="20" y="95" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Foreman</text>
+  <rect x="266.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <g transform="translate(278 64) scale(1)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4Zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="322.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <circle cx="346" cy="76" r="15" fill="#DCF2EA"/>
+  <text x="346" y="81" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">MR</text>
+</g>
   <g id="content">
-  <text x="20" y="149" fill="#152C26" font-size="28" font-weight="700">Today</text>
-  <text x="20" y="176" fill="#425B52" font-size="15" font-weight="400">Tue, 24 Nov · Spain time</text>
-  <text x="20" y="220" fill="#152C26" font-size="20" font-weight="650">Needs attention</text>
-  <g id="urgent-gap">
-  <rect x="20" y="236" width="350" height="172" rx="16" fill="#FCE9E8"/>
-  <g transform="translate(36 253) scale(0.8333333333333334)" aria-hidden="true"><path d="M12 3 22 20H2L12 3zm0 7v4m0 3h.01" fill="none" stroke="#853531" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="66" y="271" fill="#853531" font-size="20" font-weight="650">Crew gap</text>
-  <text x="36" y="300" fill="#853531" font-size="15" font-weight="400">Nadia Benali can’t attend the shift.</text>
-  <text x="36" y="322" fill="#853531" font-size="15" font-weight="400">The visit is still booked.</text>
-  <text x="36" y="340" fill="#853531" font-size="13" font-weight="550">Reported at 08:32 Spain time</text>
-  <rect x="36" y="350" width="318" height="48" rx="12" fill="#0B6250"/>
-  
-  <text x="195" y="380" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Fill shift</text>
+  <text x="20" y="151" fill="#152C26" font-size="32" font-weight="700">Today</text>
+  <text x="370" y="149" fill="#425B52" font-size="13" font-weight="550" text-anchor="end">Tue, 24 Nov · Spain time</text>
+  <g id="delivery-risk">
+  <rect x="20" y="174" width="350" height="256" rx="16" fill="#FFF1D5"/>
+  <path d="M40 208l9-16 9 16z M49 199v4m0 2v1" fill="none" stroke="#704500" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="70" y="207" fill="#704500" font-size="13" font-weight="700">DELIVERY AT RISK</text>
+  <text x="40" y="249" fill="#704500" font-size="26" font-weight="700">Crew cover needed</text>
+  <text x="40" y="279" fill="#704500" font-size="15" font-weight="400">Nadia can’t attend the door repair.</text>
+  <text x="40" y="304" fill="#704500" font-size="13" font-weight="550">Reported 08:12 · Spain time</text>
+  <path d="M40 325h310" fill="none" stroke="#704500" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="40" y="351" fill="#704500" font-size="15" font-weight="550">Tell Claire now. Her window still stands.</text>
+  <rect x="36" y="363" width="318" height="56" rx="12" fill="#0B6250"/>
+  <text x="195" y="397" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Manage cover</text>
   </g>
-  <text x="20" y="449" fill="#152C26" font-size="20" font-weight="650">Today’s agenda</text>
-  <rect x="20.5" y="464.5" width="349" height="163" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <text x="36" y="496" fill="#152C26" font-size="20" font-weight="650">Terrace door repair</text>
-  <text x="36" y="518" fill="#425B52" font-size="13" font-weight="450">Villa Mar · Xàbia · BB-1042</text>
-  <path d="M36 532.5h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="36" y="548" width="32" height="32" rx="8" fill="#EBF2EF"/>
-  <g transform="translate(44 556) scale(0.6666666666666666)" aria-hidden="true"><path d="M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1zm-1 5h16M8 3v4m8-4v4" fill="none" stroke="#152C26" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="80" y="566" fill="#152C26" font-size="16" font-weight="650">Tue, 24 Nov · 09:00–10:00</text>
-  <text x="80" y="588" fill="#425B52" font-size="13" font-weight="450">Spain time · Work visit</text>
-  <g transform="translate(334 552) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <g transform="translate(36 600) scale(0.6666666666666666)" aria-hidden="true"><path d="M12 3 22 20H2L12 3zm0 7v4m0 3h.01" fill="none" stroke="#853531" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="60" y="613" fill="#853531" font-size="13" font-weight="550">Shift open · cover needed</text>
+  <text x="20" y="472" fill="#152C26" font-size="20" font-weight="650">Today’s agenda</text>
+  <text x="370" y="472" fill="#425B52" font-size="13" font-weight="550" text-anchor="end">1 booked visit</text>
+  <rect x="20" y="490" width="350" height="166" rx="16" fill="#FFFFFF"/>
+  <text x="36" y="520" fill="#152C26" font-size="22" font-weight="700">09:00–10:00</text>
+  <text x="354" y="518" fill="#425B52" font-size="13" font-weight="550" text-anchor="end">Spain time</text>
+  <text x="36" y="552" fill="#152C26" font-size="18" font-weight="650">Terrace door repair</text>
+  <text x="36" y="577" fill="#425B52" font-size="15" font-weight="400">Villa Mar · Xàbia · BB-1042</text>
+  <path d="M36 597h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="630" fill="#152C26" font-size="15" font-weight="650">Shift open · No confirmed cover</text>
+  <path d="m345 620 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="20" y="696" fill="#425B52" font-size="15" font-weight="400">A dropout is private. Publish only the effect</text>
+  <text x="20" y="718" fill="#425B52" font-size="15" font-weight="400">on the visit, not the worker’s reason.</text>
   </g>
   <g id="tab-bar">
   <rect x="0" y="746" width="390" height="98" rx="0" fill="#FFFFFF"/>

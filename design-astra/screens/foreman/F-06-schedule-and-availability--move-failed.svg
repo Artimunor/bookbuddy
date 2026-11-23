@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">F-06 Schedule and availability — original visit retained</title>
+  <desc id="screen-desc">The provider capacity recheck failed before Claire could agree to move to Wednesday. Tuesday’s agreed 09:00–10:00 visit is still booked. No new window or worker was reserved. The foreman may propose a different window.</desc>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+  <g id="header">
+  <path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="64" y="76" fill="#152C26" font-size="20" font-weight="700">Schedule and availability</text>
+  <text x="64" y="96" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
+  </g>
+  <g id="content">
+  <text x="20" y="139" fill="#425B52" font-size="13" font-weight="650">REVISED WORK VISIT</text>
+  <text x="20" y="180" fill="#152C26" font-size="27" font-weight="700">The visit hasn’t moved</text>
+  <text x="20" y="209" fill="#425B52" font-size="15" font-weight="400">Villa Mar · Xàbia</text>
+  <text x="20" y="263" fill="#152C26" font-size="20" font-weight="650">Still booked</text>
+  <rect x="20" y="282" width="350" height="134" rx="16" fill="#FFFFFF"/>
+  <text x="36" y="315" fill="#152C26" font-size="16" font-weight="650">Tuesday, 24 November</text>
+  <text x="36" y="363" fill="#152C26" font-size="32" font-weight="700">09:00–10:00</text>
+  <text x="36" y="393" fill="#425B52" font-size="13" font-weight="450">Spain time · Agreed with Claire Martin</text>
+  <text x="20" y="468" fill="#152C26" font-size="20" font-weight="650">Requested alternative</text>
+  <rect x="20" y="488" width="350" height="124" rx="16" fill="#FFF1D5"/>
+  <path d="M36 521l9-16 9 16z M45 512v4m0 2v1" fill="none" stroke="#704500" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="67" y="519" fill="#704500" font-size="17" font-weight="650">Window no longer available</text>
+  <text x="36" y="555" fill="#704500" font-size="15" font-weight="450">Wed, 25 Nov · 09:00–10:00 Spain time</text>
+  <text x="36" y="584" fill="#704500" font-size="14" font-weight="450">Capacity changed before agreement.</text>
+  <path d="M20 650h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="20" y="683" fill="#152C26" font-size="17" font-weight="650">Nothing to cancel or release.</text>
+  <text x="20" y="708" fill="#425B52" font-size="14" font-weight="450">Choose another window to propose to Claire.</text>
+  </g>
+  <g id="footer">
+  <rect x="0" y="740" width="390" height="104" rx="0" fill="#FFFFFF"/>
+  <path d="M0 740h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="748" width="350" height="56" rx="12" fill="#0B6250"/>
+  <text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Find another window</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

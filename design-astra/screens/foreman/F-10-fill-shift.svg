@@ -1,10 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">F-10 Fill shift</title>
-  <desc id="screen-desc">Nadia Benali cannot attend the BB-1042 terrace door shift. Two eligible own-team candidates are selected for offer. The vetted pool is locked until the own-team step is resolved.</desc>
-  <rect width="390" height="844" fill="#F4F7F6"/>
-  <g id="header">
-    <rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
-    <g id="status-bar" aria-hidden="true" fill="#152C26">
+  <desc id="screen-desc">An 08:12 dropout leaves one door-fitting shift open. Mateo has already reported the delivery risk. He has selected two eligible, on-duty members of Reformas Ruiz for a single internal round. No one is assigned by sending.</desc>
+  <rect width="390" height="844" fill="#FAF7EF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
     <rect x="306" y="22" width="3" height="6" rx="1"/>
@@ -16,53 +14,59 @@
     <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
-    <g aria-hidden="true" transform="translate(20 64) scale(1)"><path d="m14.5 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="74" font-size="20" font-weight="650" fill="#152C26">Fill shift</text>
-    <text x="64" y="94" font-size="13" font-weight="450" fill="#425B52">Terrace door repair · BB-1042</text>
-    <path d="M0 107.5H390" stroke="#D4E1DB"/>
-  </g>
-  <g id="content">
-    <g id="shift-card">
-    <rect x="20.5" y="124.5" width="349" height="123" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <text x="36" y="155" font-size="20" font-weight="650" fill="#152C26">Terrace door adjustment</text>
-    <text x="36" y="178" font-size="13" font-weight="450" fill="#425B52">Villa Mar · Xàbia</text>
-    <text x="36" y="208" font-size="16" font-weight="650" fill="#152C26" style="font-variant-numeric: tabular-nums">Tue, 24 Nov · 09:00–10:00</text>
-    <text x="36" y="230" font-size="13" font-weight="450" fill="#425B52">Spain time · Door fitting · Spanish briefing</text>
-    <path d="m343 178 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
-  </g>
-    <rect x="20" y="264" width="350" height="76" rx="16" fill="#FCE9E8"/><g aria-hidden="true" transform="translate(35 277) scale(0.75)"><path d="M12 3 22 20H2L12 3zm0 6v5m0 3h.01" fill="none" stroke="#853531" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g><text x="64" y="291" font-size="16" font-weight="650" fill="#853531">Nadia Benali can’t attend</text><text x="64" y="313" font-size="13" font-weight="450" fill="#853531"><tspan x="64">Reported Tue, 24 Nov · 08:32 Spain time</tspan></text>
-    <text x="20" y="374" font-size="20" font-weight="650" fill="#152C26">1. Own team</text>
-    <text x="370" y="374" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">2 eligible matches</text>
-    <g id="diego-candidate">
-    <rect x="20.5" y="388.5" width="349" height="75" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="416" width="20" height="20" rx="4" fill="#0B6250"/><g aria-hidden="true" transform="translate(38.5 418.5) scale(0.625)"><path d="m5 12 4 4L19 6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="68" y="420" font-size="16" font-weight="650" fill="#152C26">Diego Torres</text>
-    <text x="68" y="442" font-size="13" font-weight="450" fill="#425B52">Eligible · Door fitting · Spanish</text>
-    <path d="M306 403v46" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-    <g aria-hidden="true" transform="translate(328 416) scale(0.8333333333333334)"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zm-9-1v5m0-9h.01" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-  </g>
-    <g id="lucia-candidate">
-    <rect x="20.5" y="472.5" width="349" height="75" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <rect x="36" y="500" width="20" height="20" rx="4" fill="#0B6250"/><g aria-hidden="true" transform="translate(38.5 502.5) scale(0.625)"><path d="m5 12 4 4L19 6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="68" y="504" font-size="16" font-weight="650" fill="#152C26">Lucía Ortega</text>
-    <text x="68" y="526" font-size="13" font-weight="450" fill="#425B52">Eligible · Door fitting · Spanish</text>
-    <path d="M306 487v46" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-    <g aria-hidden="true" transform="translate(328 500) scale(0.8333333333333334)"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zm-9-1v5m0-9h.01" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-  </g>
-    <text x="20" y="577" font-size="13" font-weight="450" fill="#425B52" style="font-variant-numeric: tabular-nums">Reply by Tue, 24 Nov · 08:42 Spain time</text>
-    <g id="pool-gate">
-    <rect x="20" y="596" width="350" height="80" rx="16" fill="#EBF2EF"/>
-    <g aria-hidden="true" transform="translate(35 613) scale(0.75)"><path d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2zm6 5v2" fill="none" stroke="#425B52" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="626" font-size="16" font-weight="650" fill="#152C26">2. Vetted pool</text>
-    <text x="64" y="649" font-size="13" font-weight="450" fill="#425B52">Unlocks when the own-team step is resolved.</text>
-  </g>
-    <text x="20" y="716" font-size="16" font-weight="650" fill="#0B5747">Contact local service</text>
-    <g aria-hidden="true" transform="translate(343 701) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-  </g>
-  <g id="action-bar">
-    <rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
-    <path d="M0 744.5H390" stroke="#D4E1DB"/>
-    <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/><text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Send 2 team offers</text>
-  </g>
-  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+<g id="header">
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Fill shift</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">Reformas Ruiz · BB-1042</text>
+</g>
+<g id="content">
+<text x="20" y="132" font-size="13" font-weight="650" fill="#425B52">AGREED WORK VISIT</text>
+<text x="370" y="132" font-size="13" font-weight="550" fill="#425B52" text-anchor="end">Villa Mar · Xàbia</text>
+<text x="20" y="167" font-size="28" font-weight="700" fill="#152C26">09:00–10:00</text>
+<text x="20" y="190" font-size="13" font-weight="450" fill="#425B52">Tue, 24 Nov · Spain time</text>
+<text x="20" y="227" font-size="16" font-weight="650" fill="#152C26">Door fitting · Spanish briefing</text>
+<path d="m356 217 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M20 247H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="262" width="350" height="103" rx="16" fill="#FFF1D5"/>
+<path d="M39 296l9-16 9 16z M48 286v4m0 3v.5" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="294" font-size="13" font-weight="650" fill="#704500">STAFFING GAP · 08:12</text>
+<text x="38" y="327" font-size="23" font-weight="700" fill="#704500">Nadia can’t attend.</text>
+<text x="38" y="354" font-size="15" font-weight="400" fill="#704500">The visit is still booked. One place is open.</text>
+<text x="20" y="405" font-size="20" font-weight="700" fill="#152C26">Offer to your crew</text>
+<text x="370" y="405" font-size="13" font-weight="550" fill="#425B52" text-anchor="end">Round 1 · 2 selected</text>
+<rect x="20" y="421" width="350" height="132" rx="16" fill="#FFFFFF"/>
+<rect x="37" y="438" width="19" height="19" rx="4" fill="#0B6250"/>
+<path d="m41 448 3.5 3.5 7-8" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="70" y="450" font-size="16" font-weight="650" fill="#152C26">Diego Torres</text>
+<text x="70" y="472" font-size="13" font-weight="450" fill="#425B52">On duty · Door fitting · Spanish</text>
+<path d="M301 430H301" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<g aria-label="View Diego Torres profile">
+<circle cx="336" cy="453" r="10" fill="#EBF2EF"/>
+<text x="336" y="458" font-size="15" font-weight="700" fill="#0B5747" text-anchor="middle">i</text>
+</g>
+<path d="M36 487H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="37" y="504" width="19" height="19" rx="4" fill="#0B6250"/>
+<path d="m41 514 3.5 3.5 7-8" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="70" y="516" font-size="16" font-weight="650" fill="#152C26">Lucía Ortega</text>
+<text x="70" y="538" font-size="13" font-weight="450" fill="#425B52">On duty · Door fitting · Spanish</text>
+<path d="M301 496H301" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<g aria-label="View Lucía Ortega profile">
+<circle cx="336" cy="519" r="10" fill="#EBF2EF"/>
+<text x="336" y="524" font-size="15" font-weight="700" fill="#0B5747" text-anchor="middle">i</text>
+</g>
+<text x="20" y="583" font-size="16" font-weight="650" fill="#152C26">Replies close at 08:31 Spain time</text>
+<text x="20" y="607" font-size="13" font-weight="450" fill="#425B52">Staff by 08:40 for travel and briefing.</text>
+<text x="20" y="644" font-size="16" font-weight="650" fill="#0B5747">Customer update</text>
+<text x="20" y="666" font-size="13" font-weight="450" fill="#425B52">Risk reported at 08:13 · next report by 08:28</text>
+<path d="m355 641 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="714" font-size="16" font-weight="650" fill="#0B5747">Call provider duty line</text>
+<path d="m356 704 5 5-5 5" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="action-bar">
+<rect x="0" y="736" width="390" height="108" rx="0" fill="#FFFFFF"/>
+<path d="M0 736H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="746" width="350" height="56" rx="12" fill="#0B6250"/>
+<text x="195" y="779.5" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Review 2 team offers</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

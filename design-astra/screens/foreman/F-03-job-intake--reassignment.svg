@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">F-03 Job intake — booked job reassignment</title>
-  <desc id="screen-desc">In this alternate BB-1042 handoff, Inés Vidal remains accountable for the booked repair while Mateo Ruiz reviews the transfer offer. If Mateo accepts and it is confirmed, he takes over the existing job with quote version 1, the booked visit, and Nadia Benali’s confirmed shift intact.</desc>
+  <desc id="screen-desc">Inés Vidal owns the booked repair until Mateo accepts the checked transfer. Reformas Ruiz remains the contractor. The approved quote, booking, confirmed worker and any safety hold survive the transfer. No quote publishing grant transfers.</desc>
   <rect width="390" height="844" fill="#F4F7F6"/>
-  <rect width="390" height="108" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,53 +15,44 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-    <path d="m35 68-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
-    <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Job intake</text>
-    <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
-    <path d="M0 107.5h390" stroke="#D4E1DB"/>
+  <path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="64" y="76" fill="#152C26" font-size="20" font-weight="700">Job intake</text>
+  <text x="64" y="96" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
   </g>
   <g id="content">
-    <g id="job-card">
-      <rect x="20.5" y="124.5" width="349" height="99" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-      <text x="36" y="153" fill="#425B52" font-size="13" font-weight="550">Reformas Ruiz · Transfer offer</text>
-      <rect x="270" y="137" width="84" height="28" rx="14" fill="#E7F4E8"/>
-      <path d="m280 151 3 3 5-6" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
-      <text x="295" y="155" fill="#245936" font-size="12" font-weight="550">Booked</text>
-      <text x="36" y="181" fill="#152C26" font-size="20" font-weight="650">Villa Mar · Xàbia</text>
-      <text x="36" y="205" fill="#425B52" font-size="13" font-weight="450">Claire Martin · Customer</text>
-    </g>
-    <text x="20" y="260" fill="#152C26" font-size="20" font-weight="650">Foreman handoff</text>
-    <g id="handoff">
-      <rect x="20.5" y="276.5" width="349" height="143" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-      <text x="36" y="308" fill="#425B52" font-size="13" font-weight="550">Current foreman</text>
-      <text x="354" y="308" fill="#152C26" font-size="16" font-weight="650" text-anchor="end">Inés Vidal</text>
-      <path d="M36 324.5h318" stroke="#D4E1DB"/>
-      <text x="36" y="352" fill="#425B52" font-size="13" font-weight="550">Offered to</text>
-      <text x="354" y="352" fill="#152C26" font-size="16" font-weight="650" text-anchor="end">Mateo Ruiz (you)</text>
-      <path d="M36 368.5h318" stroke="#D4E1DB"/>
-      <text x="36" y="398" fill="#425B52" font-size="13" font-weight="450">Reply by Mon, 23 Nov · 17:00 Spain time</text>
-    </g>
-    <text x="20" y="460" fill="#152C26" font-size="20" font-weight="650">What stays the same</text>
-    <g id="existing-job">
-      <rect x="20.5" y="476.5" width="349" height="117" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-      <text x="36" y="504" fill="#152C26" font-size="16" font-weight="650">Quote v1 approved · €240.00</text>
-      <text x="36" y="531" fill="#152C26" font-size="15">Tue, 24 Nov · 09:00–10:00</text>
-      <text x="36" y="550" fill="#425B52" font-size="13" font-weight="450">Spain time · Booked work visit</text>
-      <text x="36" y="577" fill="#152C26" font-size="15">Nadia Benali · Confirmed shift</text>
-    </g>
-    <g id="pending-transfer">
-      <rect x="20" y="612" width="350" height="72" rx="16" fill="#E5F0FA"/>
-      <path d="M44 626a8 8 0 1 1 0 16 8 8 0 0 1 0-16zm0 7v5m0-8h.01" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
-      <text x="64" y="639" fill="#234C78" font-size="16" font-weight="650">Inés is still accountable</text>
-      <text x="64" y="661" fill="#234C78" font-size="13" font-weight="450">You take over only after accepting online.</text>
-    </g>
-    <text x="195" y="719" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Return handoff</text>
+  <text x="20" y="135" fill="#425B52" font-size="13" font-weight="650">REFORMAS RUIZ · TRANSFER OFFER</text>
+  <text x="20" y="173" fill="#152C26" font-size="25" font-weight="700">Take over this booked job?</text>
+  <text x="20" y="203" fill="#152C26" font-size="15" font-weight="400">Claire Martin · Villa Mar, Xàbia</text>
+  <text x="20" y="227" fill="#425B52" font-size="13" font-weight="550">Reply by Mon, 23 Nov · 17:00 Spain time</text>
+  <text x="20" y="272" fill="#152C26" font-size="20" font-weight="650">Foreman handoff</text>
+  <rect x="20" y="289" width="350" height="132" rx="16" fill="#FFFFFF"/>
+  <circle cx="57" cy="324" r="19" fill="#EBF2EF"/>
+  <text x="57" y="329" fill="#425B52" font-size="13" font-weight="700" text-anchor="middle">IV</text>
+  <text x="91" y="322" fill="#152C26" font-size="16" font-weight="650">Inés Vidal</text>
+  <text x="91" y="343" fill="#425B52" font-size="13" font-weight="450">Current accountable foreman</text>
+  <path d="M36 355h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="57" cy="389" r="19" fill="#DCF2EA"/>
+  <text x="57" y="394" fill="#0B5747" font-size="13" font-weight="700" text-anchor="middle">MR</text>
+  <text x="91" y="387" fill="#152C26" font-size="16" font-weight="650">Mateo Ruiz (you)</text>
+  <text x="91" y="408" fill="#425B52" font-size="13" font-weight="450">Offered responsibility · Not yet transferred</text>
+  <text x="20" y="461" fill="#152C26" font-size="20" font-weight="650">What stays the same</text>
+  <rect x="20" y="478" width="350" height="127" rx="16" fill="#FFFFFF"/>
+  <text x="36" y="507" fill="#152C26" font-size="15" font-weight="650">Approved quote v1</text>
+  <text x="354" y="507" fill="#152C26" font-size="16" font-weight="650" text-anchor="end">€240.00</text>
+  <path d="M36 523h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="549" fill="#152C26" font-size="15" font-weight="400">Tue, 24 Nov · 09:00–10:00 Spain time</text>
+  <path d="M36 563h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="590" fill="#152C26" font-size="15" font-weight="400">Nadia Benali · Confirmed shift</text>
+  <text x="20" y="636" fill="#425B52" font-size="14" font-weight="550">Inés stays responsible until transfer is confirmed.</text>
+  <text x="20" y="658" fill="#425B52" font-size="14" font-weight="400">Publishing authority does not transfer.</text>
+  <rect x="20" y="680" width="350" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="195" y="710" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Return handoff</text>
   </g>
   <g id="footer">
-    <rect y="744" width="390" height="100" fill="#FFFFFF"/>
-    <path d="M0 744.5h390" stroke="#D4E1DB"/>
-    <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
-    <text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Review transfer</text>
+  <rect x="0" y="740" width="390" height="104" rx="0" fill="#FFFFFF"/>
+  <path d="M0 740h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="748" width="350" height="56" rx="12" fill="#0B6250"/>
+  <text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Review transfer</text>
   </g>
   <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

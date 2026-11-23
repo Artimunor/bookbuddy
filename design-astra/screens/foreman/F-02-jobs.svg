@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-  <title id="screen-title">F-02 Jobs — active jobs</title>
-  <desc id="screen-desc">Mateo Ruiz sees active jobs for Reformas Ruiz. The terrace door repair is booked with crew confirmed; briefing is still required.</desc>
+  <title id="screen-title">F-02 Jobs — booked work and next step</title>
+  <desc id="screen-desc">Active jobs for the accountable foreman. The terrace door repair is booked, Nadia is confirmed and a briefing remains to arrange. This is a next step, not a reported threat to delivery.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
@@ -14,19 +14,18 @@
     <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
-  <g id="header">
-  <circle cx="36" cy="76" r="16" fill="#DCF2EA"/>
-  <g transform="translate(26 66) scale(0.8333333333333334)" aria-hidden="true"><path d="m3 12 9-8 9 8m-16-2v10h14V10m-9 6 2 2 4-5" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="60" y="75" fill="#152C26" font-size="16" font-weight="650">Reformas Ruiz</text>
-  <text x="60" y="94" fill="#425B52" font-size="13" font-weight="450">Foreman</text>
-  <rect x="270.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-  <g transform="translate(282 64)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <circle cx="346" cy="76" r="20" fill="#DCF2EA"/>
-  <text x="346" y="80" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">MR</text>
-  </g>
+<g id="header">
+  <text x="20" y="75" font-size="16" font-weight="700" fill="#152C26" text-anchor="start">Reformas Ruiz</text>
+  <text x="20" y="95" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Foreman</text>
+  <rect x="266.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <g transform="translate(278 64) scale(1)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4Zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="322.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <circle cx="346" cy="76" r="15" fill="#DCF2EA"/>
+  <text x="346" y="81" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">MR</text>
+</g>
   <g id="content">
-  <text x="20" y="149" fill="#152C26" font-size="28" font-weight="700">Jobs</text>
-  <text x="20" y="176" fill="#425B52" font-size="15" font-weight="400">Find the jobs you’re responsible for.</text>
+  <text x="20" y="151" fill="#152C26" font-size="32" font-weight="700">Jobs</text>
+  <text x="20" y="177" fill="#425B52" font-size="15" font-weight="400">Jobs assigned to you at Reformas Ruiz</text>
   <g id="job-segments">
   <rect x="20" y="198" width="350" height="48" rx="12" fill="#EBF2EF"/>
   <rect x="138.5" y="202.5" width="112" height="39" rx="8" fill="#DCF2EA" stroke="#0B6250"/>
@@ -40,23 +39,22 @@
   <rect x="188.5" y="262.5" width="137" height="47" rx="24" fill="#FFFFFF" stroke="#70877D"/>
   <g transform="translate(200 278) scale(0.6666666666666666)" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="#0B5747" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
   <text x="266" y="292" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">All stages</text>
-  <text x="20" y="354" fill="#152C26" font-size="20" font-weight="650">Active jobs</text>
-  <rect x="306" y="332" width="64" height="28" rx="14" fill="#EBF2EF"/>
-  
-  <text x="338" y="350" fill="#425B52" font-size="12" font-weight="650" text-anchor="middle">1 job</text>
-  <rect x="20.5" y="370.5" width="349" height="183" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <text x="36" y="397" fill="#425B52" font-size="12" font-weight="550">BB-1042</text>
-  <rect x="270" y="382" width="84" height="28" rx="14" fill="#E7F4E8"/>
-  <g transform="translate(278 388) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5 9-10" fill="none" stroke="#245936" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="321" y="400" fill="#245936" font-size="12" font-weight="650" text-anchor="middle">Booked</text>
-  <text x="36" y="427" fill="#152C26" font-size="20" font-weight="650">Terrace door repair</text>
-  <text x="36" y="450" fill="#425B52" font-size="15" font-weight="400">Villa Mar · Xàbia</text>
-  <path d="M36 464.5h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <g transform="translate(36 478) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1zm-1 5h16M8 3v4m8-4v4" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="68" y="494" fill="#152C26" font-size="16" font-weight="650">Tue, 24 Nov · 09:00–10:00</text>
-  <text x="68" y="516" fill="#425B52" font-size="13" font-weight="450">Spain time · Mateo Ruiz</text>
-  <g transform="translate(334 488) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="36" y="538" fill="#704500" font-size="13" font-weight="550">Crew confirmed · Briefing required</text>
+  <text x="20" y="354" fill="#152C26" font-size="20" font-weight="650">Next steps</text>
+  <text x="370" y="354" fill="#425B52" font-size="13" font-weight="550" text-anchor="end">1 active job</text>
+  <rect x="20" y="376" width="350" height="243" rx="16" fill="#FFFFFF"/>
+  <text x="36" y="408" fill="#425B52" font-size="13" font-weight="650">BB-1042</text>
+  <rect x="267" y="387" width="87" height="28" rx="14" fill="#DCF2EA"/>
+  <text x="310.5" y="406" fill="#0B5747" font-size="13" font-weight="650" text-anchor="middle">Booked</text>
+  <text x="36" y="447" fill="#152C26" font-size="22" font-weight="700">Terrace door repair</text>
+  <text x="36" y="472" fill="#425B52" font-size="15" font-weight="400">Villa Mar · Xàbia</text>
+  <path d="M36 494h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="524" fill="#152C26" font-size="16" font-weight="650">Tue, 24 Nov · 09:00–10:00</text>
+  <text x="36" y="546" fill="#425B52" font-size="13" font-weight="450">Spain time · Mateo Ruiz, foreman</text>
+  <circle cx="49" cy="583" r="12" fill="#DCF2EA"/>
+  <path d="m43 583 4 4 7-9" fill="none" stroke="#0B5747" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="72" y="580" fill="#152C26" font-size="16" font-weight="650">Crew confirmed</text>
+  <text x="72" y="601" fill="#425B52" font-size="13" font-weight="450">Next: arrange Nadia’s briefing.</text>
+  <path d="m344 444 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <g id="tab-bar">
   <rect x="0" y="746" width="390" height="98" rx="0" fill="#FFFFFF"/>

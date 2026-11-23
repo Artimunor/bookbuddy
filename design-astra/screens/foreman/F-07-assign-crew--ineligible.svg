@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-  <title id="screen-title">F-07 Assign crew — no eligible matches</title>
-  <desc id="screen-desc">The sheet overlays Job control. In this alternative state Nadia Benali does not have the required Spanish briefing language on record and her eligibility review is pending. Sending is disabled and Team remains available.</desc>
-  <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
-  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
+  <title id="screen-title">F-07 Assign crew — no eligible own-crew match</title>
+  <desc id="screen-desc">An ordinary offer for an open door-fitting shift, over its booked Job control parent. Nadia’s Spanish briefing requirement is not matched and eligibility is pending. No override or offer is available. Close returns to the unchanged shift.</desc>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,108 +15,104 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-  <g transform="translate(20 64)" aria-hidden="true"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Job control</text>
-  <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
-  <path d="M0 107.5h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="64" y="76" fill="#152C26" font-size="20" font-weight="700">Job control</text>
+  <text x="64" y="96" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
   </g>
   <g id="content">
-  <rect x="20.5" y="124.5" width="349" height="115" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <text x="36" y="150" fill="#425B52" font-size="12" font-weight="550">BB-1042</text>
-  <rect x="270" y="135" width="84" height="28" rx="14" fill="#E7F4E8"/>
-  <g transform="translate(278 141) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5 9-10" fill="none" stroke="#245936" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="321" y="153" fill="#245936" font-size="12" font-weight="650" text-anchor="middle">Booked</text>
-  <text x="36" y="181" fill="#152C26" font-size="20" font-weight="650">Terrace door repair</text>
-  <text x="36" y="205" fill="#425B52" font-size="15" font-weight="400">Villa Mar · Xàbia</text>
-  <text x="36" y="226" fill="#425B52" font-size="13" font-weight="450">Claire Martin · Mateo Ruiz</text>
-  <text x="20" y="278" fill="#152C26" font-size="20" font-weight="650">Visit and crew</text>
-  <rect x="20.5" y="294.5" width="349" height="127" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <rect x="36" y="306" width="32" height="32" rx="8" fill="#EBF2EF"/>
-  <g transform="translate(42 312) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1zm-1 5h16M8 3v4m8-4v4" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="80" y="317" fill="#152C26" font-size="16" font-weight="650">Tue, 24 Nov · 09:00–10:00</text>
-  <text x="80" y="337" fill="#425B52" font-size="13" font-weight="450">Spain time · Work visit</text>
-  <g transform="translate(338 314) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <path d="M36 357.5h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="36" y="370" width="32" height="32" rx="8" fill="#EBF2EF"/>
-  <g transform="translate(42 376) scale(0.8333333333333334)" aria-hidden="true"><path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 19a7 7 0 0 1 14 0m1-15a3.5 3.5 0 0 1 0 7m1 3a5 5 0 0 1 3 5" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="80" y="381" fill="#704500" font-size="16" font-weight="650">Crew not assigned</text>
-  <text x="80" y="401" fill="#425B52" font-size="13" font-weight="450">Door fitting · 1 worker needed</text>
-  <g transform="translate(338 378) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  
-  <text x="20" y="460" fill="#152C26" font-size="20" font-weight="650">Manage job</text>
-  <rect x="20.5" y="476.5" width="170" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-  <g transform="translate(30 490) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 4h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-7l-7 4v-4a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zm2 6h10m-10 4h7" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="58" y="506" fill="#0B5747" font-size="16" font-weight="650">Message Claire</text>
-  <rect x="199.5" y="476.5" width="170" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-  <g transform="translate(209 490) scale(0.8333333333333334)" aria-hidden="true"><path d="M6 3h8l4 4v14H6zm8 0v5h4M9 12h6m-6 4h6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="237" y="506" fill="#0B5747" font-size="16" font-weight="650">Site log</text>
-  <rect x="20.5" y="532.5" width="170" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-  <g transform="translate(30 546) scale(0.8333333333333334)" aria-hidden="true"><path d="m4 16 11-11 4 4L8 20H4zm9-9 4 4" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="58" y="562" fill="#0B5747" font-size="16" font-weight="650">Propose change</text>
-  <rect x="199.5" y="532.5" width="170" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-  <g transform="translate(209 546) scale(0.8333333333333334)" aria-hidden="true"><path d="m5 12 5 5 9-10" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="237" y="562" fill="#0B5747" font-size="16" font-weight="650">Completion</text>
-  <text x="20" y="619" fill="#152C26" font-size="20" font-weight="650">Job timeline</text>
-  <text x="370" y="619" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">Spain time</text>
-  <rect x="20.5" y="636.5" width="349" height="99" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <circle cx="44" cy="660" r="4" fill="#245936"/>
-  <path d="M44 668v24" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="44" cy="703" r="4" fill="#234C78"/>
-  <text x="60" y="662" fill="#152C26" font-size="16" font-weight="650">Work visit booked</text>
-  <text x="60" y="681" fill="#425B52" font-size="13" font-weight="450">Mon, 23 Nov · 08:36</text>
-  <text x="60" y="705" fill="#152C26" font-size="16" font-weight="650">Quote v1 approved</text>
-  <text x="60" y="724" fill="#425B52" font-size="13" font-weight="450">Mon, 23 Nov · 08:20 · Claire Martin · €240.00</text>
+  <g id="visit-ticket">
+  <rect x="20" y="118" width="350" height="236" rx="20" fill="#123C33"/>
+  <path d="M40 147l10-6 10 6v13H40z M46 160v-10h8v10" fill="none" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="72" y="155" fill="#C9F2CC" font-size="13" font-weight="650">CUSTOMER VISIT</text>
+  <text x="350" y="155" fill="#FFFFFF" font-size="13" font-weight="550" text-anchor="end">BB-1042</text>
+  <text x="40" y="198" fill="#FFFFFF" font-size="28" font-weight="700">Visit booked</text>
+  <text x="40" y="223" fill="#FFFFFF" font-size="15" font-weight="400">Claire confirmed · Mon, 08:36 Spain time</text>
+  <path d="M42 249h66" fill="none" stroke="#C9F2CC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m69 249 6-6 6 6-6 6z" fill="#123C33" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="75" y="277" fill="#C9F2CC" font-size="12" font-weight="700" text-anchor="middle">Booked</text>
+  <path d="M121 249h66" fill="none" stroke="#7AA99B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 6"/>
+  <text x="154" y="277" fill="#FFFFFF" font-size="12" font-weight="450" text-anchor="middle">On the way</text>
+  <path d="M200 249h66" fill="none" stroke="#7AA99B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 6"/>
+  <text x="233" y="277" fill="#FFFFFF" font-size="12" font-weight="450" text-anchor="middle">On site</text>
+  <path d="M279 249h66" fill="none" stroke="#7AA99B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 6"/>
+  <text x="312" y="277" fill="#FFFFFF" font-size="12" font-weight="450" text-anchor="middle">In review</text>
+  <path d="M32 302h326" fill="none" stroke="#7AA99B" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 5"/>
+  <circle cx="20" cy="302" r="5" fill="#FAF7EF"/>
+  <circle cx="370" cy="302" r="5" fill="#FAF7EF"/>
+  <text x="40" y="335" fill="#FFFFFF" font-size="16" font-weight="650">Publish visit update</text>
+  <path d="m339 324 5 5-5 5" fill="none" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="20" y="393" fill="#152C26" font-size="20" font-weight="650">Visit and crew</text>
+  <text x="370" y="393" fill="#425B52" font-size="13" font-weight="550" text-anchor="end">Private to the team</text>
+  <rect x="20" y="410" width="350" height="125" rx="16" fill="#FFFFFF"/>
+  <text x="36" y="436" fill="#152C26" font-size="16" font-weight="650">Tue, 24 Nov · 09:00–10:00</text>
+  <text x="36" y="458" fill="#425B52" font-size="13" font-weight="450">Villa Mar · Xàbia · Spain time</text>
+  <path d="m344 435 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 472h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="499" fill="#152C26" font-size="16" font-weight="650">Crew not assigned</text>
+  <text x="36" y="521" fill="#425B52" font-size="13" font-weight="450">One door fitting worker needed</text>
+  <path d="m344 498 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="555" width="132" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="86" y="585" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Message Claire</text>
+  <rect x="160" y="555" width="84" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="202" y="585" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Site log</text>
+  <rect x="252" y="555" width="118" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="311" y="585" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">More actions</text>
+  <text x="20" y="639" fill="#152C26" font-size="20" font-weight="650">Job timeline</text>
+  <text x="370" y="639" fill="#425B52" font-size="13" font-weight="550" text-anchor="end">Spain time</text>
+  <path d="M85 668v39" fill="none" stroke="#D4E1DB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="20" y="672" fill="#152C26" font-size="14" font-weight="650">08:36</text>
+  <path d="m79 667 6-6 6 6-6 6z" fill="#DCF2EA" stroke="#0B5747" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="102" y="672" fill="#152C26" font-size="15" font-weight="650">Work visit booked</text>
+  <text x="102" y="691" fill="#425B52" font-size="13" font-weight="450">Mon, 23 Nov · Claire Martin</text>
+  <text x="20" y="710" fill="#152C26" font-size="14" font-weight="650">08:20</text>
+  <circle cx="85" cy="705" r="4.5" fill="#0B5747"/>
+  <text x="102" y="710" fill="#152C26" font-size="15" font-weight="650">Quote v1 approved</text>
+  <text x="102" y="729" fill="#425B52" font-size="13" font-weight="450">Mon, 23 Nov · Claire Martin · €240.00</text>
   </g>
   <g id="footer">
-  <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
-  <path d="M0 744.5h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
-  <g transform="translate(32 764)" aria-hidden="true"><path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 19a7 7 0 0 1 14 0m1-15a3.5 3.5 0 0 1 0 7m1 3a5 5 0 0 1 3 5" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="204" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Assign crew</text>
+  <rect x="0" y="740" width="390" height="104" rx="0" fill="#FFFFFF"/>
+  <path d="M0 740h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="748" width="350" height="56" rx="12" fill="#0B6250"/>
+  <text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Assign crew</text>
   </g>
   <rect id="scrim" width="390" height="844" fill="#101A18" opacity="0.4" aria-hidden="true"/>
   <g id="assign-sheet">
-  <rect x="0" y="254" width="390" height="590" rx="24" fill="#FFFFFF"/>
-  <rect x="0" y="278" width="390" height="566" rx="0" fill="#FFFFFF"/>
-  <rect x="177" y="262" width="36" height="4" rx="2" fill="#70877D"/>
-  <text x="20" y="302" fill="#152C26" font-size="20" font-weight="650">Assign crew</text>
-  <text x="20" y="322" fill="#425B52" font-size="13" font-weight="450">BB-1042 · Reformas Ruiz</text>
-  <rect x="322.5" y="276.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-  <g transform="translate(334 288)" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <g id="shift-requirements">
-  <rect x="20" y="338" width="350" height="110" rx="16" fill="#EBF2EF"/>
-  <text x="36" y="363" fill="#152C26" font-size="16" font-weight="650">Terrace door adjustment</text>
-  <text x="36" y="384" fill="#425B52" font-size="13" font-weight="450">Tue, 24 Nov · 09:00–10:00 · Spain time</text>
-  <path d="M36 395.5h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <g transform="translate(36 406) scale(0.6666666666666666)" aria-hidden="true"><path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 19a7 7 0 0 1 14 0m1-15a3.5 3.5 0 0 1 0 7m1 3a5 5 0 0 1 3 5" fill="none" stroke="#425B52" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="60" y="419" fill="#152C26" font-size="13" font-weight="550">1 worker · Door fitting</text>
-  <text x="60" y="438" fill="#152C26" font-size="13" font-weight="550">Work and briefing language: Español</text>
-  </g>
-  <rect x="20.5" y="464.5" width="143" height="47" rx="24" fill="#DCF2EA" stroke="#0B6250"/>
-  <g transform="translate(32 480) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5 9-10" fill="none" stroke="#0B5747" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="101" y="494" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Door fitting</text>
-  <rect x="172.5" y="464.5" width="117" height="47" rx="24" fill="#DCF2EA" stroke="#0B6250"/>
-  <g transform="translate(184 480) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5 9-10" fill="none" stroke="#0B5747" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="240" y="494" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Español</text>
-  <text x="20" y="547" fill="#152C26" font-size="20" font-weight="650">No eligible matches</text>
-  <rect x="20.5" y="564.5" width="349" height="127" rx="16" fill="#FCE9E8" stroke="#D4E1DB"/>
-  <circle cx="52" cy="594" r="16" fill="#FFFFFF"/>
-  <text x="52" y="598" fill="#853531" font-size="12" font-weight="650" text-anchor="middle">NB</text>
-  <text x="80" y="599" fill="#853531" font-size="16" font-weight="650">Nadia Benali</text>
-  <g transform="translate(334 583) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#853531" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="80" y="622" fill="#853531" font-size="13" font-weight="550">English · Door fitting</text>
-  <g transform="translate(80 633) scale(0.6666666666666666)" aria-hidden="true"><path d="M12 3 22 20H2L12 3zm0 7v4m0 3h.01" fill="none" stroke="#853531" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="104" y="646" fill="#853531" font-size="13" font-weight="550">Español required for briefing</text>
-  <g transform="translate(80 657) scale(0.6666666666666666)" aria-hidden="true"><path d="M12 3 22 20H2L12 3zm0 7v4m0 3h.01" fill="none" stroke="#853531" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="104" y="670" fill="#853531" font-size="13" font-weight="550">Eligibility review pending</text>
-  <text x="20" y="718" fill="#425B52" font-size="13" font-weight="450">No offer can be sent for this shift.</text>
-  <text x="370" y="718" fill="#0B5747" font-size="15" font-weight="650" text-anchor="end">Open Team</text>
-  <g id="footer">
-  <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
-  <path d="M0 744.5h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="20" y="752" width="350" height="48" rx="12" fill="#EBF2EF"/>
-  
-  <text x="195" y="782" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">Review offer</text>
+  <rect x="0" y="230" width="390" height="614" rx="24" fill="#FFFFFF"/>
+  <rect x="0" y="260" width="390" height="584" rx="0" fill="#FFFFFF"/>
+  <rect x="177" y="239" width="36" height="4" rx="2" fill="#70877D"/>
+  <text x="20" y="279" fill="#152C26" font-size="22" font-weight="700">Offer a shift</text>
+  <text x="20" y="302" fill="#425B52" font-size="13" font-weight="550">Own crew · Reformas Ruiz · BB-1042</text>
+  <rect x="322" y="255" width="48" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <path d="m340 273 12 12m0-12-12 12" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="323" width="350" height="106" rx="16" fill="#EBF2EF"/>
+  <text x="36" y="350" fill="#152C26" font-size="18" font-weight="650">Terrace door adjustment</text>
+  <text x="36" y="373" fill="#425B52" font-size="14" font-weight="450">Tue, 24 Nov · 09:00–10:00 Spain time</text>
+  <path d="M36 385h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="411" fill="#152C26" font-size="14" font-weight="550">1 door fitter · Work and briefing in Spanish</text>
+  <rect x="20" y="444" width="151" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="95.5" y="474" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Door fitting</text>
+  <rect x="179" y="444" width="165" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="268" y="474" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Spanish briefing</text>
+  <path d="m31 468 3 3 5-6" fill="none" stroke="#0B6250" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m189 468 3 3 5-6" fill="none" stroke="#0B6250" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="20" y="527" fill="#152C26" font-size="20" font-weight="650">No eligible matches</text>
+  <rect x="20" y="545" width="350" height="137" rx="16" fill="#FFF1D5"/>
+  <circle cx="55" cy="578" r="19" fill="#FFFFFF"/>
+  <text x="55" y="583" fill="#704500" font-size="12" font-weight="700" text-anchor="middle">NB</text>
+  <text x="88" y="576" fill="#704500" font-size="17" font-weight="650">Nadia Benali</text>
+  <text x="88" y="598" fill="#704500" font-size="13" font-weight="550">English · Door fitting</text>
+  <path d="m337 573 5 5-5 5" fill="none" stroke="#704500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 614h318" fill="none" stroke="#704500" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="640" fill="#704500" font-size="14" font-weight="550">Spanish briefing not matched</text>
+  <text x="36" y="664" fill="#704500" font-size="13" font-weight="450">Eligibility review pending · Not selectable</text>
+  <text x="20" y="716" fill="#425B52" font-size="14" font-weight="450">No eligible selection.</text>
+  <text x="370" y="716" fill="#0B5747" font-size="15" font-weight="650" text-anchor="end">Open Team</text>
+  <g id="sheet-footer">
+  <rect x="0" y="740" width="390" height="104" rx="0" fill="#FFFFFF"/>
+  <path d="M0 740h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="748" width="350" height="56" rx="12" fill="#EBF2EF"/>
+  <text x="195" y="782" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">Review named offer</text>
   </g>
   </g>
   <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>

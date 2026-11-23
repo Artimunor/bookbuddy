@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">F-08 Team roster</title>
-  <desc id="screen-desc">Reformas Ruiz foreman Mateo Ruiz can search active crew and filter by availability or eligibility. Nadia cannot attend today, Diego and Lucía are available, and Inés has pending eligibility review. The Team tab is selected.</desc>
+  <desc id="screen-desc">Reformas Ruiz roster, not a worker ranking. Search and filter the provider’s own team. The door-fitting task and actual briefing language give context to availability and review status. Team is selected.</desc>
   <rect width="390" height="844" fill="#F4F7F6"/>
-  <g id="header">
+<g id="header">
     <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -24,60 +24,55 @@
     <circle cx="346" cy="76" r="20" fill="#DCF2EA"/>
     <text x="346" y="80" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">MR</text>
   </g>
-  <g id="content">
-    <text x="20" y="149" font-size="28" font-weight="700" fill="#152C26">Team roster</text>
-    <g id="search">
-    <text x="20" y="180" font-size="16" font-weight="650" fill="#152C26">Search team</text>
-    <rect x="20.5" y="196.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <g aria-hidden="true" transform="translate(34 210) scale(0.8333333333333334)"><path d="M15.5 15.5 20 20m-2.5-9.5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="226" font-size="15" font-weight="400" fill="#425B52">Name or skill</text>
-  </g>
-    <g id="filters">
-    <rect x="20.5" y="256.5" width="105" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
-    <g aria-hidden="true" transform="translate(34.5 271.5) scale(0.7083333333333334)"><path d="m5 12 4 4L19 6" fill="none" stroke="#0B5747" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="53" y="286" font-size="16" font-weight="650" fill="#0B5747">All team</text>
-    <rect x="134.5" y="256.5" width="101" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <text x="185" y="286" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Available</text>
-    <rect x="244.5" y="256.5" width="125" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-    <text x="307" y="286" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle">More filters</text>
-  </g>
-    <rect x="20" y="320" width="350" height="64" rx="16" fill="#E5F0FA"/><g aria-hidden="true" transform="translate(35 333) scale(0.75)"><path d="M12 2.5 20 6v5c0 5-3.2 8.2-8 10.5C7.2 19.2 4 16 4 11V6zM8 12l2.6 2.5L16 9" fill="none" stroke="#234C78" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g><text x="64" y="347" font-size="16" font-weight="650" fill="#234C78">Eligibility summary</text><text x="64" y="369" font-size="13" font-weight="450" fill="#234C78"><tspan x="64">3 approved · 1 pending review</tspan></text>
-    <text x="20" y="416" font-size="20" font-weight="650" fill="#152C26">Team members</text>
-    <text x="370" y="416" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">Today · Spain time</text>
-    <g id="nadia-row">
-    <rect x="20.5" y="432.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <circle cx="52" cy="468" r="16" fill="#DCF2EA"/><text x="52" y="472.5" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">NB</text>
-    <text x="76" y="461" font-size="16" font-weight="650" fill="#152C26">Nadia Benali</text>
-    <text x="76" y="484" font-size="13" font-weight="450" fill="#425B52">Door fitting · Spanish, English</text>
-    <rect x="236" y="443" width="92" height="28" rx="14" fill="#EBF2EF"/><text x="282" y="461" font-size="12" font-weight="550" fill="#425B52" text-anchor="middle">Unavailable</text>
-    <g aria-hidden="true" transform="translate(337 459) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-  </g>
-    <g id="diego-row">
-    <rect x="20.5" y="512.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <circle cx="52" cy="548" r="16" fill="#DCF2EA"/><text x="52" y="552.5" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">DT</text>
-    <text x="76" y="541" font-size="16" font-weight="650" fill="#152C26">Diego Torres</text>
-    <text x="76" y="564" font-size="13" font-weight="450" fill="#425B52">Door fitting · Spanish</text>
-    <rect x="240" y="523" width="88" height="28" rx="14" fill="#E7F4E8"/><g aria-hidden="true" transform="translate(246 529) scale(0.6666666666666666)"><path d="m5 12 4 4L19 6" fill="none" stroke="#245936" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g><text x="265" y="541" font-size="12" font-weight="550" fill="#245936">Available</text>
-    <g aria-hidden="true" transform="translate(337 539) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-  </g>
-    <g id="lucia-row">
-    <rect x="20.5" y="592.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <circle cx="52" cy="628" r="16" fill="#DCF2EA"/><text x="52" y="632.5" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">LO</text>
-    <text x="76" y="621" font-size="16" font-weight="650" fill="#152C26">Lucía Ortega</text>
-    <text x="76" y="644" font-size="13" font-weight="450" fill="#425B52">Door fitting · Spanish</text>
-    <rect x="240" y="603" width="88" height="28" rx="14" fill="#E7F4E8"/><g aria-hidden="true" transform="translate(246 609) scale(0.6666666666666666)"><path d="m5 12 4 4L19 6" fill="none" stroke="#245936" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g><text x="265" y="621" font-size="12" font-weight="550" fill="#245936">Available</text>
-    <g aria-hidden="true" transform="translate(337 619) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-  </g>
-    <g id="ines-row">
-    <rect x="20.5" y="672.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <circle cx="52" cy="708" r="16" fill="#DCF2EA"/><text x="52" y="712.5" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">IP</text>
-    <text x="76" y="701" font-size="16" font-weight="650" fill="#152C26">Inés Pardo</text>
-    <text x="76" y="724" font-size="13" font-weight="450" fill="#425B52">Door fitting · Spanish</text>
-    <rect x="222" y="683" width="106" height="28" rx="14" fill="#FFF1D5"/><text x="275" y="701" font-size="12" font-weight="550" fill="#704500" text-anchor="middle">Review pending</text>
-    <g aria-hidden="true" transform="translate(337 699) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-  </g>
-  </g>
-  <g id="tab-bar">
+<g id="content">
+<text x="20" y="150" font-size="32" font-weight="700" fill="#152C26">Team roster</text>
+<text x="20" y="184" font-size="13" font-weight="650" fill="#425B52">Search team</text>
+<rect x="20" y="196" width="350" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<circle cx="44" cy="218" r="7" fill="#FFFFFF"/>
+<path d="M49 223l5 5m-3-10a7 7 0 1 1-14 0 7 7 0 0 1 14 0" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="225" font-size="15" font-weight="400" fill="#425B52">Name or skill</text>
+<rect x="20" y="256" width="106" height="48" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
+<path d="m36 280 3.5 3.5 7-8" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="54" y="286" font-size="16" font-weight="650" fill="#0B5747">All team</text>
+<rect x="134" y="256" width="101" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="184.5" y="285.5" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Available</text>
+<rect x="244" y="256" width="126" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="307" y="285.5" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">More filters</text>
+<text x="20" y="340" font-size="13" font-weight="650" fill="#425B52">TASK CONTEXT</text>
+<text x="20" y="371" font-size="24" font-weight="700" fill="#152C26">Terrace door fitting</text>
+<text x="20" y="395" font-size="13" font-weight="450" fill="#425B52">Spanish briefing · Tue, 24 Nov · Spain time</text>
+<text x="20" y="432" font-size="20" font-weight="700" fill="#152C26">Your crew</text>
+<text x="370" y="432" font-size="13" font-weight="550" fill="#425B52" text-anchor="end">3 approved · 1 in review</text>
+<rect x="20" y="448" width="350" height="276" rx="16" fill="#FFFFFF"/>
+<circle cx="54" cy="484" r="17" fill="#DCF2EA"/>
+<text x="54" y="488.5" font-size="12" font-weight="700" fill="#0B5747" text-anchor="middle">NB</text>
+<text x="84" y="479" font-size="16" font-weight="650" fill="#152C26">Nadia Benali</text>
+<text x="84" y="501" font-size="13" font-weight="450" fill="#425B52">Door fitting · Spanish, English</text>
+<text x="336" y="479" font-size="12" font-weight="550" fill="#425B52" text-anchor="end">Unavailable</text>
+<path d="m347 478 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 516H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="54" cy="551" r="17" fill="#DCF2EA"/>
+<text x="54" y="555.5" font-size="12" font-weight="700" fill="#0B5747" text-anchor="middle">DT</text>
+<text x="84" y="546" font-size="16" font-weight="650" fill="#152C26">Diego Torres</text>
+<text x="84" y="568" font-size="13" font-weight="450" fill="#425B52">Door fitting · Spanish</text>
+<text x="336" y="546" font-size="12" font-weight="550" fill="#245936" text-anchor="end">Available</text>
+<path d="m347 545 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 583H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="54" cy="618" r="17" fill="#DCF2EA"/>
+<text x="54" y="622.5" font-size="12" font-weight="700" fill="#0B5747" text-anchor="middle">LO</text>
+<text x="84" y="613" font-size="16" font-weight="650" fill="#152C26">Lucía Ortega</text>
+<text x="84" y="635" font-size="13" font-weight="450" fill="#425B52">Door fitting · Spanish</text>
+<text x="336" y="613" font-size="12" font-weight="550" fill="#245936" text-anchor="end">Available</text>
+<path d="m347 612 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 650H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="54" cy="685" r="17" fill="#DCF2EA"/>
+<text x="54" y="689.5" font-size="12" font-weight="700" fill="#0B5747" text-anchor="middle">IP</text>
+<text x="84" y="680" font-size="16" font-weight="650" fill="#152C26">Inés Pardo</text>
+<text x="84" y="702" font-size="13" font-weight="450" fill="#425B52">Door fitting · Spanish</text>
+<text x="336" y="680" font-size="12" font-weight="550" fill="#704500" text-anchor="end">In review</text>
+<path d="m347 679 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="tab-bar">
     <rect x="0" y="746" width="390" height="98" fill="#FFFFFF"/>
     <path d="M0 746.5H390" stroke="#D4E1DB"/>
     <rect x="220" y="753" width="48" height="30" rx="15" fill="#DCF2EA"/>
@@ -86,5 +81,5 @@
     <g aria-hidden="true" transform="translate(232 756) scale(1)"><path d="M15.5 8a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0zM5 20v-1a7 7 0 0 1 14 0v1M18 5.5a3 3 0 0 1 0 5.5M20 14a5 5 0 0 1 2 4v1M6 5.5a3 3 0 0 0 0 5.5M4 14a5 5 0 0 0-2 4v1" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="244" y="800" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">Team</text>
     <g aria-hidden="true" transform="translate(329 756) scale(1)"><path d="M6 4h12a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-7l-6 4v-4a3 3 0 0 1-2-3V7a3 3 0 0 1 3-3zm1 6h10M7 14h7" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="341" y="800" font-size="12" font-weight="550" fill="#425B52" text-anchor="middle">Messages</text>
   </g>
-  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

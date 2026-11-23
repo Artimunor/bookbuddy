@@ -1,8 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
   <title id="screen-title">F-06 Schedule and availability — capacity checked</title>
-  <desc id="screen-desc">The approved quote is ready for scheduling. A draft work visit for Tuesday 24 November from 09:00 to 10:00 Spain time has matching crew capacity, but no named assignment or customer agreement.</desc>
+  <desc id="screen-desc">A proposed Tuesday work window for the approved quote. This provider has capacity for the whole slot and a Spanish briefing. It is not held. Recheck at send and customer agreement before booking. No one is assigned.</desc>
   <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
-  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -16,13 +15,14 @@
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
   <g id="header">
-  <g transform="translate(20 64)" aria-hidden="true"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Schedule and availability</text>
-  <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
-  <path d="M0 107.5h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="64" y="76" fill="#152C26" font-size="20" font-weight="700">Schedule and availability</text>
+  <text x="64" y="96" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
   </g>
   <g id="content">
-  <g id="visit-type">
+  <text x="20" y="143" fill="#152C26" font-size="23" font-weight="700">Which window can you offer?</text>
+  <g transform="translate(0 40)">
+<g id="visit-type">
   <rect x="20" y="124" width="350" height="48" rx="12" fill="#EBF2EF"/>
   <rect x="194.5" y="128.5" width="171" height="39" rx="8" fill="#DCF2EA" stroke="#0B6250"/>
   <text x="106" y="154" fill="#425B52" font-size="15" font-weight="550" text-anchor="middle">Site assessment</text>
@@ -78,23 +78,19 @@
   <text x="211" y="450" fill="#425B52" font-size="13" font-weight="450">Ends</text>
   <text x="211" y="472" fill="#152C26" font-size="16" font-weight="650">10:00</text>
   <g transform="translate(330 447) scale(0.8333333333333334)" aria-hidden="true"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 4v5l3 2" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <rect x="20" y="508" width="350" height="108" rx="16" fill="#E7F4E8"/>
-  <g transform="translate(36 524) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5 9-10" fill="none" stroke="#245936" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="64" y="534" fill="#245936" font-size="16" font-weight="650">Capacity available</text>
-  <text x="64" y="555" fill="#245936" font-size="13" font-weight="550">1 eligible crew slot · Door fitting</text>
-  <text x="64" y="575" fill="#245936" font-size="13" font-weight="550">Spanish briefing available · No one assigned</text>
-  
-  <rect x="20" y="632" width="350" height="68" rx="16" fill="#E5F0FA"/>
-  <g transform="translate(36 648) scale(0.6666666666666666)" aria-hidden="true"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 8v5m0-8h.01" fill="none" stroke="#234C78" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="64" y="658" fill="#234C78" font-size="16" font-weight="650">Customer confirmation required</text>
-  <text x="64" y="679" fill="#234C78" font-size="13" font-weight="550">Claire will receive this proposed window.</text>
-  
+  </g>
+  <rect x="20" y="544" width="350" height="98" rx="16" fill="#FFFFFF"/>
+  <path d="M38 571l5 5 9-10" fill="none" stroke="#0B5747" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="66" y="574" fill="#152C26" font-size="18" font-weight="650">Capacity checked, not reserved</text>
+  <text x="36" y="602" fill="#425B52" font-size="14" font-weight="450">Door fitting · Spanish briefing available</text>
+  <text x="36" y="625" fill="#425B52" font-size="14" font-weight="450">One eligible crew slot · Nobody assigned</text>
+  <text x="20" y="676" fill="#152C26" font-size="16" font-weight="650">Check again at send and at agreement.</text>
+  <text x="20" y="702" fill="#425B52" font-size="14" font-weight="400">Claire must agree before the visit is booked.</text>
   </g>
   <g id="footer">
-  <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
-  <path d="M0 744.5h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
-  
+  <rect x="0" y="740" width="390" height="104" rx="0" fill="#FFFFFF"/>
+  <path d="M0 740h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="748" width="350" height="56" rx="12" fill="#0B6250"/>
   <text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Review proposal</text>
   </g>
   <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>

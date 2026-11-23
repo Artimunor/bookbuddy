@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-  <title id="screen-title">F-01 Today — foreman dashboard</title>
-  <desc id="screen-desc">Mateo Ruiz sees no visits today, the upcoming terrace door repair with Nadia Benali confirmed, and a required briefing action in the Reformas Ruiz context.</desc>
-  <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+  <title id="screen-title">F-01 Today — next booked visit</title>
+  <desc id="screen-desc">Mateo has no visits on Monday. Claire booked Tuesday’s window at Villa Mar. Nadia’s assignment is confirmed; Mateo still needs to arrange her briefing. No travel or arrival has been reported.</desc>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
   <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
@@ -14,46 +14,55 @@
     <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
     <path d="M370 20v5c2-1 2-4 0-5z"/>
   </g>
-  <g id="header">
-  <circle cx="36" cy="76" r="16" fill="#DCF2EA"/>
-  <g transform="translate(26 66) scale(0.8333333333333334)" aria-hidden="true"><path d="m3 12 9-8 9 8m-16-2v10h14V10m-9 6 2 2 4-5" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="60" y="75" fill="#152C26" font-size="16" font-weight="650">Reformas Ruiz</text>
-  <text x="60" y="94" fill="#425B52" font-size="13" font-weight="450">Foreman</text>
-  <rect x="270.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-  <g transform="translate(282 64)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <circle cx="346" cy="76" r="20" fill="#DCF2EA"/>
-  <text x="346" y="80" fill="#0B5747" font-size="12" font-weight="650" text-anchor="middle">MR</text>
-  </g>
+<g id="header">
+  <text x="20" y="75" font-size="16" font-weight="700" fill="#152C26" text-anchor="start">Reformas Ruiz</text>
+  <text x="20" y="95" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Foreman</text>
+  <rect x="266.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <g transform="translate(278 64) scale(1)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4Zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="322.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <circle cx="346" cy="76" r="15" fill="#DCF2EA"/>
+  <text x="346" y="81" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">MR</text>
+</g>
   <g id="content">
-  <text x="20" y="149" fill="#152C26" font-size="28" font-weight="700">Today</text>
-  <text x="20" y="176" fill="#425B52" font-size="15" font-weight="400">Mon, 23 Nov · Spain time</text>
-  <text x="20" y="220" fill="#152C26" font-size="20" font-weight="650">Today’s agenda</text>
-  <rect x="20" y="236" width="350" height="72" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <rect x="36" y="252" width="40" height="40" rx="8" fill="#DCF2EA"/>
-  <g transform="translate(44 260)" aria-hidden="true"><path d="M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1zm-1 5h16M8 3v4m8-4v4" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="92" y="267" fill="#152C26" font-size="16" font-weight="650">No visits today</text>
-  <text x="92" y="289" fill="#425B52" font-size="13" font-weight="450">Next visit is tomorrow.</text>
-  <text x="20" y="350" fill="#152C26" font-size="20" font-weight="650">Upcoming</text>
-  <rect x="290" y="328" width="80" height="28" rx="14" fill="#EBF2EF"/>
-  
-  <text x="330" y="346" fill="#425B52" font-size="12" font-weight="650" text-anchor="middle">1 visit</text>
-  <rect x="20.5" y="368.5" width="349" height="163" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <text x="36" y="400" fill="#152C26" font-size="20" font-weight="650">Terrace door repair</text>
-  <text x="36" y="422" fill="#425B52" font-size="13" font-weight="450">Villa Mar · Xàbia · BB-1042</text>
-  <path d="M36 436.5h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="36" y="452" width="32" height="32" rx="8" fill="#EBF2EF"/>
-  <g transform="translate(44 460) scale(0.6666666666666666)" aria-hidden="true"><path d="M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1zm-1 5h16M8 3v4m8-4v4" fill="none" stroke="#152C26" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="80" y="470" fill="#152C26" font-size="16" font-weight="650">Tue, 24 Nov · 09:00–10:00</text>
-  <text x="80" y="492" fill="#425B52" font-size="13" font-weight="450">Spain time · Work visit</text>
-  <g transform="translate(334 456) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <g transform="translate(36 504) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 5 5 9-10" fill="none" stroke="#245936" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="60" y="517" fill="#245936" font-size="13" font-weight="550">Nadia Benali · Confirmed</text>
-  <text x="20" y="572" fill="#152C26" font-size="20" font-weight="650">Needs attention</text>
-  <rect x="20" y="588" width="350" height="84" rx="16" fill="#FFF1D5"/>
-  <g transform="translate(36 604) scale(0.6666666666666666)" aria-hidden="true"><path d="M12 3 22 20H2L12 3zm0 7v4m0 3h.01" fill="none" stroke="#704500" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="64" y="614" fill="#704500" font-size="16" font-weight="650">Briefing required</text>
-  <text x="64" y="635" fill="#704500" font-size="13" font-weight="550">Nadia Benali · Review the shift</text>
-  <g transform="translate(336 611) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#704500" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="20" y="151" fill="#152C26" font-size="32" font-weight="700">Today</text>
+  <text x="370" y="149" fill="#425B52" font-size="13" font-weight="550" text-anchor="end">Mon, 23 Nov · Spain time</text>
+  <g id="visit-ticket">
+  <rect x="20" y="174" width="350" height="236" rx="20" fill="#123C33"/>
+  <path d="M40 203l10-6 10 6v13H40z M46 216v-10h8v10" fill="none" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="72" y="211" fill="#C9F2CC" font-size="13" font-weight="650">NEXT WORK VISIT</text>
+  <text x="350" y="211" fill="#FFFFFF" font-size="13" font-weight="550" text-anchor="end">BB-1042</text>
+  <text x="40" y="254" fill="#FFFFFF" font-size="28" font-weight="700">Visit booked</text>
+  <text x="40" y="279" fill="#FFFFFF" font-size="15" font-weight="400">Claire confirmed · Mon, 08:36 Spain time</text>
+  <path d="M42 305h66" fill="none" stroke="#C9F2CC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m69 305 6-6 6 6-6 6z" fill="#123C33" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="75" y="333" fill="#C9F2CC" font-size="12" font-weight="700" text-anchor="middle">Booked</text>
+  <path d="M121 305h66" fill="none" stroke="#7AA99B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 6"/>
+  <text x="154" y="333" fill="#FFFFFF" font-size="12" font-weight="450" text-anchor="middle">On the way</text>
+  <path d="M200 305h66" fill="none" stroke="#7AA99B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 6"/>
+  <text x="233" y="333" fill="#FFFFFF" font-size="12" font-weight="450" text-anchor="middle">On site</text>
+  <path d="M279 305h66" fill="none" stroke="#7AA99B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 6"/>
+  <text x="312" y="333" fill="#FFFFFF" font-size="12" font-weight="450" text-anchor="middle">In review</text>
+  <path d="M32 358h326" fill="none" stroke="#7AA99B" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 5"/>
+  <circle cx="20" cy="358" r="5" fill="#FAF7EF"/>
+  <circle cx="370" cy="358" r="5" fill="#FAF7EF"/>
+  <text x="40" y="391" fill="#FFFFFF" font-size="16" font-weight="650">Open job control</text>
+  <path d="m339 380 5 5-5 5" fill="none" stroke="#C9F2CC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="20" y="454" fill="#152C26" font-size="20" font-weight="650">Tuesday’s visit</text>
+  <text x="370" y="454" fill="#425B52" font-size="13" font-weight="550" text-anchor="end">24 November</text>
+  <rect x="20" y="472" width="350" height="148" rx="16" fill="#FFFFFF"/>
+  <text x="36" y="505" fill="#152C26" font-size="16" font-weight="650">Terrace door repair</text>
+  <text x="36" y="527" fill="#425B52" font-size="13" font-weight="450">Villa Mar · Xàbia · 09:00–10:00 Spain time</text>
+  <path d="m344 504 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 546h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="56" cy="583" r="18" fill="#DCF2EA"/>
+  <text x="56" y="588" fill="#0B5747" font-size="12" font-weight="700" text-anchor="middle">NB</text>
+  <text x="89" y="578" fill="#152C26" font-size="16" font-weight="650">Nadia Benali · Confirmed</text>
+  <text x="89" y="599" fill="#425B52" font-size="13" font-weight="450">Arrange a briefing before work.</text>
+  <path d="m344 578 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M20 650h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="20" y="683" fill="#152C26" font-size="18" font-weight="650">No visits today</text>
+  <text x="20" y="709" fill="#425B52" font-size="15" font-weight="400">Your next booked window is tomorrow.</text>
   </g>
   <g id="tab-bar">
   <rect x="0" y="746" width="390" height="98" rx="0" fill="#FFFFFF"/>
