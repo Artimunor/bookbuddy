@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">L-06 Session setup and roster — no cover confirmed</title>
+<desc id="screen-desc">The coordinator sees that Elena Costa cannot attend, own-team cover is unavailable, no approved external cover exists and new bookings are paused. Six existing bookings are unchanged. The coordinator can reach local support or review cover history.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+<text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+<rect x="301" y="24" width="3" height="4" rx="1"/>
+<rect x="306" y="22" width="3" height="6" rx="1"/>
+<rect x="311" y="19" width="3" height="9" rx="1"/>
+<rect x="316" y="16" width="3" height="12" rx="1"/>
+<path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+<circle cx="332" cy="29" r="1.1"/>
+<rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+<rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+<path d="M370 20v5c2-1 2-4 0-5z"/>
+</g>
+<g id="header">
+<g transform="translate(32 76)" aria-hidden="true"><path d="m3-8-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Session setup and roster</text>
+<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Estudi Mar Pilates · Roster coordinator</text>
+<path d="M0 107.5h390" stroke="#D4E1DB"/>
+</g>
+<g id="content">
+<g id="session-and-publish-status">
+<rect x="20.5" y="124.5" width="349" height="131" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="140" width="144" height="28" rx="14" fill="#FFF1D5"/>
+<g transform="translate(52 154)" aria-hidden="true"><path d="M0-8 8 7H-8zm0 5v4m0 3h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="65" y="158" fill="#704500" font-size="12" font-weight="550">Bookings paused</text>
+</g>
+<text x="36" y="196" fill="#152C26" font-size="20" font-weight="650">Mat Pilates</text>
+<text x="36" y="222" fill="#152C26" font-size="16" font-weight="650">Sat, 28 Nov · 10:00–10:45</text>
+<text x="36" y="244" fill="#425B52" font-size="13" font-weight="450">Spain time · Xàbia</text>
+</g>
+<g id="session-setup">
+<text x="20" y="290" fill="#152C26" font-size="20" font-weight="650">Session setup</text>
+<rect x="20.5" y="302.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="332" fill="#152C26" font-size="16" font-weight="650">45 min · Group class</text>
+<text x="36" y="355" fill="#425B52" font-size="13" font-weight="450">English · Step-free entry · €16.00 per person</text>
+<path d="M36 367.5h318" stroke="#D4E1DB"/>
+<text x="36" y="389" fill="#425B52" font-size="13" font-weight="450">Pay at the studio · 24-hour cancellation cutoff</text>
+</g>
+<g id="roster-summary">
+<text x="20" y="446" fill="#152C26" font-size="20" font-weight="650">Roster</text>
+<g>
+<rect x="20.5" y="460.5" width="349" height="63" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="476" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(52 492)" aria-hidden="true"><path d="M-3-7a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm-6 13v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1M5-6a2.5 2.5 0 0 1 0 5m1 2c2 0 3 2 3 4v1" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="80" y="489" fill="#152C26" font-size="16" font-weight="650">6 of 8 places booked</text>
+<text x="80" y="508" fill="#425B52" font-size="13" font-weight="450">New bookings paused</text>
+<g transform="translate(346 492)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+</g>
+<g>
+<rect x="20" y="540" width="350" height="76" rx="16" fill="#FFF1D5"/>
+<g transform="translate(44 563)" aria-hidden="true"><path d="M0-8 8 7H-8zm0 5v4m0 3h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="569" fill="#704500" font-size="16" font-weight="650">No cover confirmed</text>
+<text x="64" y="590" fill="#704500" font-size="13" font-weight="450"><tspan x="64">Own team unavailable. No approved</tspan><tspan x="64" dy="18">external cover for this class.</tspan></text>
+</g>
+<g id="gap-summary">
+<text x="20" y="643" fill="#425B52" font-size="13" font-weight="450">Elena Costa can’t attend.</text>
+<text x="20" y="664" fill="#425B52" font-size="13" font-weight="450">6 bookings remain. No time change or cancellation.</text>
+<text x="20" y="706" fill="#0B5747" font-size="16" font-weight="650">View cover history</text>
+<g transform="translate(346 701)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+</g>
+<g id="action-bar">
+<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+<path d="M0 744.5h390" stroke="#D4E1DB"/>
+<g>
+<rect x="20.5" y="752.5" width="349" height="47" rx="12" fill="#0B6250"/>
+<text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Contact local support</text>
+</g>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

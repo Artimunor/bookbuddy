@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">L-01 Browse sessions — nearby results</title>
+<desc id="screen-desc">Claire browses four services in Xàbia. Location and category filters are above matching Pilates, massage, tennis coaching and walking tour cards showing advertised language and venue access or booking type.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+<text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+<rect x="301" y="24" width="3" height="4" rx="1"/>
+<rect x="306" y="22" width="3" height="6" rx="1"/>
+<rect x="311" y="19" width="3" height="9" rx="1"/>
+<rect x="316" y="16" width="3" height="12" rx="1"/>
+<path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+<circle cx="332" cy="29" r="1.1"/>
+<rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+<rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+<path d="M370 20v5c2-1 2-4 0-5z"/>
+</g>
+<g id="header">
+<g transform="translate(32 76)" aria-hidden="true"><path d="m3-8-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Browse sessions</text>
+<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Costa Blanca</text>
+<path d="M0 107.5h390" stroke="#D4E1DB"/>
+</g>
+<g id="content">
+<g id="location-filter">
+<rect x="20.5" y="124.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<g transform="translate(40 148)" aria-hidden="true"><path d="M0 8s-6-6-6-10a6 6 0 0 1 12 0c0 4-6 10-6 10zm0-12a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="56" y="154" fill="#152C26" font-size="16" font-weight="650">Near Xàbia</text>
+<g transform="translate(346 148)" aria-hidden="true"><path d="m-5-2 5 5 5-5" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<g id="category-filters">
+<g>
+<rect x="20.5" y="184.5" width="75" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
+<g transform="translate(37 208)" aria-hidden="true"><path d="m-5 0 3.5 3.5L5-4" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="52" y="214" fill="#0B5747" font-size="15" font-weight="650">All</text>
+</g>
+<g>
+<rect x="104.5" y="184.5" width="117" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="163" y="214" fill="#152C26" font-size="15" font-weight="650" text-anchor="middle">Pilates</text>
+</g>
+<g>
+<rect x="230.5" y="184.5" width="139" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="300" y="214" fill="#152C26" font-size="15" font-weight="650" text-anchor="middle">Massage</text>
+</g>
+<g>
+<rect x="20.5" y="240.5" width="169" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="105" y="270" fill="#152C26" font-size="15" font-weight="650" text-anchor="middle">Sport coaching</text>
+</g>
+<g>
+<rect x="198.5" y="240.5" width="171" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="284" y="270" fill="#152C26" font-size="15" font-weight="650" text-anchor="middle">Tours</text>
+</g>
+</g>
+<text x="20" y="321" fill="#152C26" font-size="20" font-weight="650">Sessions near Xàbia</text>
+<text x="370" y="321" fill="#425B52" font-size="13" font-weight="650" text-anchor="end">4 results</text>
+<g id="session-results">
+<g>
+<rect x="20.5" y="336.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="352" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(52 368)" aria-hidden="true"><path d="M-8 5h16v4H-8zm3-2 4-5 5 4m-3-8a2 2 0 1 0 4 0 2 2 0 0 0-4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="80" y="368" fill="#152C26" font-size="16" font-weight="650">Mat Pilates</text>
+<text x="354" y="368" fill="#152C26" font-size="15" font-weight="650" text-anchor="end">€16.00</text>
+<text x="80" y="390" fill="#425B52" font-size="13" font-weight="450">Estudi Mar Pilates · Xàbia</text>
+<text x="80" y="411" fill="#425B52" font-size="13" font-weight="450">45 min · English · Group class</text>
+<text x="80" y="432" fill="#425B52" font-size="13" font-weight="450">Step-free studio entry</text>
+<g transform="translate(346 416)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<g transform="translate(0 -8)">
+<rect x="20.5" y="460.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="476" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(52 492)" aria-hidden="true"><path d="M-8 3c4 0 5-4 7-4 2 0 3 2 5 2h4m-16 4h16m-12-8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="80" y="492" fill="#152C26" font-size="16" font-weight="650">Relaxation massage</text>
+<text x="354" y="492" fill="#152C26" font-size="15" font-weight="650" text-anchor="end">€48.00</text>
+<text x="80" y="514" fill="#425B52" font-size="13" font-weight="450">Calma Massage · Xàbia</text>
+<text x="80" y="535" fill="#425B52" font-size="13" font-weight="450">60 min · Spanish · Private</text>
+<text x="80" y="556" fill="#425B52" font-size="13" font-weight="450">Step-free treatment room</text>
+<g transform="translate(346 540)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<g transform="translate(0 -16)">
+<rect x="20.5" y="584.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="600" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(52 616)" aria-hidden="true"><path d="M-2 2c-3-3-2-7 1-9 3-2 7-1 8 2 1 3-1 6-4 7H-2zm0 0-5 6m5-13 6 5m-5-1 5-5" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="80" y="616" fill="#152C26" font-size="16" font-weight="650">Tennis coaching</text>
+<text x="354" y="616" fill="#152C26" font-size="15" font-weight="650" text-anchor="end">€32.00</text>
+<text x="80" y="638" fill="#425B52" font-size="13" font-weight="450">Arenal Tennis · Xàbia</text>
+<text x="80" y="659" fill="#425B52" font-size="13" font-weight="450">60 min · English · Private</text>
+<text x="80" y="680" fill="#425B52" font-size="13" font-weight="450">Step-free court access</text>
+<g transform="translate(346 664)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<g transform="translate(0 -24)">
+<rect x="20.5" y="708.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="724" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(52 740)" aria-hidden="true"><path d="M-8 5-3-3 1 3l3-5 4 7zm13-12a2 2 0 1 1-4 0 2 2 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="80" y="740" fill="#152C26" font-size="16" font-weight="650">Old town walking tour</text>
+<text x="354" y="740" fill="#152C26" font-size="15" font-weight="650" text-anchor="end">€22.00</text>
+<text x="80" y="762" fill="#425B52" font-size="13" font-weight="450">Rutes Xàbia · Xàbia</text>
+<text x="80" y="783" fill="#425B52" font-size="13" font-weight="450">90 min · English · Group tour</text>
+<text x="80" y="804" fill="#425B52" font-size="13" font-weight="450">Steps and uneven paving</text>
+<g transform="translate(346 788)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+</g>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

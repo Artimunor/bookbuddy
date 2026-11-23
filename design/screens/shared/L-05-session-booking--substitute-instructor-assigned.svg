@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">L-05 Session booking — substitute instructor assigned</title>
+<desc id="screen-desc">Lucía Vidal is the confirmed substitute instructor. The time, venue, instruction language and accountable studio contact stay the same. Claire’s booking is still confirmed.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+<text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+<rect x="301" y="24" width="3" height="4" rx="1"/>
+<rect x="306" y="22" width="3" height="6" rx="1"/>
+<rect x="311" y="19" width="3" height="9" rx="1"/>
+<rect x="316" y="16" width="3" height="12" rx="1"/>
+<path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+<circle cx="332" cy="29" r="1.1"/>
+<rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+<rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+<path d="M370 20v5c2-1 2-4 0-5z"/>
+</g>
+<g id="header">
+<g transform="translate(32 76)" aria-hidden="true"><path d="m3-8-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Session booking</text>
+<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">BB-S1042 · Claire Martin</text>
+<path d="M0 107.5h390" stroke="#D4E1DB"/>
+</g>
+<g id="content">
+<g id="booking-pass">
+<rect x="20.5" y="124.5" width="349" height="155" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="140" width="93" height="28" rx="14" fill="#E7F4E8"/>
+<g transform="translate(52 154)" aria-hidden="true"><path d="m-5 0 3.5 3.5L5-4" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="65" y="158" fill="#245936" font-size="12" font-weight="550">Booked</text>
+</g>
+<text x="36" y="199" fill="#152C26" font-size="20" font-weight="650">Mat Pilates</text>
+<text x="36" y="222" fill="#425B52" font-size="13" font-weight="450">Estudi Mar Pilates · Xàbia</text>
+<text x="36" y="249" fill="#152C26" font-size="16" font-weight="650">Sat, 28 Nov · 10:00–10:45</text>
+<text x="36" y="269" fill="#425B52" font-size="13" font-weight="450">Spain time · English · 1 place</text>
+</g>
+<g>
+<rect x="20" y="292" width="350" height="72" rx="16" fill="#E7F4E8"/>
+<g transform="translate(44 315)" aria-hidden="true"><path d="m-5 0 3.5 3.5L5-4" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="321" fill="#245936" font-size="16" font-weight="650">Substitute instructor confirmed</text>
+<text x="64" y="342" fill="#245936" font-size="13" font-weight="450">Lucía Vidal will teach. Your time is unchanged.</text>
+</g>
+<g id="booking-practical-details" transform="translate(0 8)">
+<text x="20" y="380" fill="#152C26" font-size="20" font-weight="650">Arrival</text>
+<g id="arrival-details">
+<rect x="20.5" y="394.5" width="349" height="103" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="423" fill="#152C26" font-size="16" font-weight="650">Check in at studio reception</text>
+<text x="36" y="444" fill="#425B52" font-size="13" font-weight="450">Arrive by 09:50 Spain time · Step-free entry</text>
+<path d="M36 454.5h318" stroke="#D4E1DB"/>
+<text x="36" y="480" fill="#0B5747" font-size="16" font-weight="650">View directions</text>
+<g transform="translate(346 474)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="20" y="535" fill="#152C26" font-size="20" font-weight="650">Your host</text>
+<g>
+<rect x="20.5" y="549.5" width="349" height="63" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="565" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(52 581)" aria-hidden="true"><path d="M-8-6H8V4H0l-5 4V4h-3zm4 3h8m-8 3h6" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="80" y="578" fill="#152C26" font-size="16" font-weight="650">Message the studio</text>
+<text x="80" y="597" fill="#425B52" font-size="13" font-weight="450">Marina Serra · Session coordinator</text>
+<g transform="translate(346 581)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="20" y="635" fill="#425B52" font-size="13" font-weight="450">Instructor · Lucía Vidal</text>
+<text x="20" y="663" fill="#425B52" font-size="13" font-weight="450">€16.00 due at the studio</text>
+</g>
+</g>
+<g id="action-bar">
+<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+<path d="M0 744.5h390" stroke="#D4E1DB"/>
+<g>
+<rect x="20.5" y="752.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="195" y="782" fill="#152C26" font-size="16" font-weight="650" text-anchor="middle">Cancel or reschedule</text>
+</g>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>
