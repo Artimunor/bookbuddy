@@ -12,7 +12,7 @@ Status: decided by the owner on 23 November 2026. The options are described in [
 | 4 | Quotes and changes | **Accepted.** A named approver, plus agreed terms and consent wording. |
 | 5 | Cancellation and completion | **Accepted.** Fee-free cancellation and rescheduling, kept separate from the statutory right of withdrawal. Completion evidence, sign-off and dispute rules as suggested. |
 | 6 | Safety and attendance | **Accepted.** Human safety briefings with verified teach-back in a language each worker understands. Attendance without location, kept separate from the employer's statutory working-time register. |
-| 7 | Languages | **Changed.** The UI ships in **English (main)** and **Portuguese (second)**. Internationalisation must make adding a language a catalog and review task, not a code change; see the architecture document. Message translation keeps the suggested approach: the original is shown next to the translation, and each reading language is enabled after its quality is reviewed. |
+| 7 | Languages | **Changed.** The UI ships in **English (main)** and **European Portuguese, `pt-PT` (second)**. Internationalisation must make adding a language a catalog and review task, not a code change; see the architecture document. Message translation keeps the suggested approach: the original is shown next to the translation, and each reading language is enabled after its quality is reviewed. |
 | 8 | Access, data and devices | **Accepted.** Account recovery, privileged grants and property transfer rules; offline-retention and media limits; gate and alarm codes never stored in the app; Expo SDK 58 device floors with real-device readiness checks; the Lock Screen status card optional. |
 
 ## Everything else
@@ -26,5 +26,5 @@ Suggestions that depend on the pilot plan apply once a pilot is defined (item 2)
 
 ## Follow-ups
 
-- Add the internationalisation section to [the architecture document](../architecture/mobile-tech-stack.md).
+- Done: [Internationalisation](../architecture/mobile-tech-stack.md#internationalisation) defines English (`en`) and European Portuguese (`pt-PT`) catalogs and how to add languages.
 - Spanish is not a launch UI language. Local providers and crews in Spain may need it, and with the internationalisation design it becomes a catalog to add and review.

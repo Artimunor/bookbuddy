@@ -76,7 +76,7 @@ apps/
   api/           Hono Worker; jobs, offers, media, chat and provider adapters
 packages/
   design-tokens/ Semantic palette, type and spacing → native values and CSS variables
-  i18n/          Human-reviewed JSON UI catalogs; keys, plurals and locale helpers
+  i18n/          ICU catalogs per locale and surface, typed keys, locale config, FormatJS formatters
   domain/        IDs, statuses and pure rules shared by clients and server
   api-contract/  Wire schemas, inferred DTOs, errors and canonical link shapes
   api-client/    Typed transport; injected session credentials, no hidden refetches
@@ -139,6 +139,54 @@ Append the immutable original first, with a stable client message ID. In the sam
 - **SQLite and app-owned files:** SQLite owns unsent device operations and a scoped copy of last-confirmed data; it does not grant access or reserve a shift. App-owned files hold evidence pending acknowledgement.
 - **R2:** The private bucket holds received bytes; D1 determines whether an attachment is ready and linked.
 - **Copy and language:** UI catalogs are bundled copy, not translated chat. Keep UI locale, reading preference, declared work languages and actual message language separate. [Design system: localisation and original content](../../design/system/design-system.md#localisation-and-original-content)
+
+## Internationalisation
+
+Ship English (`en`) as the source and default, and European Portuguese (`pt-PT`) as the second UI locale. Use Portuguese spelling and terminology suited to the European service context, not Brazilian Portuguese. This supersedes the provisional Spanish UI in the design drafts. UI language does not determine a job’s location, time zone or currency.
+
+### Catalogs and runtime
+
+Use ICU MessageFormat with the [FormatJS core (`@formatjs/intl`)](https://formatjs.github.io/docs/intl/) on mobile, web and the Worker. The same `createIntl` formatter handles ICU plurals, ordinals and `select` for grammatical gender, without shipping React to the Worker or introducing a resource loader. Use `other` for unspecified gender; never infer it from a name. Reuse formatter instances by locale and surface, not a mutable global current locale.
+
+- `packages/i18n/catalogs/<locale>/{shared,mobile,web,push}.json` contains flat, namespaced keys such as `push.offer.title`. Web keys distinguish public pages and the owner portal. Keep translator notes in `catalogs/context.json`: where the copy appears, what placeholders mean and any length or tone constraints.
+- A Bun/TypeScript build step uses the [FormatJS ICU parser](https://formatjs.github.io/docs/icu-messageformat-parser/) to emit compiled ASTs. It generates `MessageKey<Surface>` and placeholder types from English for `createTranslator(surface, locale).t(key, values)`. Ship only the relevant namespaces, compiled messages and formatter, not source catalogs, notes or the runtime parser.
+- `locales.json` owns enabled tags, autonyms, direction and language defaults. Try each requested tag in order: exact match, then an enabled parent or configured language default, then the next request. Fall back to `en`. At launch, `en-*` resolves to `en`, and `pt` and unsupported Portuguese variants resolve to `pt-PT`. An unexpected missing message falls back to the bundled English message with English plural rules; it never triggers a fetch.
+- To add a language, copy the namespace set into a new locale directory, translate it, and get native-language review including field terminology and push copy. Then enable the tag in `locales.json`. The build derives imports, routes and Expo supported locales from that file. No application code or D1 migration changes; updating OS language declarations requires a new mobile binary.
+
+### Locale selection and persistence
+
+- **Mobile:** Before sign-in, use the explicit local choice, then the ordered `expo-localization.getLocales()` language tags, then English. Keep the selector available before sign-in. Re-read device settings on Android foreground only when following the device; iOS returns a stable value for the running app. After sign-in, the saved account choice wins, with an account-scoped local copy for offline use. Seed it in the normal onboarding save, not on every sign-in.
+- **D1 and API:** Store `ui_locale TEXT NULL` (unset before setup) and `reading_locale TEXT NULL` (`NULL` means **Original only**) on account preferences. Use an additive migration if the table already exists, not a SQL enum of launch tags. Return `LocalePreferences` with existing session/bootstrap payloads and accept changed fields through the typed account-settings mutation. Validate UI writes against enabled tags; an older build must accept a newer saved tag on the wire and fall back locally without overwriting it. The typed client sends the effective UI tag as `Accept-Language` on existing requests. It is a presentation hint, not a write or an authorisation input; API codes and domain values stay locale-neutral.
+- **Web:** The explicit public URL prefix (`/en/…`, `/pt-PT/…`) wins. Only unprefixed entry points negotiate from a saved browser choice, then weighted `Accept-Language`, then `en`. Mark that redirect private and non-cacheable. Prerender each enabled prefix with its own `lang` and `dir`; hydrate with that same locale. The signed-in portal uses the account preference. A public locale link does not change account settings or invalidate job data.
+- **Push:** The existing D1 dispatch claim returns each recipient’s saved UI locale with the stored installation tokens. Pass it to the Worker renderer, defaulting to English if unset or unsupported. Send the rendered generic title and body with the opaque HTTPS destination. Never use the sender’s locale, look up a preference per token or resend an alert because the preference changed.
+
+### Formatting and site time
+
+Use `Intl.DateTimeFormat` for dates and times, `NumberFormat` for numbers and EUR, `RelativeTimeFormat` for secondary cues such as sync age, `PluralRules` for ICU plurals, and `ListFormat` for lists. Keep monetary values and currency unchanged; formatting is not conversion.
+
+Store instants in UTC and the verified IANA zone once on the D1 site record. Include that zone in the existing job projection and use it explicitly in `formatSiteDateTime(instant, siteZone, locale)`. Show an absolute site date, time and zone for visits, deadlines and records. If **Show your time as well** is enabled and zones differ, show viewer time second, with its date if different. Test DST transitions and midnight crossings. Never substitute the device zone for missing site data; show that site time is unavailable.
+
+[Expo SDK 58](https://expo.dev/changelog/sdk-58) uses React Native 0.88. Its [pinned Hermes Intl implementation](https://github.com/facebook/hermes/blob/hermes-v260318099.0.5/lib/VM/JSLib/Intl.cpp) registers basic `DateTimeFormat`, `NumberFormat` and `getCanonicalLocales` on iOS and Android, but not `PluralRules`, `RelativeTimeFormat`, `ListFormat` or `Locale`. Bundle the corresponding FormatJS polyfills on mobile, loading `intl-locale` before `intl-pluralrules`, then relative time and lists, with only the required locale data. Use native date and number formatting unless a required case fails; if date formatting needs a polyfill, bundle IANA data for the supported site zones. Use native `Intl` on supported web and Worker runtimes. Exact output on signed pilot devices and the deployed Worker is [unverified]; gate release on both locales, including EUR, Portuguese plurals and site-zone/DST fixtures.
+
+### Direction and quality gates
+
+- Use logical start/end tokens and styles in native views and CSS. On web, use `dir="auto"` for authored passages and `<bdi>` for embedded values. Isolate IDs, prices, times and mixed-direction names in native text too. Mirror Back/Next arrows and leading/trailing navigation; do not mirror clocks, playback or text.
+- Generate Expo’s RTL configuration from enabled locales; launch is LTR even on an Arabic device. Use the selected UI direction for the app root and Expo Router. [React Native `I18nManager`](https://reactnative.dev/docs/i18nmanager) persists `allowRTL`/`forceRTL` changes, which take effect on the next app start. When a future switch changes direction, save the choice and drafts, reconcile the native direction, and prompt for one full restart. Same-direction switches are immediate. Verify the direction change in signed builds, not Expo Go.
+- CI extracts literal key references from typed call sites using the TypeScript AST and checks them against English. Fail on missing, duplicate or unused keys, enabled-locale parity gaps, invalid ICU and incompatible placeholders. Allow locale-specific plural branches. Ban dynamic IDs, hard-coded UI copy and concatenated sentence fragments; translate whole messages, including accessibility labels. Require human approval before enabling a catalog.
+- In CI, derive `en-XA` and `ar-XB` pseudo-catalogs from ICU literal text, preserving placeholders and selectors. Exercise **+40%** expansion and RTL in critical flows at narrow widths and maximum text scaling. Fail on clipped or unreachable controls. Never ship pseudo-locales in production.
+
+### User content and call budgets
+
+Catalogs never contain authored chat, job descriptions or quote text. Use the [stored translation path](#4-chat-and-stored-translation) for eligible text: preserve the immutable original and store one authorised result with provenance per content ID, revision and target language. Show the labelled original alongside the translation, or alone with a status if the translation is pending or unavailable. Same-language content appears once. Reading preference selects a stored result; changing it does not translate on read or backfill history. Translations do not change approved quote terms or replace human safety confirmation.
+
+| Invocation | Launch budget relative to the existing data path |
+| --- | --- |
+| Render or switch language in a loaded app, including hydrated web | **Zero catalog requests.** A local, offline or unchanged selection makes zero API or D1 calls. Bundle both launch locales per surface; an unhydrated public language link needs only its normal static page load. |
+| Save a changed account preference | **One API request and one D1 write/ack batch** when standalone; no extra request when included in an existing settings or onboarding save. On failure keep the local choice marked pending and the last confirmed server value in force. No read-back, retry loop or job refetch. |
+| Bootstrap, existing API calls and site-time display | **Zero added calls.** Read preferences and site metadata in existing scoped queries and pass them through. No locale endpoint, geocoding or application Cache API. |
+| Push and user-content translation | **Unchanged effect budget:** one queue wake-up per nonempty committed batch, one D1 claim/read and at most one D1 result batch. Push uses provider-sized token batches; translation uses one provider call per required language-pair batch, subject to provider limits. Existing receipt and changed-thread hint budgets stay unchanged. Duplicate work and ambiguous paid results do not fan out. |
+
+Do not build a runtime catalog service or on-device translation. The owner still needs to name the Portuguese copy and field reviewers and approve the launch reading-language pairs, eligible content and provider/privacy rules. Those decisions do not block the two UI catalogs.
 
 ## Risks and accepted trade-offs
 
