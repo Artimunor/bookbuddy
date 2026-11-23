@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="confirmation-title confirmation-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="confirmation-title">S-17 Confirm consequential action — sign off on work</title>
+<desc id="confirmation-desc">Claire Martin is about to record sign-off on the completed terrace door repair for Villa Mar, approved scope version 1. Signing off does not take payment. Cancel returns to the completion review without signing off.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+
+<g id="header">
+<g aria-hidden="true" transform="translate(20 64) scale(1)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Completion and sign-off</text>
+<text x="64" y="94" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Terrace door repair · BB-1042</text>
+<path d="M0 107.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="completion-review">
+<text x="20" y="144" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Ready for your review</text>
+<text x="20" y="168" font-size="15" font-weight="400" fill="#425B52" text-anchor="start">Villa Mar · Xàbia</text>
+<rect x="20.5" y="188.5" width="349" height="169" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="221" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Approved scope · Version 1</text>
+<text x="36" y="246" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Mateo Ruiz · Reformas Ruiz</text>
+<path d="M36 264.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<g aria-hidden="true" transform="translate(36 279) scale(0.8333333333333334)"><path d="m5 12 5 5 9-10" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="295" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">Terrace door repair</text>
+<text x="36" y="332" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Tue, 24 Nov · Spain time</text>
+<text x="20" y="398" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Completion evidence</text>
+<rect x="20.5" y="416.5" width="349" height="83" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g aria-hidden="true" transform="translate(36 435) scale(0.8333333333333334)"><path d="M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm0 14 5-5 4 4 3-3 5 5M10 8a1.25 1.25 0 1 1-2.5 0A1.25 1.25 0 0 1 10 8z" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="452" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Terrace door repair photo</text>
+<text x="64" y="477" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Shared by Mateo Ruiz</text>
+<rect x="20.5" y="672.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+
+<text x="195" y="702" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle">Report an issue</text>
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+
+<text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Sign off on work</text>
+</g>
+<rect id="scrim" width="390" height="844" fill="#101A18" opacity="0.4" aria-hidden="true"/>
+<g id="dialog">
+<rect x="20" y="252" width="350" height="370" rx="24" fill="#FFFFFF"/>
+<rect x="36" y="268" width="40" height="40" rx="12" fill="#DCF2EA"/>
+<g aria-hidden="true" transform="translate(46 278) scale(0.8333333333333334)"><path d="M5 3h9l5 5v13H5zM14 3v6h5M8 13h8m-8 4h6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="36" y="343" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Sign off on this work?</text>
+<text x="36" y="372" font-size="15" font-weight="650" fill="#152C26" text-anchor="start">Terrace door repair · BB-1042</text>
+<text x="36" y="394" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Villa Mar · Xàbia · Approved scope v1</text>
+<path d="M36 410.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="435" font-size="13" font-weight="550" fill="#425B52" text-anchor="start">Acting as Claire Martin · Customer</text>
+<text x="36" y="464" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">This records your acceptance of the</text>
+<text x="36" y="486" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">completed work. It does not take payment.</text>
+<rect x="36" y="505" width="318" height="48" rx="12" fill="#0B6250"/>
+
+<text x="195" y="535" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Confirm sign-off</text>
+<rect x="36.5" y="561.5" width="317" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+
+<text x="195" y="591" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle">Cancel</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">S-02 Sign in or create account</title>
+  <desc id="screen-desc">A completed email field for Nadia Benali. Sending a code starts the same verification flow for new and returning accounts.</desc>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+  <g id="header">
+    <g transform="translate(20 64) scale(1)" aria-hidden="true"><path d="M15 4l-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="64" y="83" fill="#152C26" font-size="20" font-weight="650">Sign in</text>
+    <path d="M0 107.5h390" stroke="#D4E1DB"/>
+  </g>
+  <g id="content">
+    <rect x="20" y="132" width="32" height="32" rx="8" fill="#DCF2EA"/>
+    <g transform="translate(26 138) scale(0.8333333333333334)" aria-hidden="true"><path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm-1 2 9 7 9-7" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="20" y="204" fill="#152C26" font-size="28" font-weight="700"><tspan x="20">Sign in or</tspan><tspan x="20" dy="34">create an account</tspan></text>
+    <text x="20" y="269" fill="#425B52" font-size="15" font-weight="400"><tspan x="20" dy="0">We’ll email you a one-time code. Use the</tspan><tspan x="20" dy="22">address that received your invite, if you have one.</tspan></text>
+    <text x="20" y="324" fill="#152C26" font-size="16" font-weight="650">Email address</text>
+    <rect x="20.5" y="336.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <text x="36" y="367" fill="#152C26" font-size="16" font-weight="400">nadia@example.com</text>
+    <rect x="20" y="412" width="350" height="68" rx="16" fill="#EBF2EF"/>
+    <g transform="translate(36 428) scale(0.8333333333333334)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM12 10v6m0-9h.01" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="64" y="442" fill="#425B52" font-size="16" font-weight="650">One account for every role</text>
+    <text x="64" y="463" fill="#425B52" font-size="13" font-weight="450"><tspan x="64" dy="0">No password or separate crew account needed.</tspan></text>
+    <text x="195" y="534" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Get help signing in</text>
+  </g>
+  <g id="actions">
+    <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+    <path d="M0 744.5h390" stroke="#D4E1DB"/>
+    <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+    <text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Send code</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

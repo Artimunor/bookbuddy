@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="help-title help-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="help-title">S-16 Help and access status — link unavailable</title>
+<desc id="help-desc">An unavailable conversation link opened from Messages reveals no job or participant information. The user can contact BookBuddy or return to Messages.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+
+<g id="header">
+<g aria-hidden="true" transform="translate(20 64) scale(1)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Help and access status</text>
+<text x="64" y="94" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">BookBuddy support</text>
+<path d="M0 107.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="content">
+<rect x="20" y="132" width="350" height="229" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="148" width="48" height="48" rx="12" fill="#FFF1D5"/>
+<g aria-hidden="true" transform="translate(48 160) scale(1)"><path d="M7 10V7a5 5 0 0 1 10 0v3M5 10h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zm7 4v2" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="36" y="232" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Link unavailable</text>
+<text x="36" y="263" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">We can’t open this link in your account.</text>
+<text x="36" y="285" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">If you expected access, ask the person</text>
+<text x="36" y="307" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">who sent the link to check it.</text>
+<text x="36" y="339" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">No job details are shown here.</text>
+<g id="support">
+<text x="20" y="401" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Need help?</text>
+<text x="20" y="429" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">BookBuddy can help with account access</text>
+<text x="20" y="451" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">or put you in touch with the local service.</text>
+<rect x="20" y="476" width="350" height="48" rx="12" fill="#0B6250"/>
+<g aria-hidden="true" transform="translate(34 488) scale(1)"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 5h10m-10 4h6" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="68" y="506" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="start">Contact BookBuddy</text>
+</g>
+<rect x="20.5" y="536.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+
+<text x="195" y="566" font-size="16" font-weight="650" fill="#152C26" text-anchor="middle">Back to Messages</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

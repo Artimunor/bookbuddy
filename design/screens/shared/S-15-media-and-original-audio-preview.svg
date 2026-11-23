@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="photo-preview-title photo-preview-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="photo-preview-title">S-15 Media and original audio preview — draft photo</title>
+<desc id="photo-preview-desc">Claire can inspect her own draft attachment before adding it to the request. An illustrative terrace door thumbnail, zoom controls and caption are shown. Use photo returns to the draft and does not submit the request.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+
+<g id="header">
+<g aria-hidden="true" transform="translate(20 64) scale(1)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Describe the job</text>
+<text x="64" y="94" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Step 1 of 3</text>
+<path d="M0 107.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="request-draft">
+<text x="20" y="143" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">What needs fixing?</text>
+<rect x="20.5" y="164.5" width="349" height="115" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="193" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">The terrace door is not closing properly.</text>
+<text x="36" y="215" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">Please take a look at Villa Mar in Xàbia.</text>
+<text x="20" y="325" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Photos and audio</text>
+<rect x="20.5" y="340.5" width="349" height="115" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="378" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Terrace door from inside</text>
+<text x="36" y="401" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Photo draft · Not attached yet</text>
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+
+<text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Continue</text>
+</g>
+<rect id="scrim" width="390" height="844" fill="#101A18" opacity="0.4" aria-hidden="true"/>
+<g id="preview-modal">
+<rect x="0" y="44" width="390" height="800" rx="0" fill="#F4F7F6"/>
+<rect x="0" y="44" width="390" height="64" rx="0" fill="#FFFFFF"/>
+<text x="20" y="74" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Photo preview</text>
+<text x="20" y="94" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Request draft · Villa Mar · Xàbia</text>
+<g aria-hidden="true" transform="translate(334 64) scale(1)"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M0 107.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<g id="illustrative-door">
+<rect x="20" y="132" width="350" height="368" rx="16" fill="#EBF2EF"/>
+<rect x="36" y="148" width="318" height="336" rx="12" fill="#FFFFFF"/>
+<path d="M49 417h292M57 467l44-50m188 0 44 50M49 448h292" fill="none" stroke="#70877D" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="101" y="180" width="188" height="237" rx="8" fill="#DCF2EA" stroke="#0B5747"/>
+<rect x="114" y="192" width="162" height="210" rx="4" fill="#FFFFFF" stroke="#0B5747"/>
+<rect x="125" y="204" width="138" height="188" rx="2" fill="#E5F0FA" stroke="#70877D"/>
+<path d="M126 351h135m-136 12h138" fill="none" stroke="#70877D" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M126 347l28-23 22 14 33-24 54 33" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M195 206v184" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M207 298h16m-2-2v12" fill="none" stroke="#0B5747" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="224" cy="243" r="16" fill="#FFF1D5"/>
+<path d="M101 416h188" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text x="20" y="533" font-size="13" font-weight="550" fill="#425B52" text-anchor="start">Photo 1 of 1</text>
+<text x="20" y="554" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Illustrative thumbnail</text>
+<rect x="266.5" y="512.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<path d="M283 536h14" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="322.5" y="512.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<path d="M339 536h14m-7-7v14" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<g id="caption">
+<text x="20" y="591" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Caption</text>
+<rect x="20.5" y="604.5" width="349" height="55" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="36" y="637" font-size="15" font-weight="400" fill="#152C26" text-anchor="start">Terrace door from inside</text>
+</g>
+
+
+<text x="195" y="708" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Remove photo</text>
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+
+<text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Use photo</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

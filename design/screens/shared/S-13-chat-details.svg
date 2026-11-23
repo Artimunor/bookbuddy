@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="chat-details-title chat-details-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="chat-details-title">S-13 Chat details — job conversation</title>
+<desc id="chat-details-desc">The Job conversation sheet over Nadia’s chat names Mateo Ruiz as foreman, Claire Martin as customer and Nadia as the viewer, explains who can see the thread, and links to language settings and help.</desc>
+  <rect width="390" height="844" fill="#F4F7F6"/>
+  <rect width="390" height="160" fill="#FFFFFF"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+  <g id="header">
+    <path d="m35 68-8 8 8 8" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Job chat</text>
+    <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
+    <g fill="#152C26" aria-hidden="true">
+      <circle cx="339" cy="76" r="1.75"/>
+      <circle cx="346" cy="76" r="1.75"/>
+      <circle cx="353" cy="76" r="1.75"/>
+    </g>
+    <rect x="20" y="108" width="350" height="48" rx="12" fill="#EBF2EF"/>
+    <rect x="24.5" y="112.5" width="170" height="39" rx="8" fill="#DCF2EA" stroke="#0B6250"/>
+    <text x="109" y="137" text-anchor="middle" fill="#0B5747" font-size="15" font-weight="650">Job conversation</text>
+    <text x="283" y="137" text-anchor="middle" fill="#425B52" font-size="15" font-weight="550">Crew only</text>
+    <path d="M0 159.5h390" stroke="#D4E1DB"/>
+  </g>
+  <g id="content">
+    <g id="briefing-cue">
+      <rect x="20" y="172" width="350" height="64" rx="16" fill="#FFF1D5"/>
+      <path d="M44 189 53 205a1 1 0 0 1-.9 1.5H35.9a1 1 0 0 1-.9-1.5L44 189zm0 6v4m0 4h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>
+      <text x="64" y="198" fill="#704500" font-size="16" font-weight="650">Safety briefing required</text>
+      <text x="64" y="219" fill="#704500" font-size="13" font-weight="550">Review &amp; confirm</text>
+      <path d="m344 199 5 5-5 5" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="day-separator">
+      <path d="M20 256.5h116m118 0h116" stroke="#D4E1DB"/>
+      <text x="195" y="261" fill="#425B52" text-anchor="middle" font-size="12" font-weight="550">Mon, 23 Nov</text>
+    </g>
+    <g id="customer-message">
+      <circle cx="36" cy="316" r="16" fill="#E5F0FA"/>
+      <text x="36" y="320" text-anchor="middle" fill="#234C78" font-size="12" font-weight="650" aria-hidden="true">CM</text>
+      <text x="60" y="286" fill="#425B52" font-size="13" font-weight="550">Claire Martin · Customer</text>
+      <text x="352" y="286" text-anchor="end" fill="#425B52" font-size="12" font-weight="550">08:34</text>
+      <rect x="60.5" y="296.5" width="291" height="106" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+      <text x="76" y="318" fill="#0B5747" font-size="12" font-weight="650">Translation · English</text>
+      <text x="76" y="341" fill="#152C26" font-size="15" xml:lang="en">Thanks for letting me know.</text>
+      <path d="M76 351.5h260" stroke="#D4E1DB"/>
+      <text x="76" y="370" fill="#425B52" font-size="12" font-weight="550">Original · Français</text>
+      <text x="76" y="391" fill="#152C26" font-size="15" xml:lang="fr">Merci de m’avoir prévenue.</text>
+    </g>
+    <g id="foreman-message">
+      <circle cx="36" cy="453" r="16" fill="#DCF2EA"/>
+      <text x="36" y="457" text-anchor="middle" fill="#0B5747" font-size="12" font-weight="650" aria-hidden="true">MR</text>
+      <text x="60" y="423" fill="#425B52" font-size="13" font-weight="550">Mateo Ruiz · Foreman</text>
+      <text x="352" y="423" text-anchor="end" fill="#425B52" font-size="12" font-weight="550">08:36</text>
+      <rect x="60.5" y="433.5" width="291" height="146" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+      <text x="76" y="455" fill="#0B5747" font-size="12" font-weight="650">Translation · English</text>
+      <text x="76" y="478" fill="#152C26" font-size="15" xml:lang="en">
+        <tspan x="76">I’ll meet the crew at the gate</tspan>
+        <tspan x="76" dy="22">tomorrow at 09:00.</tspan>
+      </text>
+      <path d="M76 509.5h260" stroke="#D4E1DB"/>
+      <text x="76" y="528" fill="#425B52" font-size="12" font-weight="550">Original · Español</text>
+      <text x="76" y="549" fill="#152C26" font-size="15" xml:lang="es">
+        <tspan x="76">Mañana a las 09:00 me reúno</tspan>
+        <tspan x="76" dy="22">con el equipo en el portón.</tspan>
+      </text>
+    </g>
+    <g id="worker-message">
+      <text x="370" y="602" text-anchor="end" fill="#425B52" font-size="13" font-weight="550">You · Worker · 08:39</text>
+      <rect x="126" y="612" width="244" height="50" rx="16" fill="#DCF2EA"/>
+      <text x="142" y="643" fill="#152C26" font-size="15" xml:lang="en">I’ll be at the gate at 09:00.</text>
+      <path d="m323 680 3 3 6-7" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
+      <text x="370" y="684" text-anchor="end" fill="#425B52" font-size="12" font-weight="550">Sent</text>
+    </g>
+    <text x="195" y="721" text-anchor="middle" fill="#425B52" font-size="12" font-weight="550">Message times shown in Spain time</text>
+  </g>
+  <g id="composer">
+    <rect y="744" width="390" height="100" fill="#FFFFFF"/>
+    <path d="M0 744.5h390" stroke="#D4E1DB"/>
+    <rect x="20.5" y="752.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <path d="M37 776h14m-7-7v14" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <rect x="76.5" y="752.5" width="237" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <text x="92" y="782" fill="#152C26" font-size="15">Thanks, Mateo.</text>
+    <rect x="322" y="752" width="48" height="48" rx="12" fill="#0B6250"/>
+    <path d="m337 775.5 18-8-6 18-3.7-7.2-8.3-2.8zm8.3 2.8 4.7-4.6" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+<rect id="scrim" width="390" height="844" fill="#101A18" opacity="0.4" aria-hidden="true"/>
+<g id="details-sheet">
+<rect x="0" y="316" width="390" height="552" rx="24" fill="#FFFFFF"/>
+<rect x="177" y="324" width="36" height="4" rx="2" fill="#70877D"/>
+<text x="20" y="359" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Chat details</text>
+<text x="20" y="381" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Terrace door repair · BB-1042</text>
+<g aria-hidden="true" transform="translate(334 339) scale(1)"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g id="audience">
+<rect x="20" y="397" width="350" height="76" rx="16" fill="#DCF2EA"/>
+<g aria-hidden="true" transform="translate(36 411) scale(0.8333333333333334)"><path d="M13 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm-10 13v-2a7 7 0 0 1 14 0v2m0-15a3 3 0 0 1 0 6m2 3c1.6 1 2 2 2 4v2" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="424" font-size="16" font-weight="650" fill="#0B5747" text-anchor="start">Job conversation</text>
+<text x="64" y="448" font-size="13" font-weight="450" fill="#0B5747" text-anchor="start">Visible to the customer, foreman and</text>
+<text x="64" y="466" font-size="13" font-weight="450" fill="#0B5747" text-anchor="start">assigned people who have chat access.</text>
+</g>
+<text x="20" y="505" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">People in this conversation</text>
+<g id="participants">
+<rect x="20.5" y="520.5" width="349" height="155" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<circle cx="52" cy="548" r="16" fill="#DCF2EA"/>
+<g aria-hidden="true"><text x="52" y="552" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">MR</text></g>
+<text x="80" y="546" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Mateo Ruiz</text>
+<text x="80" y="565" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Foreman · Reformas Ruiz</text>
+<path d="M36 574.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="52" cy="598" r="16" fill="#E5F0FA"/>
+<g aria-hidden="true"><text x="52" y="602" font-size="12" font-weight="650" fill="#234C78" text-anchor="middle">CM</text></g>
+<text x="80" y="596" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Claire Martin</text>
+<text x="80" y="615" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Customer</text>
+<path d="M36 626.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="52" cy="650" r="16" fill="#EBF2EF"/>
+<g aria-hidden="true"><text x="52" y="654" font-size="12" font-weight="650" fill="#425B52" text-anchor="middle">NB</text></g>
+<text x="80" y="648" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Nadia Benali</text>
+<text x="80" y="667" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Worker · You</text>
+</g>
+<g id="links">
+<text x="20" y="715" font-size="16" font-weight="650" fill="#0B5747" text-anchor="start">Language and display</text>
+<text x="310" y="715" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">English</text>
+<g aria-hidden="true" transform="translate(332 701) scale(0.8333333333333334)"><path d="m9 6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M20 732.5H370" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="763" font-size="16" font-weight="650" fill="#0B5747" text-anchor="start">Help with this conversation</text>
+<g aria-hidden="true" transform="translate(332 749) scale(0.8333333333333334)"><path d="m9 6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>
