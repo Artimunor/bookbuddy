@@ -266,7 +266,7 @@ table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:9pt;
 .diagram-stage { width:182mm; height:238mm; display:flex; align-items:center; justify-content:center; } .diagram-stage svg { display:block; margin:auto; max-width:100% !important; max-height:100%; width:auto !important; height:auto; }
 .wide h1 { font-size:20pt; } .wide .diagram-stage { width:269mm; height:155mm; } .diagram-stage .mermaid { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
 .zoom-note { position:absolute; bottom:15mm; right:14mm; color:#425B52; font-size:8pt; }
-.questions { display:grid; grid-template-columns:1fr 1fr; gap:5mm 8mm; } .question-group { break-inside:avoid; } .question-group h2 { font-size:11pt; margin:0 0 2mm; } .question-group ul { font-size:8.5pt; line-height:1.4; margin:2mm 0 4mm; } .question-group li { margin-bottom:2mm; }
+.question-group { break-inside:avoid; } .question-group h2 { font-size:11pt; margin:0 0 2mm; } .question-group ul { font-size:8.5pt; line-height:1.4; margin:2mm 0 4mm; } .question-group li { margin-bottom:2mm; }
 `;
 
 try {
@@ -365,9 +365,9 @@ try {
     }
   }
   const orderedSpecs = chapters.flatMap(chapter=>specs.filter(spec=>[...screenSpecs].some(([id,value])=>id.startsWith(chapter.prefix+'-')&&value.spec===spec)));
-  for (let start=0;start<orderedSpecs.length;start+=5) {
-    const groups = orderedSpecs.slice(start,start+5).map(spec=>`<div class="question-group"><h2>${escape(spec.title)}</h2><ul>${spec.questions.split('\n').filter(line=>/^\s*-\s+/.test(line)).map(line=>`<li>${escape(excerpt(line,170))}</li>`).join('')}</ul></div>`).join('');
-    body += page(`<h1>Open design questions</h1><div class="questions">${groups}</div>`,'README.md',{id:start===0?'questions':undefined});
+  for (const [index, spec] of orderedSpecs.entries()) {
+    const group = `<div class="question-group"><h2>${escape(spec.title)}</h2><ul>${spec.questions.split('\n').filter(line=>/^\s*-\s+/.test(line)).map(line=>`<li>${escape(excerpt(line,170))}</li>`).join('')}</ul></div>`;
+    body += page(`<h1>Open design questions</h1><div class="questions">${group}</div>`,'README.md',{id:index===0?'questions':undefined});
   }
   const renderScript = `(async()=>{try{
     mermaid.initialize({startOnLoad:false,securityLevel:'loose',theme:'base',fontFamily:'Arial, Helvetica, sans-serif',themeVariables:{primaryColor:'#DCF2EA',primaryTextColor:'#152C26',primaryBorderColor:'#70877D',lineColor:'#425B52',secondaryColor:'#F4F7F6',tertiaryColor:'#EBF2EF',fontSize:'18px',actorBkg:'#DCF2EA',actorTextColor:'#152C26',actorBorder:'#70877D',signalColor:'#425B52',signalTextColor:'#152C26'},flowchart:{htmlLabels:true,curve:'basis',nodeSpacing:20,rankSpacing:35,padding:12,wrappingWidth:170,useMaxWidth:true},sequence:{wrap:true,width:210,height:45,actorMargin:35,messageMargin:16,boxMargin:5,boxTextMargin:5,messageFontSize:18,actorFontSize:18,wrapPadding:3,useMaxWidth:true}});
@@ -383,7 +383,7 @@ try {
     document.querySelectorAll('body > :not(.page):not(script)').forEach(element=>element.remove());
     const pages=[...document.querySelectorAll('.page')];
     document.querySelectorAll('.contents-page').forEach(label=>{const target=document.getElementById(label.dataset.target);label.textContent=String(pages.indexOf(target)+1);});
-    for(const page of pages){const box=page.getBoundingClientRect();for(const element of page.querySelectorAll('.caption,.questions,.system-grid,.roles,.diagram-stage')){const rect=element.getBoundingClientRect();if(rect.bottom>box.bottom-24||rect.right>box.right-24)throw new Error('Page overflow: '+(pages.indexOf(page)+1));}}
+    for(const page of pages){const box=page.getBoundingClientRect();for(const element of page.querySelectorAll('.caption,.questions,.system-grid,.roles,.diagram-stage')){const rect=element.getBoundingClientRect();if(rect.bottom>box.bottom-24||rect.right>box.right-24)throw new Error('Page overflow: '+(pages.indexOf(page)+1)+'; '+element.className+'; '+page.querySelector('h1')?.textContent+'; '+page.querySelector('footer a')?.textContent);}}
     document.documentElement.dataset.ready='true';document.documentElement.dataset.mockups=String(document.querySelectorAll('.device').length);document.documentElement.dataset.diagrams=String(document.querySelectorAll('.mermaid svg').length);
   }catch(error){document.documentElement.dataset.error=error.message||JSON.stringify(error);}})();`;
   await Bun.write(join(temp,'render.html'),`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src data:;"><title>${escape(bookTitle)}</title><style>${css}</style></head><body>${body}<script>${mermaid}</script><script>${renderScript}</script></body></html>`);
