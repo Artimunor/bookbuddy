@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-09-site-briefing-title W-09-site-briefing-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="W-09-site-briefing-title">W-09 Site briefing — translated arrival note and safety handoff</title>
+<desc id="W-09-site-briefing-desc">Nadia reads Mateo’s Spanish arrival note and its English translation. Affected work stays on hold until Mateo verifies her understanding and the server records her online acknowledgement of the current instruction. A separate instruction also requires Mateo’s clearance before using the terrace door.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true"><text x="20" y="29" font-size="15" font-weight="700" fill="#152C26" text-anchor="start">9:41</text><g><rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/><rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/><rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/><rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="332" cy="29" r="1.1" fill="#152C26"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/><path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26" stroke="#152C26" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g id="header">
+  <g transform="translate(20 64) scale(1)" aria-hidden="true"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="64" y="74" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Site briefing</text>
+  <text x="64" y="94" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Terrace door repair · BB-1042</text>
+  <path d="M0 107.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g id="content">
+  <rect x="20" y="124" width="350" height="152" rx="16" fill="#FFF1D5"/>
+  <g transform="translate(34 140)" aria-hidden="true"><path d="M12 3l9 16H3Zm0 6v4m0 3h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="68" y="155" font-size="16" font-weight="650" fill="#704500">Do not start the affected work.</text>
+  <text x="68" y="180" font-size="15" fill="#704500">Mateo must verify your understanding <tspan x="68" dy="22">and you must acknowledge the </tspan><tspan x="68" dy="22">current instruction online.</tspan></text>
+  <text x="36" y="255" font-size="15" font-weight="650" fill="#704500">Wait for Mateo’s clearance to use the door.</text>
+  <g id="arrival-and-contact" transform="translate(0 56)">
+  <text x="20" y="259" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Arriving at Villa Mar</text>
+  <rect x="20.5" y="275.5" width="349" height="263" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+  <rect x="36" y="291" width="32" height="32" rx="8" fill="#EBF2EF"/><g transform="translate(42 297) scale(0.8333333333333334)" aria-hidden="true"><path d="M20 10c0 5.2-8 11-8 11S4 15.2 4 10a8 8 0 1 1 16 0Zm-5 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="80" y="308" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Villa Mar · Xàbia</text>
+  <text x="80" y="330" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Tue, 24 Nov · 09:00–10:00 · Spain time</text>
+  <path d="M36 347.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="374" font-size="12" font-weight="650" fill="#0B5747" text-anchor="start">Translation · English</text>
+  <text x="36" y="397" font-size="15" font-weight="400" fill="#152C26" text-anchor="start" xml:lang="en">I’ll meet the crew at the gate <tspan x="36" dy="22">tomorrow at 09:00.</tspan></text>
+  <path d="M36 430.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="36" y="454" font-size="12" font-weight="650" fill="#425B52" text-anchor="start">Original · Español</text>
+  <text x="36" y="478" font-size="15" font-weight="400" fill="#152C26" text-anchor="start" xml:lang="es">Mañana a las 09:00 me reúno <tspan x="36" dy="22">con el equipo en el portón.</tspan></text>
+  <text x="36" y="522" font-size="12" font-weight="550" fill="#425B52" text-anchor="start">Posted Mon, 23 Nov · 08:36 Spain time</text>
+  <text x="20" y="566" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Need help?</text>
+  <rect x="20.5" y="582.5" width="349" height="91" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+  <rect x="36" y="600" width="32" height="32" rx="8" fill="#EBF2EF"/><g transform="translate(42 606) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 3h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-7l-7 4v-4a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 6h10m-10 4h7" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="80" y="617" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Ask Mateo Ruiz</text>
+  <text x="80" y="642" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Arrival questions · Crew only</text>
+  <g transform="translate(338 610) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </g>
+</g>
+<g id="fixed-action">
+  <rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+  <path d="M0 744.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/><g transform="translate(34 764) scale(1)" aria-hidden="true"><path d="M6 3h12v18H6Zm3 5h6m-6 4h6m-6 4h4" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="205" y="781.28" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Open safety instruction</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

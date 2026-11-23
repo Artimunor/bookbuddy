@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">F-12 Confirm replacement</title>
+  <desc id="screen-desc">Alba Navarro was the first to accept validly and has a provisional place awaiting foreman confirmation. Mateo can confirm her for BB-1042 after rechecking eligibility and conflicts. Confirmation preserves the arrival window and sends Claire Martin the confirmed roster update.</desc>
+  <rect width="390" height="844" fill="#F4F7F6"/>
+  <g id="parent">
+    <g id="header">
+    <rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+    <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+    <g aria-hidden="true" transform="translate(20 64) scale(1)"><path d="m14.5 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="64" y="74" font-size="20" font-weight="650" fill="#152C26">Vetted pool</text>
+    <text x="64" y="94" font-size="13" font-weight="450" fill="#425B52">Terrace door repair · BB-1042</text>
+    <path d="M0 107.5H390" stroke="#D4E1DB"/>
+  </g>
+    <g id="content">
+    <g id="shift-card">
+    <rect x="20.5" y="124.5" width="349" height="99" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <text x="36" y="151" font-size="16" font-weight="650" fill="#152C26">Villa Mar · Xàbia</text>
+    <text x="36" y="176" font-size="16" font-weight="650" fill="#152C26" style="font-variant-numeric: tabular-nums">Tue, 24 Nov · 09:00–10:00</text>
+    <text x="36" y="204" font-size="13" font-weight="450" fill="#425B52" style="font-variant-numeric: tabular-nums">Spain time · Own team exhausted at 08:42</text>
+  </g>
+    <g id="provisional-acceptance">
+      <rect x="20" y="236" width="350" height="80" rx="16" fill="#E5F0FA"/>
+      <g aria-hidden="true" transform="translate(35 249) scale(0.75)"><path d="m5 12 4 4L19 6" fill="none" stroke="#234C78" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <text x="64" y="263" font-size="16" font-weight="650" fill="#234C78">Accepted · confirmation required</text>
+      <text x="64" y="285" font-size="13" font-weight="450" fill="#234C78">
+        <tspan x="64">First valid acceptance reserves the</tspan>
+        <tspan x="64" dy="18">place for foreman confirmation.</tspan>
+      </text>
+    </g>
+    <text x="20" y="355" font-size="20" font-weight="650" fill="#152C26">Live responses</text>
+    <text x="370" y="355" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">1 accepted · 1 declined</text>
+    <g id="latest-offer-responses">
+    <g id="alba-response">
+    <rect x="20.5" y="372.5" width="349" height="75" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <circle cx="49" cy="410" r="14" fill="#E5F0FA"/>
+    <g aria-hidden="true" transform="translate(41 402) scale(0.6666666666666666)"><path d="m5 12 4 4L19 6" fill="none" stroke="#234C78" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="74" y="403" font-size="16" font-weight="650" fill="#152C26">Alba Navarro</text>
+    <text x="74" y="426" font-size="13" font-weight="450" fill="#425B52" style="font-variant-numeric: tabular-nums">Accepted · 08:46 Spain time</text>
+  </g>
+    <g id="oscar-response">
+    <rect x="20.5" y="456.5" width="349" height="75" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <circle cx="49" cy="494" r="14" fill="#EBF2EF"/>
+    <g aria-hidden="true" transform="translate(41 486) scale(0.6666666666666666)"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#425B52" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="74" y="487" font-size="16" font-weight="650" fill="#152C26">Óscar Ferrer</text>
+    <text x="74" y="510" font-size="13" font-weight="450" fill="#425B52" style="font-variant-numeric: tabular-nums">Declined · 08:45 Spain time</text>
+  </g>
+    <rect x="20" y="556" width="350" height="80" rx="16" fill="#E5F0FA"/><g aria-hidden="true" transform="translate(35 569) scale(0.75)"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zm-9-1v5m0-9h.01" fill="none" stroke="#234C78" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g><text x="64" y="583" font-size="16" font-weight="650" fill="#234C78">No replacement confirmed yet</text><text x="64" y="605" font-size="13" font-weight="450" fill="#234C78"><tspan x="64">Confirm the first eligible worker who accepted.</tspan></text>
+    <text x="20" y="708" font-size="16" font-weight="650" fill="#0B5747">Contact local service</text>
+    <g aria-hidden="true" transform="translate(343 693) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </g>
+  </g>
+    <g id="action-bar">
+    <rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+    <path d="M0 744.5H390" stroke="#D4E1DB"/>
+    <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/><text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Review accepted replacement</text>
+  </g>
+  </g>
+  <rect id="scrim" width="390" height="844" fill="#101A18" opacity="0.4"/>
+  <g id="replacement-sheet">
+    <g id="sheet-header">
+    <path d="M0 268a24 24 0 0 1 24-24h342a24 24 0 0 1 24 24v576H0Z" fill="#FFFFFF"/>
+    <rect x="175" y="253" width="40" height="4" rx="2" fill="#70877D"/>
+    <text x="20" y="292" font-size="20" font-weight="650" fill="#152C26">Confirm replacement</text>
+    <text x="20" y="318" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Foreman · Reformas Ruiz</text>
+    <rect x="322.5" y="268.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <g aria-hidden="true" transform="translate(334 280) scale(1)"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </g>
+    <g id="acceptance-status">
+      <rect x="20" y="332" width="350" height="80" rx="16" fill="#FFF1D5"/>
+      <g aria-hidden="true" transform="translate(35 345) scale(0.75)"><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zm-9-5v5l3.5 2" fill="none" stroke="#704500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <text x="64" y="359" font-size="16" font-weight="650" fill="#704500">Accepted · confirmation required</text>
+      <text x="64" y="381" font-size="13" font-weight="450" fill="#704500">
+        <tspan x="64">First valid acceptance reserves the</tspan>
+        <tspan x="64" dy="18">place for foreman confirmation.</tspan>
+      </text>
+    </g>
+    <g id="replacement-worker">
+    <rect x="20.5" y="424.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <circle cx="52" cy="456" r="16" fill="#DCF2EA"/><text x="52" y="460.5" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">AN</text>
+    <text x="76" y="451" font-size="16" font-weight="650" fill="#152C26">Alba Navarro</text>
+    <text x="76" y="471" font-size="13" font-weight="450" fill="#425B52">Vetted pool · via Reformas Ruiz</text>
+    <path d="M36 481.5H354" stroke="#D4E1DB"/>
+    <text x="36" y="501" font-size="13" font-weight="450" fill="#425B52" style="font-variant-numeric: tabular-nums">Tue, 24 Nov · 09:00–10:00 · Spain time</text>
+    <text x="36" y="519" font-size="13" font-weight="450" fill="#425B52" style="font-variant-numeric: tabular-nums">Accepted at 08:46 Spain time</text>
+  </g>
+    <g id="confirmation-details">
+    <rect x="20.5" y="540.5" width="349" height="85" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <g aria-hidden="true" transform="translate(38 555) scale(0.8333333333333334)"><path d="M12 2.5 20 6v5c0 5-3.2 8.2-8 10.5C7.2 19.2 4 16 4 11V6zM8 12l2.6 2.5L16 9" fill="none" stroke="#245936" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="68" y="571" font-size="16" font-weight="650" fill="#152C26">Approved for this shift</text>
+    <text x="68" y="593" font-size="13" font-weight="450" fill="#425B52">Door fitting · Spanish work and briefing</text>
+    <text x="68" y="612" font-size="13" font-weight="450" fill="#425B52">Eligibility and conflicts rechecked on confirm.</text>
+  </g>
+    <g id="change-impact">
+    <text x="20" y="658" font-size="16" font-weight="650" fill="#152C26">Visit stays at 09:00–10:00</text>
+    <text x="20" y="682" font-size="13" font-weight="450" fill="#425B52">Claire Martin gets the confirmed roster update.</text>
+    <text x="20" y="703" font-size="13" font-weight="450" fill="#425B52">Alba must complete her own site briefing.</text>
+    <text x="20" y="725" font-size="13" font-weight="650" fill="#425B52" style="font-variant-numeric: tabular-nums">Confirm by 08:52 Spain time.</text>
+  </g>
+    <g id="sheet-actions">
+    <path d="M0 744.5H390" stroke="#D4E1DB"/>
+    <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/><text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Confirm Alba Navarro</text>
+  </g>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

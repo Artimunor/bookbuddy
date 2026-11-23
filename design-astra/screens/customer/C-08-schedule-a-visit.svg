@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">C-08 Schedule a visit</title>
+<desc id="screen-desc">Claire can confirm the provider’s proposed work visit on Tuesday 24 November after approving quote version 1. Spain time and her UK local time appear together.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+<g id="header">
+<g aria-hidden="true" transform="translate(20 64)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Schedule a visit</text>
+<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">BB-1042 · Villa Mar</text>
+<path d="M0 107.5H390" stroke="#D4E1DB"/>
+</g>
+<g id="content">
+<text x="20" y="151" fill="#152C26" font-size="20" font-weight="650">Work visit</text>
+<text x="20" y="177" fill="#425B52" font-size="15">Terrace door repair · Villa Mar</text>
+<rect x="20" y="194" width="149" height="28" rx="14" fill="#E7F4E8"/>
+<g aria-hidden="true" transform="translate(28 200) scale(0.6666666666666666)"><path d="m5 12 4 4 10-10" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="48" y="212" fill="#245936" font-size="12" font-weight="550">Quote v1 approved</text>
+<rect x="20.5" y="228.5" width="349" height="47" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+
+<g aria-hidden="true" transform="translate(36 240)"><path d="M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm2-3v6m10-6v6M3 11h18" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="72" y="258" fill="#152C26" font-size="16" font-weight="650">Tue, 24 Nov</text>
+
+
+<rect x="20.5" y="284.5" width="349" height="139" rx="16" fill="#DCF2EA" stroke="#0B6250"/>,<circle cx="49" cy="317" r="11" fill="#FFFFFF" stroke="#0B6250" stroke-width="1.5"/>,<circle cx="49" cy="317" r="5" fill="#0B6250"/>,<text x="72" y="322" fill="#152C26" font-size="16" font-weight="650">09:00–10:00 Spain time</text>,<text x="72" y="349" fill="#152C26" font-size="15">08:00–09:00 your time</text>,<path d="M72 365.5H348" stroke="#D4E1DB"/>,<text x="72" y="391" fill="#0B5747" font-size="13" font-weight="450">Proposed arrival window</text>
+<rect x="20" y="440" width="350" height="100" rx="16" fill="#E5F0FA"/>
+<g aria-hidden="true" transform="translate(36 456) scale(0.8333333333333334)"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 8v5m0-8h.01" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="468" fill="#234C78" font-size="16" font-weight="650">What you’re confirming</text>
+<text x="64" y="490" fill="#234C78" font-size="15">Reformas Ruiz will arrive in this window</text>
+<text x="64" y="512" fill="#234C78" font-size="15">once the visit is booked.</text>
+<rect x="20.5" y="556.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="572" width="36" height="36" rx="8" fill="#EBF2EF"/>
+<g aria-hidden="true" transform="translate(42 578)"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-6l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 5h10M7 13h6" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="84" y="582" fill="#152C26" font-size="16" font-weight="650">Message Mateo</text>
+<text x="84" y="604" fill="#425B52" font-size="13" font-weight="450">Ask about another time</text>
+<g aria-hidden="true" transform="translate(334 580)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<g id="action-bar">
+<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+<path d="M0 744.5H390" stroke="#D4E1DB"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Confirm work visit</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

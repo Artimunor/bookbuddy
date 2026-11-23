@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="W-02-my-shifts-title W-02-my-shifts-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="W-02-my-shifts-title">W-02 My shifts — upcoming agenda</title>
+<desc id="W-02-my-shifts-desc">Worker agenda in Reformas Ruiz, filtered to Upcoming. The confirmed 24 November shift for BB-1042 has a briefing requirement. Offers and Past are separate filters; no other upcoming shifts are listed.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<g id="status-bar" aria-hidden="true"><text x="20" y="29" font-size="15" font-weight="700" fill="#152C26" text-anchor="start">9:41</text><g><rect x="301" y="24" width="3" height="4" rx="1" fill="#152C26"/><rect x="306" y="22" width="3" height="6" rx="1" fill="#152C26"/><rect x="311" y="19" width="3" height="9" rx="1" fill="#152C26"/><rect x="316" y="16" width="3" height="12" rx="1" fill="#152C26"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/><circle cx="332" cy="29" r="1.1" fill="#152C26"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5" fill="#152C26"/><path d="M370 20v5c2-1 2-4 0-5z" fill="#152C26" stroke="#152C26" stroke-width="0" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+<g id="header">
+  <text x="20" y="75" font-size="16" font-weight="700" fill="#152C26" text-anchor="start">Reformas Ruiz</text>
+  <text x="20" y="95" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Worker</text>
+  <rect x="266.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <g transform="translate(278 64) scale(1)" aria-hidden="true"><path d="M5 15h14l-1.5-2V9a5.5 5.5 0 0 0-11 0v4Zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="322.5" y="52.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <circle cx="346" cy="76" r="15" fill="#DCF2EA"/>
+  <text x="346" y="81" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">NB</text>
+</g>
+<g id="content">
+  <text x="20" y="149" font-size="28" font-weight="700" fill="#152C26" text-anchor="start">My shifts</text>
+  <text x="20" y="176" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Times shown in Spain time</text>
+  <rect x="20" y="196" width="350" height="48" rx="12" fill="#EBF2EF"/>
+  <rect x="24.5" y="200.5" width="110" height="39" rx="8" fill="#DCF2EA" stroke="#0B6250"/>
+  <g transform="translate(35 211) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 4 4 10-9" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="86" y="225" font-size="15" font-weight="650" fill="#0B5747" text-anchor="middle">Upcoming</text>
+  <text x="195" y="225" font-size="15" font-weight="550" fill="#425B52" text-anchor="middle">Offers</text>
+  <text x="309" y="225" font-size="15" font-weight="550" fill="#425B52" text-anchor="middle">Past</text>
+  <g transform="translate(20 263) scale(1)" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2-3v6m10-6v6M3 11h18" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="56" y="282" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Tue, 24 Nov</text>
+  <rect x="20.5" y="300.5" width="349" height="167" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+  <rect x="36" y="314" width="112" height="28" rx="14" fill="#E7F4E8"/><g transform="translate(44 320) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 4 4 10-9" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="65" y="332" font-size="12" font-weight="550" fill="#245936" text-anchor="start">Confirmed</text>
+  <text x="354" y="332" font-size="12" font-weight="650" fill="#425B52" text-anchor="end">BB-1042</text>
+  <text x="36" y="369" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Terrace door repair</text>
+  <text x="36" y="391" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Villa Mar · Xàbia</text>
+  <path d="M36 404.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="36" y="417" width="32" height="32" rx="8" fill="#EBF2EF"/><g transform="translate(42 423) scale(0.8333333333333334)" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2-3v6m10-6v6M3 11h18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="80" y="432" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Tue, 24 Nov · 09:00–10:00</text>
+  <text x="80" y="452" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Spain time · Mateo Ruiz</text>
+  <g transform="translate(338 427) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="20.5" y="484.5" width="349" height="77" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+  <rect x="36" y="502" width="32" height="32" rx="8" fill="#EBF2EF"/><g transform="translate(42 508) scale(0.8333333333333334)" aria-hidden="true"><path d="M12 3l9 16H3Zm0 6v4m0 3h.01" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="80" y="519" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Briefing required before work</text>
+  <text x="80" y="541" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Open site briefing</text>
+  <g transform="translate(338 509) scale(0.6666666666666666)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="20" y="598" width="350" height="78" rx="16" fill="#EBF2EF"/>
+  <text x="36" y="626" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">No other upcoming shifts</text>
+  <text x="36" y="650" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">New confirmations appear here.</text>
+</g>
+<g id="tab-bar">
+  <rect x="0" y="746" width="390" height="98" fill="#FFFFFF"/>
+  <path d="M0 746.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(37 757) scale(1)" aria-hidden="true"><path d="M2 11l10-9 10 9m-18-1v11h16V10m-10 11v-6h4v6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="49" y="800" font-size="12" font-weight="550" fill="#425B52" text-anchor="middle">Today</text>
+  <rect x="122" y="753" width="48" height="30" rx="15" fill="#DCF2EA"/><g transform="translate(134 757) scale(1)" aria-hidden="true"><path d="M5 5h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm2-3v6m10-6v6M3 11h18" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="146" y="800" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">My shifts</text>
+  <g transform="translate(232 757) scale(1)" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm3-2v5m10-5v5M2 10h20m-14 5 2.5 2.5 4.5-4.5" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="244" y="800" font-size="12" font-weight="550" fill="#425B52" text-anchor="middle">Availability</text>
+  <g transform="translate(329 757) scale(1)" aria-hidden="true"><path d="M5 3h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-7l-7 4v-4a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm2 6h10m-10 4h7" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="341" y="800" font-size="12" font-weight="550" fill="#425B52" text-anchor="middle">Messages</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">F-11 Vetted pool — no match</title>
+  <desc id="screen-desc">The approved provider route returned no eligible match for this shift. The booking remains unchanged; Mateo can request help from the local service or return to the gap.</desc>
+  <rect width="390" height="844" fill="#F4F7F6"/>
+  <g id="header">
+    <rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+    <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+    <g aria-hidden="true" transform="translate(20 64) scale(1)"><path d="m14.5 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="64" y="74" font-size="20" font-weight="650" fill="#152C26">Vetted pool</text>
+    <text x="64" y="94" font-size="13" font-weight="450" fill="#425B52">Terrace door repair · BB-1042</text>
+    <path d="M0 107.5H390" stroke="#D4E1DB"/>
+  </g>
+  <g id="content">
+    <g id="shift-card">
+    <rect x="20.5" y="124.5" width="349" height="99" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <text x="36" y="151" font-size="16" font-weight="650" fill="#152C26">Villa Mar · Xàbia</text>
+    <text x="36" y="176" font-size="16" font-weight="650" fill="#152C26" style="font-variant-numeric: tabular-nums">Tue, 24 Nov · 09:00–10:00</text>
+    <text x="36" y="204" font-size="13" font-weight="450" fill="#425B52" style="font-variant-numeric: tabular-nums">Spain time · Own team exhausted at 08:42</text>
+  </g>
+    <g id="match-requirements">
+    <rect x="20.5" y="236.5" width="349" height="99" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <text x="36" y="262" font-size="16" font-weight="650" fill="#152C26">Match requirements</text>
+    <text x="36" y="286" font-size="13" font-weight="450" fill="#425B52">Door fitting · Spanish work and briefing</text>
+    <g aria-hidden="true" transform="translate(34.5 299.5) scale(0.7083333333333334)"><path d="M12 2.5 20 6v5c0 5-3.2 8.2-8 10.5C7.2 19.2 4 16 4 11V6zM8 12l2.6 2.5L16 9" fill="none" stroke="#245936" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="56" y="313" font-size="13" font-weight="450" fill="#425B52">Current eligibility · Approved provider route</text>
+  </g>
+    <g id="no-matches">
+    <rect x="20" y="360" width="350" height="144" rx="16" fill="#FFF1D5"/>
+    <circle cx="48" cy="388" r="16" fill="#FFFFFF"/>
+    <g aria-hidden="true" transform="translate(39.5 379.5) scale(0.7083333333333334)"><path d="M12 3 22 20H2L12 3zm0 6v5m0 3h.01" fill="none" stroke="#704500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="72" y="395" font-size="20" font-weight="650" fill="#704500">No eligible matches</text>
+    <text x="36" y="435" font-size="15" font-weight="400" fill="#704500"><tspan x="36">No worker can cover this shift with</tspan><tspan x="36" dy="22">the required skills, briefing language</tspan><tspan x="36" dy="22">and current eligibility.</tspan></text>
+    <rect x="20.5" y="520.5" width="349" height="127" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <text x="36" y="553" font-size="16" font-weight="650" fill="#152C26">No cover confirmed</text>
+    <text x="36" y="583" font-size="15" font-weight="400" fill="#425B52"><tspan x="36">Ask the local service for help or agree</tspan><tspan x="36" dy="22">a revised window with Claire Martin.</tspan><tspan x="36" dy="22">The booking has not changed.</tspan></text>
+    <text x="20" y="700" font-size="16" font-weight="650" fill="#0B5747">Back to fill shift</text>
+    <g aria-hidden="true" transform="translate(343 685) scale(0.75)"><path d="m9 6 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+  </g>
+  </g>
+  <g id="action-bar">
+    <rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+    <path d="M0 744.5H390" stroke="#D4E1DB"/>
+    <rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/><text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Escalate to local service</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

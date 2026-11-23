@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">S-09 Notifications — replacement offer</title>
+  <desc id="screen-desc">An unread alert opens the BB-1042 W-03 cover offer for Tuesday 24 November from 09:00 to 10:00 Spain time, with a Monday noon Spain-time response deadline. The notification does not confirm the shift.</desc>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+  <g id="header">
+    <g transform="translate(20 64) scale(1)" aria-hidden="true"><path d="M15 4l-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Notifications</text>
+    <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Worker · Reformas Ruiz</text>
+    <path d="M0 107.5h390" stroke="#D4E1DB"/>
+  </g>
+  <g id="content">
+    <text x="20" y="152" fill="#152C26" font-size="28" font-weight="700">Work updates</text>
+    <text x="20" y="179" fill="#425B52" font-size="15" font-weight="400">Find offers, shift changes and other alerts.</text>
+    <rect x="20.5" y="204.5" width="81" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
+    <g transform="translate(32 220) scale(0.6666666666666666)" aria-hidden="true"><path d="m5 12 4 4 10-10" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="68" y="234" fill="#0B5747" font-size="15" font-weight="650" text-anchor="middle">All</text>
+    <rect x="110.5" y="204.5" width="95" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <text x="158" y="234" fill="#425B52" font-size="15" font-weight="650" text-anchor="middle">Unread</text>
+    <text x="20" y="289" fill="#152C26" font-size="20" font-weight="650">Today · Mon, 23 Nov</text>
+    <rect x="20.5" y="306.5" width="349" height="187" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <rect x="36" y="322" width="32" height="32" rx="8" fill="#FFF1D5"/>
+    <g transform="translate(42 328) scale(0.8333333333333334)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Zm-10-6v6l4 2" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="80" y="338" fill="#152C26" font-size="16" font-weight="650">Replacement offer</text>
+    <text x="80" y="360" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
+    <rect x="306" y="320" width="48" height="24" rx="12" fill="#DCF2EA"/>
+    <text x="330" y="336" fill="#0B5747" font-size="12" font-weight="550" text-anchor="middle">New</text>
+    <text x="80" y="388" fill="#152C26" font-size="15" font-weight="400"><tspan x="80" dy="0">Tue, 24 Nov · 09:00–10:00</tspan><tspan x="80" dy="22">Respond by Mon, 23 Nov · 12:00</tspan></text>
+    <text x="80" y="451" fill="#0B5747" font-size="16" font-weight="650">Review offer</text>
+    <text x="80" y="477" fill="#425B52" font-size="13" font-weight="450">Received at 08:12 · All times Spain time</text>
+    <g transform="translate(332 431) scale(1)" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <rect x="20" y="514" width="350" height="92" rx="16" fill="#E5F0FA"/>
+    <g transform="translate(36 530) scale(0.8333333333333334)" aria-hidden="true"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0ZM12 10v6m0-9h.01" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="64" y="544" fill="#234C78" font-size="16" font-weight="650">This shift isn’t confirmed</text>
+    <text x="64" y="565" fill="#234C78" font-size="13" font-weight="450"><tspan x="64" dy="0">Open the offer to see what’s needed and</tspan><tspan x="64" dy="18">choose whether to respond.</tspan></text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

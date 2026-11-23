@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">C-07 Approve current quote</title>
+<desc id="screen-desc">A confirmation dialog overlays the current quote. Claire Martin, acting as Customer for Villa Mar, can approve version 1 from Reformas Ruiz for EUR 240; approval neither schedules a visit nor takes payment.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+<g id="header">
+<g aria-hidden="true" transform="translate(20 64)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Quote and scope</text>
+<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">BB-1042 · Villa Mar</text>
+<path d="M0 107.5H390" stroke="#D4E1DB"/>
+</g>
+<g id="content">
+<rect x="20.5" y="120.5" width="349" height="87" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="145" fill="#152C26" font-size="16" font-weight="650">Reformas Ruiz</text>
+<text x="36" y="165" fill="#425B52" font-size="13" font-weight="450">Mateo Ruiz · Foreman</text>
+<rect x="36" y="172" width="94" height="24" rx="12" fill="#E5F0FA"/>
+<text x="83" y="188" fill="#234C78" font-size="12" font-weight="550" text-anchor="middle">Version 1</text>
+<text x="354" y="144" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">Total (EUR)</text>
+<text x="354" y="175" fill="#152C26" font-size="28" font-weight="700" text-anchor="end">€240.00</text>
+<rect x="20.5" y="220.5" width="349" height="143" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="244" fill="#152C26" font-size="16" font-weight="650">Price breakdown</text>
+<text x="354" y="243" fill="#0B5747" font-size="13" font-weight="450" text-anchor="end">Translation · English</text>
+<text x="36" y="271" fill="#152C26" font-size="16" font-weight="650">Labour</text>
+<text x="354" y="271" fill="#152C26" font-size="16" font-weight="650" text-anchor="end">€160.00</text>
+<text x="36" y="293" fill="#425B52" font-size="13" font-weight="450">Original · Español: <tspan xml:lang="es" font-size="15">Mano de obra</tspan></text>
+<path d="M36 303.5H354" stroke="#D4E1DB"/>
+<text x="36" y="326" fill="#152C26" font-size="16" font-weight="650">Rollers</text>
+<text x="354" y="326" fill="#152C26" font-size="16" font-weight="650" text-anchor="end">€80.00</text>
+<text x="36" y="348" fill="#425B52" font-size="13" font-weight="450">Original · Español: <tspan xml:lang="es" font-size="15">Rodillos</tspan></text>
+<rect x="20.5" y="376.5" width="349" height="183" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="402" fill="#152C26" font-size="20" font-weight="650">Scope and exclusions</text>
+<text x="36" y="422" fill="#0B5747" font-size="13" font-weight="450">Translation · English</text>
+<text x="36" y="441" fill="#152C26" font-size="15">Adjust the terrace door and replace</text>
+<text x="36" y="461" fill="#152C26" font-size="15">the rollers. Excludes glass replacement.</text>
+<path d="M36 471.5H354" stroke="#D4E1DB"/>
+<text x="36" y="490" fill="#425B52" font-size="13" font-weight="450">Original · Español</text>
+<text x="36" y="510" fill="#152C26" font-size="15" xml:lang="es">Ajustar la puerta de la terraza y sustituir</text>
+<text x="36" y="529" fill="#152C26" font-size="15" xml:lang="es">los rodillos.</text>
+<text x="36" y="549" fill="#152C26" font-size="15" xml:lang="es">No incluye la sustitución del vidrio.</text>
+<rect x="20.5" y="572.5" width="349" height="55" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g aria-hidden="true" transform="translate(36 588)"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm-2 12 5-4 4 3 4-5 5 6M9 8h.01" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="72" y="596" fill="#0B5747" font-size="16" font-weight="650">Terrace door photo</text>
+<text x="72" y="616" fill="#425B52" font-size="13" font-weight="450">Attachment · Quote version 1</text>
+<g aria-hidden="true" transform="translate(334 588)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="20" y="653" fill="#152C26" font-size="20" font-weight="650">Approval and booking</text>
+<text x="20" y="675" fill="#425B52" font-size="15">Approval takes no payment and books no visit.</text>
+<text x="20" y="719" fill="#853531" font-size="16" font-weight="650">Decline quote</text>
+<text x="370" y="719" fill="#0B5747" font-size="16" font-weight="650" text-anchor="end">Version history</text>
+</g>
+<g id="action-bar">
+<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+<path d="M0 744.5H390" stroke="#D4E1DB"/>
+<rect x="20.5" y="752.5" width="141" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="91" y="782" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Ask Mateo</text>
+<rect x="170" y="752" width="200" height="48" rx="12" fill="#0B6250"/>
+<text x="270" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Review approval</text>
+</g>
+<rect width="390" height="844" fill="#101A18" opacity="0.4"/>
+<g id="approval-dialog">
+<rect x="20" y="236" width="350" height="364" rx="16" fill="#FFFFFF"/>
+<text x="40" y="274" fill="#152C26" font-size="20" font-weight="650">Approve current quote?</text>
+<text x="40" y="298" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
+<text x="40" y="319" fill="#425B52" font-size="13" font-weight="450">Villa Mar · Xàbia</text>
+<rect x="40" y="340" width="310" height="76" rx="12" fill="#DCF2EA"/>
+<text x="52" y="369" fill="#152C26" font-size="16" font-weight="650">Version 1</text>
+<text x="52" y="392" fill="#425B52" font-size="13" font-weight="450">Reformas Ruiz</text>
+<text x="338" y="384" fill="#152C26" font-size="28" font-weight="700" text-anchor="end">€240.00</text>
+<text x="40" y="451" fill="#152C26" font-size="16" font-weight="650">Claire Martin · Customer</text>
+<text x="40" y="478" fill="#152C26" font-size="15">You’re agreeing to this scope and price.</text>
+<text x="40" y="500" fill="#152C26" font-size="15">This won’t book a visit or take payment.</text>
+<rect x="40.5" y="532.5" width="105" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="93" y="562" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Cancel</text>
+<rect x="154" y="532" width="196" height="48" rx="12" fill="#0B6250"/>
+<text x="252" y="562" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Approve €240.00</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

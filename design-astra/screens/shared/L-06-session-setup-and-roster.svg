@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">L-06 Session setup and roster — published session</title>
+<desc id="screen-desc">An Estudi Mar Pilates provider admin sees published class settings, six of eight places booked and the confirmed instructor. The designated coordinator owns staffing.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+<text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+<rect x="301" y="24" width="3" height="4" rx="1"/>
+<rect x="306" y="22" width="3" height="6" rx="1"/>
+<rect x="311" y="19" width="3" height="9" rx="1"/>
+<rect x="316" y="16" width="3" height="12" rx="1"/>
+<path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+<circle cx="332" cy="29" r="1.1"/>
+<rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+<rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+<path d="M370 20v5c2-1 2-4 0-5z"/>
+</g>
+<g id="header">
+<g transform="translate(32 76)" aria-hidden="true"><path d="m3-8-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Session setup and roster</text>
+<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Estudi Mar Pilates · Provider admin</text>
+<path d="M0 107.5h390" stroke="#D4E1DB"/>
+</g>
+<g id="content">
+<g id="session-and-publish-status">
+<rect x="20.5" y="124.5" width="349" height="131" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="140" width="110" height="28" rx="14" fill="#E7F4E8"/>
+<g transform="translate(52 154)" aria-hidden="true"><path d="m-5 0 3.5 3.5L5-4" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="65" y="158" fill="#245936" font-size="12" font-weight="550">Published</text>
+</g>
+<text x="36" y="196" fill="#152C26" font-size="20" font-weight="650">Mat Pilates</text>
+<text x="36" y="222" fill="#152C26" font-size="16" font-weight="650">Sat, 28 Nov · 10:00–10:45</text>
+<text x="36" y="244" fill="#425B52" font-size="13" font-weight="450">Spain time · Xàbia</text>
+</g>
+<g id="session-setup">
+<text x="20" y="290" fill="#152C26" font-size="20" font-weight="650">Session setup</text>
+<rect x="20.5" y="302.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="332" fill="#152C26" font-size="16" font-weight="650">45 min · Group class</text>
+<text x="36" y="355" fill="#425B52" font-size="13" font-weight="450">English · Step-free entry · €16.00 per person</text>
+<path d="M36 367.5h318" stroke="#D4E1DB"/>
+<text x="36" y="389" fill="#425B52" font-size="13" font-weight="450">Pay at the studio · 24-hour cancellation cutoff</text>
+</g>
+<g id="roster-summary">
+<text x="20" y="446" fill="#152C26" font-size="20" font-weight="650">Roster</text>
+<g>
+<rect x="20.5" y="460.5" width="349" height="63" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="476" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(52 492)" aria-hidden="true"><path d="M-3-7a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm-6 13v-1a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v1M5-6a2.5 2.5 0 0 1 0 5m1 2c2 0 3 2 3 4v1" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="80" y="489" fill="#152C26" font-size="16" font-weight="650">6 of 8 places booked</text>
+<text x="80" y="508" fill="#425B52" font-size="13" font-weight="450">2 places available</text>
+<g transform="translate(346 492)" aria-hidden="true"><path d="m-3-6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+</g>
+<g id="staffing">
+<rect x="20.5" y="540.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="556" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<g transform="translate(52 572)" aria-hidden="true"><path d="M0-8a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm-7 14v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+</g>
+<text x="80" y="569" fill="#152C26" font-size="16" font-weight="650">Elena Costa</text>
+<text x="80" y="589" fill="#425B52" font-size="13" font-weight="450">Instructor · English</text>
+<g>
+<rect x="252" y="556" width="102" height="28" rx="14" fill="#E7F4E8"/>
+<g transform="translate(268 570)" aria-hidden="true"><path d="m-5 0 3.5 3.5L5-4" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="281" y="574" fill="#245936" font-size="12" font-weight="550">Confirmed</text>
+</g>
+<path d="M36 604.5h318" stroke="#D4E1DB"/>
+<text x="36" y="629" fill="#425B52" font-size="13" font-weight="450">Marina Serra · Accountable coordinator</text>
+</g>
+<text x="20" y="682" fill="#425B52" font-size="13" font-weight="450">Staffing actions are in the coordinator context.</text>
+</g>
+<g id="action-bar">
+<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+<path d="M0 744.5h390" stroke="#D4E1DB"/>
+<g>
+<rect x="20.5" y="752.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="195" y="782" fill="#152C26" font-size="16" font-weight="650" text-anchor="middle">Edit session</text>
+</g>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

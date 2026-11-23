@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">L-05 Session booking — proposed time change</title>
+<desc id="screen-desc">Estudi Mar Pilates asks to move Claire Martin’s booking BB-S1042 from 10:00–10:45 to 11:30–12:15 on Saturday 28 November, Spain time. The original booking remains in effect. Claire can accept or decline Change 1 explicitly.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+<text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+<rect x="301" y="24" width="3" height="4" rx="1"/>
+<rect x="306" y="22" width="3" height="6" rx="1"/>
+<rect x="311" y="19" width="3" height="9" rx="1"/>
+<rect x="316" y="16" width="3" height="12" rx="1"/>
+<path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+<circle cx="332" cy="29" r="1.1"/>
+<rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+<rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+<path d="M370 20v5c2-1 2-4 0-5z"/>
+</g>
+<g id="header">
+<g transform="translate(32 76)" aria-hidden="true"><path d="m3-8-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Session booking</text>
+<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">BB-S1042 · Claire Martin</text>
+<path d="M0 107.5h390" stroke="#D4E1DB"/>
+</g>
+<g id="content">
+<g id="booking-pass">
+<rect x="20.5" y="124.5" width="349" height="155" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<g>
+<rect x="36" y="140" width="93" height="28" rx="14" fill="#E7F4E8"/>
+<g transform="translate(52 154)" aria-hidden="true"><path d="m-5 0 3.5 3.5L5-4" fill="none" stroke="#245936" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="65" y="158" fill="#245936" font-size="12" font-weight="550">Booked</text>
+</g>
+<text x="36" y="199" fill="#152C26" font-size="20" font-weight="650">Mat Pilates</text>
+<text x="36" y="222" fill="#425B52" font-size="13" font-weight="450">Estudi Mar Pilates · Xàbia</text>
+<text x="36" y="249" fill="#152C26" font-size="16" font-weight="650">Sat, 28 Nov · 10:00–10:45</text>
+<text x="36" y="269" fill="#425B52" font-size="13" font-weight="450">Spain time · English · 1 place</text>
+</g>
+<g id="pending-change">
+<rect x="20" y="292" width="350" height="76" rx="16" fill="#FFF1D5"/>
+<path d="M44 308 52 323H36zm0 5v4m0 3h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
+<text x="64" y="321" fill="#704500" font-size="16" font-weight="650">Review proposed time change</text>
+<text x="64" y="343" fill="#704500" font-size="13" font-weight="450">Your original booking is still in effect.</text>
+</g>
+<g id="change-comparison">
+<rect x="20.5" y="380.5" width="349" height="191" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="412" fill="#152C26" font-size="20" font-weight="650">Change 1</text>
+<text x="36" y="435" fill="#425B52" font-size="13" font-weight="450">Sat, 28 Nov · Spain time</text>
+<path d="M36 448.5h318" stroke="#D4E1DB"/>
+<text x="36" y="473" fill="#152C26" font-size="16" font-weight="650">Booked</text>
+<text x="354" y="473" fill="#152C26" font-size="16" font-weight="650" text-anchor="end">10:00–10:45</text>
+<rect x="36" y="488" width="318" height="36" rx="8" fill="#E5F0FA"/>
+<text x="48" y="512" fill="#234C78" font-size="16" font-weight="650">Proposed</text>
+<text x="342" y="512" fill="#234C78" font-size="16" font-weight="650" text-anchor="end">11:30–12:15</text>
+<text x="36" y="551" fill="#425B52" font-size="13" font-weight="450">Same venue, language, price and terms.</text>
+</g>
+<g id="studio-contact">
+<rect x="20.5" y="584.5" width="349" height="63" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="600" width="32" height="32" rx="8" fill="#EBF2EF"/>
+<path d="M44 610H60V620H52l-5 4v-4h-3zm4 3h8m-8 3h6" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
+<text x="80" y="613" fill="#152C26" font-size="16" font-weight="650">Message the studio</text>
+<text x="80" y="632" fill="#425B52" font-size="13" font-weight="450">Marina Serra · Session coordinator</text>
+<path d="m343 610 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
+</g>
+<g id="manage-booking">
+<text x="20" y="697" fill="#0B5747" font-size="16" font-weight="650">Cancel or reschedule</text>
+<path d="m343 685 6 6-6 6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
+</g>
+</g>
+<g id="action-bar">
+<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+<path d="M0 744.5h390" stroke="#D4E1DB"/>
+<rect x="20.5" y="752.5" width="169" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="105" y="782" fill="#152C26" font-size="16" font-weight="650" text-anchor="middle">Decline change</text>
+<rect x="200" y="752" width="170" height="48" rx="12" fill="#0B6250"/>
+<text x="285" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Accept change</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

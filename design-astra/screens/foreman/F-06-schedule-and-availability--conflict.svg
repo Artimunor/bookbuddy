@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="screen-title">F-06 Schedule and availability — capacity conflict</title>
+  <desc id="screen-desc">Tuesday 24 November from 09:00 to 10:00 Spain time remains selected, but no eligible crew is available. Mateo Ruiz can find a different window; sending is disabled.</desc>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+  <rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+  <g id="header">
+  <g transform="translate(20 64)" aria-hidden="true"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Schedule and availability</text>
+  <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
+  <path d="M0 107.5h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="content">
+  <g id="visit-type">
+  <rect x="20" y="124" width="350" height="48" rx="12" fill="#EBF2EF"/>
+  <rect x="194.5" y="128.5" width="171" height="39" rx="8" fill="#DCF2EA" stroke="#0B6250"/>
+  <text x="106" y="154" fill="#425B52" font-size="15" font-weight="550" text-anchor="middle">Site assessment</text>
+  <text x="280" y="154" fill="#0B5747" font-size="15" font-weight="650" text-anchor="middle">Work visit</text>
+  <text x="20" y="194" fill="#425B52" font-size="13" font-weight="450">Quote v1 approved · Work window not agreed</text>
+  </g>
+  <g id="calendar">
+  <text x="20" y="236" fill="#152C26" font-size="20" font-weight="650">November 2026</text>
+  <rect x="266.5" y="210.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <g transform="translate(278 222)" aria-hidden="true"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="322.5" y="210.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <g transform="translate(334 222)" aria-hidden="true"><path d="m9 6 6 6-6 6" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="45" y="278" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Mon</text>
+  <rect x="22.5" y="288.5" width="45" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="45" y="319" fill="#152C26" font-size="16" font-weight="650" text-anchor="middle">23</text>
+  <circle cx="45" cy="328" r="2" fill="#0B5747"/>
+  <text x="95" y="278" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Tue</text>
+  <rect x="72.5" y="288.5" width="45" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
+  <text x="95" y="319" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">24</text>
+  
+  <text x="145" y="278" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Wed</text>
+  <rect x="122.5" y="288.5" width="45" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="145" y="319" fill="#152C26" font-size="16" font-weight="650" text-anchor="middle">25</text>
+  
+  <text x="195" y="278" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Thu</text>
+  <rect x="172.5" y="288.5" width="45" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="195" y="319" fill="#152C26" font-size="16" font-weight="650" text-anchor="middle">26</text>
+  
+  <text x="245" y="278" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Fri</text>
+  <rect x="222.5" y="288.5" width="45" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="245" y="319" fill="#152C26" font-size="16" font-weight="650" text-anchor="middle">27</text>
+  
+  <text x="295" y="278" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Sat</text>
+  <rect x="272.5" y="288.5" width="45" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="295" y="319" fill="#152C26" font-size="16" font-weight="650" text-anchor="middle">28</text>
+  
+  <text x="345" y="278" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Sun</text>
+  <rect x="322.5" y="288.5" width="45" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="345" y="319" fill="#152C26" font-size="16" font-weight="650" text-anchor="middle">29</text>
+  
+  <text x="20" y="365" fill="#425B52" font-size="13" font-weight="450">Site time · Xàbia, Spain</text>
+  <text x="370" y="365" fill="#0B5747" font-size="15" font-weight="650" text-anchor="end">Agenda view</text>
+  </g>
+  <text x="20" y="410" fill="#152C26" font-size="20" font-weight="650">Tue, 24 Nov</text>
+  <rect x="266" y="388" width="104" height="28" rx="14" fill="#E5F0FA"/>
+  <g transform="translate(274 394) scale(0.6666666666666666)" aria-hidden="true"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 4v5l3 2" fill="none" stroke="#234C78" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="327" y="406" fill="#234C78" font-size="12" font-weight="650" text-anchor="middle">Tentative</text>
+  <rect x="20.5" y="430.5" width="170" height="55" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="32" y="450" fill="#425B52" font-size="13" font-weight="450">Starts</text>
+  <text x="32" y="472" fill="#152C26" font-size="16" font-weight="650">09:00</text>
+  <g transform="translate(151 447) scale(0.8333333333333334)" aria-hidden="true"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 4v5l3 2" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="199.5" y="430.5" width="170" height="55" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <text x="211" y="450" fill="#425B52" font-size="13" font-weight="450">Ends</text>
+  <text x="211" y="472" fill="#152C26" font-size="16" font-weight="650">10:00</text>
+  <g transform="translate(330 447) scale(0.8333333333333334)" aria-hidden="true"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 4v5l3 2" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <rect x="20" y="508" width="350" height="108" rx="16" fill="#FCE9E8"/>
+  <g transform="translate(36 524) scale(0.6666666666666666)" aria-hidden="true"><path d="M12 3 22 20H2L12 3zm0 7v4m0 3h.01" fill="none" stroke="#853531" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="64" y="534" fill="#853531" font-size="16" font-weight="650">Crew capacity conflict</text>
+  <text x="64" y="555" fill="#853531" font-size="13" font-weight="550">No eligible crew is free at this time.</text>
+  <text x="64" y="575" fill="#853531" font-size="13" font-weight="550">Choose another window before sending.</text>
+  
+  <rect x="20.5" y="632.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+  <g transform="translate(32 644)" aria-hidden="true"><path d="M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1zm-1 5h16M8 3v4m8-4v4" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="204" y="662" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Find an available window</text>
+  </g>
+  <g id="footer">
+  <rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+  <path d="M0 744.5h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="20" y="752" width="350" height="48" rx="12" fill="#EBF2EF"/>
+  
+  <text x="195" y="782" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">Review proposal</text>
+  </g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

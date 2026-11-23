@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">C-13 Properties</title>
+<desc id="screen-desc">Claire’s Properties tab shows one active site, Villa Mar in Xàbia, with search, archive filter and Add property.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+<g id="header">
+    <circle cx="36" cy="76" r="16" fill="#DCF2EA"/>
+    <path d="M29 76.5l7-6 7 6m-12.5-1v7h11v-7m-8 3.5 2.1 2 3.1-3.5" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="60" y="75" fill="#152C26" font-size="16" font-weight="700">BookBuddy</text>
+    <text x="60" y="94" fill="#425B52" font-size="13" font-weight="450">Costa Blanca</text>
+    <rect x="322" y="52" width="48" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <path d="M339 79h14l-1.5-2v-4a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+<g id="content">
+<text x="20" y="150" font-size="28" font-weight="700" fill="#152C26">Properties</text>
+<text x="20" y="178" font-size="15" font-weight="400" fill="#425B52">Find a site and manage who can access it.</text>
+<text x="20" y="211" font-size="16" font-weight="650" fill="#152C26">Search properties</text>
+<rect x="20.5" y="222.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<g aria-hidden="true" transform="translate(34 234)"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zm5 11.5 4.5 4.5" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="70" y="252" font-size="15" font-weight="400" fill="#425B52">Name or location</text>
+<g id="property-results" transform="translate(0 24)">
+<rect x="20.5" y="260.5" width="96" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
+<g aria-hidden="true" transform="translate(32 276) scale(0.6666666666666666)"><path d="m5 12 4 4 10-10" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="55" y="290" font-size="16" font-weight="650" fill="#0B5747">Active</text>
+<rect x="128.5" y="260.5" width="102" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="179" y="290" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Archived</text>
+<text x="20" y="353" font-size="20" font-weight="650" fill="#152C26">Active properties</text>
+<text x="370" y="353" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">1 property</text>
+<rect x="20.5" y="368.5" width="349" height="127" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<rect x="36" y="388" width="40" height="40" rx="8" fill="#DCF2EA"/><g aria-hidden="true" transform="translate(44 396)"><path d="m2 11 10-9 10 9M4 10v11h16V10m-10 11v-6h4v6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="88" y="404" font-size="20" font-weight="650" fill="#152C26">Villa Mar</text>
+<text x="88" y="426" font-size="13" font-weight="450" fill="#425B52">Xàbia</text>
+<path d="M36 445.5h318" stroke="#D4E1DB"/>
+<text x="36" y="471" font-size="13" font-weight="450" fill="#425B52">Owner · 1 active job</text>
+<g aria-hidden="true" transform="translate(334 398)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<rect x="20" y="520" width="350" height="128" rx="16" fill="#DCF2EA"/>
+<text x="36" y="553" font-size="20" font-weight="650" fill="#152C26">Add a property</text>
+<text x="36" y="578" font-size="15" font-weight="400" fill="#425B52">Save a site for your next repair.</text>
+<rect x="36" y="590" width="176" height="48" rx="12" fill="#0B6250"/><g aria-hidden="true" transform="translate(52 602)"><path d="M12 5v14M5 12h14" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="86" y="620" font-size="16" font-weight="650" fill="#FFFFFF">Add property</text>
+</g>
+</g>
+<g id="tab-bar">
+    <rect y="746" width="390" height="98" fill="#FFFFFF"/>
+    <path d="M0 746.5h390" stroke="#D4E1DB"/>
+    <rect x="122" y="753" width="48" height="30" rx="15" fill="#DCF2EA"/>
+    <g fill="none" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M43 765v-2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-15 0h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H40a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1zm-1 5a23 23 0 0 0 20 0" stroke="#425B52"/>
+      <path d="M136 769l10-9 10 9m-18-1v9h16v-9m-10 9v-5h4v5" stroke="#0B5747"/>
+      <path d="M237 761h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-7l-7 4v-4a3 3 0 0 1-3-3v-8a3 3 0 0 1 3-3zm2 6h10m-10 4h7" stroke="#425B52"/>
+      <path d="M345.5 765a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0zm-13 13a8.5 8.5 0 0 1 17 0" stroke="#425B52"/>
+    </g>
+    <g text-anchor="middle" font-size="12" font-weight="550" fill="#425B52">
+      <text x="49" y="800">Jobs</text>
+      <text x="146" y="800" fill="#0B5747" font-weight="650">Properties</text>
+      <text x="244" y="800">Messages</text>
+      <text x="341" y="800">Account</text>
+    </g>
+  </g>
+  
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

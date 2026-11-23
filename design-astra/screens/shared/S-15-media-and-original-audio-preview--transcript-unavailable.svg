@@ -1,0 +1,156 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="audio-preview-title audio-preview-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="audio-preview-title">S-15 Media and original audio preview — transcript unavailable</title>
+<desc id="audio-preview-desc">Mateo Ruiz’s twelve-second original Spanish audio in the Job conversation remains playable even though its transcript is unavailable. Nadia is a recipient and cannot remove the attachment.</desc>
+  <rect width="390" height="844" fill="#F4F7F6"/>
+  <rect width="390" height="160" fill="#FFFFFF"/>
+  <g id="header">
+    <path d="m35 68-8 8 8 8" fill="none" stroke="#152C26" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Job chat</text>
+    <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">Terrace door repair · BB-1042</text>
+    <g fill="#152C26" aria-hidden="true">
+      <circle cx="339" cy="76" r="1.75"/>
+      <circle cx="346" cy="76" r="1.75"/>
+      <circle cx="353" cy="76" r="1.75"/>
+    </g>
+    <rect x="20" y="108" width="350" height="48" rx="12" fill="#EBF2EF"/>
+    <rect x="24.5" y="112.5" width="170" height="39" rx="8" fill="#DCF2EA" stroke="#0B6250"/>
+    <text x="109" y="137" text-anchor="middle" fill="#0B5747" font-size="15" font-weight="650">Job conversation</text>
+    <text x="283" y="137" text-anchor="middle" fill="#425B52" font-size="15" font-weight="550">Crew only</text>
+    <path d="M0 159.5h390" stroke="#D4E1DB"/>
+  </g>
+  <g id="content">
+    <g id="briefing-cue">
+      <rect x="20" y="172" width="350" height="64" rx="16" fill="#FFF1D5"/>
+      <path d="M44 189 53 205a1 1 0 0 1-.9 1.5H35.9a1 1 0 0 1-.9-1.5L44 189zm0 6v4m0 4h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/>
+      <text x="64" y="198" fill="#704500" font-size="16" font-weight="650">Safety briefing required</text>
+      <text x="64" y="219" fill="#704500" font-size="13" font-weight="550">Review &amp; confirm</text>
+      <path d="m344 199 5 5-5 5" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="day-separator">
+      <path d="M20 256.5h116m118 0h116" stroke="#D4E1DB"/>
+      <text x="195" y="261" fill="#425B52" text-anchor="middle" font-size="12" font-weight="550">Mon, 23 Nov</text>
+    </g>
+    <g id="customer-message">
+      <circle cx="36" cy="316" r="16" fill="#E5F0FA"/>
+      <text x="36" y="320" text-anchor="middle" fill="#234C78" font-size="12" font-weight="650" aria-hidden="true">CM</text>
+      <text x="60" y="286" fill="#425B52" font-size="13" font-weight="550">Claire Martin · Customer</text>
+      <text x="352" y="286" text-anchor="end" fill="#425B52" font-size="12" font-weight="550">08:34</text>
+      <rect x="60.5" y="296.5" width="291" height="106" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+      <text x="76" y="318" fill="#0B5747" font-size="12" font-weight="650">Translation · English</text>
+      <text x="76" y="341" fill="#152C26" font-size="15" xml:lang="en">Thanks for letting me know.</text>
+      <path d="M76 351.5h260" stroke="#D4E1DB"/>
+      <text x="76" y="370" fill="#425B52" font-size="12" font-weight="550">Original · Français</text>
+      <text x="76" y="391" fill="#152C26" font-size="15" xml:lang="fr">Merci de m’avoir prévenue.</text>
+    </g>
+    <g id="foreman-message">
+      <circle cx="36" cy="453" r="16" fill="#DCF2EA"/>
+      <text x="36" y="457" text-anchor="middle" fill="#0B5747" font-size="12" font-weight="650" aria-hidden="true">MR</text>
+      <text x="60" y="423" fill="#425B52" font-size="13" font-weight="550">Mateo Ruiz · Foreman</text>
+      <text x="352" y="423" text-anchor="end" fill="#425B52" font-size="12" font-weight="550">08:36</text>
+      <rect x="60.5" y="433.5" width="291" height="146" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+      <text x="76" y="455" fill="#0B5747" font-size="12" font-weight="650">Translation · English</text>
+      <text x="76" y="478" fill="#152C26" font-size="15" xml:lang="en">
+        <tspan x="76">I’ll meet the crew at the gate</tspan>
+        <tspan x="76" dy="22">tomorrow at 09:00.</tspan>
+      </text>
+      <path d="M76 509.5h260" stroke="#D4E1DB"/>
+      <text x="76" y="528" fill="#425B52" font-size="12" font-weight="550">Original · Español</text>
+      <text x="76" y="549" fill="#152C26" font-size="15" xml:lang="es">
+        <tspan x="76">Mañana a las 09:00 me reúno</tspan>
+        <tspan x="76" dy="22">con el equipo en el portón.</tspan>
+      </text>
+    </g>
+    <g id="worker-message">
+      <text x="370" y="602" text-anchor="end" fill="#425B52" font-size="13" font-weight="550">You · Worker · 08:39</text>
+      <rect x="126" y="612" width="244" height="50" rx="16" fill="#DCF2EA"/>
+      <text x="142" y="643" fill="#152C26" font-size="15" xml:lang="en">I’ll be at the gate at 09:00.</text>
+      <path d="m323 680 3 3 6-7" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"/>
+      <text x="370" y="684" text-anchor="end" fill="#425B52" font-size="12" font-weight="550">Sent</text>
+    </g>
+    <text x="195" y="721" text-anchor="middle" fill="#425B52" font-size="12" font-weight="550">Message times shown in Spain time</text>
+  </g>
+  <g id="composer">
+    <rect y="744" width="390" height="100" fill="#FFFFFF"/>
+    <path d="M0 744.5h390" stroke="#D4E1DB"/>
+    <rect x="20.5" y="752.5" width="47" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <path d="M37 776h14m-7-7v14" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <rect x="76.5" y="752.5" width="237" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+    <text x="92" y="782" fill="#152C26" font-size="15">Thanks, Mateo.</text>
+    <rect x="322" y="752" width="48" height="48" rx="12" fill="#0B6250"/>
+    <path d="m337 775.5 18-8-6 18-3.7-7.2-8.3-2.8zm8.3 2.8 4.7-4.6" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+<rect id="scrim" width="390" height="844" fill="#101A18" opacity="0.4" aria-hidden="true"/>
+<g id="preview-modal">
+<rect x="0" y="44" width="390" height="800" rx="0" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" rx="0" fill="#FFFFFF"/>
+  <g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+<text x="20" y="74" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Audio preview</text>
+<text x="20" y="94" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">BB-1042 · Job conversation</text>
+<g aria-hidden="true" transform="translate(334 64) scale(1)"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M0 107.5H390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<g id="audio">
+<rect x="20.5" y="132.5" width="349" height="253" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<circle cx="52" cy="168" r="16" fill="#DCF2EA"/>
+<g aria-hidden="true"><text x="52" y="172" font-size="12" font-weight="650" fill="#0B5747" text-anchor="middle">MR</text></g>
+<text x="80" y="166" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Mateo Ruiz</text>
+<text x="80" y="185" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">Foreman · Reformas Ruiz</text>
+<rect x="36" y="207" width="134" height="28" rx="14" fill="#DCF2EA"/>
+
+<text x="103" y="225" font-size="12" font-weight="550" fill="#0B5747" text-anchor="middle">Original · Español</text>
+<path d="M36 249.5H354" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="36" y="270" width="48" height="48" rx="12" fill="#0B6250"/>
+<g aria-hidden="true" transform="translate(48 282) scale(1)"><path d="m8 5 11 7-11 7z" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M104 289v10" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M114 288v12" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M124 280.5v27" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M134 285v18" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M144 275.5v37" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M154 282v24" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M164 287v14" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M174 279v30" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M184 275.5v37" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M194 284.5v19" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M204 282v24" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M214 278.5v31" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M224 289v10" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M234 283v22" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M244 284v20" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M254 277v34" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M264 285v18" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M274 287v14" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M284 282v24" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M294 278.5v31" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M304 286v16" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M314 282.5v23" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M324 288v12" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M334 290v8" fill="none" stroke="#0B6250" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M104 338h230" fill="none" stroke="#70877D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="104" cy="338" r="5" fill="#0B6250"/>
+<text x="104" y="364" font-size="13" font-weight="450" fill="#425B52" text-anchor="start">0:00</text>
+<text x="334" y="364" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">0:12</text>
+</g>
+<text x="20" y="426" font-size="20" font-weight="650" fill="#152C26" text-anchor="start">Transcript and translation</text>
+<rect x="20" y="444" width="350" height="96" rx="16" fill="#E5F0FA"/>
+<g aria-hidden="true" transform="translate(34 458) scale(0.8333333333333334)"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 5h10m-10 4h6" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="473" font-size="16" font-weight="650" fill="#234C78" text-anchor="start">Transcript unavailable</text>
+<text x="64" y="495" font-size="15" font-weight="400" fill="#234C78" text-anchor="start">You can still play the original audio.</text>
+<text x="64" y="517" font-size="15" font-weight="400" fill="#234C78" text-anchor="start">There is no translation to show.</text>
+<text x="20" y="577" font-size="15" font-weight="400" fill="#425B52" text-anchor="start">Need help understanding this message?</text>
+<rect x="20.5" y="591.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<g aria-hidden="true" transform="translate(34 603) scale(1)"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 5h10m-10 4h6" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="68" y="621" font-size="16" font-weight="650" fill="#152C26" text-anchor="start">Ask Mateo in chat</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

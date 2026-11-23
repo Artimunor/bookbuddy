@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">C-04 Review and send request</title>
+<desc id="screen-desc">The review is offline. Claire’s request is saved on this device, has not been sent, and will not send automatically on reconnection.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+<g id="header">
+<g aria-hidden="true" transform="translate(20 64)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Review and send request</text>
+<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">New request · Step 3 of 3</text>
+<path d="M0 107.5H390" stroke="#D4E1DB"/>
+</g>
+<g id="progress">
+<rect x="20" y="120" width="112" height="4" rx="2" fill="#0B6250"/>
+<rect x="140" y="120" width="112" height="4" rx="2" fill="#0B6250"/>
+<rect x="260" y="120" width="110" height="4" rx="2" fill="#0B6250"/>
+</g>
+<g id="content">
+<rect x="20" y="140" width="350" height="72" rx="16" fill="#FFF1D5"/>
+<g aria-hidden="true" transform="translate(36 156) scale(0.8333333333333334)"><path d="m4 4 16 16M4 9a13 13 0 0 1 2-1m4-1a13 13 0 0 1 10 2M7 13a8 8 0 0 1 3-1m6 1a8 8 0 0 1 1 0m-7 4a3 3 0 0 1 4 0m-2 3h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="168" fill="#704500" font-size="16" font-weight="650">Offline · Request not sent</text>
+<text x="64" y="190" fill="#704500" font-size="15">Draft saved on this device.</text>
+<rect x="20.5" y="224.5" width="349" height="217" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="255" fill="#152C26" font-size="20" font-weight="650">The repair</text>
+<text x="307" y="253" fill="#0B5747" font-size="16" font-weight="650">Edit</text>
+<text x="36" y="284" fill="#0B5747" font-size="13" font-weight="450">Translation · English</text>
+<text x="36" y="306" fill="#152C26" font-size="15">The terrace door sticks when I close it.</text>
+<path d="M36 319.5H354" stroke="#D4E1DB"/>
+<text x="36" y="343" fill="#425B52" font-size="13" font-weight="450">Original · Français</text>
+<text x="36" y="367" fill="#152C26" font-size="15" xml:lang="fr">La porte de la terrasse coince quand</text>
+<text x="36" y="389" fill="#152C26" font-size="15" xml:lang="fr">je la ferme.</text>
+<path d="M36 403.5H354" stroke="#D4E1DB"/>
+<text x="36" y="427" fill="#425B52" font-size="13" font-weight="450">1 photo · 1 voice note (Français)</text>
+<rect x="20.5" y="454.5" width="349" height="157" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+<text x="36" y="485" fill="#152C26" font-size="20" font-weight="650">Property and access</text>
+<text x="307" y="483" fill="#0B5747" font-size="16" font-weight="650">Edit</text>
+<text x="36" y="516" fill="#152C26" font-size="16" font-weight="650">Villa Mar · Xàbia</text>
+<text x="36" y="538" fill="#425B52" font-size="13" font-weight="450">12 Carrer de la Porta Verda, 03730 Xàbia</text>
+<text x="36" y="569" fill="#152C26" font-size="15">Please meet me at the gate.</text>
+<text x="36" y="592" fill="#425B52" font-size="13" font-weight="450">On site: Claire Martin</text>
+<rect x="20" y="628" width="350" height="88" rx="16" fill="#E5F0FA"/>
+<g aria-hidden="true" transform="translate(36 644) scale(0.8333333333333334)"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 8v5m0-8h.01" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="656" fill="#234C78" font-size="16" font-weight="650">Send when you’re back online</text>
+<text x="64" y="678" fill="#234C78" font-size="15">Reconnect, then return here to send.</text>
+<text x="64" y="700" fill="#234C78" font-size="15">Nothing is sent automatically.</text>
+</g>
+<g id="action-bar">
+<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+<path d="M0 744.5H390" stroke="#D4E1DB"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#EBF2EF"/>
+<text x="195" y="782" fill="#425B52" font-size="16" font-weight="650" text-anchor="middle">Send request</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>
