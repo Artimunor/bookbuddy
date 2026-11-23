@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">C-16 Report an issue</title>
-<desc id="screen-desc">Claire has drafted a work-quality issue about the terrace door adjustment. She can add optional evidence or send her draft to local support without signing off.</desc>
-<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
-<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/><g id="status-bar" aria-hidden="true" fill="#152C26">
+<desc id="screen-desc">Draft report about the terrace door adjustment. Claire chooses what to send to the case handler; only the necessary item can be shared with the provider’s rectification lead. Sending does not sign off the work.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
     <rect x="306" y="22" width="3" height="6" rx="1"/>
@@ -13,35 +13,40 @@
     <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
     <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
     <path d="M370 20v5c2-1 2-4 0-5z"/>
-  </g><g id="header">
-<g aria-hidden="true" transform="translate(20 64)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="74" font-size="20" font-weight="650" fill="#152C26">Report an issue</text>
-<text x="64" y="94" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Terrace door repair</text>
-<path d="M0 107.5h390" stroke="#D4E1DB"/>
+  </g>
+<g id="header">
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Report an issue</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Terrace door repair</text>
 </g>
 <g id="content">
-<text x="20" y="149" font-size="20" font-weight="650" fill="#152C26">Tell us what’s wrong</text>
-<text x="20" y="176" font-size="15" font-weight="400" fill="#425B52">BookBuddy local support will review this.</text>
-<text x="20" y="219" font-size="16" font-weight="650" fill="#152C26">Issue category</text>
-<rect x="20.5" y="230.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<text x="36" y="260" font-size="15" font-weight="400" fill="#152C26">Work quality</text>
-<g aria-hidden="true" transform="translate(332 242)"><path d="m6 9 6 6 6-6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="20" y="314" font-size="16" font-weight="650" fill="#152C26">Affected item</text>
-<rect x="20.5" y="326.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<text x="36" y="356" font-size="15" font-weight="400" fill="#152C26">Terrace door adjustment</text>
-<g aria-hidden="true" transform="translate(332 338)"><path d="m6 9 6 6 6-6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="20" y="412" font-size="16" font-weight="650" fill="#152C26">What happened?</text>
-<rect x="20.5" y="424.5" width="349" height="82" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<text x="36" y="455" font-size="15" font-weight="400" fill="#152C26">The door catches again when I close it.</text>
-<text x="20" y="547" font-size="16" font-weight="650" fill="#152C26">Evidence (optional)</text>
-<rect x="20.5" y="559.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/><g aria-hidden="true" transform="translate(36 571)"><path d="M12 5v14M5 12h14" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="70" y="589" font-size="16" font-weight="650" fill="#0B5747">Add evidence</text>
-<rect x="20" y="625" width="350" height="96" rx="16" fill="#E5F0FA"/><g aria-hidden="true" transform="translate(36 640) scale(0.8333333333333334)"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 8v5m0-8h.01" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="64" y="654" font-size="16" font-weight="650" fill="#234C78">Who can see this?</text><text x="64" y="677" font-size="15" font-weight="400" fill="#234C78">Local support receives this report and</text>
-<text x="64" y="699" font-size="15" font-weight="400" fill="#234C78">the evidence you choose to attach.</text>
+<text x="20" y="151" font-size="28" font-weight="700" fill="#152C26">What went wrong?</text>
+<text x="20" y="179" font-size="15" font-weight="400" fill="#152C26">BookBuddy will help you follow up.</text>
+<text x="20" y="220" font-size="16" font-weight="650" fill="#152C26">Issue category</text>
+<rect x="20" y="234" width="350" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="36" y="264" font-size="15" font-weight="400" fill="#152C26">Work quality</text>
+<path d="m336 255 6 6 6-6" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="323" font-size="16" font-weight="650" fill="#152C26">Affected item</text>
+<rect x="20" y="337" width="350" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="36" y="367" font-size="15" font-weight="400" fill="#152C26">Terrace door adjustment</text>
+<path d="m336 358 6 6 6-6" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="422" font-size="16" font-weight="650" fill="#152C26">What happened?</text>
+<rect x="20" y="434" width="350" height="64" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="36" y="465" font-size="15" font-weight="400" fill="#152C26">The door catches again when I close it.</text>
+<text x="20" y="536" font-size="16" font-weight="650" fill="#152C26">Evidence (optional)</text>
+<rect x="20" y="549" width="350" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="195" y="579" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Add photos or a voice note</text>
+<text x="20" y="620" font-size="13" font-weight="450" fill="#425B52">Up to 5 photos and 1 voice note. No entry codes.</text>
+<rect x="20" y="637" width="350" height="92" rx="16" fill="#E5F0FA"/>
+<text x="36" y="661" font-size="16" font-weight="650" fill="#234C78">Who sees this report?</text>
+<text x="36" y="685" font-size="15" font-weight="400" fill="#234C78">You and your BookBuddy case handler. Only</text>
+<text x="36" y="706" font-size="15" font-weight="400" fill="#234C78">the details needed go to the provider lead.</text>
 </g>
 <g id="action-bar">
-<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
-<path d="M0 744.5h390" stroke="#D4E1DB"/>
-<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/><text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Send to local support</text>
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Send to local support</text>
 </g>
 <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">C-02 Describe the job</title>
-<desc id="screen-desc">Claire’s French description and original voice note are saved in the draft. Her optional terrace door photo is still uploading and cannot be sent yet.</desc>
+<desc id="screen-desc">One received original French voice note accompanies Claire’s draft. The optional photo is 64% uploaded, not yet received. She may continue, but cannot send with the photo pending.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
@@ -27,37 +27,37 @@
 <rect x="260" y="120" width="110" height="4" rx="2" fill="#D4E1DB"/>
 </g>
 <g id="content">
-<text x="20" y="157" fill="#152C26" font-size="20" font-weight="650">What needs fixing?</text>
-<text x="20" y="182" fill="#425B52" font-size="15">Write or record it in your own language.</text>
-<text x="20" y="218" fill="#152C26" font-size="16" font-weight="650">Description</text>
-<rect x="20.5" y="230.5" width="349" height="95" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<text x="36" y="256" fill="#152C26" font-size="15" xml:lang="fr">La porte de la terrasse coince</text>
-<text x="36" y="278" fill="#152C26" font-size="15" xml:lang="fr">quand je la ferme.</text>
-<text x="36" y="311" fill="#425B52" font-size="13" font-weight="450">Original · Français</text>
-<text x="20" y="363" fill="#152C26" font-size="20" font-weight="650">Photos and voice</text>
-<text x="20" y="387" fill="#425B52" font-size="13" font-weight="450">Show the fault. Leave out people and access codes.</text>
-<rect x="20.5" y="404.5" width="349" height="79" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="420" width="48" height="48" rx="8" fill="#DCF2EA"/>
-<rect x="49" y="428" width="22" height="32" rx="3" fill="#FFFFFF" stroke="#0B5747"/>
-<path d="M54 457v-24h12v24m-6-24v24m2-12h2" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="96" y="435" fill="#152C26" font-size="16" font-weight="650">Terrace door photo</text>
-<text x="96" y="458" fill="#425B52" font-size="13" font-weight="450">Uploading · 64%</text>
-<g aria-hidden="true" transform="translate(334 432)"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<rect x="96" y="468" width="206" height="4" rx="2" fill="#D4E1DB"/>
-<rect x="96" y="468" width="132" height="4" rx="2" fill="#0B6250"/>
-<rect x="20.5" y="496.5" width="349" height="79" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="512" width="48" height="48" rx="8" fill="#EBF2EF"/>
-<g aria-hidden="true" transform="translate(48 524)"><path d="M8 5l12 7-12 7z" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="96" y="527" fill="#152C26" font-size="16" font-weight="650">Voice note · 0:18</text>
-<text x="96" y="550" fill="#425B52" font-size="13" font-weight="450">Original · Français</text>
-<g aria-hidden="true" transform="translate(334 524)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<rect x="20.5" y="592.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<g aria-hidden="true" transform="translate(108 606) scale(0.8333333333333334)"><path d="M5 12h14m-7-7v14" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="208" y="622" fill="#0B5747" font-size="16" font-weight="650" text-anchor="middle">Add photo or voice</text>
-<rect x="20" y="656" width="350" height="68" rx="16" fill="#FFF1D5"/>
-<g aria-hidden="true" transform="translate(36 672) scale(0.8333333333333334)"><path d="M12 16V4m-4 4 4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="684" fill="#704500" font-size="16" font-weight="650">Photo not attached yet</text>
-<text x="64" y="706" fill="#704500" font-size="15">You can continue while it uploads.</text>
+<text x="20" y="163" font-size="24" font-weight="700" fill="#152C26">What needs fixing?</text>
+<text x="20" y="188" font-size="15" font-weight="400" fill="#425B52">Where is the fault? Can you still use the space?</text>
+<text x="20" y="224" font-size="16" font-weight="650" fill="#152C26">Describe it in writing or by voice</text>
+<rect x="20.5" y="237.5" width="349" height="89" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="36" y="262" font-size="15" font-weight="400" fill="#152C26" xml:lang="fr">La porte de la terrasse coince</text>
+<text x="36" y="284" font-size="15" font-weight="400" fill="#152C26" xml:lang="fr">quand je la ferme.</text>
+<text x="36" y="313" font-size="13" font-weight="450" fill="#425B52">Original · Français</text>
+<text x="20" y="366" font-size="20" font-weight="650" fill="#152C26">Photos and voice</text>
+<text x="20" y="389" font-size="13" font-weight="450" fill="#425B52">Up to 5 photos (5 MiB each) and 1 original voice note</text>
+<text x="20" y="408" font-size="13" font-weight="450" fill="#425B52">(90 seconds, 2 MiB). Leave out people and access codes.</text>
+<rect x="20" y="423" width="350" height="146" rx="16" fill="#FFFFFF"/>
+<rect x="36" y="435" width="48" height="48" rx="8" fill="#DCF2EA"/>
+<rect x="48" y="442" width="24" height="34" rx="3" fill="#FFFFFF" stroke="#0B5747"/>
+<path d="M53 472v-24h14v24m-7-24v24m3-13h2" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="96" y="457" font-size="16" font-weight="650" fill="#152C26">Terrace door photo</text>
+<text x="96" y="477" font-size="13" font-weight="500" fill="#425B52">Uploading · 64%</text>
+<path d="M341 454l10 10m0-10-10 10" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="96" y="484" width="182" height="4" rx="2" fill="#D4E1DB"/>
+<rect x="96" y="484" width="116" height="4" rx="2" fill="#0B6250"/>
+<path d="M36 498h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="36" y="510" width="48" height="48" rx="8" fill="#EBF2EF"/>
+<path d="M55 525l14 9-14 9z" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="96" y="531" font-size="16" font-weight="650" fill="#152C26">Voice note · 0:18</text>
+<text x="96" y="552" font-size="13" font-weight="450" fill="#425B52">Original · Français · Received</text>
+<path d="m342 529 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20.5" y="587.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="195" y="617" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Add photo or voice</text>
+<rect x="20" y="651" width="350" height="74" rx="16" fill="#FFF1D5"/>
+<path d="m37 681 9-16 9 16z m9-10v4m0 3v.5" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="680" font-size="16" font-weight="650" fill="#704500">Photo not received yet</text>
+<text x="36" y="707" font-size="14" font-weight="450" fill="#704500">Continue now; wait or remove it before sending.</text>
 </g>
 <g id="action-bar">
 <rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>

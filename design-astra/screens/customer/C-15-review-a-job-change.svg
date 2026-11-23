@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">C-15 Review a job change</title>
-<desc id="screen-desc">Claire compares approved quote v1 with Change 1 from Reformas Ruiz. Replacing the worn latch plate is on hold pending approval; the door adjustment, rollers and arrival window are unchanged. The proposal adds EUR 40.00 for a new total of EUR 280.00 and includes one received photo of the latch plate. English translations appear above the original Spanish.</desc>
-<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
-<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/><g id="status-bar" aria-hidden="true" fill="#152C26">
+<desc id="screen-desc">Mateo issued Change 1 for Reformas Ruiz. Claire compares the immutable approved v1 with the separate proposal, its received photo, price and deadline. Only the new latch plate work is held; the original approval and visit are unchanged.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
     <rect x="306" y="22" width="3" height="6" rx="1"/>
@@ -13,72 +13,57 @@
     <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
     <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
     <path d="M370 20v5c2-1 2-4 0-5z"/>
-  </g><g id="header">
-<g aria-hidden="true" transform="translate(20 64)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="74" font-size="20" font-weight="650" fill="#152C26">Review a job change</text>
-<text x="64" y="94" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Terrace door repair</text>
-<path d="M0 107.5h390" stroke="#D4E1DB"/>
+  </g>
+<g id="header">
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Review a job change</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Reformas Ruiz</text>
 </g>
 <g id="content">
-<rect x="20" y="124" width="144" height="28" rx="14" fill="#FFF1D5"/><g aria-hidden="true" transform="translate(28 130) scale(0.6666666666666666)"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 4v5l3 2" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="48" y="142" font-size="12" font-weight="550" fill="#704500">Approval needed</text>
-<text x="370" y="142" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">Reformas Ruiz</text>
-<text x="20" y="162" font-size="13" font-weight="450" fill="#425B52">Change 1 · Proposed by Mateo Ruiz</text>
+<text x="20" y="134" font-size="13" font-weight="650" fill="#425B52">CHANGE 1 · ISSUED BY MATEO RUIZ</text>
+<text x="20" y="171" font-size="32" font-weight="700" fill="#152C26">€280.00</text>
+<text x="370" y="158" font-size="18" font-weight="650" fill="#0B5747" text-anchor="end">+€40.00</text>
+<text x="370" y="179" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">Approved v1: €240.00</text>
+<text x="20" y="192" font-size="13" font-weight="450" fill="#425B52">Proposed total incl. tax</text>
+<text x="20" y="220" font-size="15" font-weight="650" fill="#152C26">Reply by Tue, 24 Nov · 10:00 Spain time</text>
+<text x="20" y="241" font-size="13" font-weight="450" fill="#425B52">Visit unchanged · 09:00–10:00 Spain · 08:00–09:00 UK</text>
 <g id="scope-comparison">
-  <rect x="20.5" y="172.5" width="349" height="263" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <text x="36" y="197" font-size="16" font-weight="650" fill="#152C26">Approved · Quote v1</text>
-  <text x="36" y="215" font-size="13" font-weight="450" fill="#0B5747">Translation · English</text>
-  <text x="36" y="233" font-size="15" font-weight="400" fill="#152C26" xml:lang="en">Adjust the terrace door and replace the</text>
-  <text x="36" y="253" font-size="15" font-weight="400" fill="#152C26" xml:lang="en">rollers. Excludes glass replacement.</text>
-  <text x="36" y="271" font-size="13" font-weight="450" fill="#425B52">Original · Español</text>
-  <text x="36" y="289" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">Ajustar la puerta de la terraza y sustituir</text>
-  <text x="36" y="309" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">los rodillos.</text>
-  <text x="36" y="329" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">No incluye la sustitución del vidrio.</text>
-  <path d="M36 339.5h318" stroke="#D4E1DB"/>
-  <text x="36" y="360" font-size="16" font-weight="650" fill="#152C26">Proposed addition</text>
-  <text x="36" y="377" font-size="13" font-weight="450" fill="#0B5747">Translation · English</text>
-  <text x="36" y="395" font-size="15" font-weight="400" fill="#152C26" xml:lang="en">Replace worn latch plate.</text>
-  <text x="36" y="410" font-size="13" font-weight="450" fill="#425B52">Original · Español</text>
-  <text x="36" y="428" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">Sustituir la placa de cierre desgastada.</text>
+<rect x="20" y="254" width="350" height="293" rx="16" fill="#FFFFFF"/>
+<text x="36" y="281" font-size="16" font-weight="650" fill="#152C26">Approved · Quote v1</text>
+<text x="36" y="303" font-size="13" font-weight="550" fill="#0B5747">Translation · English</text>
+<text x="36" y="324" font-size="15" font-weight="400" fill="#152C26" xml:lang="en">Adjust the terrace door and replace the</text>
+<text x="36" y="345" font-size="15" font-weight="400" fill="#152C26" xml:lang="en">rollers. Excludes glass replacement.</text>
+<text x="36" y="365" font-size="13" font-weight="450" fill="#425B52">Original · Español</text>
+<text x="36" y="386" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">Ajustar la puerta de la terraza y sustituir</text>
+<text x="36" y="407" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">los rodillos. No incluye la sustitución del vidrio.</text>
+<path d="M36 420h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="445" font-size="16" font-weight="650" fill="#152C26">Proposed addition · Change 1</text>
+<text x="36" y="465" font-size="13" font-weight="550" fill="#0B5747">Translation · English</text>
+<text x="36" y="486" font-size="15" font-weight="400" fill="#152C26" xml:lang="en">Replace worn latch plate.</text>
+<text x="36" y="507" font-size="13" font-weight="450" fill="#425B52">Original · Español</text>
+<text x="36" y="529" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">Sustituir la placa de cierre desgastada.</text>
 </g>
 <g id="received-attachments">
-  <rect x="20.5" y="444.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-  <g aria-hidden="true" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="36" y="458" width="22" height="18" rx="3"/>
-    <path d="m37 472 6-6 4 4 3-3 7 6m-5-10h.01m291-1 6 6-6 6"/>
-  </g>
-  <text x="72" y="464" font-size="16" font-weight="650" fill="#152C26">Worn latch plate</text>
-  <text x="72" y="482" font-size="13" font-weight="450" fill="#425B52">Received photo · Change 1</text>
+<rect x="20" y="556" width="350" height="52" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="36" y="579" font-size="16" font-weight="650" fill="#152C26">Worn latch plate</text>
+<text x="36" y="598" font-size="13" font-weight="450" fill="#425B52">Received photo · Change 1</text>
+<path d="m341 577 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="affected-work">
-  <rect x="20" y="500" width="350" height="80" rx="16" fill="#FFF1D5"/>
-  <path d="m44 514 10 18H34zm0 6v5m0 3h.01" aria-hidden="true" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="64" y="523" font-size="15" font-weight="400" fill="#704500">Latch plate replacement is on hold</text>
-  <text x="64" y="545" font-size="15" font-weight="400" fill="#704500">until you approve. The door adjustment</text>
-  <text x="64" y="567" font-size="15" font-weight="400" fill="#704500">and rollers remain approved.</text>
+<rect x="20" y="617" width="350" height="75" rx="16" fill="#FFF1D5"/>
+<path d="M36 647l9-16 9 16z m9-10v4m0 3h.01" fill="none" stroke="#704500" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="641" font-size="15" font-weight="550" fill="#704500">Latch plate replacement is on hold</text>
+<text x="36" y="663" font-size="15" font-weight="400" fill="#704500">until you approve. The door adjustment</text>
+<text x="36" y="683" font-size="15" font-weight="400" fill="#704500">and rollers remain approved.</text>
 </g>
-<g id="price-and-timing">
-  <rect x="20.5" y="588.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-  <text x="36" y="606" font-size="13" font-weight="450" fill="#425B52">Approved total</text>
-  <text x="146" y="606" font-size="13" font-weight="450" fill="#425B52">Price change</text>
-  <text x="250" y="606" font-size="13" font-weight="450" fill="#425B52">Proposed total</text>
-  <g font-variant-numeric="tabular-nums" font-size="16" font-weight="650">
-    <text x="36" y="626" fill="#152C26">€240.00</text>
-    <text x="146" y="626" fill="#0B5747">+€40.00</text>
-    <text x="250" y="626" fill="#152C26">€280.00</text>
-  </g>
-  <path d="M36 635.5h318" stroke="#D4E1DB"/>
-  <g aria-hidden="true" transform="translate(36 644) scale(.75)"><path d="M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm2-3v6m10-6v6M3 11h18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-  <text x="64" y="657" font-size="16" font-weight="650" fill="#152C26">Arrival window unchanged</text>
-  <text x="64" y="675" font-size="13" font-weight="450" fill="#425B52">Tue, 24 Nov · 09:00–10:00 Spain time</text>
-  <text x="64" y="690" font-size="13" font-weight="450" fill="#425B52">08:00–09:00 your time</text>
-</g>
-<text x="20" y="720" font-size="16" font-weight="650" fill="#853531">Decline change</text>
-<text x="370" y="720" font-size="16" font-weight="650" fill="#0B5747" text-anchor="end">Ask Mateo</text>
+<text x="20" y="726" font-size="16" font-weight="650" fill="#853531">Decline change</text>
+<text x="370" y="726" font-size="16" font-weight="650" fill="#0B5747" text-anchor="end">Ask Mateo</text>
 </g>
 <g id="action-bar">
-<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
-<path d="M0 744.5h390" stroke="#D4E1DB"/>
-<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/><text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Review approval</text>
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Review approval</text>
 </g>
 <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

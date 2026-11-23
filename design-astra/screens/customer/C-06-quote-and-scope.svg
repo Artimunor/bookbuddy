@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">C-06 Quote and scope</title>
-<desc id="screen-desc">Claire reviews version 1 from Reformas Ruiz, its EUR 240 total, translated and original Spanish cost labels and scope, and the terrace door photo issued with the quote. She can ask, decline or review approval.</desc>
+<desc id="screen-desc">Reformas Ruiz provides and bills the repair. Version 1 is €240.00 including VAT and expires at 08:15 Spain time on 30 November. Claire Martin is the named approver. Read the issued original, line items, evidence and terms before reviewing the payment obligation.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
@@ -20,44 +20,40 @@
 <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Quote and scope</text>
 <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">BB-1042 · Villa Mar</text>
 <path d="M0 107.5H390" stroke="#D4E1DB"/>
+<g aria-hidden="true" transform="translate(334 64)"><circle cx="5" cy="12" r="1.75" fill="#152C26"/><circle cx="12" cy="12" r="1.75" fill="#152C26"/><circle cx="19" cy="12" r="1.75" fill="#152C26"/></g>
 </g>
 <g id="content">
-<rect x="20.5" y="120.5" width="349" height="87" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="145" fill="#152C26" font-size="16" font-weight="650">Reformas Ruiz</text>
-<text x="36" y="165" fill="#425B52" font-size="13" font-weight="450">Mateo Ruiz · Foreman</text>
-<rect x="36" y="172" width="94" height="24" rx="12" fill="#E5F0FA"/>
-<text x="83" y="188" fill="#234C78" font-size="12" font-weight="550" text-anchor="middle">Version 1</text>
-<text x="354" y="144" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">Total (EUR)</text>
-<text x="354" y="175" fill="#152C26" font-size="28" font-weight="700" text-anchor="end">€240.00</text>
-<rect x="20.5" y="220.5" width="349" height="143" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="244" fill="#152C26" font-size="16" font-weight="650">Price breakdown</text>
-<text x="354" y="243" fill="#0B5747" font-size="13" font-weight="450" text-anchor="end">Translation · English</text>
-<text x="36" y="271" fill="#152C26" font-size="16" font-weight="650">Labour</text>
-<text x="354" y="271" fill="#152C26" font-size="16" font-weight="650" text-anchor="end">€160.00</text>
-<text x="36" y="293" fill="#425B52" font-size="13" font-weight="450">Original · Español: <tspan xml:lang="es" font-size="15">Mano de obra</tspan></text>
-<path d="M36 303.5H354" stroke="#D4E1DB"/>
-<text x="36" y="326" fill="#152C26" font-size="16" font-weight="650">Rollers</text>
-<text x="354" y="326" fill="#152C26" font-size="16" font-weight="650" text-anchor="end">€80.00</text>
-<text x="36" y="348" fill="#425B52" font-size="13" font-weight="450">Original · Español: <tspan xml:lang="es" font-size="15">Rodillos</tspan></text>
-<rect x="20.5" y="376.5" width="349" height="183" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="402" fill="#152C26" font-size="20" font-weight="650">Scope and exclusions</text>
-<text x="36" y="422" fill="#0B5747" font-size="13" font-weight="450">Translation · English</text>
-<text x="36" y="441" fill="#152C26" font-size="15">Adjust the terrace door and replace</text>
-<text x="36" y="461" fill="#152C26" font-size="15">the rollers. Excludes glass replacement.</text>
-<path d="M36 471.5H354" stroke="#D4E1DB"/>
-<text x="36" y="490" fill="#425B52" font-size="13" font-weight="450">Original · Español</text>
-<text x="36" y="510" fill="#152C26" font-size="15" xml:lang="es">Ajustar la puerta de la terraza y sustituir</text>
-<text x="36" y="529" fill="#152C26" font-size="15" xml:lang="es">los rodillos.</text>
-<text x="36" y="549" fill="#152C26" font-size="15" xml:lang="es">No incluye la sustitución del vidrio.</text>
-<rect x="20.5" y="572.5" width="349" height="55" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<g aria-hidden="true" transform="translate(36 588)"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm-2 12 5-4 4 3 4-5 5 6M9 8h.01" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="72" y="596" fill="#0B5747" font-size="16" font-weight="650">Terrace door photo</text>
-<text x="72" y="616" fill="#425B52" font-size="13" font-weight="450">Attachment · Quote version 1</text>
-<g aria-hidden="true" transform="translate(334 588)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="20" y="653" fill="#152C26" font-size="20" font-weight="650">Approval and booking</text>
-<text x="20" y="675" fill="#425B52" font-size="15">Approval takes no payment and books no visit.</text>
-<text x="20" y="719" fill="#853531" font-size="16" font-weight="650">Decline quote</text>
-<text x="370" y="719" fill="#0B5747" font-size="16" font-weight="650" text-anchor="end">Version history</text>
+<text x="20" y="135" font-size="13" font-weight="650" fill="#0B5747">FIXED-PRICE QUOTE · VERSION 1</text>
+<text x="20" y="178" font-size="32" font-weight="700" fill="#152C26">€240.00</text>
+<text x="168" y="175" font-size="13" font-weight="450" fill="#425B52">Total including VAT</text>
+<text x="20" y="209" font-size="16" font-weight="650" fill="#152C26">Reformas Ruiz</text>
+<text x="370" y="208" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">Provider and biller</text>
+<text x="20" y="235" font-size="13" font-weight="450" fill="#425B52">Named approver: Claire Martin</text>
+<text x="20" y="256" font-size="13" font-weight="450" fill="#425B52">Expires Mon, 30 Nov · 08:15 Spain time</text>
+<rect x="20" y="272" width="350" height="378" rx="16" fill="#FFFFFF"/>
+<text x="36" y="300" font-size="18" font-weight="650" fill="#152C26">Price breakdown</text>
+<text x="354" y="299" font-size="13" font-weight="550" fill="#0B5747" text-anchor="end">Translation · English</text>
+<text x="36" y="329" font-size="16" font-weight="650" fill="#152C26">Labour</text>
+<text x="354" y="329" font-size="16" font-weight="650" fill="#152C26" text-anchor="end">€160.00</text>
+<text x="36" y="349" font-size="13" font-weight="450" fill="#425B52">Original · Español: Mano de obra</text>
+<text x="36" y="379" font-size="16" font-weight="650" fill="#152C26">Rollers</text>
+<text x="354" y="379" font-size="16" font-weight="650" fill="#152C26" text-anchor="end">€80.00</text>
+<text x="36" y="399" font-size="13" font-weight="450" fill="#425B52">Original · Español: Rodillos</text>
+<path d="M36 415h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="442" font-size="18" font-weight="650" fill="#152C26">Scope and exclusions</text>
+<text x="36" y="466" font-size="13" font-weight="650" fill="#0B5747">Translation · English</text>
+<text x="36" y="488" font-size="15" font-weight="400" fill="#152C26">Adjust the terrace door and replace</text>
+<text x="36" y="509" font-size="15" font-weight="400" fill="#152C26">the rollers. Excludes glass replacement.</text>
+<text x="36" y="534" font-size="13" font-weight="450" fill="#425B52">Original · Español</text>
+<text x="36" y="555" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">Ajustar la puerta de la terraza y sustituir</text>
+<text x="36" y="575" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">los rodillos.</text>
+<text x="36" y="596" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">No incluye la sustitución del vidrio.</text>
+<path d="M36 610h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="636" font-size="16" font-weight="650" fill="#0B5747">Terrace door photo · V1</text>
+<path d="m343 626 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="688" font-size="16" font-weight="650" fill="#0B5747">Read the issued terms</text>
+<path d="m350 677 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="718" font-size="13" font-weight="450" fill="#425B52">You agree to pay the provider. No charge now.</text>
 </g>
 <g id="action-bar">
 <rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>

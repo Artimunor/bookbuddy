@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
-<title id="screen-title">C-11 Payment and receipt — payment failed</title>
-<desc id="screen-desc">The authorised biller is Reformas Ruiz and EUR 240.00 is due for approved work. A confirmed failure allows a fresh checkout. No receipt or charge is shown.</desc>
-<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
-<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/><g id="status-bar" aria-hidden="true" fill="#152C26">
+<title id="screen-title">C-11 Provider payment record — failed</title>
+<desc id="screen-desc">Provider invoice RR-1042 for €240.00, due 1 December. Payment report not saved. Your report didn’t reach Reformas Ruiz. Retry the report, not the payment. BookBuddy does not process a payment.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#FAF7EF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
     <rect x="306" y="22" width="3" height="6" rx="1"/>
@@ -13,38 +13,46 @@
     <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
     <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
     <path d="M370 20v5c2-1 2-4 0-5z"/>
-  </g><g id="header">
-<g aria-hidden="true" transform="translate(20 64)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="74" font-size="20" font-weight="650" fill="#152C26">Payment and receipt</text>
-<text x="64" y="94" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Terrace door repair</text>
-<path d="M0 107.5h390" stroke="#D4E1DB"/>
+  </g>
+<g id="header">
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Provider payment record</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Terrace door repair</text>
 </g>
 <g id="content">
-<rect x="20.5" y="124.5" width="349" height="155" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="141" width="40" height="40" rx="8" fill="#EBF2EF"/><g aria-hidden="true" transform="translate(44 149)"><path d="M6 3h8l4 4v14H6zm8 0v5h4M9 12h6m-6 4h6" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="88" y="150" font-size="13" font-weight="450" fill="#425B52">Billed by</text>
-<text x="88" y="176" font-size="16" font-weight="650" fill="#152C26">Reformas Ruiz</text>
-<path d="M36 195.5h318" stroke="#D4E1DB"/>
-<text x="36" y="224" font-size="13" font-weight="450" fill="#425B52">Amount due · EUR</text>
-<g style="font-variant-numeric:tabular-nums"><text x="354" y="252" font-size="32" font-weight="650" fill="#152C26" text-anchor="end">€240.00</text></g>
-<rect x="20" y="296" width="350" height="104" rx="16" fill="#FCE9E8"/><g aria-hidden="true" transform="translate(36 311) scale(0.8333333333333334)"><path d="M12 3 22 21H2L12 3zm0 7v4m0 3h.01" fill="none" stroke="#853531" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="64" y="325" font-size="16" font-weight="650" fill="#853531">Payment failed</text><text x="64" y="348" font-size="15" font-weight="400" fill="#853531">You weren’t charged for this attempt.</text>
-<text x="64" y="370" font-size="15" font-weight="400" fill="#853531">€240.00 is still due.</text>
-<text x="20" y="445" font-size="20" font-weight="650" fill="#152C26">Bill details</text>
-<rect x="20.5" y="460.5" width="349" height="118" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="490" font-size="16" font-weight="650" fill="#152C26">Approved work · Quote v1</text>
-<g style="font-variant-numeric:tabular-nums"><text x="354" y="490" font-size="16" font-weight="650" fill="#152C26" text-anchor="end">€240.00</text></g>
-<text x="36" y="512" font-size="13" font-weight="450" fill="#425B52">Terrace door repair</text>
-<path d="M36 528.5h318" stroke="#D4E1DB"/>
-<text x="36" y="555" font-size="13" font-weight="450" fill="#425B52">Sign-off recorded separately</text>
-<rect x="20.5" y="596.5" width="349" height="57" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<g aria-hidden="true" transform="translate(36 612)"><path d="M6 3h8l4 4v14H6zm8 0v5h4M9 12h6m-6 4h6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="72" y="631" font-size="13" font-weight="450" fill="#425B52">Receipt not available yet</text>
-<text x="20" y="705" font-size="16" font-weight="650" fill="#0B5747">Get payment help</text>
+<text x="20" y="141" font-size="13" font-weight="650" fill="#425B52">PROVIDER INVOICE</text>
+<text x="370" y="141" font-size="15" font-weight="650" fill="#152C26" text-anchor="end">RR-1042</text>
+<text x="20" y="183" font-size="32" font-weight="700" fill="#152C26">€240.00</text>
+<text x="20" y="206" font-size="13" font-weight="450" fill="#425B52">Invoice total · EUR, including tax</text>
+<path d="M20 229h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="257" font-size="16" font-weight="650" fill="#152C26">Reformas Ruiz</text>
+<text x="20" y="280" font-size="13" font-weight="450" fill="#425B52">Service provider and biller · Quote v1</text>
+<text x="20" y="301" font-size="13" font-weight="450" fill="#425B52">Booking coordinated by BookBuddy</text>
+<g id="payment-status">
+<rect x="20" y="333" width="350" height="112" rx="16" fill="#FCE9E8"/>
+<path d="M36 368l9-16 9 16z m9-10v4m0 3h.01" fill="none" stroke="#853531" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="68" y="367" font-size="18" font-weight="650" fill="#853531">Payment report not saved</text>
+<text x="36" y="399" font-size="15" font-weight="400" fill="#853531">Your report didn’t reach Reformas Ruiz.</text>
+<text x="36" y="421" font-size="15" font-weight="400" fill="#853531">Retry the report, not the payment.</text>
+</g>
+<text x="20" y="498" font-size="20" font-weight="650" fill="#152C26">Bill details</text>
+<rect x="20" y="514" width="350" height="153" rx="16" fill="#FFFFFF"/>
+<text x="36" y="540" font-size="13" font-weight="450" fill="#425B52">Delivered</text>
+<text x="354" y="540" font-size="15" font-weight="550" fill="#152C26" text-anchor="end">Tue, 24 Nov</text>
+<path d="M36 554h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="580" font-size="13" font-weight="450" fill="#425B52">Due date</text>
+<text x="354" y="580" font-size="15" font-weight="550" fill="#152C26" text-anchor="end">Tue, 1 Dec · Spain time</text>
+<path d="M36 594h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="632" font-size="16" font-weight="650" fill="#0B5747">View provider invoice</text>
+<path d="m340 621 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="652" font-size="13" font-weight="450" fill="#425B52">Includes the agreed bank transfer details</text>
+<text x="20" y="709" font-size="16" font-weight="650" fill="#0B5747">Get payment help</text>
 </g>
 <g id="action-bar">
-<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
-<path d="M0 744.5h390" stroke="#D4E1DB"/>
-<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/><g aria-hidden="true" transform="translate(36 764)"><path d="M3 5h18v14H3zm0 4h18m-14 6h4" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="70" y="782" font-size="16" font-weight="650" fill="#FFFFFF">Try payment again</text>
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Retry payment report</text>
 </g>
 <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

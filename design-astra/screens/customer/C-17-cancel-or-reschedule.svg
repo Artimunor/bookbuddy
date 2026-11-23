@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">C-17 Cancel or reschedule</title>
-<desc id="screen-desc">The sheet overlays Claire’s booked job. She can find another provider-proposed time or review cancellation terms; the current visit is still booked.</desc>
+<desc id="screen-desc">Options for an unstarted, fee-free work visit. The confirmed window stays booked until cancellation or a replacement is confirmed. Statutory withdrawal is a separate direct route where applicable.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <g id="parent-job">
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
@@ -67,26 +67,34 @@
 </g>
 
 </g>
-<rect id="scrim" width="390" height="844" fill="#101A18" opacity=".4"/>
+
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#101A18" opacity=".4" id="scrim"/>
 <g id="sheet">
-<rect x="0" y="340" width="390" height="504" rx="24" fill="#FFFFFF"/>
-<rect x="0" y="364" width="390" height="480" fill="#FFFFFF"/>
-<rect x="175" y="348" width="40" height="4" rx="2" fill="#70877D"/>
-<text x="20" y="394" font-size="20" font-weight="650" fill="#152C26">Cancel or reschedule</text>
-<text x="20" y="417" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Terrace door repair</text>
-<g aria-hidden="true" transform="translate(334 370)"><path d="m6 6 12 12M18 6 6 18" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<path d="M0 434.5h390" stroke="#D4E1DB"/>
-<rect x="20.5" y="448.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="468" width="40" height="40" rx="8" fill="#DCF2EA"/><g aria-hidden="true" transform="translate(44 476)"><path d="M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm2-3v6m10-6v6M3 11h18" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="88" y="475" font-size="13" font-weight="450" fill="#425B52">Current booking · Villa Mar</text>
-<text x="88" y="501" font-size="16" font-weight="650" fill="#152C26">Tue, 24 Nov · 09:00–10:00</text>
-<text x="88" y="524" font-size="13" font-weight="450" fill="#425B52">Spain time · Reformas Ruiz</text>
-<text x="88" y="543" font-size="13" font-weight="450" fill="#425B52">08:00–09:00 your time</text>
-<rect x="20" y="570" width="350" height="108" rx="16" fill="#E5F0FA"/><g aria-hidden="true" transform="translate(36 585) scale(0.8333333333333334)"><path d="M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 8v5m0-8h.01" fill="none" stroke="#234C78" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="64" y="599" font-size="16" font-weight="650" fill="#234C78">Your visit is still booked</text><text x="64" y="622" font-size="15" font-weight="400" fill="#234C78">A new time or cancellation must be</text>
-<text x="64" y="644" font-size="15" font-weight="400" fill="#234C78">confirmed before this booking changes.</text>
-<text x="64" y="666" font-size="15" font-weight="400" fill="#234C78">Check any fee before requesting.</text>
-<rect x="20" y="696" width="350" height="48" rx="12" fill="#0B6250"/><text x="195" y="726" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Choose another time</text>
-<rect x="20" y="752" width="350" height="48" rx="12" fill="#FCE9E8"/><text x="195" y="782" font-size="16" font-weight="650" fill="#853531" text-anchor="middle">Review cancellation</text>
+<rect x="0" y="230" width="390" height="614" rx="24" fill="#FFFFFF"/>
+<rect x="0" y="254" width="390" height="590" rx="0" fill="#FFFFFF"/>
+<rect x="175" y="239" width="40" height="4" rx="2" fill="#70877D"/>
+<text x="20" y="282" font-size="22" font-weight="700" fill="#152C26">Cancel or reschedule</text>
+<text x="20" y="305" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Terrace door repair</text>
+<text x="366" y="280" font-size="16" font-weight="650" fill="#0B5747" text-anchor="end">Close</text>
+<path d="M0 323h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="355" font-size="13" font-weight="650" fill="#425B52">CURRENT BOOKING · VILLA MAR</text>
+<text x="20" y="390" font-size="22" font-weight="700" fill="#152C26">Tue, 24 Nov · 09:00–10:00</text>
+<text x="20" y="415" font-size="13" font-weight="450" fill="#425B52">Spain time · Reformas Ruiz</text>
+<text x="20" y="436" font-size="13" font-weight="450" fill="#425B52">08:00–09:00 your time</text>
+<path d="M20 460h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="492" font-size="16" font-weight="650" fill="#152C26">Appointment change fee</text>
+<text x="370" y="493" font-size="20" font-weight="700" fill="#152C26" text-anchor="end">€0.00</text>
+<text x="20" y="524" font-size="15" font-weight="400" fill="#152C26">No work has started or been performed.</text>
+<text x="20" y="547" font-size="15" font-weight="400" fill="#152C26">Your window stays booked until a change</text>
+<text x="20" y="568" font-size="15" font-weight="400" fill="#152C26">is confirmed.</text>
+<rect x="20" y="592" width="350" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="622" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Choose another time</text>
+<rect x="20" y="649" width="350" height="48" rx="12" fill="#FCE9E8"/>
+<text x="195" y="679" font-size="16" font-weight="650" fill="#853531" text-anchor="middle">Review cancellation</text>
+<path d="M20 721h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="765" font-size="16" font-weight="650" fill="#0B5747">Statutory withdrawal</text>
+<path d="m346 754 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="789" font-size="13" font-weight="450" fill="#425B52">A separate right to withdraw from the contract.</text>
 </g>
 <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

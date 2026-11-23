@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">C-13 Properties</title>
-<desc id="screen-desc">Claire’s Properties tab shows one active site, Villa Mar in Xàbia, with search, archive filter and Add property.</desc>
+<desc id="screen-desc">Claire’s active properties. Villa Mar is hers to manage as its verified owner and has one active job. Adding a property verifies its service address, not ownership or transfer rights.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
@@ -23,32 +23,33 @@
     <path d="M339 79h14l-1.5-2v-4a5.5 5.5 0 0 0-11 0v4zm4.5 3a2.5 2.5 0 0 0 5 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 <g id="content">
-<text x="20" y="150" font-size="28" font-weight="700" fill="#152C26">Properties</text>
-<text x="20" y="178" font-size="15" font-weight="400" fill="#425B52">Find a site and manage who can access it.</text>
-<text x="20" y="211" font-size="16" font-weight="650" fill="#152C26">Search properties</text>
-<rect x="20.5" y="222.5" width="349" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<g aria-hidden="true" transform="translate(34 234)"><path d="M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zm5 11.5 4.5 4.5" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="70" y="252" font-size="15" font-weight="400" fill="#425B52">Name or location</text>
-<g id="property-results" transform="translate(0 24)">
-<rect x="20.5" y="260.5" width="96" height="47" rx="12" fill="#DCF2EA" stroke="#0B6250"/>
-<g aria-hidden="true" transform="translate(32 276) scale(0.6666666666666666)"><path d="m5 12 4 4 10-10" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="55" y="290" font-size="16" font-weight="650" fill="#0B5747">Active</text>
-<rect x="128.5" y="260.5" width="102" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
-<text x="179" y="290" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Archived</text>
-<text x="20" y="353" font-size="20" font-weight="650" fill="#152C26">Active properties</text>
-<text x="370" y="353" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">1 property</text>
-<rect x="20.5" y="368.5" width="349" height="127" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="388" width="40" height="40" rx="8" fill="#DCF2EA"/><g aria-hidden="true" transform="translate(44 396)"><path d="m2 11 10-9 10 9M4 10v11h16V10m-10 11v-6h4v6" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="88" y="404" font-size="20" font-weight="650" fill="#152C26">Villa Mar</text>
-<text x="88" y="426" font-size="13" font-weight="450" fill="#425B52">Xàbia</text>
-<path d="M36 445.5h318" stroke="#D4E1DB"/>
-<text x="36" y="471" font-size="13" font-weight="450" fill="#425B52">Owner · 1 active job</text>
-<g aria-hidden="true" transform="translate(334 398)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<rect x="20" y="520" width="350" height="128" rx="16" fill="#DCF2EA"/>
-<text x="36" y="553" font-size="20" font-weight="650" fill="#152C26">Add a property</text>
-<text x="36" y="578" font-size="15" font-weight="400" fill="#425B52">Save a site for your next repair.</text>
-<rect x="36" y="590" width="176" height="48" rx="12" fill="#0B6250"/><g aria-hidden="true" transform="translate(52 602)"><path d="M12 5v14M5 12h14" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="86" y="620" font-size="16" font-weight="650" fill="#FFFFFF">Add property</text>
-</g>
+<text x="20" y="153" font-size="32" font-weight="700" fill="#152C26">Properties</text>
+<text x="20" y="181" font-size="15" font-weight="400" fill="#152C26">Find a site you own or manage.</text>
+<text x="20" y="222" font-size="16" font-weight="650" fill="#152C26">Search properties</text>
+<rect x="20" y="236" width="350" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<circle cx="43" cy="258" r="7" fill="none" stroke="#425B52" stroke-width="2"/>
+<path d="m48 263 6 6" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="70" y="266" font-size="15" font-weight="400" fill="#425B52">Name or location</text>
+<rect x="20" y="300" width="105" height="48" rx="12" fill="#DCF2EA" stroke="#0B5747"/>
+<path d="m36 324 3 3 7-8" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="57" y="330" font-size="16" font-weight="650" fill="#0B5747">Active</text>
+<rect x="137" y="300" width="111" height="48" rx="12" fill="#FFFFFF" stroke="#70877D"/>
+<text x="192" y="330" font-size="16" font-weight="650" fill="#425B52" text-anchor="middle">Archived</text>
+<text x="20" y="400" font-size="20" font-weight="650" fill="#152C26">Active properties</text>
+<text x="370" y="400" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">1 property</text>
+<rect x="20" y="424" width="350" height="120" rx="16" fill="#FFFFFF"/>
+<rect x="36" y="445" width="42" height="42" rx="10" fill="#DCF2EA"/>
+<path d="m44 466 13-11 13 11m-22-4v17h18v-17m-12 17v-9h6v9" fill="none" stroke="#0B5747" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="94" y="459" font-size="16" font-weight="650" fill="#152C26">Villa Mar</text>
+<text x="94" y="482" font-size="13" font-weight="450" fill="#425B52">Xàbia · Verified owner</text>
+<path d="m340 458 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M36 505h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="529" font-size="13" font-weight="450" fill="#425B52">1 active job · Terrace door repair</text>
+<path d="M20 578h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="613" font-size="16" font-weight="650" fill="#152C26">Another property?</text>
+<text x="20" y="639" font-size="15" font-weight="400" fill="#152C26">Check its address and service area first.</text>
+<rect x="20" y="666" width="350" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="696" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Add property</text>
 </g>
 <g id="tab-bar">
     <rect y="746" width="390" height="98" fill="#FFFFFF"/>

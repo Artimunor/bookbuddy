@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+<title id="screen-title">C-08 Schedule an assessment</title>
+<desc id="screen-desc">A separate proposed, no-fee scoping assessment, not a repair booking. Claire sees the checked but unreserved one-hour window in Spain and UK time. Mateo will inspect the door before issuing any quote.</desc>
+<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
+<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
+    <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
+    <rect x="301" y="24" width="3" height="4" rx="1"/>
+    <rect x="306" y="22" width="3" height="6" rx="1"/>
+    <rect x="311" y="19" width="3" height="9" rx="1"/>
+    <rect x="316" y="16" width="3" height="12" rx="1"/>
+    <path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round"/>
+    <circle cx="332" cy="29" r="1.1"/>
+    <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
+    <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
+    <path d="M370 20v5c2-1 2-4 0-5z"/>
+  </g>
+<g id="header">
+<g aria-hidden="true" transform="translate(20 64)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Schedule a visit</text>
+<text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">BB-1042 · Villa Mar</text>
+<path d="M0 107.5H390" stroke="#D4E1DB"/>
+</g>
+<g id="content">
+<text x="20" y="138" font-size="13" font-weight="650" fill="#0B5747">SCOPING · BEFORE A QUOTE</text>
+<text x="20" y="177" font-size="24" font-weight="700" fill="#152C26">Assessment visit</text>
+<text x="20" y="205" font-size="15" font-weight="450" fill="#425B52">Terrace door repair · Villa Mar</text>
+<text x="20" y="253" font-size="20" font-weight="650" fill="#152C26">Proposed by Reformas Ruiz</text>
+<text x="20" y="277" font-size="13" font-weight="450" fill="#425B52">Checked against provider capacity · Not reserved</text>
+<rect x="20.5" y="296.5" width="349" height="144" rx="16" fill="#FFFFFF" stroke="#70877D"/>
+<circle cx="44" cy="327" r="10" fill="#0B6250"/>
+<path d="m40 327 3 3 6-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="68" y="332" font-size="16" font-weight="650" fill="#152C26">Mon, 23 Nov</text>
+<text x="36" y="376" font-size="28" font-weight="700" fill="#152C26">14:00–15:00</text>
+<text x="222" y="373" font-size="15" font-weight="450" fill="#425B52">Spain time</text>
+<text x="36" y="409" font-size="13" font-weight="450" fill="#425B52">13:00–14:00 your time · United Kingdom</text>
+<rect x="20" y="466" width="350" height="108" rx="16" fill="#E5F0FA"/>
+<text x="36" y="494" font-size="16" font-weight="650" fill="#234C78">Assessment only · €0.00</text>
+<text x="36" y="521" font-size="15" font-weight="400" fill="#234C78">Mateo will inspect the door before quoting.</text>
+<text x="36" y="546" font-size="15" font-weight="400" fill="#234C78">This does not authorise or book the repair.</text>
+<circle cx="44" cy="625" r="19" fill="#DCF2EA"/>
+<text x="44" y="630" font-size="12" font-weight="700" fill="#0B5747" text-anchor="middle">MR</text>
+<text x="80" y="623" font-size="16" font-weight="650" fill="#152C26">Message Mateo</text>
+<text x="80" y="645" font-size="13" font-weight="450" fill="#425B52">Foreman · Ask about another time</text>
+<path d="m351 620 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M20 670h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="699" font-size="13" font-weight="450" fill="#425B52">We’ll check capacity again when you confirm.</text>
+<text x="20" y="719" font-size="13" font-weight="450" fill="#425B52">Only the assessment window will be booked.</text>
+</g>
+<g id="action-bar">
+<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
+<path d="M0 744.5H390" stroke="#D4E1DB"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="782" fill="#FFFFFF" font-size="16" font-weight="650" text-anchor="middle">Confirm assessment</text>
+</g>
+<rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
+</svg>

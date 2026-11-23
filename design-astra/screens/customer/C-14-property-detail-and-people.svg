@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">C-14 Property details and people</title>
-<desc id="screen-desc">Claire sees the site locality and contact, access note, the booked work visit and its Spain-time window, and her owner access. Separate controls edit property details or invite someone.</desc>
-<rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
-<rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/><g id="status-bar" aria-hidden="true" fill="#152C26">
+<desc id="screen-desc">Claire is the verified owner of Villa Mar. The non-secret meeting note is separate from serviceability and property authority. Inviting someone does not transfer ownership.</desc>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#F4F7F6"/>
+<g id="status-bar" aria-hidden="true" fill="#152C26">
     <text x="20" y="29" font-size="15" font-weight="700">9:41</text>
     <rect x="301" y="24" width="3" height="4" rx="1"/>
     <rect x="306" y="22" width="3" height="6" rx="1"/>
@@ -13,45 +13,44 @@
     <rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#152C26"/>
     <rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/>
     <path d="M370 20v5c2-1 2-4 0-5z"/>
-  </g><g id="header">
-<g aria-hidden="true" transform="translate(20 64)"><path d="m15 4-8 8 8 8" fill="none" stroke="#152C26" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="74" font-size="20" font-weight="650" fill="#152C26">Property details and people</text>
-<text x="64" y="94" font-size="13" font-weight="450" fill="#425B52">Villa Mar · Xàbia</text>
-<path d="M0 107.5h390" stroke="#D4E1DB"/>
+  </g>
+<g id="header">
+<path d="m34 64-10 10 10 10" fill="none" stroke="#0B5747" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="76" font-size="20" font-weight="700" fill="#152C26">Property and people</text>
+<text x="64" y="96" font-size="13" font-weight="450" fill="#425B52">Customer · Villa Mar</text>
 </g>
 <g id="content">
-<rect x="20.5" y="124.5" width="349" height="152" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<rect x="36" y="143" width="40" height="40" rx="8" fill="#DCF2EA"/><g aria-hidden="true" transform="translate(44 151)"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0zm-5 0a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="88" y="157" font-size="20" font-weight="650" fill="#152C26">Villa Mar</text>
-<text x="88" y="182" font-size="15" font-weight="400" fill="#425B52">Xàbia</text>
-<path d="M36 201.5h318" stroke="#D4E1DB"/>
-<text x="36" y="226" font-size="13" font-weight="450" fill="#425B52">Site contact</text>
-<text x="36" y="250" font-size="16" font-weight="650" fill="#152C26">Claire Martin</text>
-<text x="354" y="250" font-size="16" font-weight="650" fill="#0B5747" text-anchor="end">Edit details</text>
-<rect x="20.5" y="292.5" width="349" height="97" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<g aria-hidden="true" transform="translate(36 310)"><path d="M6 10h12v11H6zm2 0V7a4 4 0 0 1 8 0v3m-4 4v3" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="72" y="325" font-size="16" font-weight="650" fill="#152C26">Site access</text>
-<text x="72" y="349" font-size="13" font-weight="450" fill="#425B52">Mateo will meet the crew at the gate.</text>
-<text x="72" y="371" font-size="13" font-weight="450" fill="#425B52">Visible only to authorised people.</text>
-<text x="20" y="434" font-size="20" font-weight="650" fill="#152C26">Jobs at this property</text>
-<rect x="20.5" y="448.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="482" font-size="16" font-weight="650" fill="#152C26">Terrace door repair</text>
-<text x="36" y="506" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Booked</text>
-<text x="36" y="530" font-size="13" font-weight="450" fill="#425B52">Tue, 24 Nov · 09:00–10:00 Spain time</text>
-<g aria-hidden="true" transform="translate(334 490)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<g id="property-people" transform="translate(0 20)">
-<text x="20" y="575" font-size="20" font-weight="650" fill="#152C26">People and permissions</text>
-<rect x="20.5" y="590.5" width="349" height="81" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<circle cx="56" cy="631" r="20" fill="#E5F0FA"/><text x="56" y="636" font-size="13" font-weight="650" fill="#234C78" text-anchor="middle">CM</text>
-<text x="88" y="625" font-size="16" font-weight="650" fill="#152C26">Claire Martin</text>
-<text x="88" y="649" font-size="13" font-weight="450" fill="#425B52">Owner · You</text>
-</g>
-<text x="20" y="725" font-size="16" font-weight="650" fill="#0B5747">Permission details</text>
+<text x="20" y="140" font-size="13" font-weight="650" fill="#425B52">PROPERTY DETAILS</text>
+<text x="20" y="179" font-size="28" font-weight="700" fill="#152C26">Villa Mar</text>
+<text x="20" y="206" font-size="15" font-weight="400" fill="#152C26">Xàbia · Service address verified</text>
+<text x="370" y="178" font-size="16" font-weight="650" fill="#0B5747" text-anchor="end">Edit details</text>
+<path d="M20 231h350" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="264" font-size="13" font-weight="650" fill="#425B52">SITE CONTACT</text>
+<text x="20" y="291" font-size="18" font-weight="650" fill="#152C26">Claire Martin</text>
+<text x="20" y="316" font-size="13" font-weight="450" fill="#425B52">Mateo will meet the crew at the gate.</text>
+<text x="20" y="337" font-size="13" font-weight="450" fill="#425B52">Arrange entry in person. Never add access codes.</text>
+<text x="20" y="390" font-size="20" font-weight="650" fill="#152C26">Jobs at this property</text>
+<rect x="20" y="409" width="350" height="100" rx="16" fill="#FFFFFF"/>
+<text x="36" y="441" font-size="16" font-weight="650" fill="#152C26">Terrace door repair</text>
+<text x="36" y="465" font-size="13" font-weight="450" fill="#425B52">BB-1042 · Booked</text>
+<text x="36" y="488" font-size="13" font-weight="450" fill="#425B52">Tue, 24 Nov · 09:00–10:00 Spain time</text>
+<path d="m343 434 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="20" y="555" font-size="20" font-weight="650" fill="#152C26">People and permissions</text>
+<rect x="20" y="574" width="350" height="142" rx="16" fill="#FFFFFF"/>
+<circle cx="55" cy="609" r="19" fill="#DCF2EA"/>
+<text x="55" y="614" font-size="12" font-weight="700" fill="#0B5747" text-anchor="middle">CM</text>
+<text x="89" y="607" font-size="16" font-weight="650" fill="#152C26">Claire Martin</text>
+<text x="89" y="630" font-size="13" font-weight="450" fill="#425B52">Verified owner · You</text>
+<path d="M36 648h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="676" font-size="16" font-weight="650" fill="#0B5747">Permission details</text>
+<text x="36" y="698" font-size="13" font-weight="450" fill="#425B52">Ownership transfer needs a verified successor.</text>
+<path d="m342 668 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="action-bar">
-<rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
-<path d="M0 744.5h390" stroke="#D4E1DB"/>
-<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/><g aria-hidden="true" transform="translate(36 764)"><path d="M12 5v14M5 12h14" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g><text x="70" y="782" font-size="16" font-weight="650" fill="#FFFFFF">Invite someone</text>
+<rect x="0" y="744" width="390" height="100" rx="0" fill="#FFFFFF"/>
+<path d="M0 744h390" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="20" y="752" width="350" height="48" rx="12" fill="#0B6250"/>
+<text x="195" y="782" font-size="16" font-weight="650" fill="#FFFFFF" text-anchor="middle">Invite someone</text>
 </g>
 <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#152C26" aria-hidden="true"/>
 </svg>

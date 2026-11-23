@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="screen-title screen-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
 <title id="screen-title">C-06 Quote and scope — superseded</title>
-<desc id="screen-desc">An older EUR 240 quote, version 1, remains readable with its original cost labels, scope and issued photo. Version 2 has replaced it. Claire cannot act on version 1 and can open the current quote.</desc>
+<desc id="screen-desc">An unaccepted version 1 is read-only after version 2 was issued. The original €240.00 including VAT, Spanish scope and exclusions, cost labels and issued photo remain intact; no approval from this older version.</desc>
 <rect x="0" y="0" width="390" height="844" fill="#F4F7F6"/>
 <rect x="0" y="0" width="390" height="108" fill="#FFFFFF"/>
 <g id="status-bar" aria-hidden="true" fill="#152C26">
@@ -20,46 +20,44 @@
 <text x="64" y="74" fill="#152C26" font-size="20" font-weight="650">Quote and scope</text>
 <text x="64" y="94" fill="#425B52" font-size="13" font-weight="450">BB-1042 · Villa Mar</text>
 <path d="M0 107.5H390" stroke="#D4E1DB"/>
+<g aria-hidden="true" transform="translate(334 64)"><circle cx="5" cy="12" r="1.75" fill="#152C26"/><circle cx="12" cy="12" r="1.75" fill="#152C26"/><circle cx="19" cy="12" r="1.75" fill="#152C26"/></g>
 </g>
 <g id="content">
-<rect x="20" y="120" width="350" height="80" rx="16" fill="#FFF1D5"/>
-<g aria-hidden="true" transform="translate(36 136) scale(0.8333333333333334)"><path d="M12 3l9 16a1 1 0 0 1-.9 1.5H3.9A1 1 0 0 1 3 19l9-16zm0 6v5m0 3h.01" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="64" y="145" fill="#704500" font-size="16" font-weight="650">A newer quote is available</text>
-<text x="64" y="165" fill="#704500" font-size="15">Version 1 was replaced by version 2.</text>
-<text x="64" y="185" fill="#704500" font-size="15">You can’t approve this version.</text>
-<rect x="20.5" y="208.5" width="349" height="79" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="233" fill="#152C26" font-size="16" font-weight="650">Reformas Ruiz</text>
-<text x="36" y="253" fill="#425B52" font-size="13" font-weight="450">Mateo Ruiz · Foreman</text>
-<rect x="36" y="259" width="94" height="22" rx="11" fill="#EBF2EF"/>
-<text x="83" y="274" fill="#425B52" font-size="12" font-weight="550" text-anchor="middle">Version 1</text>
-<text x="354" y="232" fill="#425B52" font-size="13" font-weight="450" text-anchor="end">Previous total</text>
-<text x="354" y="263" fill="#152C26" font-size="28" font-weight="700" text-anchor="end">€240.00</text>
-<rect x="20.5" y="296.5" width="349" height="143" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="320" fill="#152C26" font-size="16" font-weight="650">Price breakdown</text>
-<text x="354" y="319" fill="#0B5747" font-size="13" font-weight="450" text-anchor="end">Translation · English</text>
-<text x="36" y="347" fill="#152C26" font-size="16" font-weight="650">Labour</text>
-<text x="354" y="347" fill="#152C26" font-size="16" font-weight="650" text-anchor="end">€160.00</text>
-<text x="36" y="369" fill="#425B52" font-size="13" font-weight="450">Original · Español: <tspan xml:lang="es" font-size="15">Mano de obra</tspan></text>
-<path d="M36 379.5H354" stroke="#D4E1DB"/>
-<text x="36" y="402" fill="#152C26" font-size="16" font-weight="650">Rollers</text>
-<text x="354" y="402" fill="#152C26" font-size="16" font-weight="650" text-anchor="end">€80.00</text>
-<text x="36" y="424" fill="#425B52" font-size="13" font-weight="450">Original · Español: <tspan xml:lang="es" font-size="15">Rodillos</tspan></text>
-<rect x="20.5" y="452.5" width="349" height="183" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<text x="36" y="478" fill="#152C26" font-size="20" font-weight="650">Scope and exclusions</text>
-<text x="36" y="498" fill="#0B5747" font-size="13" font-weight="450">Translation · English</text>
-<text x="36" y="517" fill="#152C26" font-size="15">Adjust the terrace door and replace</text>
-<text x="36" y="537" fill="#152C26" font-size="15">the rollers. Excludes glass replacement.</text>
-<path d="M36 547.5H354" stroke="#D4E1DB"/>
-<text x="36" y="566" fill="#425B52" font-size="13" font-weight="450">Original · Español</text>
-<text x="36" y="586" fill="#152C26" font-size="15" xml:lang="es">Ajustar la puerta de la terraza y sustituir</text>
-<text x="36" y="605" fill="#152C26" font-size="15" xml:lang="es">los rodillos.</text>
-<text x="36" y="625" fill="#152C26" font-size="15" xml:lang="es">No incluye la sustitución del vidrio.</text>
-<rect x="20.5" y="648.5" width="349" height="55" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-<g aria-hidden="true" transform="translate(36 664)"><path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm-2 12 5-4 4 3 4-5 5 6M9 8h.01" fill="none" stroke="#0B5747" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="72" y="672" fill="#0B5747" font-size="16" font-weight="650">Terrace door photo</text>
-<text x="72" y="692" fill="#425B52" font-size="13" font-weight="450">Attachment · Quote version 1</text>
-<g aria-hidden="true" transform="translate(334 664)"><path d="m9 6 6 6-6 6" fill="none" stroke="#425B52" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="20" y="727" fill="#425B52" font-size="13" font-weight="450">Version 1 is kept for reference.</text>
+<rect x="20" y="117" width="350" height="60" rx="16" fill="#FFF1D5"/>
+<path d="m37 153 9-16 9 16z m9-10v4m0 3v.5" fill="none" stroke="#704500" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="66" y="143" font-size="16" font-weight="650" fill="#704500">Version 1 was replaced</text>
+<text x="66" y="164" font-size="13" font-weight="450" fill="#704500">Only version 2 can be reviewed for approval.</text>
+<g transform="translate(0 67)">
+<text x="20" y="135" font-size="13" font-weight="650" fill="#704500">PREVIOUS QUOTE · VERSION 1</text>
+<text x="20" y="178" font-size="32" font-weight="700" fill="#152C26">€240.00</text>
+<text x="168" y="175" font-size="13" font-weight="450" fill="#425B52">Total including VAT</text>
+<text x="20" y="209" font-size="16" font-weight="650" fill="#152C26">Reformas Ruiz</text>
+<text x="370" y="208" font-size="13" font-weight="450" fill="#425B52" text-anchor="end">Provider and biller</text>
+<text x="20" y="235" font-size="13" font-weight="450" fill="#425B52">Named approver: Claire Martin</text>
+<text x="20" y="256" font-size="13" font-weight="450" fill="#425B52">Original expiry: Mon, 30 Nov · 08:15 Spain time</text>
+<rect x="20" y="272" width="350" height="378" rx="16" fill="#FFFFFF"/>
+<text x="36" y="300" font-size="18" font-weight="650" fill="#152C26">Price breakdown</text>
+<text x="354" y="299" font-size="13" font-weight="550" fill="#0B5747" text-anchor="end">Translation · English</text>
+<text x="36" y="329" font-size="16" font-weight="650" fill="#152C26">Labour</text>
+<text x="354" y="329" font-size="16" font-weight="650" fill="#152C26" text-anchor="end">€160.00</text>
+<text x="36" y="349" font-size="13" font-weight="450" fill="#425B52">Original · Español: Mano de obra</text>
+<text x="36" y="379" font-size="16" font-weight="650" fill="#152C26">Rollers</text>
+<text x="354" y="379" font-size="16" font-weight="650" fill="#152C26" text-anchor="end">€80.00</text>
+<text x="36" y="399" font-size="13" font-weight="450" fill="#425B52">Original · Español: Rodillos</text>
+<path d="M36 415h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="442" font-size="18" font-weight="650" fill="#152C26">Scope and exclusions</text>
+<text x="36" y="466" font-size="13" font-weight="650" fill="#0B5747">Translation · English</text>
+<text x="36" y="488" font-size="15" font-weight="400" fill="#152C26">Adjust the terrace door and replace</text>
+<text x="36" y="509" font-size="15" font-weight="400" fill="#152C26">the rollers. Excludes glass replacement.</text>
+<text x="36" y="534" font-size="13" font-weight="450" fill="#425B52">Original · Español</text>
+<text x="36" y="555" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">Ajustar la puerta de la terraza y sustituir</text>
+<text x="36" y="575" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">los rodillos.</text>
+<text x="36" y="596" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">No incluye la sustitución del vidrio.</text>
+<path d="M36 610h318" fill="none" stroke="#D4E1DB" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="36" y="636" font-size="16" font-weight="650" fill="#0B5747">Terrace door photo · V1</text>
+<path d="m343 626 5 5-5 5" fill="none" stroke="#425B52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text x="20" y="737" font-size="13" font-weight="450" fill="#425B52">Kept for reference · Original terms in More</text>
 </g>
 <g id="action-bar">
 <rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
