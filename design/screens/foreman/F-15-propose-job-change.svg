@@ -23,15 +23,15 @@
   </g>
   <g id="content">
     <g id="change-context">
-    <rect x="20.5" y="124.5" width="349" height="71" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <rect x="20.5" y="124.5" width="349" height="91" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
     <text x="36" y="148" font-size="16" font-weight="650" fill="#152C26">Change 1 · Draft</text>
     <text x="36" y="167" font-size="13" font-weight="450" fill="#425B52">Mateo Ruiz · Reformas Ruiz</text>
-    <text x="36" y="185" font-size="13" font-weight="450" fill="#425B52">Worn latch plate · Selected to send</text>
+    <text x="36" y="202" font-size="13" font-weight="450" fill="#425B52">Worn latch plate · Selected to send</text>
     <rect x="239.5" y="132.5" width="114" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/>
     <g aria-hidden="true" transform="translate(249.5 147.5) scale(0.7083333333333334)"><path d="M5 12h14m-7-7v14" fill="none" stroke="#0B5747" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g>
     <text x="270" y="161" font-size="15" font-weight="650" fill="#0B5747">Evidence</text>
   </g>
-    <g id="approved-scope">
+    <g id="approved-scope" transform="translate(0 20)">
     <rect x="20.5" y="204.5" width="349" height="199" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
     <text x="36" y="230" font-size="16" font-weight="650" fill="#152C26">Approved quote · v1</text>
     <text x="36" y="252" font-size="12" font-weight="650" fill="#0B5747">Translation · English</text>
@@ -47,7 +47,7 @@
       <tspan x="36" dy="22">No incluye la sustitución del vidrio.</tspan>
     </text>
   </g>
-    <g id="proposed-scope">
+    <g id="proposed-scope" transform="translate(0 20)">
     <rect x="20.5" y="412.5" width="349" height="143" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
     <text x="36" y="438" font-size="16" font-weight="650" fill="#152C26">Proposed addition</text>
     <rect x="298.5" y="420.5" width="55" height="47" rx="12" fill="#FFFFFF" stroke="#70877D"/><text x="326" y="450" font-size="16" font-weight="650" fill="#0B5747" text-anchor="middle">Edit</text>
@@ -58,21 +58,21 @@
     <text x="36" y="534" font-size="15" font-weight="400" fill="#152C26" xml:lang="es">Sustituir la placa de cierre desgastada.</text>
   </g>
     <g id="change-impact">
-    <rect x="20.5" y="564.5" width="349" height="107" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
-    <text x="36" y="588" font-size="13" font-weight="450" fill="#425B52">Approved</text>
-    <text x="141" y="588" font-size="13" font-weight="450" fill="#425B52">Difference</text>
-    <text x="246" y="588" font-size="13" font-weight="450" fill="#425B52">Proposed total</text>
-    <text x="36" y="610" font-size="16" font-weight="650" fill="#152C26" style="font-variant-numeric: tabular-nums">€240.00</text>
-    <text x="141" y="610" font-size="16" font-weight="650" fill="#152C26" style="font-variant-numeric: tabular-nums">+€40.00</text>
-    <text x="246" y="610" font-size="16" font-weight="650" fill="#152C26" style="font-variant-numeric: tabular-nums">€280.00</text>
-    <path d="M36 620.5H354" stroke="#D4E1DB"/>
-    <text x="36" y="641" font-size="13" font-weight="450" fill="#425B52">Visit unchanged</text>
-    <text x="36" y="660" font-size="13" font-weight="450" fill="#425B52" style="font-variant-numeric: tabular-nums">Tue, 24 Nov · 09:00–10:00 · Spain time</text>
+    <rect x="20.5" y="584.5" width="349" height="95" rx="16" fill="#FFFFFF" stroke="#D4E1DB"/>
+    <text x="36" y="604" font-size="13" font-weight="450" fill="#425B52">Approved</text>
+    <text x="141" y="604" font-size="13" font-weight="450" fill="#425B52">Difference</text>
+    <text x="246" y="604" font-size="13" font-weight="450" fill="#425B52">Proposed total</text>
+    <text x="36" y="624" font-size="16" font-weight="650" fill="#152C26" style="font-variant-numeric: tabular-nums">€240.00</text>
+    <text x="141" y="624" font-size="16" font-weight="650" fill="#152C26" style="font-variant-numeric: tabular-nums">+€40.00</text>
+    <text x="246" y="624" font-size="16" font-weight="650" fill="#152C26" style="font-variant-numeric: tabular-nums">€280.00</text>
+    <path d="M36 634.5H354" stroke="#D4E1DB"/>
+    <text x="36" y="652" font-size="13" font-weight="450" fill="#425B52">Visit unchanged</text>
+    <text x="36" y="670" font-size="13" font-weight="450" fill="#425B52" style="font-variant-numeric: tabular-nums">Tue, 24 Nov · 09:00–10:00 · Spain time</text>
   </g>
-    <rect x="20" y="680" width="350" height="56" rx="16" fill="#FFF1D5"/>
-    <g aria-hidden="true" transform="translate(35 688) scale(0.75)"><path d="M12 3 22 20H2L12 3zm0 6v5m0 3h.01" fill="none" stroke="#704500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>
-    <text x="64" y="702" font-size="16" font-weight="650" fill="#704500">Hold the added work</text>
-    <text x="64" y="723" font-size="13" font-weight="450" fill="#704500">Original scope remains approved.</text>
+    <rect x="20" y="688" width="350" height="48" rx="16" fill="#FFF1D5"/>
+    <g aria-hidden="true" transform="translate(35 694) scale(0.75)"><path d="M12 3 22 20H2L12 3zm0 6v5m0 3h.01" fill="none" stroke="#704500" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>
+    <text x="64" y="708" font-size="16" font-weight="650" fill="#704500">Hold the added work</text>
+    <text x="64" y="728" font-size="13" font-weight="450" fill="#704500">Original scope remains approved.</text>
   </g>
   <g id="action-bar">
     <rect x="0" y="744" width="390" height="100" fill="#FFFFFF"/>
