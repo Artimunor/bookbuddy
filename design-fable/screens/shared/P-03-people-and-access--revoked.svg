@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="P-03-people-and-access--revoked-title P-03-people-and-access--revoked-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="P-03-people-and-access--revoked-title">P-03 People and access — access revoked</title>
+  <desc id="P-03-people-and-access--revoked-desc">Later outcome. Provider admin view for Mateo Ruiz at Reformas Ruiz at 16:20 Spain time on Tuesday 24 November, just after he confirmed a revocation. A notice says access is revoked: Pau Soler no longer has Worker access at Reformas Ruiz. The Past segment is selected and holds one record: Pau Soler, former Worker, revoked on Tuesday 24 November at 16:20 Spain time by Mateo Ruiz, Provider admin. The Active segment now counts five. A note says revoked access is not restored and a new invitation is needed to grant access again. The dock action is Invite a person.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">16:20</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header"><circle cx="40" cy="76" r="20" fill="#DDEBFF"/><text x="40" y="81" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">MR</text><text x="72" y="72" font-size="17" font-weight="700" fill="#15171C">Mateo</text><text x="72" y="92" font-size="14" font-weight="500" fill="#555A66">Provider admin · Reformas Ruiz</text><rect x="322.5" y="52.5" width="47" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/><path transform="translate(334 64)" d="M6 16h12l-1.5-2v-4a4.5 4.5 0 0 0-9 0v4zm4 3a2 2 0 0 0 4 0" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g id="content">
+  <text x="20" y="148" font-size="28" font-weight="800" fill="#15171C">People</text><text x="20" y="172" font-size="14" font-weight="500" fill="#555A66">Who can act for Reformas Ruiz</text><text x="370" y="172" font-size="14" font-weight="700" fill="#2438B5" text-anchor="end">Eligibility</text><path d="M308.5 176.5h61.5" stroke="#2438B5" stroke-width="1.5"/><g id="segments"><rect x="20.5" y="190.5" width="106" height="39" rx="19.5" fill="#FFFFFF" stroke="#747986"/><text x="73.5" y="215" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Active · 5</text><rect x="135.5" y="190.5" width="89" height="39" rx="19.5" fill="#FFFFFF" stroke="#747986"/><text x="180" y="215" font-size="14" font-weight="600" fill="#15171C" text-anchor="middle">Invited</text><rect x="233" y="190" width="105" height="40" rx="20" fill="#15171C"/><path d="m249 210 4 4 7-8" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="269" y="215" font-size="14" font-weight="700" fill="#FFFFFF">Past · 1</text></g>
+  <g id="outcome">
+  <rect x="20.5" y="246.5" width="349" height="91" rx="24" fill="#ECE8DE"/>
+  <rect x="36" y="262" width="32" height="32" rx="12" fill="#FFFFFF"/><path transform="translate(42 268) scale(0.8333)" d="m5 12 5 5 9-10" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <text x="80" y="276" font-size="17" font-weight="700" fill="#15171C">Access revoked</text>
+  <text x="80" y="298" font-size="14" font-weight="500" fill="#15171C">Pau Soler no longer has Worker</text>
+  <text x="80" y="318" font-size="14" font-weight="500" fill="#15171C">access at Reformas Ruiz.</text>
+  </g>
+  
+  <text x="20" y="372" font-size="14" font-weight="500" fill="#555A66">Past access · kept as a record</text>
+  <g id="past">
+  <rect x="20.5" y="386.5" width="349" height="131" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  
+  <circle cx="58" cy="420" r="18" fill="#ECE8DE"/>
+  <text x="58" y="425" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">PS</text>
+  <text x="88" y="416" font-size="17" font-weight="700" fill="#15171C">Pau Soler</text>
+  <text x="88" y="436" font-size="14" font-weight="500" fill="#555A66">Former Worker</text>
+  <rect x="276" y="400" width="74" height="24" rx="12" fill="#FCE6E3"/><text x="313" y="417" font-size="12" font-weight="600" fill="#8A2F28" text-anchor="middle">Revoked</text>
+  <path d="M36 456.5h318" stroke="#DED8CB"/>
+  <text x="40" y="482" font-size="14" font-weight="600" fill="#15171C">Revoked Tue, 24 Nov · 16:20 Spain time</text>
+  <text x="40" y="502" font-size="14" font-weight="500" fill="#555A66">By Mateo Ruiz, Provider admin</text>
+  </g>
+  
+  <text x="20" y="550" font-size="14" font-weight="500" fill="#555A66">Revoked access is not restored.</text>
+  <text x="20" y="570" font-size="14" font-weight="500" fill="#555A66">Send a new invitation to grant access again.</text>
+  </g>
+  <g id="dock"><rect y="646" width="390" height="100" fill="#FFFFFF"/><path d="M0 646.5h390" stroke="#DED8CB"/><text x="195" y="672" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Access starts only when they accept</text><rect x="20" y="680" width="350" height="56" rx="28" fill="#15171C"/><path transform="translate(118 696)" d="M12 5v14M5 12h14" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="152" y="714" font-size="17" font-weight="700" fill="#FFFFFF">Invite a person</text></g>
+  <g id="tab-bar"><rect y="746" width="390" height="98" fill="#FFFFFF"/><path d="M0 746.5h390" stroke="#DED8CB"/><circle cx="65" cy="769" r="9" fill="none" stroke="#555A66" stroke-width="2"/><circle cx="65" cy="769" r="3.5" fill="#555A66"/><path transform="translate(183 757)" d="M4 8h16v11H4zM9 8V5h6v3" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path transform="translate(313 757)" d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-6 8a6 6 0 0 1 12 0m1-8a3 3 0 1 0 0-6m2 14a6 6 0 0 0-3-5" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="65" y="798" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Now</text><text x="195" y="798" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Jobs</text><text x="325" y="798" font-size="12" font-weight="700" fill="#15171C" text-anchor="middle">People</text><circle cx="325" cy="806" r="2" fill="#15171C"/></g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>
