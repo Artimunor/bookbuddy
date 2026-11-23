@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="F-04-scope-and-quote-title F-04-scope-and-quote-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="F-04-scope-and-quote-title">F-04 Scope and quote — draft</title>
+  <desc id="F-04-scope-and-quote-desc">Foreman view for Mateo Ruiz at Reformas Ruiz on Monday 23 November: quote version 1 for BB-1042 Terrace door repair is a draft, saved Monday 08:12 Spain time. The scope field holds his own words in Español: “Ajustar la puerta de la terraza y sustituir los rodillos. No incluye la sustitución del vidrio.” Attached beneath is the preview Claire reads in English: “Adjust the terrace door and replace the rollers. Glass replacement is not included.” The line editor lists Mano de obra, which Claire reads as Labour, €160.00; Rodillos, Rollers, €80.00; Add a line; total €240.00 in EUR. The quote is valid until Monday 30 November. Dock: Claire Martin is the named approver; action Review and send.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header"><path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Scope and quote</text><text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">BB-1042 · Terrace door repair</text><rect x="286" y="62" width="84" height="28" rx="14" fill="#FFEFCF"/><text x="328" y="81" font-size="12" font-weight="600" fill="#6E4300" text-anchor="middle">v1 · Draft</text></g>
+  <g id="scope">
+  <rect x="20.5" y="116.5" width="349" height="259" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  <path d="M21 270h348v82a24 24 0 0 1-24 24H45a24 24 0 0 1-24-24z" fill="#ECE8DE"/>
+  <rect x="20.5" y="116.5" width="349" height="259" rx="24" fill="none" stroke="#DED8CB"/>
+  <text x="40" y="144" font-size="17" font-weight="700" fill="#15171C">Scope</text>
+  <text x="350" y="144" font-size="14" font-weight="500" fill="#555A66" text-anchor="end">Saved Mon 08:12</text>
+  <text x="40" y="166" font-size="12" font-weight="600" fill="#555A66">Your words · Español</text>
+  <rect x="36.5" y="174.5" width="317" height="83" rx="16" fill="#FFFFFF" stroke="#747986"/>
+  <text x="52" y="200" font-size="16" font-weight="400" fill="#15171C">Ajustar la puerta de la terraza y</text>
+  <text x="52" y="224" font-size="16" font-weight="400" fill="#15171C">sustituir los rodillos. No incluye la</text>
+  <text x="52" y="248" font-size="16" font-weight="400" fill="#15171C">sustitución del vidrio.</text>
+  <text x="40" y="292" font-size="12" font-weight="600" fill="#1E4A7D">Preview · Claire reads English</text>
+  <text x="40" y="316" font-size="16" font-weight="400" fill="#15171C">Adjust the terrace door and replace</text>
+  <text x="40" y="340" font-size="16" font-weight="400" fill="#15171C">the rollers. Glass replacement is</text>
+  <text x="40" y="364" font-size="16" font-weight="400" fill="#15171C">not included.</text>
+  </g>
+  <g id="lines">
+  <rect x="20.5" y="388.5" width="349" height="215" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  <text x="40" y="418" font-size="17" font-weight="700" fill="#15171C">Mano de obra</text>
+  <text x="40" y="438" font-size="14" font-weight="500" fill="#555A66">Claire reads: Labour</text>
+  <text x="350" y="426" font-size="17" font-weight="700" fill="#15171C" text-anchor="end">€160.00</text>
+  <path d="M40 452.5h310" stroke="#DED8CB"/>
+  <text x="40" y="480" font-size="17" font-weight="700" fill="#15171C">Rodillos</text>
+  <text x="40" y="500" font-size="14" font-weight="500" fill="#555A66">Claire reads: Rollers</text>
+  <text x="350" y="488" font-size="17" font-weight="700" fill="#15171C" text-anchor="end">€80.00</text>
+  <path d="M40 514.5h310" stroke="#DED8CB"/>
+  <path transform="translate(38 524) scale(0.8333)" d="M12 5v14M5 12h14" fill="none" stroke="#2438B5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="66" y="541" font-size="14" font-weight="700" fill="#2438B5">Add a line</text><path d="M66 545.5h64" stroke="#2438B5" stroke-width="1.5"/>
+  <path d="M40 556.5h310" stroke="#DED8CB"/>
+  <text x="40" y="588" font-size="17" font-weight="700" fill="#15171C">Total · EUR</text>
+  <text x="350" y="589" font-size="20" font-weight="700" fill="#15171C" text-anchor="end">€240.00</text>
+  </g>
+  <g id="validity">
+  <rect x="20.5" y="616.5" width="349" height="55" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  <text x="40" y="650" font-size="14" font-weight="500" fill="#555A66">Valid until</text>
+  <text x="326" y="650" font-size="17" font-weight="700" fill="#15171C" text-anchor="end">Mon, 30 Nov</text>
+  <path transform="translate(332 632)" d="m10 6 6 6-6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="dock"><rect y="692" width="390" height="152" fill="#FFFFFF"/><path d="M0 692.5h390" stroke="#DED8CB"/><text x="195" y="718" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Claire Martin is the named approver</text><rect x="20" y="738" width="350" height="56" rx="28" fill="#15171C"/><text x="195" y="772" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Review and send</text></g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

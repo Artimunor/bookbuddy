@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="F-03-new-job-reassignment-title F-03-new-job-reassignment-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="F-03-new-job-reassignment-title">F-03 New job — reassignment</title>
+  <desc id="F-03-new-job-reassignment-desc">Foreman view for Mateo Ruiz at Reformas Ruiz on Monday 23 November. Reformas Ruiz asks him to take over BB-1031 Pergola post repair at Casa Llum in Xàbia from the foreman Inés Vidal; reply by Tuesday 24 November, 18:00 Spain time. The handoff card shows Inés Vidal, foreman until he accepts, and Mateo Ruiz, named foreman if he accepts. The job is Booked, step 3 of 6, with the visit on Thursday 26 November, 10:00 to 11:30 Spain time. What stays as it is: quote version 1 for €380.00, approved; the visit window and booked time; the crew, Lucía Ortega, confirmed. Dock: Inés stays accountable until he accepts; actions Decline and Take over job.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">9:41</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header"><path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Take over a job</text><text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">BB-1031 · Casa Llum · Xàbia</text></g>
+  <rect x="20" y="114" width="350" height="36" rx="18" fill="#FFEFCF"/><path transform="translate(32 122) scale(0.8333)" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 4.500V12l3 2" fill="none" stroke="#6E4300" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="62" y="137" font-size="14" font-weight="600" fill="#6E4300">Reply by Tue, 24 Nov · 18:00 Spain time</text>
+  <g id="handoff">
+  <rect x="20.5" y="162.5" width="349" height="169" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  <text x="40" y="190" font-size="17" font-weight="700" fill="#15171C">Handoff from Inés Vidal</text>
+  <text x="350" y="190" font-size="12" font-weight="600" fill="#555A66" text-anchor="end">Mon 09:20</text>
+  <circle cx="58" cy="228" r="16.5" fill="#E7E1FF" stroke="#747986" stroke-width="3"/><text x="58" y="233" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">IV</text>
+  <text x="92" y="224" font-size="14" font-weight="600" fill="#15171C">Inés Vidal</text>
+  <text x="92" y="243" font-size="14" font-weight="500" fill="#555A66">Foreman until you accept</text>
+  <path d="M58 250v16m-5-5 5 5 5-5" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="58" cy="292" r="16.5" fill="#DDEBFF" stroke="#747986" stroke-width="3"/><text x="58" y="297" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">MR</text>
+  <text x="92" y="288" font-size="14" font-weight="600" fill="#15171C">Mateo Ruiz · you</text>
+  <text x="92" y="307" font-size="14" font-weight="500" fill="#555A66">Named foreman if you accept</text>
+  </g>
+  <g id="job">
+  <rect x="20.5" y="344.5" width="349" height="173" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  <text x="40" y="372" font-size="17" font-weight="700" fill="#15171C">Pergola post repair</text>
+  <text x="350" y="372" font-size="12" font-weight="600" fill="#555A66" text-anchor="end">BB-1031</text>
+  <text x="40" y="394" font-size="14" font-weight="500" fill="#555A66">Casa Llum · Xàbia</text>
+  <g id="journey-line"><path d="M62 422H338" stroke="#ECE8DE" stroke-width="6" stroke-linecap="round"/><path d="M62 422H172.4" stroke="#15171C" stroke-width="6" stroke-linecap="round"/><circle cx="62" cy="422" r="10" fill="#15171C"/><path d="m58 422 3 3 5-6" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="117.2" cy="422" r="10" fill="#15171C"/><path d="m113.2 422 3 3 5-6" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="172.4" cy="422" r="10" fill="#D6F33C" stroke="#15171C" stroke-width="2"/><circle cx="172.4" cy="422" r="3" fill="#15171C"/><circle cx="227.6" cy="422" r="8" fill="#FFFFFF" stroke="#747986" stroke-width="2"/><circle cx="282.8" cy="422" r="8" fill="#FFFFFF" stroke="#747986" stroke-width="2"/><circle cx="338" cy="422" r="8" fill="#FFFFFF" stroke="#747986" stroke-width="2"/><text x="172.4" y="454" font-size="12" font-weight="700" fill="#15171C" text-anchor="middle">Booked</text><text x="227.6" y="454" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Visit</text><text x="282.8" y="454" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Signed off</text><text x="348" y="454" font-size="12" font-weight="600" fill="#555A66" text-anchor="end">Paid</text></g>
+  <text x="40" y="484" font-size="14" font-weight="700" fill="#15171C">Booked · step 3 of 6</text>
+  <text x="40" y="504" font-size="14" font-weight="500" fill="#555A66">Visit Thu, 26 Nov · 10:00–11:30 Spain time</text>
+  </g>
+  <g id="stays">
+  <rect x="20.5" y="530.5" width="349" height="121" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  <text x="40" y="558" font-size="17" font-weight="700" fill="#15171C">Stays as it is</text>
+  <path transform="translate(38 569) scale(0.8333)" d="m5 12.500 4.500 4.500L19 7.500" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="66" y="584" font-size="14" font-weight="500" fill="#15171C">Quote v1 · €380.00 · approved</text>
+  <path transform="translate(38 593) scale(0.8333)" d="m5 12.500 4.500 4.500L19 7.500" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="66" y="608" font-size="14" font-weight="500" fill="#15171C">Visit window and the booked time</text>
+  <path transform="translate(38 617) scale(0.8333)" d="m5 12.500 4.500 4.500L19 7.500" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="66" y="632" font-size="14" font-weight="500" fill="#15171C">Crew · Lucía Ortega confirmed</text>
+  </g>
+  <g id="dock"><rect y="692" width="390" height="152" fill="#FFFFFF"/><path d="M0 692.5h390" stroke="#DED8CB"/><text x="195" y="718" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Inés stays accountable until you accept</text><rect x="21" y="739" width="110" height="54" rx="27" fill="#FFFFFF" stroke="#747986" stroke-width="2"/><text x="76" y="772" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">Decline</text><rect x="144" y="738" width="226" height="56" rx="28" fill="#15171C"/><text x="257" y="772" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Take over job</text></g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="F-01-now-crew-gap-title F-01-now-crew-gap-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="F-01-now-crew-gap-title">F-01 Now — crew gap</title>
+  <desc id="F-01-now-crew-gap-desc">Foreman view for Mateo Ruiz at Reformas Ruiz at 08:32 Spain time on Tuesday 24 November. A critical gap card comes first: Nadia Benali can’t make it, reported 08:32; door fitting; the visit starts in 28 minutes; it is still booked and Claire has not been told. Below, the capsule for BB-1042 Terrace door repair at Villa Mar in Xàbia is quiet: Crew gap, visit 09:00 to 10:00 Spain time, the first bead of the day line is an open ring, Mateo is confirmed and Nadia is out, one door fitter is needed for the same window. Nothing is lime because nothing is live. One action: Find cover.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">8:32</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header"><circle cx="40" cy="76" r="20" fill="#DDEBFF"/><text x="40" y="81" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">MR</text><text x="72" y="72" font-size="17" font-weight="700" fill="#15171C">Mateo</text><text x="72" y="92" font-size="14" font-weight="500" fill="#555A66">Foreman · Reformas Ruiz</text><rect x="322.5" y="52.5" width="47" height="47" rx="23.5" fill="#FFFFFF" stroke="#747986"/><path transform="translate(334 64)" d="M6 16h12l-1.5-2v-4a4.5 4.5 0 0 0-9 0v4zm4 3a2 2 0 0 0 4 0" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="360" cy="60" r="9" fill="#15171C"/><text x="360" y="64" font-size="12" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text></g>
+  <g id="content">
+  <text x="20" y="148" font-size="28" font-weight="800" fill="#15171C">Now</text>
+  <text x="20" y="172" font-size="14" font-weight="500" fill="#555A66">Tue, 24 Nov · Spain time</text>
+  <g id="gap-card">
+  <rect x="20.5" y="190.5" width="349" height="135" rx="24" fill="#FCE6E3" stroke="#8A2F28"/>
+  <path transform="translate(38 206) scale(0.8333)" d="M12 4 3 20h18zm0 6v5m0 2.500h.01" fill="none" stroke="#8A2F28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="66" y="224" font-size="14" font-weight="700" fill="#8A2F28">Crew gap</text>
+  <text x="350" y="224" font-size="14" font-weight="600" fill="#8A2F28" text-anchor="end">Reported 08:32</text>
+  <text x="40" y="262" font-size="28" font-weight="800" fill="#15171C">Nadia can’t make it</text>
+  <text x="40" y="286" font-size="14" font-weight="600" fill="#15171C">Door fitting · visit starts in 28 min</text>
+  <text x="40" y="308" font-size="14" font-weight="500" fill="#15171C">Still booked. Claire has not been told.</text>
+  </g>
+  <g id="visit-capsule">
+  <rect x="20" y="340" width="350" height="244" rx="32" fill="#15171C"/>
+  <circle cx="46" cy="370" r="7" fill="none" stroke="#F6F3EC" stroke-width="2"/>
+  <text x="64" y="375" font-size="14" font-weight="600" fill="#F6F3EC">Terrace door repair</text>
+  <text x="350" y="375" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="end">BB-1042</text>
+  <text x="40" y="416" font-size="28" font-weight="800" fill="#F6F3EC">Crew gap</text>
+  <text x="350" y="414" font-size="20" font-weight="700" fill="#F6F3EC" text-anchor="end">09:00–10:00</text>
+  <text x="40" y="438" font-size="14" font-weight="500" fill="#B1B5C0">Villa Mar · Xàbia</text>
+  <text x="350" y="436" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="end">Visit · Spain time</text>
+  <g id="job-line"><path d="M50 466H340" stroke="#3B404B" stroke-width="6" stroke-linecap="round"/><circle cx="50" cy="466" r="9" fill="#15171C" stroke="#F6F3EC" stroke-width="2"/><circle cx="122.5" cy="466" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><circle cx="195" cy="466" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><circle cx="267.5" cy="466" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><circle cx="340" cy="466" r="8" fill="#15171C" stroke="#B1B5C0" stroke-width="2"/><text x="122.5" y="498" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="middle">On the way</text><text x="195" y="498" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="middle">On site</text><text x="267.5" y="498" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="middle">Working</text><text x="350" y="498" font-size="12" font-weight="600" fill="#B1B5C0" text-anchor="end">Finished</text></g>
+  <path d="M40 514.5h310" stroke="#3B404B"/>
+  <circle cx="58" cy="546" r="16.5" fill="#DDEBFF" stroke="#B1B5C0" stroke-width="3"/><text x="58" y="551" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">MR</text>
+  <circle cx="94" cy="546" r="20" fill="#15171C"/>
+  <circle cx="94" cy="546" r="16.5" fill="#E7E1FF" stroke="#FFC1BA" stroke-width="3"/><text x="94" y="551" font-size="14" font-weight="700" fill="#15171C" text-anchor="middle">NB</text><circle cx="106.96" cy="558.96" r="8" fill="#FCE6E3" stroke="#8A2F28" stroke-width="1.5"/><path d="m103.96 555.96 6 6m0-6-6 6" fill="none" stroke="#8A2F28" stroke-width="2" stroke-linecap="round"/>
+  <text x="130" y="542" font-size="14" font-weight="600" fill="#F6F3EC">Mateo confirmed · Nadia out</text>
+  <text x="130" y="560" font-size="12" font-weight="600" fill="#B1B5C0">1 door fitter needed · same window</text>
+  </g>
+  </g>
+  <g id="dock"><rect y="646" width="390" height="100" fill="#FFFFFF"/><path d="M0 646.5h390" stroke="#DED8CB"/><rect x="20" y="668" width="350" height="56" rx="28" fill="#15171C"/><path transform="translate(133.732 684)" d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm5 12 4 4" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="167.732" y="702" font-size="17" font-weight="700" fill="#FFFFFF">Find cover</text></g>
+  <g id="tab-bar"><rect y="746" width="390" height="98" fill="#FFFFFF"/><path d="M0 746.5h390" stroke="#DED8CB"/><circle cx="49" cy="769" r="9" fill="none" stroke="#15171C" stroke-width="2"/><circle cx="49" cy="769" r="3.5" fill="#15171C"/><text x="49" y="798" font-size="12" font-weight="700" fill="#15171C" text-anchor="middle">Now</text><circle cx="49" cy="806" r="2" fill="#15171C"/><path transform="translate(134 757)" d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h3" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="146" y="798" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Jobs</text><path transform="translate(232 757)" d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm-6 8a6 6 0 0 1 12 0m1-8a3 3 0 1 0 0-6m2 14a6 6 0 0 0-3-5" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="244" y="798" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Crew</text><path transform="translate(329 757)" d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="#555A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="341" y="798" font-size="12" font-weight="600" fill="#555A66" text-anchor="middle">Messages</text></g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>

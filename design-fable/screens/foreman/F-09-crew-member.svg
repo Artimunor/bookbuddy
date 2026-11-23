@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="F-09-crew-member-title F-09-crew-member-desc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <title id="F-09-crew-member-title">F-09 Crew member — available</title>
+  <desc id="F-09-crew-member-desc">Foreman view for Mateo Ruiz at 08:33 Spain time on Tuesday 24 November, opened from Find cover to check a candidate. Diego Torres, own crew at Reformas Ruiz: door fitting, works in Español, open to cover today to 18:00. Fit for today’s cover on BB-1042, 09:00 to 10:00 Spain time, is Available, with four checks: the skill the shift needs, door fitting; the briefing language, Español, which he works in; free 08:00 to 10:30, with his next shift at 10:30; eligible to 31 December 2026, checked today at 08:33, result only. A row opens the crew-only chat with Diego, who writes Español. Mateo sees results of checks, never documents. Dock: selecting sends nothing and offers are sent next; action Select for cover.</desc>
+  <rect width="390" height="844" fill="#F6F3EC"/>
+  <g id="status-bar" aria-hidden="true" fill="#15171C"><text x="20" y="29" font-size="15" font-weight="700">8:33</text><rect x="301" y="24" width="3" height="4" rx="1"/><rect x="306" y="22" width="3" height="6" rx="1"/><rect x="311" y="19" width="3" height="9" rx="1"/><rect x="316" y="16" width="3" height="12" rx="1"/><path d="M324 20a11 11 0 0 1 16 0m-13 3a7 7 0 0 1 10 0m-7 3a3 3 0 0 1 4 0" fill="none" stroke="#15171C" stroke-width="1.75" stroke-linecap="round"/><circle cx="332" cy="29" r="1.1"/><rect x="347.5" y="16.5" width="21" height="12" rx="3" fill="none" stroke="#15171C"/><rect x="349.5" y="18.5" width="17" height="8" rx="1.5"/><path d="M370 20v5c2-1 2-4 0-5z"/></g>
+  <g id="header"><path transform="translate(20 64)" d="m14 6-6 6 6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="64" y="72" font-size="20" font-weight="700" fill="#15171C">Crew member</text><text x="64" y="94" font-size="14" font-weight="500" fill="#555A66">Reformas Ruiz · your own crew</text></g>
+  <g id="profile">
+  <rect x="20.5" y="116.5" width="349" height="99" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  <circle cx="66" cy="166" r="26.5" fill="#DDF3E4" stroke="#747986" stroke-width="3"/><text x="66" y="171" font-size="17" font-weight="700" fill="#15171C" text-anchor="middle">DT</text>
+  <text x="110" y="154" font-size="20" font-weight="700" fill="#15171C">Diego Torres</text>
+  <text x="110" y="176" font-size="14" font-weight="500" fill="#555A66">Door fitting · works in Español</text>
+  <text x="110" y="197" font-size="14" font-weight="600" fill="#1E5A32">Open to cover today to 18:00</text>
+  </g>
+  <g id="fit">
+  <rect x="20.5" y="228.5" width="349" height="299" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  <text x="40" y="256" font-size="17" font-weight="700" fill="#15171C">Fit for today’s cover</text>
+  <rect x="262" y="238" width="88" height="28" rx="14" fill="#E1F3E4"/>
+  <text x="306" y="257" font-size="12" font-weight="600" fill="#1E5A32" text-anchor="middle">Available</text>
+  <text x="40" y="277" font-size="14" font-weight="500" fill="#555A66">BB-1042 · today 09:00–10:00 Spain time</text>
+  <rect x="36" y="294" width="32" height="32" rx="12" fill="#E1F3E4"/><path transform="translate(42 300) scale(0.8333)" d="m5 12.500 4.500 4.500L19 7.500" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="80" y="308" font-size="17" font-weight="700" fill="#15171C">Door fitting</text><text x="80" y="328" font-size="14" font-weight="500" fill="#555A66">Skill this shift needs</text>
+  <path d="M36 340.5h318" stroke="#DED8CB"/>
+  <rect x="36" y="352" width="32" height="32" rx="12" fill="#E1F3E4"/><path transform="translate(42 358) scale(0.8333)" d="m5 12.500 4.500 4.500L19 7.500" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="80" y="366" font-size="17" font-weight="700" fill="#15171C">Español</text><text x="80" y="386" font-size="14" font-weight="500" fill="#555A66">Briefing language · he works in it</text>
+  <path d="M36 398.5h318" stroke="#DED8CB"/>
+  <rect x="36" y="410" width="32" height="32" rx="12" fill="#E1F3E4"/><path transform="translate(42 416) scale(0.8333)" d="m5 12.500 4.500 4.500L19 7.500" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="80" y="424" font-size="17" font-weight="700" fill="#15171C">Free 08:00–10:30</text><text x="80" y="444" font-size="14" font-weight="500" fill="#555A66">Next shift 10:30 · open to cover</text>
+  <path d="M36 456.5h318" stroke="#DED8CB"/>
+  <rect x="36" y="468" width="32" height="32" rx="12" fill="#E1F3E4"/><path transform="translate(42 474) scale(0.8333)" d="m5 12.500 4.500 4.500L19 7.500" fill="none" stroke="#1E5A32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><text x="80" y="482" font-size="17" font-weight="700" fill="#15171C">Eligible to 31 Dec 2026</text><text x="80" y="502" font-size="14" font-weight="500" fill="#555A66">Checked today 08:33 · result only</text>
+  </g>
+  <g id="message">
+  <rect x="20.5" y="540.5" width="349" height="71" rx="24" fill="#FFFFFF" stroke="#DED8CB"/>
+  <rect x="36" y="560" width="32" height="32" rx="12" fill="#ECE8DE"/><path transform="translate(42 566) scale(0.8333)" d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="80" y="570" font-size="17" font-weight="700" fill="#15171C">Message Diego</text>
+  <text x="80" y="592" font-size="14" font-weight="500" fill="#555A66">Crew only · he writes Español</text>
+  <path transform="translate(332 564)" d="m10 6 6 6-6 6" fill="none" stroke="#15171C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="195" y="646" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">You see results of checks, never documents.</text>
+  <g id="dock"><rect y="692" width="390" height="152" fill="#FFFFFF"/><path d="M0 692.5h390" stroke="#DED8CB"/><text x="195" y="718" font-size="14" font-weight="500" fill="#555A66" text-anchor="middle">Selecting sends nothing. You send offers next.</text><rect x="20" y="738" width="350" height="56" rx="28" fill="#15171C"/><text x="195" y="772" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Select for cover</text></g>
+  <rect id="home-indicator" x="128" y="831" width="134" height="5" rx="2.5" fill="#15171C" aria-hidden="true"/>
+</svg>
