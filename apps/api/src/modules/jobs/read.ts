@@ -1,7 +1,7 @@
 import type { HomeProjection } from "@bookbuddy/api-contract";
 import type { ChangeVersionState, QuoteVersionState } from "@bookbuddy/domain";
 import type { CommandStatement } from "../../db/commit";
-import { at, currentCheck, displayName, eligibilityStatus, scopedStatement } from "../access/policy";
+import { at, currentCheck, displayName, eligibilityStatus, liveTerm, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import { paymentHead } from "../aftercare/invoice";
 import { routedReviewer } from "../commercial/policy";
@@ -105,29 +105,41 @@ const customerCrew = `(WITH crew_visit AS (
 const shiftSlots = (visit: string) => jsonRows(`json_object('shiftId', sh.id, 'slotIds', json((
     SELECT json_group_array(id) FROM (SELECT slot.id FROM shift_slots slot WHERE slot.shift_id = sh.id ORDER BY slot.number))))`,
   `FROM shifts sh WHERE sh.visit_id = ${visit}.id ORDER BY sh.starts_at, sh.id`);
-const foremanVisits = jsonRows(`json_object('visitId', v.id, 'shifts', json(${shiftSlots("v")}))`,
+const slotUnfilled = `NOT EXISTS (SELECT 1 FROM assignments a WHERE a.slot_id = slot.id AND a.state = 'confirmed')`;
+// Ordinary staffing cannot replace a worker who dropped out, even after cover closes.
+const vacantSlot = `CASE WHEN j.approved_scope AND p.state = 'in_area' AND b.state = 'approved' AND v.state = 'booked' THEN (
+  SELECT slot.id FROM shifts sh JOIN shift_slots slot ON slot.shift_id = sh.id
+  WHERE sh.visit_id = v.id AND sh.state = 'planned' AND sh.starts_at > ${at} AND ${slotUnfilled}
+    AND NOT EXISTS (SELECT 1 FROM cover_gaps cg WHERE cg.slot_id = slot.id)
+    AND NOT EXISTS (SELECT 1 FROM assignment_offers o WHERE o.slot_id = slot.id AND o.state = 'offered' AND o.expires_at > ${at})
+  ORDER BY sh.starts_at, sh.id, slot.number LIMIT 1) END`;
+const foremanVisits = jsonRows(`json_object('visitId', v.id, 'shifts', json(${shiftSlots("v")}), 'vacantSlotId', ${vacantSlot})`,
   "FROM visits v WHERE v.job_id = j.id ORDER BY v.id");
-const assignableShift = (visit: string) => `CASE WHEN j.state = 'open' AND p.state = 'in_area' AND b.state = 'approved'
-  AND ${visit}.state = 'booked' AND EXISTS (SELECT 1 FROM quote_versions q WHERE ${approvedVersion("j")} AND ${noWithdrawal()}) THEN (
-    SELECT sh.id FROM shifts sh WHERE sh.visit_id = ${visit}.id AND sh.state = 'planned' AND sh.starts_at > ${at}
-      AND EXISTS (SELECT 1 FROM shift_slots slot WHERE slot.shift_id = sh.id
-        AND NOT EXISTS (SELECT 1 FROM assignments a WHERE a.slot_id = slot.id AND a.state = 'confirmed')
-        AND NOT EXISTS (SELECT 1 FROM cover_gaps cg WHERE cg.slot_id = slot.id AND cg.state IN ('open', 'accepted_pending_confirmation'))
-        AND NOT EXISTS (SELECT 1 FROM assignment_offers o WHERE o.slot_id = slot.id AND o.state = 'offered' AND o.expires_at > ${at}))
-    ORDER BY sh.starts_at, sh.id LIMIT 1) END`;
+// A booked shift is a staffing commitment until it ends. A pending offer does not fill it.
+const crewGap = `j.state = 'open' AND EXISTS (SELECT 1
+  FROM visits booked JOIN visit_windows w ON w.visit_id = booked.id AND w.state = 'confirmed'
+  JOIN shifts sh ON sh.visit_id = booked.id JOIN shift_slots slot ON slot.shift_id = sh.id
+  WHERE booked.job_id = j.id AND booked.state = 'booked' AND w.confirmed_at <= ${at} AND w.ends_at > ${at}
+    AND sh.state IN ('planned', 'active') AND sh.ends_at > ${at} AND ${slotUnfilled})`;
+// Scoped job access alone does not disclose a case. Match the named provider case grant.
+const openProblem = `EXISTS (SELECT 1 FROM problem_cases pc JOIN case_grants g ON g.case_id = pc.id
+  AND g.context_id = s.context_id AND g.capability = pc.provider_audience AND ${liveTerm("g")}
+  WHERE pc.job_id = j.id AND pc.state IN ('open', 'awaiting_plan') AND pc.opened_at <= ${at})`;
 // Match commercial detail visibility: private authored revisions do not transfer with accountability.
 const foremanVersionVisible = (version: string) => `((j.accountable_foreman_membership_id = s.membership_id
   AND (${version}.issued_at <= ${at} OR ${version}.author_id = s.account_id)) OR ${routedReviewer("s", "review")})`;
-const foremanVersion = (kind: "quote" | "change") => `(SELECT json_object('versionId', ver.id, 'state', ver.state)
+const foremanVersion = (kind: "quote" | "change") => `(SELECT json_object('versionId', ver.id, 'no', ver.no, 'state', ver.state)
   FROM ${kind}_versions ver LEFT JOIN commercial_reviews review ON review.${kind}_version_id = ver.id
   WHERE ver.job_id = j.id AND ${foremanVersionVisible("ver")}${kind === "change" ? ` AND ver.created_at <= ${at}` : ""}
   ORDER BY ${kind === "change" ? "ver.created_at DESC, " : ""}ver.no DESC, ver.id DESC LIMIT 1)`;
+const effectiveBill = `bill.job_id = j.id AND bill.state = 'issued' AND bill.issued_at <= ${at}`;
+const paymentRecorded = `EXISTS (SELECT 1 FROM paid_records r WHERE r.bill_id = bill.id AND r.kind = 'matched'
+  AND r.at <= ${at} AND NOT EXISTS (SELECT 1 FROM paid_records successor WHERE successor.prior_id = r.id AND successor.at <= ${at}))`;
 // There's no issued draft invoice. A stored wrap-up bill reference is the draft signal.
 const foremanBill = `coalesce(
-  (SELECT json_object('state', CASE WHEN EXISTS (SELECT 1 FROM paid_records r WHERE r.bill_id = bill.id AND r.kind = 'matched'
-      AND r.at <= ${at} AND NOT EXISTS (SELECT 1 FROM paid_records successor WHERE successor.prior_id = r.id AND successor.at <= ${at}))
+  (SELECT json_object('state', CASE WHEN ${paymentRecorded}
     THEN 'paid_recorded' ELSE 'sent' END, 'total', json_object('minor', bill.total_minor, 'currency', bill.currency))
-    FROM bills bill WHERE bill.job_id = j.id AND bill.state = 'issued' AND bill.issued_at <= ${at}),
+    FROM bills bill WHERE ${effectiveBill}),
   (SELECT json_object('state', 'draft', 'total', json_object('minor', c.bill_amount_minor, 'currency', 'EUR'))
     FROM completions c WHERE c.job_id = j.id AND c.state = 'submitted' AND c.bill_reference_hint IS NOT NULL AND c.submitted_at <= ${at}),
   json_object('state', 'none', 'total', NULL))`;
@@ -146,7 +158,7 @@ const todayVisits = (linked: boolean, whole: boolean) => {
   const visit = visitJson("v", "w");
   const staff = whole ? linked ? "s.role = 'foreman' AND (SELECT visit_id FROM input) IS NOT NULL" : "0" : "s.role = 'foreman'";
   const packet = staff === "0" ? visit : `CASE WHEN ${staff} THEN json_set(${visit},
-    '$.shifts', json(${shiftSlots("v")}), '$.assignableShift', ${assignableShift("v")}) ELSE ${visit} END`;
+    '$.shifts', json(${shiftSlots("v")}), '$.vacantSlotId', ${vacantSlot}) ELSE ${visit} END`;
   return jsonRows(packet, `FROM visits v JOIN visit_windows w ON w.visit_id = v.id AND w.state = 'confirmed'
   WHERE v.job_id = j.id AND v.state IN ('booked', 'finished') AND w.confirmed_at <= ${at}
     AND (${linked ? "v.id = (SELECT visit_id FROM input) OR ((SELECT visit_id FROM input) IS NULL AND " : ""}
@@ -156,6 +168,7 @@ const todayVisits = (linked: boolean, whole: boolean) => {
 
 function jobPacket(mode: ReadMode, linked = false): string {
   const detail = mode === "whole" || mode === "today";
+  const foremanCards = mode === "home" || mode === "list" || mode === "whole";
   return `json_object(${headingSql("j", placeZone)}, ${journeySql("j", at)},
     'position', ${position("j")}, 'revision', j.revision, 'place', json_object('placeId', p.id, 'alias', p.alias),
     'providerName', b.public_name, 'customerName', CASE WHEN s.role = 'foreman' THEN ${displayName("customer")} END,
@@ -170,6 +183,10 @@ function jobPacket(mode: ReadMode, linked = false): string {
     'writeQuote', j.write_quote,
     'openChange', s.role = 'foreman' AND EXISTS (SELECT 1 FROM change_versions ch
       WHERE ch.job_id = j.id AND ch.state = 'issued' AND ch.issued_at <= ${at} AND ch.expires_at > ${at})
+    ${foremanCards ? `, 'crewGap', CASE WHEN s.role = 'foreman' THEN ${crewGap} ELSE 0 END,
+      'openProblem', CASE WHEN s.role = 'foreman' THEN ${openProblem} ELSE 0 END` : ""}
+    ${mode === "list" || mode === "home" ? `, 'unpaidBill', CASE WHEN s.role = 'foreman' THEN EXISTS (
+      SELECT 1 FROM bills bill WHERE ${effectiveBill} AND NOT ${paymentRecorded}) ELSE 0 END` : ""}
     ${mode === "list" || mode === "whole" ? `, 'providerInvoice', json(CASE WHEN s.role = 'provider_admin' THEN ${providerInvoice} END)` : ""}
     ${mode === "whole" ? `, 'attachmentIds', json(CASE WHEN s.role = 'customer' THEN (
       SELECT json_group_array(attachment_id) FROM (
@@ -177,7 +194,6 @@ function jobPacket(mode: ReadMode, linked = false): string {
       'crew', json(CASE WHEN s.role = 'customer' AND j.state <> 'cancelled' THEN ${customerCrew} END),
       'cancellation', json(CASE WHEN s.role = 'customer' THEN ${cancelledVisit} END),
       'visits', json(CASE WHEN s.role = 'foreman' THEN ${foremanVisits} END),
-      'assignableShift', CASE WHEN s.role = 'foreman' THEN ${assignableShift("v")} END,
       'foremanQuote', json(CASE WHEN s.role = 'foreman' THEN ${foremanVersion("quote")} END),
       'foremanChange', json(CASE WHEN s.role = 'foreman' THEN ${foremanVersion("change")} END),
       'foremanBill', json(CASE WHEN s.role = 'foreman' THEN ${foremanBill} END)` : ""}
@@ -344,6 +360,8 @@ function read(access: SessionAccess, mode: ReadMode, options: {
         review.due_at AS review_due,
         s.role = 'foreman' AND j.accountable_foreman_membership_id = s.membership_id AND NOT EXISTS (
           SELECT 1 FROM quote_versions q WHERE q.job_id = j.id AND q.state IN ('issued', 'approved', 'in_review')) AS write_quote
+        ${mode === "whole" || mode === "today" ? `, CASE WHEN s.role = 'foreman' AND j.state = 'open' THEN EXISTS (
+          SELECT 1 FROM quote_versions q WHERE ${approvedVersion("j")} AND ${noWithdrawal()}) END AS approved_scope` : ""}
       FROM visible_jobs j CROSS JOIN reader s LEFT JOIN requests r ON r.job_id = j.id
       LEFT JOIN review_deadlines review ON review.job_id = j.id
     ),
@@ -444,7 +462,8 @@ interface Member { membershipId: string; displayName: string }
 interface Handoff { handoffId: string; expiresAt: number }
 interface Stamp { at: number; by: string | null }
 interface ShiftSlots { shiftId: string; slotIds: string[] }
-interface StaffedVisit extends VisitRow { shifts?: ShiftSlots[]; assignableShift?: string | null }
+interface VisitStaffing { shifts?: ShiftSlots[]; vacantSlotId?: string | null }
+type StaffedVisit = VisitRow & VisitStaffing;
 type InvoiceAmount = { minor: number; currency: "EUR" };
 interface ProviderInvoice {
   billId: string; number: string; total: InvoiceAmount; expectedPriorId: string | null; canRecordPaid: boolean;
@@ -456,11 +475,12 @@ interface Job extends Heading, JourneyRow {
   quote: (Published & { version: number; state: QuoteVersionState; approved?: Stamp | null }) | null;
   change: (Published & { state: ChangeVersionState }) | null; proposal: Proposed | null;
   approver: string | null; writeQuote: number; openChange: number; today?: StaffedVisit[];
+  crewGap?: number; openProblem?: number; unpaidBill?: number;
   attachmentIds?: string[] | null;
   crew?: { leadName: string | null; count: number } | null; cancellation?: Stamp | null;
-  visits?: { visitId: string; shifts: ShiftSlots[] }[]; assignableShift?: string | null;
-  foremanQuote?: { versionId: string; state: QuoteVersionState } | null;
-  foremanChange?: { versionId: string; state: ChangeVersionState } | null;
+  visits?: (VisitStaffing & { visitId: string })[];
+  foremanQuote?: { versionId: string; no: number; state: QuoteVersionState } | null;
+  foremanChange?: { versionId: string; no: number; state: ChangeVersionState } | null;
   foremanBill?: { state: "none" | "draft" | "sent" | "paid_recorded"; total: { minor: number; currency: "EUR" } | null };
   providerInvoice?: ProviderInvoice | null;
   address?: string; arrival?: unknown; review?: unknown; canWithdrawHandoff?: number | null;
@@ -541,18 +561,27 @@ function customerDecisions(job: Job, now: number) {
   ];
 }
 
-function foremanStep(job: Job, visit = job.next, assignableShift = job.assignableShift) {
+function foremanStep(job: Job, visit = job.next, staffing?: VisitStaffing) {
   if (job.state !== "open") return null;
-  if (assignableShift) return action("assign_crew", assignableShift, visit?.startsAt);
-  if (visit) return action("visit", visit.visitId, visit.startsAt);
+  if (visit) {
+    staffing ??= job.visits?.find(({ visitId }) => visitId === visit.visitId);
+    const slotId = staffing?.vacantSlotId;
+    const shift = slotId && staffing?.shifts?.find(({ slotIds }) => slotIds.includes(slotId));
+    return shift ? action("assign_crew", shift.shiftId, visit.startsAt) : action("visit", visit.visitId, visit.startsAt);
+  }
   return job.writeQuote ? action("write_quote", job.jobId) : null;
 }
 const card = (job: Job) => ({ ...heading(job), state: job.state, place: job.place, journey: journey(job),
   nextVisit: job.next && booking(job.next), finalAt: job.finalAt });
 const customerCard = (job: Job, now: number) => ({ ...card(job), providerName: job.providerName, nextStep: customerStep(job, now), live: isLive(job.next, now) });
-const foremanCard = (job: Job, now: number) => ({ ...card(job), customerName: job.customerName,
-  nextStep: foremanStep(job), live: isLive(job.next, now),
-  flags: [...job.openChange ? ["open_change"] : [], ...job.foremanBill?.state === "sent" ? ["unpaid_bill"] : []] });
+function foremanCard(job: Job, now: number) {
+  const flags: string[] = [];
+  if (job.crewGap) flags.push("crew_gap");
+  if (job.openChange) flags.push("open_change");
+  if (job.openProblem) flags.push("open_problem");
+  if (job.unpaidBill || job.foremanBill?.state === "sent") flags.push("unpaid_bill");
+  return { ...card(job), customerName: job.customerName, nextStep: foremanStep(job), live: isLive(job.next, now), flags };
+}
 const providerCard = (job: Job) => ({ ...card(job), accountableForeman: job.foreman, handoff: job.handoff });
 function providerLive(job: Job, now: number) {
   const next = job.next;
@@ -679,7 +708,7 @@ export function projectJob(rows: ReadRows, view: View, now: number, exactVisit =
         if (!today) return null;
         const live = foremanLive(job, today);
         return { audience, job: { ...live, view, revision: job.revision, gap: null,
-          visit: { ...live.visit, shifts: today.shifts }, nextStep: foremanStep(job, today, today.assignableShift) } };
+          visit: { ...live.visit, shifts: today.shifts, vacantSlotId: today.vacantSlotId }, nextStep: foremanStep(job, today, today) } };
       }
       return { audience, job: {
         ...foremanCard(job, now), view, revision: job.revision, address: job.address, arrival: job.arrival, chatThreadId: null,

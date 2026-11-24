@@ -317,17 +317,17 @@ test("whole job exposes attributed decisions and only confirmed crew facts to th
     expect(before.body).toMatchObject({ data: { job: { crew: null, foremanName: null, cancellation: null, change: null,
       quote: { versionId: "mine-base", state: "approved", sent: { at: old + 4, by: "admin" }, approved: { at: old + 5, by: "owner" } },
     } } });
-    expect(JSON.stringify(before.body)).not.toMatch(/worker|helper|private-change|Private revision|lead-slot|change_in_review/);
+    expect(JSON.stringify(before.body)).not.toMatch(/worker|helper|private-change|Private revision|lead-slot|change_in_review|crew_gap|vacantSlotId/);
     const shifts = [{ shiftId: "shift", slotIds: ["lead-slot", "helper-slot"] }];
     expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: {
-      visits: [{ visitId: "visit", shifts }], nextStep: { kind: "assign_crew", recordId: "shift" },
-      quote: { versionId: "mine-base", state: "approved" }, change: { versionId: "private-change", state: "in_review" },
+      visits: [{ visitId: "visit", shifts, vacantSlotId: "helper-slot" }], nextStep: { kind: "assign_crew", recordId: "shift" }, flags: ["crew_gap"],
+      quote: { versionId: "mine-base", no: 1, state: "approved" }, change: { versionId: "private-change", no: 1, state: "in_review" },
       bill: { state: "none", total: null }, history: { items: expect.arrayContaining([
         { jobId: "mine", recordId: "private-change", kind: "change_in_review", at: old + 8, by: "foreman" },
       ]) },
     } } });
     expect((await f.request("/jobs/mine?view=today", "foreman")).body).toMatchObject({ data: { job: {
-      visit: { visitId: "visit", shifts }, nextStep: { kind: "assign_crew", recordId: "shift" },
+      visit: { visitId: "visit", shifts, vacantSlotId: "helper-slot" }, nextStep: { kind: "assign_crew", recordId: "shift" },
     } } });
     await f.db.batch([
       f.db.prepare(`INSERT INTO assignments(id,slot_id,worker_membership_id,source,state,confirmed_by,confirmed_at,starts_at,ends_at)
@@ -338,7 +338,45 @@ test("whole job exposes attributed decisions and only confirmed crew facts to th
     const confirmed = await f.request("/jobs/mine", "owner");
     expect(confirmed.body).toMatchObject({ data: { job: { crew: { leadName: "worker", count: 2 } } } });
     expect(JSON.stringify(confirmed.body)).not.toMatch(/helper|lead-slot|lead-assignment|private-change/);
-    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: { nextStep: { kind: "visit", recordId: "visit" } } } });
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: {
+      nextStep: { kind: "visit", recordId: "visit" }, visits: [{ vacantSlotId: null }], flags: [],
+    } } });
+    await f.db.batch([
+      f.db.prepare(`UPDATE assignments SET state = 'dropped', dropped_at = ?, dropout_source = 'self',
+        dropout_reported_by = 'helper' WHERE id = 'helper-assignment'`).bind(now),
+      f.db.prepare(`INSERT INTO cover_gaps (id, slot_id, prior_assignment_id, safe_cutoff, state)
+        VALUES ('cover', 'helper-slot', 'helper-assignment', ?, 'open')`).bind(start),
+    ]);
+    expect((await f.request("/jobs", "foreman")).body).toMatchObject({ data: { list: { items: [{ jobId: "mine", flags: ["crew_gap"] }] } } });
+    await f.db.prepare(`UPDATE cover_gaps SET state = 'closed', closed_at = ? WHERE id = 'cover'`).bind(now).run();
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: {
+      visits: [{ vacantSlotId: null }], nextStep: { kind: "visit" }, flags: ["crew_gap"],
+    } } });
+    date.mockReturnValue(end);
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: { flags: [] } } });
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
+test("foreman job cards flag only active problem cases with a live viewer grant", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await f.db.prepare(`INSERT INTO problem_cases (id, job_id, reference, reporter_id, case_owner_id, category, provider_audience,
+      state, opened_at, acknowledge_by, first_update_by, next_update_at) VALUES
+      ('private-case', 'mine', 'BB-PC1', 'owner', 'other', 'timing', NULL, 'open', 1, 2, 3, 2),
+      ('crew-case', 'mine', 'BB-PC2', 'owner', 'other', 'quality', 'provider_rectification', 'open', 1, 2, 3, 2)`).run();
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: { flags: [] } } });
+    await f.db.prepare(`INSERT INTO case_grants (case_id, context_id, capability, valid_from, valid_until)
+      VALUES ('crew-case', 'foreman-staff', 'provider_rectification', 1, ?)`).bind(expiry).run();
+    const card = { jobId: "mine", flags: ["open_problem"] };
+    expect((await f.request("/jobs", "foreman")).body).toMatchObject({ data: { list: { items: [card] } } });
+    expect((await f.request("/home", "foreman")).body).toMatchObject({ data: { laterVisits: [card] } });
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: card } });
+    expect(JSON.stringify((await f.request("/jobs/mine", "owner")).body)).not.toMatch(/open_problem|crew-case|private-case/);
+    await f.db.prepare(`UPDATE problem_cases SET state = 'awaiting_plan' WHERE id = 'crew-case'`).run();
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: card } });
+    date.mockReturnValue(expiry);
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: { flags: [] } } });
   } finally { f.db.close(); date.mockRestore(); }
 });
 
@@ -386,6 +424,7 @@ test("foreman bill status follows the current invoice and attributed payment cor
         VALUES ('records-payment','business','admin-member','record_paid','admin',1)`),
     ]);
     expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: { bill: { state: "sent", total }, flags: ["unpaid_bill"] } } });
+    expect((await f.request("/jobs", "foreman")).body).toMatchObject({ data: { list: { items: [{ flags: ["unpaid_bill"] }] } } });
     await f.db.prepare(`INSERT INTO paid_records(id,bill_id,actor_id,kind,amount_minor,verified_reference,at)
       VALUES ('matched','bill','admin','matched',120,'private-bank-reference',?)`).bind(old + 9).run();
     const paid = await f.request("/jobs/mine", "foreman");

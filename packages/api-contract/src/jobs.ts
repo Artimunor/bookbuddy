@@ -204,6 +204,7 @@ const foremanIntake = foremanIncoming.extend({
   reply: z.enum(["available", "authority_missing", "closed_elsewhere", "closed"]), chatThreadId: idSchemaFor<"chat_thread">().nullable(),
 });
 const shiftSlots = z.array(z.object({ shiftId: idSchemaFor<"shift">(), slotIds: z.array(idSchemaFor<"shift_slot">()) }));
+const visitStaffing = { shifts: shiftSlots, vacantSlotId: idSchemaFor<"shift_slot">().nullable().optional() };
 const foremanJobBill = z.discriminatedUnion("state", [
   z.object({ state: z.literal("none"), total: z.null() }),
   z.object({ state: z.enum(["draft", "sent", "paid_recorded"]), total: money }),
@@ -229,15 +230,15 @@ export const jobDetailSchema = z.discriminatedUnion("audience", [
     foremanIntake,
     foremanCard.extend({
       view: z.literal("whole"), revision: revisionSchema, address: displayText, arrival, chatThreadId: idSchemaFor<"chat_thread">().nullable(),
-      visits: z.array(z.object({ visitId: idSchemaFor<"visit">(), shifts: shiftSlots })).optional(),
-      quote: z.object({ versionId: idSchemaFor<"quote_version">(), state: z.enum(QUOTE_VERSION_STATES) }).nullable().optional(),
-      change: z.object({ versionId: idSchemaFor<"change_version">(), state: z.enum(CHANGE_VERSION_STATES) }).nullable().optional(),
+      visits: z.array(z.object({ visitId: idSchemaFor<"visit">(), ...visitStaffing })).optional(),
+      quote: z.object({ versionId: idSchemaFor<"quote_version">(), no: z.int().positive(), state: z.enum(QUOTE_VERSION_STATES) }).nullable().optional(),
+      change: z.object({ versionId: idSchemaFor<"change_version">(), no: z.int().positive(), state: z.enum(CHANGE_VERSION_STATES) }).nullable().optional(),
       bill: foremanJobBill.optional(),
       history: historyPage.extend({ items: z.array(foremanMoment) }).optional(),
     }),
     foremanLive.extend({
       view: z.literal("today"), revision: revisionSchema, gap: crewGap.nullable(), nextStep: foremanNextStep.nullable(),
-      visit: visit.extend({ shifts: shiftSlots.optional() }),
+      visit: visit.extend({ ...visitStaffing, shifts: shiftSlots.optional() }),
     }),
   ]) }),
   z.object({ audience: z.literal("worker"), job: z.discriminatedUnion("view", [
