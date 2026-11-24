@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import type { AttendanceStatus } from "./attendance";
 import { snapshotWindow } from "./cache";
 import type { CachedProjections, ProjectionKind } from "./cache";
 import type { RemoteCacheKind } from "./remote-cache";
@@ -99,6 +100,18 @@ export function useOutbox(): { entries: readonly OutboxEntry[]; enqueueOperation
     return repo.enqueueOperation(op);
   }, [repo]);
   return { entries, enqueueOperation };
+}
+
+const emptyAttendance: AttendanceStatus = { arrival: null, departure: null, lastConfirmedAt: null };
+
+export function useAttendanceStatus(assignmentId: string | null | undefined): AttendanceStatus {
+  const result = useRead("attendance", useCallback((repo: ScopedRepository) => assignmentId
+    ? repo.getAttendanceStatus(assignmentId) : Promise.resolve(null), [assignmentId]));
+  const visible = useSnapshotVisible(result?.expiresAt ?? undefined);
+  if (!result) return emptyAttendance;
+  return visible
+    ? { arrival: result.arrival, departure: result.departure, lastConfirmedAt: result.lastConfirmedAt }
+    : { ...result.local, lastConfirmedAt: null };
 }
 
 export function usePendingDrafts(kindOrAllRoles?: string | boolean): number | null {

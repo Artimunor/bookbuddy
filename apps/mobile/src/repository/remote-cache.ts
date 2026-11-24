@@ -1,17 +1,13 @@
 import { getCrewAvailabilityRoute, getHomeRoute, getJobsRoute, listShiftsRoute, notificationsRoute } from "@bookbuddy/api-contract";
 import type { RouteDefinition, RouteResponse } from "@bookbuddy/api-contract";
+import { selectFields } from "./cache";
+import type { Field, SelectFields } from "./cache";
 
 const routes = {
   home: getHomeRoute, jobs_list: getJobsRoute, shift_agenda: listShiftsRoute,
   crew_availability: getCrewAvailabilityRoute, notification: notificationsRoute,
 };
 export type RemoteCacheKind = keyof typeof routes;
-
-type Scalar = string | number | boolean | null;
-type Field = true | { readonly [key: string]: Field };
-type SelectFields<T, Rule> = T extends Scalar ? T : T extends readonly (infer Item)[] ? SelectFields<Item, Rule>[] : {
-  [K in keyof T as K extends keyof Rule ? K : never]: K extends keyof Rule ? SelectFields<T[K], Rule[K]> : never;
-};
 
 const span = { startsAt: true, endsAt: true } as const;
 const heading = { jobId: true, reference: true, title: true, siteZone: true } as const;
@@ -66,20 +62,6 @@ const policies = {
 } as const satisfies Record<RemoteCacheKind, Field>;
 
 export type CachedRead<Kind extends RemoteCacheKind> = SelectFields<RouteResponse<(typeof routes)[Kind]["output"]>, (typeof policies)[Kind]>;
-
-function selectFields(value: unknown, rule: Field): unknown {
-  if (value === null) return null;
-  if (rule === true) return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : undefined;
-  if (Array.isArray(value)) return value.map((item) => selectFields(item, rule));
-  if (typeof value !== "object") return undefined;
-  const projected: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(rule)) {
-    if (!Object.hasOwn(value, key)) continue;
-    const kept = selectFields((value as Record<string, unknown>)[key], child);
-    if (kept !== undefined) projected[key] = kept;
-  }
-  return projected;
-}
 
 export function cacheRemoteResponse(kind: RemoteCacheKind, value: unknown): CachedRead<RemoteCacheKind> | null {
   const parsed = routes[kind].output.safeParse(value);

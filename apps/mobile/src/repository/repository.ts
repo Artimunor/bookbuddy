@@ -1,11 +1,13 @@
 import { accountSettingsSchema, errorBodySchema, operationIdSchema, sessionBootstrapSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
 import type { ErrorBody, LocalePreferences, OperationId, SessionBootstrap, SyncOp, SyncPage } from "@bookbuddy/api-contract";
+import { attendanceProgress } from "./attendance";
+import type { AttendanceCapture, AttendanceEventKind, AttendanceOperation, AttendanceSnapshot, LocalAttendance } from "./attendance";
 import { cacheableValue, draftExpiresAfter, draftWarnAfter, snapshotWindow } from "./cache";
-import type { CachedProjections, ProjectionKind } from "./cache";
+import type { CachedProjections, CachedWorkerFieldShift, ProjectionKind } from "./cache";
 import type { Executor, Rows } from "./executor";
 import { cacheRemoteResponse, decodeRemoteSnapshot } from "./remote-cache";
 import type { CachedRead, RemoteCacheKind } from "./remote-cache";
-import { drafts, localSettings, outbox, pendingOnlineReceipts, projection, stagedMedia, syncState } from "./schema";
+import { attendanceReceipts, drafts, localSettings, outbox, pendingOnlineReceipts, projection, stagedMedia, syncState } from "./schema";
 import type { OutboxStatus } from "./schema";
 
 const devicePreferencesSchema = accountSettingsSchema.omit({ revision: true }).partial({
@@ -20,7 +22,7 @@ export type DraftValue = null | boolean | number | string | DraftValue[] | { [ke
 export type Draft<Value extends DraftValue = DraftValue> = { value: Value; updatedAt: number; warnAt: number; expiresAt: number };
 export type ProjectionQuery = { afterId?: string; limit?: number };
 type WithOptionalId<Op> = Op extends SyncOp ? Omit<Op, "operationId"> & { operationId?: string } : never;
-export type NewOperation = WithOptionalId<SyncOp>;
+export type NewOperation = WithOptionalId<SyncOp> | AttendanceCapture;
 export interface OutboxEntry { operation: SyncOp; status: OutboxStatus; createdAt: number; error: ErrorBody | null }
 export interface StagedMedia {
   attachmentId: string;
@@ -43,7 +45,7 @@ export interface SyncBatch {
   hasMoreOperations: boolean;
 }
 
-export type RepositoryTopic = "projection" | "drafts" | "outbox" | "media" | "receipts";
+export type RepositoryTopic = "projection" | "drafts" | "outbox" | "media" | "receipts" | "attendance";
 interface RepositoryEvent { revision: number; listeners: Set<() => void> }
 
 export class MobileRepository {
@@ -88,6 +90,7 @@ export class MobileRepository {
       await db.remove(syncState, account);
       await db.remove(drafts, account);
       await db.remove(outbox, account);
+      await db.remove(attendanceReceipts, account);
       await db.remove(stagedMedia, account);
       await db.remove(pendingOnlineReceipts, account);
       await db.remove(localSettings, account);
@@ -274,12 +277,18 @@ export class ScopedRepository {
   }
 
   async enqueueOperation(input: NewOperation): Promise<OperationId> {
-    const operation = syncOperationSchema.parse({ ...input, operationId: input.operationId ?? this.newId() });
+    const operationId = input.operationId ?? this.newId();
+    const operation = syncOperationSchema.parse(input.kind === "attendance" && "event" in input
+      ? { kind: "attendance", operationId, payload: {
+        id: operationId, assignmentId: input.assignmentId, kind: input.event, actualAt: input.actualAt, capturedAt: input.capturedAt,
+      } }
+      : { ...input, operationId });
     const value = JSON.stringify(operation);
-    const operationId = operation.operationId;
+    const parsedId = operation.operationId;
     const changed = await this.write(async (db) => {
-      const key = { ...this.partition, operation_id: operationId };
-      const [previous] = await db.select(outbox, key);
+      const key = { ...this.partition, operation_id: parsedId };
+      const [pending] = await db.select(outbox, key);
+      const previous = pending ?? (operation.kind === "attendance" ? (await db.select(attendanceReceipts, key))[0] : undefined);
       if (previous) {
         if (previous.value !== value) throw new Error("An operation ID cannot be reused with different input");
         return false;
@@ -287,8 +296,8 @@ export class ScopedRepository {
       await db.put(outbox, { ...key, value, status: "queued", created_at: this.now(), error: null });
       return true;
     });
-    if (changed) this.notify("outbox");
-    return operationId;
+    if (changed) this.notify("outbox", ...(operation.kind === "attendance" ? ["attendance" as const] : []));
+    return parsedId;
   }
 
   listOutbox(): Promise<OutboxEntry[]> {
@@ -298,6 +307,40 @@ export class ScopedRepository {
         operation: syncOperationSchema.parse(JSON.parse(row.value)), status: row.status, createdAt: row.created_at,
         error: row.error === null ? null : errorBodySchema.parse(JSON.parse(row.error)),
       })) : [];
+    });
+  }
+
+  getAttendanceStatus(assignmentId: string): Promise<AttendanceSnapshot> {
+    return this.db.read(async (db) => {
+      const confirmation = await this.confirmation(db);
+      const [projectionRow] = confirmation && await db.select(projection, { ...this.partition, kind: "worker_field_shift", id: assignmentId }) || [];
+      const confirmed = projectionRow && this.active && !this.snapshotHidden
+        ? (JSON.parse(projectionRow.value) as CachedWorkerFieldShift).attendance : undefined;
+      const latest: Partial<Record<AttendanceEventKind, LocalAttendance>> = {};
+      const remember = (capture: LocalAttendance) => {
+        const kind = capture.operation.payload.kind;
+        const earlier = latest[kind];
+        if (!earlier || capture.createdAt > earlier.createdAt || (capture.createdAt === earlier.createdAt &&
+          capture.operation.operationId > earlier.operation.operationId)) latest[kind] = capture;
+      };
+      const receipts = await db.select(attendanceReceipts, { ...this.partition, assignment_id: assignmentId });
+      for (const row of receipts) {
+        remember({ operation: JSON.parse(row.value) as AttendanceOperation, createdAt: row.created_at, status: "sent", resultRef: row.result_ref });
+      }
+      for (const row of await db.select(outbox, this.partition)) {
+        const operation = JSON.parse(row.value) as SyncOp;
+        if (operation.kind !== "attendance" || operation.payload.assignmentId !== assignmentId) continue;
+        remember({ operation, createdAt: row.created_at, status: row.status,
+          error: row.error === null ? null : errorBodySchema.parse(JSON.parse(row.error)) });
+      }
+      const visible = this.active && !this.snapshotHidden ? confirmed : undefined;
+      const arrival = this.active ? latest.arrival : undefined;
+      const departure = this.active ? latest.departure : undefined;
+      return {
+        arrival: attendanceProgress("arrival", arrival, visible), departure: attendanceProgress("departure", departure, visible),
+        lastConfirmedAt: visible ? confirmation?.confirmedAt ?? null : null, expiresAt: visible ? confirmation?.expiresAt ?? null : null,
+        local: { arrival: attendanceProgress("arrival", arrival), departure: attendanceProgress("departure", departure) },
+      };
     });
   }
 
@@ -323,7 +366,7 @@ export class ScopedRepository {
       if (newlyChecking.length) await db.update(outbox, { ...this.partition, operation_id: { op: "in", value: newlyChecking } }, { status: "checking" });
       return { cursor, operations, newlyChecking, hasMoreOperations: candidates.length > operations.length };
     });
-    if (batch.newlyChecking.length) this.notify("outbox");
+    if (batch.newlyChecking.length) this.notify("outbox", "attendance");
     return batch;
   }
 
@@ -333,7 +376,7 @@ export class ScopedRepository {
     if (hideSnapshot) {
       this.snapshotHidden = true;
       this.visibility++;
-      this.notify("projection");
+      this.notify("projection", "attendance");
     }
     await this.write(async (db) => {
       if (newlyChecking.length) await db.update(outbox, {
@@ -344,7 +387,7 @@ export class ScopedRepository {
         await db.update(syncState, this.partition, { authorized_at: null, confirmed_at: null });
       }
     });
-    if (newlyChecking.length) this.notify("outbox");
+    if (newlyChecking.length) this.notify("outbox", "attendance");
   }
 
   async applySyncPage(page: SyncPage, confirmedAt: number) {
@@ -354,7 +397,7 @@ export class ScopedRepository {
     if (barrier) {
       this.snapshotHidden = true;
       this.visibility++;
-      this.notify("projection");
+      this.notify("projection", "attendance");
     }
     // A signed revocation is an empty, terminal reset; do not renew visibility.
     const mayBeRevoked = barrier && page.mode === "reset" && page.upserts.length === 0 && !page.hasMore;
@@ -364,13 +407,30 @@ export class ScopedRepository {
         await db.remove(projection, { ...this.partition, kind: removal.kind, id: removal.resourceId });
       }
       for (const row of page.upserts) {
-        const value = cacheableValue(row);
+        const value = row.kind === "worker_field_shift" && page.context.role !== "worker" ? null : cacheableValue(row);
         if (value) await db.put(projection, { ...this.partition, kind: row.kind, id: row.resourceId, value: JSON.stringify(value) });
-        else if (row.kind === "notification") await db.remove(projection, { ...this.partition, kind: row.kind, id: row.resourceId });
+        else if (row.kind === "notification" || row.kind === "worker_field_shift") {
+          await db.remove(projection, { ...this.partition, kind: row.kind, id: row.resourceId });
+        }
       }
+      const acknowledged = page.outcomes.filter((outcome) => outcome.status !== "rejected").map(({ operationId }) => operationId);
+      const pending = acknowledged.length ? await db.select(outbox, {
+        ...this.partition, operation_id: { op: "in", value: acknowledged },
+      }) : [];
+      const attendance = new Map(pending.flatMap((row) => {
+        const operation = JSON.parse(row.value) as SyncOp;
+        return operation.kind === "attendance" ? [[row.operation_id, { row, operation }] as const] : [];
+      }));
       for (const outcome of page.outcomes) {
         const key = { ...this.partition, operation_id: outcome.operationId };
-        if (outcome.status !== "rejected") await db.remove(outbox, key);
+        if (outcome.status !== "rejected") {
+          const accepted = attendance.get(outcome.operationId);
+          if (accepted) await db.put(attendanceReceipts, {
+            ...key, assignment_id: accepted.operation.payload.assignmentId, created_at: accepted.row.created_at, value: accepted.row.value,
+            result_ref: outcome.status === "unchanged" ? null : outcome.resultRef,
+          });
+          await db.remove(outbox, key);
+        }
         else {
           const error = errorBodySchema.parse(outcome.error);
           const conflict = error.code === "CONFLICT" || error.code === "STALE_REVISION" || error.code === "OPERATION_ID_REUSED";
@@ -383,7 +443,9 @@ export class ScopedRepository {
       });
     });
     this.snapshotHidden = mayBeRevoked;
-    this.notify("projection", ...(page.outcomes.length ? ["outbox" as const] : []));
+    const shiftChanged = barrier || page.upserts.some(({ kind }) => kind === "worker_field_shift") ||
+      page.removals.some(({ kind }) => kind === "worker_field_shift");
+    this.notify("projection", ...(page.outcomes.length ? ["outbox", "attendance"] as const : shiftChanged ? ["attendance"] as const : []));
   }
 
   async saveStagedMedia(item: StagedMedia) {
