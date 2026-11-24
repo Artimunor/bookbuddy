@@ -91,12 +91,12 @@ function shiftDetailSql(resource: string, scope: string, membership: string, ros
     WHERE a.worker_membership_id = ${membership} AND a.state = 'confirmed' AND a.confirmed_at <= ${at}
       AND sh.state <> 'cancelled' AND v.state IN ('booked', 'finished') AND j.state <> 'cancelled' AND j.place_state = 'in_area'
     ORDER BY a.confirmed_at DESC, a.id LIMIT 1`;
-  return `(SELECT CASE WHEN ${rosterAccess} THEN json_object('view', 'foreman',
+  return `(SELECT CASE WHEN ${rosterAccess} THEN json_object('view', ${scope}.role,
     'shift', ${shiftJson("j.site_zone", "j.alias")}, 'slots', json(${slots}), 'holds', json(${rosterHolds}),
     'customerUpdate', json(coalesce((SELECT json_object('state', 'published', 'kind', cu.kind, 'publishedAt', cu.recorded_at)
       FROM customer_updates cu WHERE cu.visit_id = v.id AND ${publishedCustomerUpdate("cu")} ORDER BY cu.recorded_at DESC, cu.id DESC LIMIT 1),
       json_object('state', 'not_shared'))), 'crewThreadId', NULL,
-    'nextAction', CASE WHEN ${jobOpen()} AND sh.state IN ('planned', 'active') AND v.state = 'booked' THEN CASE
+    'nextAction', CASE WHEN ${scope}.role = 'foreman' AND ${jobOpen()} AND sh.state IN ('planned', 'active') AND v.state = 'booked' THEN CASE
       WHEN NOT (${missingSlot}) THEN 'share_update' WHEN sh.starts_at > ${at} THEN CASE WHEN EXISTS (
         SELECT 1 FROM cover_gaps cg JOIN shift_slots slot ON slot.id = cg.slot_id WHERE slot.shift_id = sh.id
           AND cg.state IN ('open', 'accepted_pending_confirmation') AND cg.safe_cutoff > ${at}) THEN 'find_cover' ELSE 'assign_crew' END END END)

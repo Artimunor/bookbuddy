@@ -33,6 +33,7 @@ export const accountSettingsSchema = localePreferencesSchema.extend({
   theme: z.enum(THEMES),
   fieldMode: z.boolean().nullable(),
   twoClock: z.boolean(),
+  shareDisplayZone: z.boolean(),
   revision: revisionSchema,
 });
 
@@ -71,6 +72,7 @@ export const accountSettingsPatchSchema = z.strictObject({
   theme: z.enum(THEMES).optional(),
   fieldMode: z.boolean().nullable().optional(),
   twoClock: z.boolean().optional(),
+  shareDisplayZone: z.boolean().optional(),
 }).refine((patch) => Object.values(patch).some((value) => value !== undefined));
 
 export const emailStartRoute = defineRoute({

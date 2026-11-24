@@ -151,7 +151,8 @@ test("proposals make no holds; competing jobs consume the one available slot onc
       data: { kind: "job", record: { audience: "customer", job: { jobId: "alpha", view: "whole" } } },
     });
     expect(await f.db.prepare("SELECT count(*) AS total FROM shifts").first("total")).toBe(0);
-    await f.db.prepare(`INSERT INTO account_preferences (account_id, display_zone, two_clock) VALUES ('customer', 'Europe/London', 1)`).run();
+    await f.db.prepare(`INSERT INTO account_preferences (account_id, display_zone, two_clock, share_display_zone)
+      VALUES ('customer', 'Europe/London', 1, 1)`).run();
     const windows = await f.call("customer", "/jobs/alpha/windows");
     expect(windows.body).toMatchObject({ data: { customerZone: "Europe/London", visits: [{ bookedWindow: null, offeredWindows: [{ confirmationMode: "booking" }] }] } });
     expect(JSON.stringify(windows.body)).not.toMatch(/crew-member|Private address|capacity/);
@@ -185,8 +186,9 @@ test("proposals make no holds; competing jobs consume the one available slot onc
         ...Array.from({ length: 6 }, () => expect.anything())] } } });
     expect((await f.call("other", `/businesses/business/schedule?jobId=${loser}`)).status).toBe(404);
     expect((await f.call("provider", `/businesses/business/schedule?jobId=${loser}`)).body).toMatchObject({ data: { customerZone: null } });
-    await f.db.prepare("UPDATE account_preferences SET two_clock = 0 WHERE account_id = 'customer'").run();
+    await f.db.prepare("UPDATE account_preferences SET share_display_zone = 0 WHERE account_id = 'customer'").run();
     expect((await f.call("foreman", `/businesses/business/schedule?jobId=${loser}`)).body).toMatchObject({ data: { customerZone: null } });
+    expect((await f.call("customer", "/jobs/alpha/windows")).body).toMatchObject({ data: { customerZone: null } });
   } finally { f.db.close(); clock.mockRestore(); }
 });
 

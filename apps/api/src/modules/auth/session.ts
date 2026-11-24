@@ -55,7 +55,7 @@ export interface SessionAccess extends CommandStatement {
 // scope predicates to a statement and execute it in the caller's primary batch.
 export async function resolveSession(
   request: Request, contextId: string | null, now: number, accountId?: string, scopeMode: "active" | "account" | "switch" = "active",
-): Promise<(SessionAccess & { readonly credentialHash: string }) | null> {
+): Promise<SessionAccess | null> {
   const credential = requestSessionCredential(request);
   if (!credential) return null;
   const usesCookie = !request.headers.has("Authorization");
@@ -87,13 +87,12 @@ export async function resolveSession(
   )`;
   const scopeParams = [contextId, contextId, ...(accountId === undefined ? [] : [accountId])];
   return fence ? {
-    credentialHash: hash,
     sql: prefix(` AND s.id = ? AND ${effectiveContext} IS ?`),
     params: [hash, now, fence.sessionId, fence.contextId, ...scopeParams],
     ...(scopeMode === "switch" ? { afterContextSwitch: {
       sql: prefix(" AND s.id = ?"), params: [hash, now, fence.sessionId, ...scopeParams],
     } } : {}),
-  } : { credentialHash: hash, sql: prefix(""), params: [hash, now, ...scopeParams] };
+  } : { sql: prefix(""), params: [hash, now, ...scopeParams] };
 }
 
 const contextOrder = `ORDER BY c.role <> 'customer', c.role, c.business_id, c.id`;
@@ -124,7 +123,7 @@ export function sessionProjection(prefix: CommandStatement, now: number): Comman
     )
       SELECT s.session_id, s.expires_at, s.context_id, a.id AS account_id, a.email_normalized,
              a.display_name, a.setup_at, p.ui_locale, p.reading_locale, p.display_zone,
-             p.theme, p.field_mode, p.two_clock, p.revision,
+             p.theme, p.field_mode, p.two_clock, p.share_display_zone, p.revision,
              ${sessionsCapability} AS sessions_capability,
              (SELECT json_group_array(json(choice)) FROM (
                SELECT json_patch(json_object('contextId', c.id, 'role', c.role, 'businessId', c.business_id),
@@ -151,6 +150,7 @@ interface SessionRow {
   theme: string;
   field_mode: number | null;
   two_clock: number;
+  share_display_zone: number;
   revision: number;
   sessions_capability: string | null;
   contexts: string;
@@ -166,7 +166,8 @@ export function decodeSession(result?: D1Result): SessionBootstrap | null {
     setup: row.setup_at === null ? "required" : "complete",
     preferences: {
       uiLocale: row.ui_locale, readingLocale: row.reading_locale, displayZone: row.display_zone, theme: row.theme,
-      fieldMode: row.field_mode === null ? null : row.field_mode === 1, twoClock: row.two_clock === 1, revision: row.revision,
+      fieldMode: row.field_mode === null ? null : row.field_mode === 1, twoClock: row.two_clock === 1,
+      shareDisplayZone: row.share_display_zone === 1, revision: row.revision,
     },
     activeContext: contexts.find(({ contextId }) => contextId === row.context_id) ?? null,
     contexts,

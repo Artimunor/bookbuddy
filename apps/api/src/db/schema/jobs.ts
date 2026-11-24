@@ -133,12 +133,11 @@ export const supportCases = sqliteTable("support_cases", {
 
 export const anonymousSupportReceipts = sqliteTable("anonymous_support_receipts", {
   sourceKey: text("source_key").notNull(),
-  operationId: text("operation_id").notNull(),
+  operationId: text("operation_id").notNull().primaryKey(),
   inputHash: text("input_hash").notNull(),
   caseId: text("case_id").notNull().unique().references(() => supportCases.id),
   committedAt: integer("committed_at").notNull(),
 }, (t) => [
-  primaryKey({ columns: [t.sourceKey, t.operationId] }),
   index("anonymous_support_receipts_source_time").on(t.sourceKey, t.committedAt),
   check("anonymous_support_receipts_committed_at", sql`typeof(${t.committedAt}) = 'integer'`),
 ]);

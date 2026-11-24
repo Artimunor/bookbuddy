@@ -378,6 +378,12 @@ test("support takes opaque contact intake with independent anonymous limits and 
       .toMatchObject({ reporter_id: null, reply_email_ciphertext: expect.any(String) });
     expect(await f.db.prepare("SELECT reply_email_ciphertext FROM support_cases WHERE id = ?").bind(anonymous.data.reference).first("reply_email_ciphertext"))
       .not.toBe(contact.payload.replyEmail);
+    const secondSource = "198.51.100.5";
+    expect(await f.call("/support", null, contact, 1, secondSource))
+      .toMatchObject({ status: 200, body: { data: anonymous.data } });
+    expect(await f.call("/support", null, { ...contact, payload: { ...contact.payload, message: "Different" } }, 1, secondSource))
+      .toMatchObject({ status: 409, body: { error: { code: "OPERATION_ID_REUSED" } } });
+    expect(await f.db.prepare("SELECT count(*) AS count FROM support_cases").first("count")).toBe(1);
     for (const operationId of ["another", "third"]) expect((await f.call("/support", null, { ...contact, operationId })).status).toBe(200);
     expect((await f.call("/support", null, { ...contact, operationId: "limited" })).body)
       .toMatchObject({ error: { code: "RATE_LIMITED", retryAt: tuesday + hour } });

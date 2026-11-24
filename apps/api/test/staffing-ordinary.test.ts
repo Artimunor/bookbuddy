@@ -171,7 +171,9 @@ test("a shift notice opens the exact roster; shift links recheck roles and the c
     const worker = (await f.call("worker", "/shifts/shift")).body.data;
     expect(worker).toMatchObject({ view: "worker", shift: { id: "shift" }, assignment: { state: "confirmed" } });
     expect(await open("worker", "worker-link")).toEqual({ kind: "shift", shift: worker });
-    expect(await open("admin", "admin-link")).toEqual({ kind: "shift", shift: foreman });
+    expect(await open("admin", "admin-link")).toEqual({
+      kind: "shift", shift: { ...foreman, view: "provider_admin", nextAction: null },
+    });
     for (const actor of ["second", "foreign", "rival"] as const) {
       expect(await open(actor, `${actor}-link`)).toEqual(unavailable("removed"));
     }

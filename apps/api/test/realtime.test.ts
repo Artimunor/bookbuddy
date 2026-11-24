@@ -226,7 +226,7 @@ test("cold thread catch-up is bounded and later committed hints reveal no projec
     expect(socket).toBeDefined();
     expect(socket!.messages).toHaveLength(1);
     expect(socket!.attachment).toEqual({ sessionId: "customer-session", scopeId: "customer-scope", leaseUntil: expect.any(Number),
-      credentialHash: expect.stringMatching(/^[a-f0-9]{64}$/), bucket: "account:customer", sequence: 1 });
+      bucket: "account:customer", sequence: 1 });
     const initial = parseLiveFrame(socket!.messages[0]);
     expect(initial).toMatchObject({ kind: "thread_catch_up", details: { id: "thread" }, page: { threadId: "thread",
       page: { hasMore: true, cursor: "before~3" } } });
@@ -356,7 +356,7 @@ test("a session replaces only its oldest socket after authorization, even after 
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
-test("one business cannot exhaust the live pool across sessions and roles", async () => {
+test("business admission uses the context committed for the session, even when its old bucket is full", async () => {
   const f = await fixture();
   try {
     const sessions = Math.ceil((liveBusinessSocketCap - 1) / liveSessionSocketCap);
@@ -369,14 +369,28 @@ test("one business cannot exhaust the live pool across sessions and roles", asyn
     }
     const object = f.objects.values().next().value!;
     object.topic = new LiveTopic(object.state, f.env);
-    const { response } = await f.open("provider-crew:provider", "admin", "bearer", 0, undefined, 1);
-    expect(response.status).toBe(503); // A previously admitted session does not spend a D1 call.
+    const { response } = await f.open("provider-crew:provider", "admin");
+    expect(response.status).toBe(503); // Even a known session must check its current business.
     expect((await openAsWorker(tokens[sessions]!)).response.status).toBe(503); // Cold credential gets one authorization read.
     expect(object.sockets).toHaveLength(liveBusinessSocketCap);
 
     const other = await f.open("scope-inbox:other-worker-scope", "other-worker");
     expect(other.response.status).toBe(101);
     expect(other.socket?.attachment?.bucket).toBe("business:other-provider");
+
+    const contextId = "admin-other-scope";
+    await f.db.batch([
+      f.db.prepare("INSERT INTO account_preferences (account_id) VALUES ('admin')"),
+      f.db.prepare("INSERT INTO memberships VALUES ('admin-other-member', 'other-provider', 'admin', 'active')"),
+      f.db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at)
+        VALUES ('admin-other-role', 'admin-other-member', 'other-provider', 'admin', 'provider_admin', 1)`),
+      f.db.prepare("INSERT INTO account_contexts VALUES (?, 'admin', 'provider_admin', 'other-provider', 'admin-other-role')").bind(contextId),
+    ]);
+    const operationId = "switch-business";
+    expect((await f.command("admin", "/session/context", { operationId, payload: { contextId } }, operationId)).status).toBe(200);
+    const switched = await f.open("provider-crew:other-provider", "admin");
+    expect(switched.response.status).toBe(101);
+    expect(switched.socket?.attachment).toMatchObject({ scopeId: contextId, bucket: "business:other-provider" });
     expect(f.objects.size).toBe(1);
   } finally { f.db.close(); }
 });
@@ -389,7 +403,7 @@ test("a customer's live share counts all of its sessions and topics in its own a
     for (let i = 1; i < liveCustomerSocketCap; i++) {
       expect((await f.open("customer-visit:visit", undefined, "bearer", 1, { Authorization: `Bearer ${token}` })).response.status).toBe(101);
     }
-    expect((await f.open("scope-inbox:customer-scope", "customer", "bearer", 0, undefined, 1)).response.status).toBe(503);
+    expect((await f.open("scope-inbox:customer-scope", "customer")).response.status).toBe(503);
     expect((await f.open("scope-inbox:outside-scope", "outside")).response.status).toBe(101);
   } finally { f.db.close(); }
 });
@@ -401,8 +415,7 @@ test("the shared live pool rejects an excess upgrade before D1", async () => {
     const { sockets } = f.objects.values().next().value!;
     for (let i = 1; i < liveSocketCap; i++) {
       const prefilled = new TestSocket();
-      prefilled.serializeAttachment({ ...socket!.attachment!, sessionId: `prefilled-${i}`,
-        credentialHash: `prefilled-${i}`, bucket: `account:prefilled-${i}` });
+      prefilled.serializeAttachment({ ...socket!.attachment!, sessionId: `prefilled-${i}`, bucket: `account:prefilled-${i}` });
       sockets.push(prefilled);
     }
     expect((await f.open("scope-inbox:outside-scope", "outside", "bearer", 0, undefined, 1)).response.status).toBe(503);

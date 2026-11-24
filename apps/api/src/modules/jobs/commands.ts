@@ -461,26 +461,26 @@ async function planAnonymousSupport(ctx: RequestScope, { lookup, source }: Anony
   id: string, fields: string, params: unknown[], projection: string,
 ): Promise<CommandInput<JobCommandResult>> {
   const sourceKey = await mac(lookup, "support-intake-source", source);
-  const inputHash = await mac(lookup, "support-intake-input", sourceKey, operationId,
+  const inputHash = await mac(lookup, "support-intake-input", operationId,
     JSON.stringify([expectedRevision ?? null, payload.kind, payload.message, payload.reference ?? null, payload.replyEmail ?? null]));
   const cutoff = ctx.now - anonymousSupportWindow;
   const committed = { sql: "EXISTS (SELECT 1 FROM support_cases WHERE id = ?)", params: [id] };
   return { statements: [
     { sql: `INSERT INTO support_cases (${fields})
       SELECT ?, NULL, ?, 'open', ?, ?, ?, ? WHERE NOT EXISTS (
-        SELECT 1 FROM anonymous_support_receipts WHERE source_key = ? AND operation_id = ?
+        SELECT 1 FROM anonymous_support_receipts WHERE operation_id = ?
       ) AND (SELECT count(*) FROM anonymous_support_receipts WHERE source_key = ? AND committed_at > ?) < ?`,
-    params: [...params, sourceKey, operationId, sourceKey, cutoff, anonymousSupportLimit] },
+    params: [...params, operationId, sourceKey, cutoff, anonymousSupportLimit] },
     { sql: `INSERT INTO anonymous_support_receipts (source_key, operation_id, input_hash, case_id, committed_at)
       SELECT ?, ?, ?, ?, ? WHERE ${committed.sql}`, params: [sourceKey, operationId, inputHash, id, ctx.now, ...committed.params] },
     recordEffectIntents(committed, supportEffect(id, ctx.now)),
     { sql: `SELECT r.input_hash = ? AS matches_input, ${projection} AS value, r.case_id
-      FROM anonymous_support_receipts r JOIN support_cases c ON c.id = r.case_id WHERE r.source_key = ? AND r.operation_id = ?`,
-    params: [inputHash, sourceKey, operationId] },
+      FROM anonymous_support_receipts r JOIN support_cases c ON c.id = r.case_id WHERE r.operation_id = ?`,
+    params: [inputHash, operationId] },
     { sql: `SELECT min(committed_at) + ? AS retry_at FROM anonymous_support_receipts
       WHERE source_key = ? AND committed_at > ? AND NOT EXISTS (
-        SELECT 1 FROM anonymous_support_receipts WHERE source_key = ? AND operation_id = ?)`,
-    params: [anonymousSupportWindow, sourceKey, cutoff, sourceKey, operationId] },
+        SELECT 1 FROM anonymous_support_receipts WHERE operation_id = ?)`,
+    params: [anonymousSupportWindow, sourceKey, cutoff, operationId] },
   ], decode(results) {
     const row = results[3]?.results[0] as { matches_input: number; value: string; case_id: string } | undefined;
     if (row?.matches_input) {

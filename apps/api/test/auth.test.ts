@@ -148,7 +148,8 @@ test("verify uses one batch, consumes once, and only an exact bounded replay ret
   expect(result.session.contexts).toHaveLength(1);
   expect(result.session.activeContext?.role).toBe("customer");
   expect(result.session.preferences).toEqual({
-    uiLocale: null, readingLocale: null, displayZone: null, theme: "system", fieldMode: null, twoClock: false, revision: 0,
+    uiLocale: null, readingLocale: null, displayZone: null, theme: "system", fieldMode: null, twoClock: false,
+    shareDisplayZone: false, revision: 0,
   });
   expect((await data<Verified>(await req(confirm, "POST", verify(correct)))).credential).toBe(result.credential);
   await error(await req(confirm, "POST", verify(correct, "attempt-new-session")), 409);
@@ -197,7 +198,7 @@ test("five wrong checks lock verify and reissue for exactly 15 minutes", async (
   expect((await data<Verified>(await req(confirm, "POST", verify(await code())))).status).toBe("verified");
 });
 
-test("settings validate viewer zones and revisions; sign-out revokes the bearer and only its device's push", async () => {
+test("settings validate zones, consent and revisions; sign-out revokes the bearer and only its device's push", async () => {
   const { db, req, code } = await fixture();
   const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
   const session = await data<Verified>(await req(emailPath(attemptId, "verify"), "POST", verify(await code())));
@@ -208,6 +209,9 @@ test("settings validate viewer zones and revisions; sign-out revokes the bearer 
   await error(await req("/account/settings", "PATCH", {
     operationId: "invalid-zone", expectedRevision: 0, payload: { displayZone: "Europe/Not_A_Zone" },
   }, headers), 422);
+  await error(await req("/account/settings", "PATCH", {
+    operationId: "invalid-zone-consent", expectedRevision: 0, payload: { shareDisplayZone: "true" },
+  }, headers), 422);
   expect(db.calls.batch).toBe(before);
   const patch = { operationId: "settings-1", expectedRevision: 0, payload: {
     displayName: "Name", uiLocale: "pt-PT", readingLocale: "de-DE", displayZone: "Europe/London", fieldMode: true, twoClock: true,
@@ -217,11 +221,19 @@ test("settings validate viewer zones and revisions; sign-out revokes the bearer 
   expect(changed.setup).toBe("complete");
   expect(changed.preferences).toMatchObject({
     revision: 1, uiLocale: "pt-PT", readingLocale: "de-DE", displayZone: "Europe/London", fieldMode: true, twoClock: true,
+    shareDisplayZone: false,
   });
   expect(await data(await req("/account/settings", "PATCH", patch, headers))).toEqual(changed);
   expect((await error(await req("/account/settings", "PATCH", { ...patch, operationId: "stale" }, headers), 409)).current)
     .toEqual({ kind: "revision", revision: 1 });
-  expect(await data(await req("/session", "GET", undefined, headers))).toEqual(changed);
+  const beforeConsent = { ...db.calls };
+  const consented = await data<SessionBootstrap>(await req("/account/settings", "PATCH", {
+    operationId: "share-zone", expectedRevision: 1, payload: { shareDisplayZone: true },
+  }, headers));
+  expect(db.calls.batch - beforeConsent.batch).toBe(1);
+  expect(db.calls.query).toBe(beforeConsent.query);
+  expect(consented.preferences).toMatchObject({ revision: 2, twoClock: true, shareDisplayZone: true });
+  expect(await data(await req("/session", "GET", undefined, headers))).toEqual(consented);
   await data(await req("/push/installations/this-installation", "PUT", {
     operationId: "register-push", expectedRevision: 0, payload: { token: "ExpoPushToken[this_device]", platform: "ios" },
   }, { ...headers, "X-Operation-Id": "register-push" }));

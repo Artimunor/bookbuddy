@@ -140,14 +140,13 @@ CREATE INDEX support_cases_reporter ON support_cases (reporter_id, received_at, 
 CREATE INDEX support_cases_state_received ON support_cases (state, received_at, id);
 CREATE UNIQUE INDEX support_cases_operation ON support_cases (reporter_id, operation_id) WHERE operation_id IS NOT NULL;
 
--- Signed-out support has no account/context. Keep a separate, HMAC-scoped
--- receipt so retries and throttling do not persist the caller's address.
+-- Signed-out support has no account/context. Its receipt ID survives changes
+-- of network. Retain only a keyed hash of the source for throttling new cases.
 CREATE TABLE anonymous_support_receipts (
   source_key TEXT NOT NULL,
-  operation_id TEXT NOT NULL,
+  operation_id TEXT PRIMARY KEY NOT NULL,
   input_hash TEXT NOT NULL,
   case_id TEXT NOT NULL UNIQUE REFERENCES support_cases (id),
-  committed_at INTEGER NOT NULL CONSTRAINT anonymous_support_receipts_committed_at CHECK (typeof(committed_at) = 'integer'),
-  PRIMARY KEY (source_key, operation_id)
+  committed_at INTEGER NOT NULL CONSTRAINT anonymous_support_receipts_committed_at CHECK (typeof(committed_at) = 'integer')
 );
 CREATE INDEX anonymous_support_receipts_source_time ON anonymous_support_receipts (source_key, committed_at);

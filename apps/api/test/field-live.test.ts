@@ -155,6 +155,8 @@ test("live arrival corrections append and customer read never contains private r
     clock.mockReturnValue(revised.endsAt);
     expect((await f.call("customer", livePath)).body).toMatchObject({ data: { live: { status: null, arrival: null } } });
     clock.mockReturnValue(now);
+    expect((await f.call("foreman", livePath)).body).toMatchObject({ data: { customerZone: null } });
+    await f.db.prepare("UPDATE account_preferences SET share_display_zone = 1 WHERE account_id = 'customer'").run();
     const control = foremanVisitControlSchema.parse((await f.call("foreman", livePath)).body.data);
     expect(control.customerZone).toBe("Europe/London");
     await f.db.prepare("UPDATE account_preferences SET two_clock = 0 WHERE account_id = 'customer'").run();

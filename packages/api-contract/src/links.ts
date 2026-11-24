@@ -9,7 +9,7 @@ import { contextIdSchema, idSchemaFor } from "./common";
 import { jobDetailSchema } from "./jobs";
 import { placeDetailsSchema } from "./places";
 import { defineRoute } from "./route";
-import { crewAvailabilitySchema, shiftDetailSchema } from "./schedule";
+import { crewAvailabilitySchema, shiftLinkDetailSchema } from "./schedule";
 import { customerSessionBookingSchema } from "./sessions";
 import { coverViewSchema, workerAssignmentOfferSchema } from "./staffing";
 
@@ -54,7 +54,7 @@ export const linkOpeningSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("business_member"), business: businessOverviewSchema.shape.business, member: businessMemberSchema }),
   z.object({ kind: z.literal("business_eligibility"), eligibility: businessEligibilitySchema }),
   z.object({ kind: z.literal("job"), record: jobDetailSchema }),
-  z.object({ kind: z.literal("shift"), shift: shiftDetailSchema }),
+  z.object({ kind: z.literal("shift"), shift: shiftLinkDetailSchema }),
   z.object({ kind: z.literal("thread"), threadId: chatThreadIdSchema, audience: chatAudienceSchema }),
   z.object({ kind: z.literal("completion"), completion: completionProjectionSchema }),
   z.object({ kind: z.literal("bill"), bill: billProjectionSchema }),

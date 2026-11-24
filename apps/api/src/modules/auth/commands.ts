@@ -96,6 +96,7 @@ interface Receipt { input_hash: string | null; command: string | null; result_re
 const preferenceColumns = {
   uiLocale: "ui_locale", readingLocale: "reading_locale", displayZone: "display_zone",
   theme: "theme", fieldMode: "field_mode", twoClock: "two_clock",
+  shareDisplayZone: "share_display_zone",
 } as const;
 
 export async function changeSettings(ctx: RequestScope, access: SessionAccess, operationId: string, revision: number, patch: AccountSettingsPatch): Promise<SessionCommand> {

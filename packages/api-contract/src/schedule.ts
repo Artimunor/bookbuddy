@@ -141,18 +141,25 @@ const customerUpdate = z.discriminatedUnion("state", [
 ]);
 const crewThreadId = idSchemaFor<"chat_thread">().nullable();
 
+const foremanShiftDetail = z.object({
+  view: z.literal("foreman"), shift: shiftSummary, slots: z.array(slot),
+  holds: z.array(briefingHold.extend({ assignmentId })), customerUpdate, crewThreadId,
+  nextAction: z.enum(["assign_crew", "find_cover", "share_update"]).nullable(),
+});
+
 // F-16 includes the roster and its history. An assignee gets only their own
 // assignment and holds; shift access does not grant the foreman's projection.
 export const shiftDetailSchema = z.discriminatedUnion("view", [
-  z.object({
-    view: z.literal("foreman"), shift: shiftSummary, slots: z.array(slot),
-    holds: z.array(briefingHold.extend({ assignmentId })), customerUpdate, crewThreadId,
-    nextAction: z.enum(["assign_crew", "find_cover", "share_update"]).nullable(),
-  }),
+  foremanShiftDetail,
   z.object({
     view: z.literal("worker"), shift: shiftSummary.extend({ placeAlias: displayName.nullable() }),
     assignment: workerAssignment, holds: z.array(briefingHold), crewThreadId,
   }),
+]);
+
+export const shiftLinkDetailSchema = z.discriminatedUnion("view", [
+  ...shiftDetailSchema.options,
+  foremanShiftDetail.extend({ view: z.literal("provider_admin"), nextAction: z.null() }),
 ]);
 
 // W-02: a provisional cover reply is an offer, never an assigned shift or a

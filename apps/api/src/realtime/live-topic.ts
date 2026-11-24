@@ -32,7 +32,6 @@ export interface LiveAttachment {
   readonly sessionId: string;
   readonly scopeId: string;
   readonly leaseUntil: number;
-  readonly credentialHash: string;
   readonly bucket: string;
   readonly sequence: number;
 }
@@ -68,23 +67,21 @@ export class LiveTopic extends DurableObject<Bindings> {
     this.#alarmAt = next;
   }
 
-  #openSockets(credentialHash: string, now: number) {
+  #openSockets(now: number) {
     const sockets: LiveSocket[] = [];
-    let known: LiveAttachment | undefined;
     for (const socket of this.ctx.getWebSockets()) {
       if (socket.readyState !== WebSocket.OPEN) continue;
       try {
         const attachment = socket.deserializeAttachment() as LiveAttachment | null;
         // An older deployment's unbucketed sockets must reconnect.
-        if (!attachment?.credentialHash || !(attachment.leaseUntil > now)) {
+        if (!attachment?.bucket || !(attachment.leaseUntil > now)) {
           socket.close(1008);
           continue;
         }
         sockets.push({ socket, attachment });
-        if (attachment.credentialHash === credentialHash && (!known || attachment.sequence > known.sequence)) known = attachment;
       } catch { /* The socket already disappeared. */ }
     }
-    return { sockets, known };
+    return sockets;
   }
 
   async #reap(excluded?: WebSocket): Promise<void> {
@@ -120,13 +117,10 @@ export class LiveTopic extends DurableObject<Bindings> {
 
     // Do not let a concurrent revoke RPC pass between the scope read and attachment.
     return this.ctx.blockConcurrencyWhile(async () => {
-      const { credentialHash } = session;
-      const { sockets, known } = this.#openSockets(credentialHash, Date.now());
+      const sockets = this.#openSockets(Date.now());
       if (sockets.length >= liveSocketCap) return new Response(null, { status: 503 });
-      // A known lease can reject admission early. An opaque cold credential
-      // gives us no bucket until the same D1 read that authorizes the topic.
-      const preflight = known && allowance(sockets, known.sessionId, known.bucket);
-      if (preflight === null) return new Response(null, { status: 503 });
+      // Existing sockets attest a past scope. Use the current scope from the
+      // authorization read before enforcing per-session and per-bucket limits.
       const { sql, params } = liveAccess(session, now, topic, this.env);
       const row = await this.env.DB.prepare(sql).bind(...params ?? []).first<LiveRow>();
       const leaseUntil = Math.min(row?.expires_at ?? 0, now + leaseLengthMs);
@@ -134,7 +128,7 @@ export class LiveTopic extends DurableObject<Bindings> {
       if (!row.scope_id || (topic.kind === "thread" && row.value === null)) return new Response(null, { status: 404 });
 
       const bucket = row.business_id === null ? `account:${row.account_id}` : `business:${row.business_id}`;
-      const admitted = known?.sessionId === row.session_id && known.bucket === bucket ? preflight : allowance(sockets, row.session_id, bucket);
+      const admitted = allowance(sockets, row.session_id, bucket);
       if (!admitted) return new Response(null, { status: 503 });
 
       const sessionTag = await socketTag("session", row.session_id);
@@ -146,7 +140,7 @@ export class LiveTopic extends DurableObject<Bindings> {
 
       const { 0: client, 1: socket } = new WebSocketPair();
       const attachment: LiveAttachment = {
-        sessionId: row.session_id, scopeId: row.scope_id, leaseUntil, credentialHash, bucket, sequence: admitted.sequence,
+        sessionId: row.session_id, scopeId: row.scope_id, leaseUntil, bucket, sequence: admitted.sequence,
       };
       admitted.replace?.close(1008);
       this.ctx.acceptWebSocket(socket, [topicTag, sessionTag]);

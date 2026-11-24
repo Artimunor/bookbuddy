@@ -27,11 +27,13 @@ export const accountPreferences = sqliteTable("account_preferences", {
   theme: text({ enum: THEMES }).notNull().default("system"),
   fieldMode: integer("field_mode", { mode: "boolean" }),
   twoClock: integer("two_clock", { mode: "boolean" }).notNull().default(false),
+  shareDisplayZone: integer("share_display_zone", { mode: "boolean" }).notNull().default(false),
   revision: integer().notNull().default(0),
 }, (t) => [
   check("account_preferences_theme", sql`${t.theme} IN ('system', 'light', 'dark')`),
   check("account_preferences_field_mode", sql`${t.fieldMode} IS NULL OR ${t.fieldMode} IN (0, 1)`),
   check("account_preferences_two_clock", sql`${t.twoClock} IN (0, 1)`),
+  check("account_preferences_share_display_zone", sql`${t.shareDisplayZone} IN (0, 1)`),
   check("account_preferences_revision", sql`${t.revision} >= 0`),
 ]);
 

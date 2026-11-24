@@ -19,10 +19,12 @@ CREATE TABLE account_preferences (
   theme TEXT NOT NULL DEFAULT 'system',
   field_mode INTEGER,
   two_clock INTEGER NOT NULL DEFAULT 0,
+  share_display_zone INTEGER NOT NULL DEFAULT 0,
   revision INTEGER NOT NULL DEFAULT 0,
   CONSTRAINT account_preferences_theme CHECK (theme IN ('system', 'light', 'dark')),
   CONSTRAINT account_preferences_field_mode CHECK (field_mode IS NULL OR field_mode IN (0, 1)),
   CONSTRAINT account_preferences_two_clock CHECK (two_clock IN (0, 1)),
+  CONSTRAINT account_preferences_share_display_zone CHECK (share_display_zone IN (0, 1)),
   CONSTRAINT account_preferences_revision CHECK (revision >= 0)
 );
 
