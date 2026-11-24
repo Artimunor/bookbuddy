@@ -26,7 +26,7 @@ export function createLiveSubscription(
   }
 
   function queueHint() {
-    if (timer !== undefined) return;
+    clearHint();
     timer = setTimeout(() => {
       timer = undefined;
       if (canReceive()) callbacks().onHint();
