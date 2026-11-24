@@ -11,6 +11,7 @@ import { openMobileRepository, removeStagedFiles } from "../repository/open";
 import type { DevicePreferences, MobileRepository, ScopedRepository } from "../repository/repository";
 import { SyncProvider } from "../sync/provider";
 import { SyncRunner } from "../sync/runner";
+import { disablePushForSignedOutAccount } from "../system/push";
 import { sessionStorage } from "./storage";
 
 const deviceSessionSchema = sessionBootstrapSchema.pick({ sessionId: true, expiresAt: true, setup: true, activeContext: true })
@@ -40,6 +41,16 @@ function parseStoredSession(raw: string): StoredSession {
     }
   }
   throw new Error("Invalid saved session");
+}
+
+async function finishLocalSignOut(db: MobileRepository, accountId: DeviceSession["accountId"], writeMarker = false): Promise<void> {
+  const push = disablePushForSignedOutAccount(accountId);
+  const marked = writeMarker
+    ? sessionStorage.save(JSON.stringify({ state: "ending", accountId } satisfies StoredSession))
+    : Promise.resolve();
+  // Erase the account independently of any pending push work.
+  await Promise.all([push, marked.then(() => db.wipeAccount(accountId, removeStagedFiles))]);
+  await sessionStorage.remove();
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
@@ -93,8 +104,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const stored = raw === null ? null : parseStoredSession(raw);
       if (stored?.state === "ending") {
         ending.current = stored.accountId;
-        await db.wipeAccount(stored.accountId, removeStagedFiles);
-        await sessionStorage.remove();
+        await finishLocalSignOut(db, stored.accountId);
         ending.current = null;
       } else if (stored && stored.session.expiresAt > Date.now()) {
         const { accountId, sessionId, activeContext, expiresAt, setup } = stored.session;
@@ -150,14 +160,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(() => schedule(async () => {
     const accountId = current.current?.session.accountId ?? ending.current;
     if (!accountId || !repo.current) return;
-    // Capture the bearer for this one explicit revocation before removing it from the client.
+    ending.current = accountId;
+    const cleanup = finishLocalSignOut(repo.current, accountId, true);
+    // The client captures the bearer before adopt clears it. Session-end
+    // revokes that device's push registration in the same server transaction.
     if (current.current && client) void client.request(sessionEndRoute, {}).catch(() => undefined);
     adopt(null, null, null);
-    ending.current = accountId;
     try {
-      await sessionStorage.save(JSON.stringify({ state: "ending", accountId } satisfies StoredSession));
-      await repo.current.wipeAccount(accountId, removeStagedFiles);
-      await sessionStorage.remove();
+      await cleanup;
       ending.current = null;
     } catch (error) {
       setState({ ...signedOut, status: "storage_error" });
