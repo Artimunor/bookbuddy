@@ -25,6 +25,7 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveTopic"] }],
   "triggers": { "crons": ["* * * * *"] }
   // Configure PUBLIC_APP_ORIGIN as the public HTTPS origin for invitation links.
+  // Configure R2_ACCOUNT_ID and R2_EVIDENCE_BUCKET (the deployed EVIDENCE bucket name) for presigned URLs.
   // Deployment secrets for feature waves (names only; never configure values here):
   // OTP_HMAC_KEY, EFFECTS_ENCRYPTION_KEY, SYNC_CURSOR_HMAC_KEY,
   // R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, POSTMARK_SERVER_TOKEN,

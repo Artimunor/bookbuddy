@@ -5,6 +5,11 @@ import type { LiveTopic } from "./realtime/live-topic";
 export interface Bindings extends AuthBindings {
   DB: D1Database;
   EVIDENCE: R2Bucket;
+  // The deployed S3 bucket name must match EVIDENCE.
+  R2_ACCOUNT_ID?: string;
+  R2_EVIDENCE_BUCKET?: string;
+  R2_ACCESS_KEY_ID?: string;
+  R2_SECRET_ACCESS_KEY?: string;
   LIVE: DurableObjectNamespace<LiveTopic>;
   EFFECTS: Queue<EffectsWake>;
   SYNC_CURSOR_HMAC_KEY?: string;

@@ -10,6 +10,7 @@ import { assignmentBriefingSyncProjection, attendanceRoutes, attendanceSyncOpera
 import { jobSyncProjections } from "./modules/jobs/projections";
 import { jobsCommandRoutes } from "./modules/jobs/routes.commands";
 import { jobsReadRoutes } from "./modules/jobs/routes.read";
+import { mediaRoutes } from "./modules/media/routes";
 import { placeSyncProjection } from "./modules/places/read";
 import { placesRoutes } from "./modules/places/routes";
 import { scheduleRoutes, scheduleSyncProjections } from "./modules/schedule";
@@ -48,6 +49,7 @@ export function createApp() {
   app.route(API_BASE_PATH, staffingRoutes);
   app.route(API_BASE_PATH, attendanceRoutes);
   app.route(API_BASE_PATH, fieldLiveRoutes);
+  app.route(API_BASE_PATH, mediaRoutes);
   app.route(API_BASE_PATH, completionRoutes);
 
   // Mount feature routers here via app.basePath(API_BASE_PATH).route("/", routes).
