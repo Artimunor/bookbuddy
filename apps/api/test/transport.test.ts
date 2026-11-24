@@ -135,7 +135,11 @@ test("tombstones, epoch reset, and live revocation drop old scope data before re
     const reset = await f.sync(tombstone.cursor);
     expect(reset.mode).toBe("reset");
     expect(reset.removals).toEqual([{ kind: "scope", resourceId: f.contextId }]);
-    expect(reset.upserts.map((upsert) => upsert.resourceId)).toEqual(["notice-b"]);
+    expect(reset.upserts.map(({ kind, resourceId }) => ({ kind, resourceId }))).toEqual([
+      { kind: "crew_availability", resourceId: "member" },
+      { kind: "notification", resourceId: "notice-b" },
+      { kind: "shift_agenda", resourceId: "member" },
+    ]);
     await f.db.prepare("UPDATE membership_roles SET revoked_at = 2, revoked_by = 'actor' WHERE id = 'grant'").run();
     const revoked = await f.sync(reset.cursor, [readMark("notice-b")]);
     expect(revoked).toMatchObject({ mode: "reset", upserts: [], removals: [{ kind: "scope", resourceId: f.contextId }], hasMore: false,
