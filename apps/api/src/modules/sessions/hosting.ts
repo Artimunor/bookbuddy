@@ -207,6 +207,8 @@ function scopedValue(access: SessionAccess, value: CommandStatement): CommandSta
 const marketEnabled = (area: string) => `EXISTS (SELECT 1 FROM feature_flags category_flag
   WHERE category_flag.key = '${SESSIONS_FEATURE_FLAG}' AND category_flag.enabled = 1
     AND category_flag.scope_key >= ${area} || ':' AND category_flag.scope_key < ${area} || ';')`;
+const businessMarketEnabled = (b: string) => `(${marketEnabled(`${b}.catchment_id`)} OR EXISTS (
+  SELECT 1 FROM venues owned WHERE owned.business_id = ${b}.id AND ${marketEnabled("owned.area_id")}))`;
 
 export function readBusinessSessions(session: SessionAccess, now: number,
   { params, query }: RouteResponse<typeof listBusinessSessionsRoute.input>): CommandStatement | null {
@@ -216,8 +218,7 @@ export function readBusinessSessions(session: SessionAccess, now: number,
     WITH business_scope AS MATERIALIZED (
       SELECT b.id, b.public_name, scope.role = 'provider_admin' AS is_admin, ${currentMembership("scope", at)} AS member_id
       FROM live_scope scope JOIN businesses b ON b.id = scope.business_id AND b.id = ? AND b.state = 'approved'
-      WHERE scope.role IN ('provider_admin', 'foreman') AND (${marketEnabled("b.catchment_id")} OR EXISTS (
-        SELECT 1 FROM venues owned WHERE owned.business_id = b.id AND ${marketEnabled("owned.area_id")}))
+      WHERE scope.role IN ('provider_admin', 'foreman') AND ${businessMarketEnabled("b")}
     ), listing_page AS MATERIALIZED (
       SELECT l.id AS listing_id, l.category, l.revision, l.business_id, b.public_name, b.is_admin, b.member_id,
         v.id, v.no, v.venue_id, v.title, v.language, v.format, v.duration_ms, v.price_minor, v.currency, v.price_basis
@@ -271,10 +272,11 @@ export function readSessionBookingFeedback(session: SessionAccess, now: number,
 
 const offerOwner = (scope: string, sl: string, h: string) => `${scope}.role = 'worker' AND ${scope}.business_id = ${sl}.business_id
   AND ${h}.slot_id = ${sl}.id AND ${h}.membership_id = ${currentMembership(scope, at)} AND ${h}.offer_expires_at IS NOT NULL`;
-function workerOfferValue(h: string, sl: string) {
+function workerOfferValue(h: string, sl: string, discovery = false) {
   return `json_object('id', ${h}.id, 'slotId', ${sl}.id, 'slotRevision', ${sl}.revision, 'title', ${sl}.title,
     'startsAt', ${sl}.starts_at, 'endsAt', ${sl}.ends_at, 'siteZone', ${sl}.site_zone, 'position', ${h}.position,
-    'roleLabel', ${h}.role_label, 'language', ${h}.language, 'cover', json(${coverValue(h)}))`;
+    'roleLabel', ${h}.role_label, 'language', ${h}.language, 'cover', json(${coverValue(h)})
+    ${discovery ? `, 'listingId', ${sl}.listing_id` : ""})`;
 }
 
 export function readSessionHostOffers(session: SessionAccess, now: number,
@@ -283,6 +285,24 @@ export function readSessionHostOffers(session: SessionAccess, now: number,
     SELECT ${workerOfferValue("h", "sl")} AS value FROM live_scope scope CROSS JOIN hosting_slot sl
     JOIN session_host_assignments h ON ${offerOwner("scope", "sl", "h")} ORDER BY h.changed_at DESC, h.id
   ) SELECT json_object('offers', json_group_array(json(value))) AS value FROM offers HAVING count(*) > 0` });
+}
+
+export function readMySessionHostOffers(session: SessionAccess, now: number): CommandStatement {
+  return scopedValue(accessClock(session, now), { sql: `WITH worker_scope AS MATERIALIZED (
+    SELECT b.id AS business_id, ${currentMembership("scope", at)} AS member_id
+    FROM live_scope scope JOIN businesses b ON b.id = scope.business_id AND b.state = 'approved'
+    WHERE scope.role = 'worker' AND ${businessMarketEnabled("b")}
+  ) SELECT json_object('offers', json((SELECT json_group_array(json(value)) FROM (
+    SELECT ${workerOfferValue("h", "sl", true)} AS value
+    FROM session_host_assignments h JOIN (
+      SELECT s.*, l.category, v.title, v.language, v.guaranteed_host_membership_id, site.site_zone, site.area_id
+      FROM session_slots s JOIN session_listings l ON l.id = s.listing_id
+      JOIN session_listing_versions v ON v.id = s.listing_version_id JOIN venues site ON site.id = v.venue_id
+    ) sl ON sl.id = h.slot_id AND sl.business_id = h.business_id
+    WHERE h.business_id = scope.business_id AND h.membership_id = scope.member_id
+      AND ${unansweredCover("h", "sl")} AND ${enabled("sl.area_id", "sl.category")} AND ${canAcceptCover("h", "sl")}
+    ORDER BY h.offer_expires_at, h.id
+  )))) FROM worker_scope scope WHERE scope.member_id IS NOT NULL` });
 }
 
 export type HostingResult = { operation: OperationResult; value: string | null };
@@ -489,6 +509,10 @@ const hasReservation = (sl: string, position: string, except: string) => `EXISTS
 const assignmentEligible = (sl: string, member: string, position: string, language: string) => `
   ${language} = ${sl}.language COLLATE NOCASE AND ${admitsHost(sl, position, member)}
   AND ${eligibleHost(member, `${sl}.business_id`, `${sl}.category`, `${sl}.language`, sl)}`;
+const unansweredCover = (h: string, sl: string) => `${h}.state = 'proposed' AND ${h}.offer_decision IS NULL
+  AND ${h}.offer_expires_at > ${at} AND ${sl}.state IN ('published', 'paused') AND ${sl}.starts_at > ${at}`;
+const canAcceptCover = (h: string, sl: string) => `${assignmentEligible(sl, `${h}.membership_id`, `${h}.position`, `${h}.language`)}
+  AND ${openPosition(sl, `${h}.position`)} AND NOT ${hasReservation(sl, `${h}.position`, `${h}.id`)}`;
 
 function updateAssignment(access: SessionAccess, guard: CommandStatement, id: string, state: "released" | "confirmed") {
   return scopedStatement(access, `UPDATE session_host_assignments SET state = '${state}', changed_at = ${at}, changed_by_id = ${actor}
@@ -591,10 +615,7 @@ export function replyToSessionHostOffer(now: number, session: SessionAccess, { p
     operationId: body.operationId, command: "session.reply_cover", input: [params, body], resultRef: p.assignmentId,
     authorize: { sql: `EXISTS (SELECT 1 FROM hosting_slot sl CROSS JOIN hosting_input i
       JOIN session_host_assignments h ON h.id = i.assignment_id AND ${offerOwner("scope", "sl", "h")})` },
-    eligible: { sql: `EXISTS (SELECT 1 ${offer} WHERE sl.state IN ('published', 'paused') AND sl.starts_at > ${at}
-      AND h.state = 'proposed' AND h.offer_decision IS NULL AND h.offer_expires_at > ${at}${accepts ? `
-      AND ${assignmentEligible("sl", "h.membership_id", "h.position", "h.language")} AND ${openPosition("sl", "h.position")}
-      AND NOT ${hasReservation("sl", "h.position", "h.id")}` : ""})` },
+    eligible: { sql: `EXISTS (SELECT 1 ${offer} WHERE ${unansweredCover("h", "sl")}${accepts ? ` AND ${canAcceptCover("h", "sl")}` : ""})` },
     writes: (guard) => ({ statements: [
       ...(accepts ? [expireOffers(access, guard, `h.offer_decision = 'accepted' AND h.position =
         (SELECT position FROM session_host_assignments WHERE id = ${target})`)] : []),

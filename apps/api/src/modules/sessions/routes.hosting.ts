@@ -1,7 +1,7 @@
 import {
-  changeSessionHostRoute, getSessionBookingFeedbackRoute, getSessionHostOffersRoute, getSessionRosterRoute, operationIdHeader,
-  listBusinessSessionsRoute,
-  publishSessionRoute, recordSessionAttendanceRoute, replyToSessionHostOfferRoute, updateSessionRosterRoute,
+  changeSessionHostRoute, getSessionBookingFeedbackRoute, getSessionHostOffersRoute, getSessionRosterRoute, listBusinessSessionsRoute,
+  listMySessionHostOffersRoute, operationIdHeader, publishSessionRoute, recordSessionAttendanceRoute, replyToSessionHostOfferRoute,
+  updateSessionRosterRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
 import { Hono } from "hono";
@@ -14,8 +14,8 @@ import type { SessionAccess } from "../auth/session";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import { recordSessionAttendance } from "./attendance";
 import {
-  changeSessionHost, publishSession, readProviderSessionRoster, readSessionBookingFeedback, readSessionHostOffers,
-  readBusinessSessions, replyToSessionHostOffer, updateSessionRoster,
+  changeSessionHost, publishSession, readBusinessSessions, readMySessionHostOffers, readProviderSessionRoster, readSessionBookingFeedback,
+  readSessionHostOffers, replyToSessionHostOffer, updateSessionRoster,
 } from "./hosting";
 import type { HostingResult } from "./hosting";
 
@@ -63,6 +63,7 @@ get(listBusinessSessionsRoute, readBusinessSessions);
 get(getSessionRosterRoute, readProviderSessionRoster);
 get(getSessionBookingFeedbackRoute, readSessionBookingFeedback);
 get(getSessionHostOffersRoute, readSessionHostOffers);
+get(listMySessionHostOffersRoute, readMySessionHostOffers);
 command(publishSessionRoute, publishSession);
 command(updateSessionRosterRoute, updateSessionRoster);
 command(replyToSessionHostOfferRoute, replyToSessionHostOffer);

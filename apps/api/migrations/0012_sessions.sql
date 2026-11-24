@@ -335,6 +335,8 @@ CREATE UNIQUE INDEX session_hosts_current_member ON session_host_assignments (sl
 CREATE UNIQUE INDEX session_hosts_cover_reservation ON session_host_assignments (slot_id, position)
   WHERE state = 'proposed' AND offer_decision = 'accepted';
 CREATE INDEX session_hosts_roster ON session_host_assignments (slot_id, state, id);
+CREATE INDEX session_hosts_open_offers ON session_host_assignments (business_id, membership_id, offer_expires_at, id)
+  WHERE state = 'proposed' AND offer_decision IS NULL AND offer_expires_at IS NOT NULL;
 
 CREATE TABLE session_attendance (
   id TEXT PRIMARY KEY NOT NULL,

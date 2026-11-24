@@ -1,6 +1,7 @@
 import {
   bookSessionHoldRoute, cancelSessionBookingRoute, changeSessionHostRoute, createSessionHoldRoute, getSessionBookingFeedbackRoute,
   getSessionBookingRoute, getSessionHostOffersRoute, getSessionRosterRoute, getSessionRoute, listBusinessSessionsRoute, listSessionsRoute,
+  listMySessionHostOffersRoute,
   moveSessionBookingRoute, publishSessionRoute, recordSessionAttendanceRoute, releaseSessionHoldRoute, replyToSessionHostOfferRoute,
   respondToSessionChangeRoute, updateSessionRosterRoute,
 } from "@bookbuddy/api-contract";
@@ -36,6 +37,7 @@ export function createSessionsClient(api: ApiClient) {
       api.request(updateSessionRosterRoute, { params: { id }, body }, options),
     getSessionHostOffers: (id: string, query: RouteRequest<typeof getSessionHostOffersRoute.input>["query"], options?: RequestOptions) =>
       api.request(getSessionHostOffersRoute, { params: { id }, query }, options),
+    listMySessionHostOffers: (options?: RequestOptions) => api.request(listMySessionHostOffersRoute, {}, options),
     replyToSessionHostOffer: (id: string, body: RouteRequest<typeof replyToSessionHostOfferRoute.input>["body"], options?: RequestOptions) =>
       api.request(replyToSessionHostOfferRoute, { params: { id }, body }, options),
     changeSessionHost: (id: string, body: RouteRequest<typeof changeSessionHostRoute.input>["body"], options?: RequestOptions) =>

@@ -279,6 +279,8 @@ export const sessionHostAssignments = sqliteTable("session_host_assignments", {
   uniqueIndex("session_hosts_cover_reservation").on(t.slotId, t.position).where(
     sql`${t.state} = 'proposed' AND ${t.offerDecision} = 'accepted'`),
   index("session_hosts_roster").on(t.slotId, t.state, t.id),
+  index("session_hosts_open_offers").on(t.businessId, t.membershipId, t.offerExpiresAt, t.id).where(
+    sql`${t.state} = 'proposed' AND ${t.offerDecision} IS NULL AND ${t.offerExpiresAt} IS NOT NULL`),
 ]);
 
 export const sessionAttendance = sqliteTable("session_attendance", {

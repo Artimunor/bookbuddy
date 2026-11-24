@@ -1,8 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
 import {
   changeSessionHostRoute, getSessionBookingFeedbackRoute, getSessionHostOffersRoute, getSessionRosterRoute, operationIdHeader,
-  listBusinessSessionsRoute, publishSessionRoute, recordSessionAttendanceRoute, replyToSessionHostOfferRoute, resultSchema,
-  updateSessionRosterRoute,
+  listBusinessSessionsRoute, listMySessionHostOffersRoute, publishSessionRoute, recordSessionAttendanceRoute, replyToSessionHostOfferRoute,
+  resultSchema, updateSessionRosterRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
@@ -298,6 +298,47 @@ test("cover is addressed only to eligible own-team hosts; the first acceptance r
       expect.objectContaining({ id: assignmentId, state: "confirmed", cover: expect.objectContaining({ status: "confirmed" }) }),
       expect.objectContaining({ id: "morning-rival-host", cover: expect.objectContaining({ status: "declined" }) }),
     ]));
+  } finally { f.close(); }
+});
+
+test("worker discovery returns only the active membership's still-actionable session host offers in deadline order", async () => {
+  const f = await fixture(false);
+  try {
+    expect(await f.call("cover", listMySessionHostOffersRoute)).toMatchObject(notFound);
+    await f.db.prepare("INSERT INTO feature_flags VALUES ('sessions', 'area:pilates', 1, 1)").run();
+    expect(data(await f.call("cover", listMySessionHostOffersRoute))).toEqual({ offers: [] });
+    expect(await f.call("coordinator", listMySessionHostOffersRoute)).toMatchObject(notFound);
+    data(await f.call("admin", publishSessionRoute, { payload: listing }));
+    const morning = await f.publish("morning");
+    const afternoon = await f.publish("afternoon", start + 2 * duration);
+    for (const slot of [morning, afternoon]) {
+      const gap = data(await f.call("coordinator", updateSessionRosterRoute, { payload: {
+        kind: "release_host", slotId: slot.id, slotRevision: slot.revision, assignmentId: `${slot.id}-original-host`,
+      } }));
+      const offered = data(await f.call("coordinator", updateSessionRosterRoute, {
+        payload: f.host(slot.id, gap.slot.revision, "cover", now + (slot.id === morning.id ? 5 : 2) * minute),
+      }));
+      if (slot.id === morning.id) data(await f.call("coordinator", updateSessionRosterRoute, {
+        payload: f.host(slot.id, offered.slot.revision, "rival", now + 4 * minute),
+      }));
+    }
+    expect(data(await f.call("foreign", listMySessionHostOffersRoute))).toEqual({ offers: [] });
+    expect(data(await f.call("cover", listMySessionHostOffersRoute)).offers).toMatchObject([
+      { listingId: "listing", id: "afternoon-cover-host", slotId: "afternoon", title: "Mat Pilates",
+        startsAt: afternoon.startsAt, endsAt: afternoon.endsAt, siteZone: "Europe/Madrid",
+        cover: { status: "offered", expiresAt: now + 2 * minute, repliedAt: null } },
+      { id: "morning-cover-host" },
+    ]);
+    expect(data(await f.call("rival", listMySessionHostOffersRoute)).offers).toMatchObject([{ id: "morning-rival-host" }]);
+    f.advance(now + 2 * minute);
+    expect(data(await f.call("cover", listMySessionHostOffersRoute)).offers).toMatchObject([{ id: "morning-cover-host" }]);
+    data(await f.call("rival", replyToSessionHostOfferRoute, { payload: {
+      kind: "reply_cover", decision: "accept", assignmentId: "morning-rival-host", slotId: morning.id,
+    } }));
+    expect(data(await f.call("cover", listMySessionHostOffersRoute))).toEqual({ offers: [] });
+    expect(data(await f.call("rival", listMySessionHostOffersRoute))).toEqual({ offers: [] });
+    await f.db.prepare("UPDATE feature_flags SET enabled = 0 WHERE key = 'sessions'").run();
+    expect(await f.call("cover", listMySessionHostOffersRoute)).toMatchObject(notFound);
   } finally { f.close(); }
 });
 

@@ -152,6 +152,11 @@ const workerHostOffer = z.strictObject({
   title: display, ...slotTime, siteZone, position: positive, roleLabel: display,
   language: localeTagSchema, cover: coverOffer,
 });
+const workerSessionHostOffer = workerHostOffer.safeExtend({
+  listingId: sessionListingIdSchema,
+  cover: coverOffer.safeExtend({ status: z.literal("offered"), repliedAt: z.null() }),
+});
+export type WorkerSessionHostOffer = z.output<typeof workerSessionHostOffer>;
 
 // The Worker must join against an enabled `feature_flags` row for the market/category
 // in the same D1 call as the live business/capability/scope check. Missing is off.
@@ -230,6 +235,11 @@ export const getSessionHostOffersRoute = defineSessionRoute({
   method: "GET", path: "/sessions/:id/host-offers", auth: "context",
   input: z.strictObject({ params: listingParams, query: z.strictObject({ slotId: sessionSlotIdSchema }) }),
   output: z.strictObject({ offers: z.array(workerHostOffer) }),
+});
+export const listMySessionHostOffersRoute = defineSessionRoute({
+  method: "GET", path: "/members/me/session-host-offers", auth: "context",
+  input: z.strictObject({ params: z.strictObject({}).optional(), query: z.strictObject({}).optional() }),
+  output: z.strictObject({ offers: z.array(workerSessionHostOffer) }),
 });
 export const getSessionBookingFeedbackRoute = defineSessionRoute({
   method: "GET", path: "/sessions/:id/feedback", auth: "context",
