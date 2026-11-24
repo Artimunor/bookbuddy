@@ -28,7 +28,7 @@ const ApiContext = createContext<ApiAccess | null>(null);
 
 export function ApiProvider({ children, baseUrl, fetch }: { children: ReactNode; baseUrl?: string; fetch?: ApiFetch }) {
   const extra = Constants.expoConfig?.extra;
-  const location = "location" in globalThis ? globalThis.location : undefined;
+  const location: unknown = Reflect.get(globalThis, "location");
   const cookieSession = Platform.OS === "web" && extra?.localWebApi === true
     && !!location && typeof location === "object" && "protocol" in location && location.protocol === "http:"
     && "hostname" in location && (location.hostname === "localhost" || location.hostname === "127.0.0.1");
