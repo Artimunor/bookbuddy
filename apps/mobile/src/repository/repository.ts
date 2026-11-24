@@ -1,14 +1,16 @@
-import { accountSettingsSchema, errorBodySchema, operationIdSchema, sessionBootstrapSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
 import { accountSettingsSchema, errorBodySchema, mediaStageIdSchema, operationIdSchema, sessionBootstrapSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
 import type { ErrorBody, LocalePreferences, OperationId, SessionBootstrap, SyncOp, SyncPage } from "@bookbuddy/api-contract";
+import { fitsDraft } from "../media/types";
+import type { AttachmentId, MediaTransfer, NewMediaTransfer, TransferProgress, TransferQuery } from "../media/types";
 import { attendanceProgress } from "./attendance";
 import type { AttendanceCapture, AttendanceEventKind, AttendanceOperation, AttendanceSnapshot, LocalAttendance } from "./attendance";
 import { cacheableValue, draftExpiresAfter, draftWarnAfter, snapshotWindow } from "./cache";
 import type { CachedProjections, CachedWorkerFieldShift, ProjectionKind } from "./cache";
 import type { Executor, Rows } from "./executor";
+import { decodeTransfer, encodeTransfer } from "./media-transfers";
 import { cacheRemoteResponse, decodeRemoteSnapshot } from "./remote-cache";
 import type { CachedRead, RemoteCacheKind } from "./remote-cache";
-import { attendanceReceipts, drafts, localSettings, outbox, pendingOnlineReceipts, projection, stagedMedia, syncState } from "./schema";
+import { attendanceReceipts, drafts, localSettings, mediaTransfers, outbox, pendingOnlineReceipts, projection, stagedMedia, syncState } from "./schema";
 import type { OutboxStatus } from "./schema";
 
 const devicePreferencesSchema = accountSettingsSchema.omit({ revision: true }).partial({
@@ -88,6 +90,9 @@ export class MobileRepository {
     const account = { account_id: accountId };
     await this.db.transaction(async (db) => {
       const files = (await db.select(stagedMedia, account)).map(({ value }) => (JSON.parse(value) as StagedMedia).fileUri);
+      for (const { file_uri } of await db.select(mediaTransfers, account)) {
+        if (file_uri) files.push(file_uri);
+      }
       if (files.length) await eraseFiles(files);
       await db.remove(projection, account);
       await db.remove(syncState, account);
@@ -95,6 +100,7 @@ export class MobileRepository {
       await db.remove(outbox, account);
       await db.remove(attendanceReceipts, account);
       await db.remove(stagedMedia, account);
+      await db.remove(mediaTransfers, account);
       await db.remove(pendingOnlineReceipts, account);
       await db.remove(localSettings, account);
     });
@@ -296,8 +302,10 @@ export class ScopedRepository {
   countStagedMedia(): Promise<number> {
     return this.db.read(async (db) => {
       if (!this.active) return 0;
-      const rows = await db.select(stagedMedia, { account_id: this.scope.accountId });
-      return this.active ? rows.length : 0;
+      const account_id = this.scope.accountId;
+      const older = await db.count(stagedMedia, { account_id });
+      const transfers = await db.count(mediaTransfers, { account_id, file_uri: { op: ">", value: "" } });
+      return this.active ? older + transfers : 0;
     });
   }
 
@@ -537,6 +545,67 @@ export class ScopedRepository {
   async removeStagedMedia(attachmentId: string) {
     await this.write((db) => db.remove(stagedMedia, { ...this.partition, attachment_id: attachmentId }));
     this.notify("media");
+  }
+
+  async createMediaTransfer(item: NewMediaTransfer): Promise<MediaTransfer | null> {
+    const { caller, parentScopeId, stageId: existingStage } = item;
+    const transfer = await this.write(async (db) => {
+      const rows = await db.select(mediaTransfers, { ...this.partition, caller, parent_scope_id: parentScopeId,
+        ...(existingStage && { stage_id: existingStage }) }, { order: ["created_at", "attachment_id"] });
+      const stageId = existingStage ?? rows.at(-1)?.stage_id ?? mediaStageIdSchema.parse(this.newId());
+      if (!fitsDraft(caller, rows.filter((row) => row.stage_id === stageId).map((row) => decodeTransfer(row).file), item.file)) return null;
+      const next: MediaTransfer = {
+        ...item, stageId, state: "queued", selected: false, started: false, generation: null,
+        probe: null, settlement: null, completedParts: [], terminal: false,
+      };
+      await db.put(mediaTransfers, { ...this.partition, ...encodeTransfer(next), created_at: this.now() });
+      return next;
+    });
+    if (transfer) this.notify("media");
+    return transfer;
+  }
+
+  listMediaTransfers({ attachmentId, caller, parentScopeId, stageId }: TransferQuery = {}, workOnly = false): Promise<MediaTransfer[]> {
+    return this.db.read(async (db) => {
+      if (!this.active) return [];
+      const rows = await db.select(mediaTransfers, {
+        ...this.partition, ...(attachmentId && { attachment_id: attachmentId }), ...(caller && { caller }),
+        ...(parentScopeId && { parent_scope_id: parentScopeId }), ...(stageId && { stage_id: stageId }),
+        ...(workOnly && { selected: 1, file_uri: { op: ">", value: "" },
+          state: { op: "in", value: ["queued", "uploading", "verifying", "ready"] } }),
+      }, { order: ["created_at", "attachment_id"] });
+      return this.active ? rows.map(decodeTransfer) : [];
+    });
+  }
+
+  async updateMediaTransfer(attachmentId: AttachmentId, change: (item: MediaTransfer) => Partial<TransferProgress> | null) {
+    const next = await this.write(async (db) => {
+      const key = { ...this.partition, attachment_id: attachmentId };
+      const [row] = await db.select(mediaTransfers, key);
+      if (!row) return null;
+      const item = decodeTransfer(row);
+      const patch = change(item);
+      if (!patch) return null;
+      const updated = { ...item, ...patch };
+      const { state, selected, file_uri, value } = encodeTransfer(updated);
+      await db.update(mediaTransfers, key, { state, selected, file_uri, value });
+      return updated;
+    });
+    if (next) this.notify("media");
+    return next;
+  }
+
+  async removeMediaTransfer(attachmentId: AttachmentId, erase: (uri: string) => Promise<void>): Promise<boolean> {
+    const removed = await this.write(async (db) => {
+      const key = { ...this.partition, attachment_id: attachmentId };
+      const [row] = await db.select(mediaTransfers, key);
+      if (!row || decodeTransfer(row).started) return false;
+      if (row.file_uri) await erase(row.file_uri);
+      await db.remove(mediaTransfers, key);
+      return true;
+    });
+    if (removed) this.notify("media");
+    return removed;
   }
 
   getOnlineReceipt(kind: string, resourceId: string): Promise<OnlineReceipt | null> {

@@ -5,6 +5,7 @@ import { Platform } from "react-native";
 import { ApiProvider } from "../api";
 import { useApiAccess } from "../api/provider";
 import { LocaleProvider } from "../i18n";
+import { MediaTransferProvider } from "../media";
 import { SessionProvider, useSession } from "../session";
 import { DisplaySettingsProvider } from "../screens/s-12/preferences";
 import { pushPath, refreshPush } from "../system/push";
@@ -42,10 +43,12 @@ export default function RootLayout() {
           <DisplaySettingsProvider>
             <PushResponses />
             <StatusCardHost />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(sheets)" options={{ presentation: "formSheet" }} />
-              <Stack.Screen name="(modals)" options={{ presentation: "fullScreenModal" }} />
-            </Stack>
+            <MediaTransferProvider>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(sheets)" options={{ presentation: "formSheet" }} />
+                <Stack.Screen name="(modals)" options={{ presentation: "fullScreenModal" }} />
+              </Stack>
+            </MediaTransferProvider>
           </DisplaySettingsProvider>
         </LocaleProvider>
       </SessionProvider>

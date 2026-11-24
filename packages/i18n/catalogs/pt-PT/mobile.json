@@ -1170,6 +1170,8 @@
   "mobile.media.reviewRecording": "Rever gravação guardada",
   "mobile.media.savedPending": "Guardado neste dispositivo · A aguardar sincronização",
   "mobile.media.seek": "Posição da reprodução",
+  "mobile.media.sent": "Enviado",
+  "mobile.media.sentDraftDescription": "O anexo foi carregado. O rascunho ainda não foi enviado.",
   "mobile.media.stopReview": "Parar e rever",
   "mobile.media.takePhoto": "Tirar uma fotografia",
   "mobile.media.tooLarge": "O ficheiro está vazio ou é demasiado grande para anexar.",

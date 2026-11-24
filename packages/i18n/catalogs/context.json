@@ -1170,6 +1170,8 @@
   "mobile.media.reviewRecording": "S-14 reopens a recording saved on interruption.",
   "mobile.media.savedPending": "Native media staged durably and waiting to transfer.",
   "mobile.media.seek": "S-15 audio seek control accessibility label.",
+  "mobile.media.sent": "S-14/S-15 attachment bytes are verified and removed locally, but the draft may still be unsent.",
+  "mobile.media.sentDraftDescription": "S-14/S-15 thumbnail placeholder for a verified attachment before the caller submits or sends its draft.",
   "mobile.media.stopReview": "S-14 stops recording and opens preview without sending.",
   "mobile.media.takePhoto": "S-14 opens system camera.",
   "mobile.media.tooLarge": "S-14 file exceeds safe limits or contains no bytes.",

@@ -1170,6 +1170,8 @@
   "mobile.media.reviewRecording": "Review saved recording",
   "mobile.media.savedPending": "Saved on this device · Pending sync",
   "mobile.media.seek": "Playback position",
+  "mobile.media.sent": "Sent",
+  "mobile.media.sentDraftDescription": "The attachment uploaded. Your draft hasn’t been sent.",
   "mobile.media.stopReview": "Stop and review",
   "mobile.media.takePhoto": "Take a photo",
   "mobile.media.tooLarge": "This file is empty or too large to attach.",

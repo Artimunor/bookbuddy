@@ -1,4 +1,5 @@
 import type { Table } from "./executor";
+import type { AttachmentId, MediaScope, MediaStageId, MediaTransferState } from "../media/types";
 
 type Partition = { account_id: string; context_id: string };
 type Saved = { value: string; updated_at: number };
@@ -35,6 +36,13 @@ export const attendanceReceipts = table<Partition & {
 export const stagedMedia = table<Partition & Saved & { attachment_id: string }>(
   "staged_media", [...partitionKey, "attachment_id"], `${partition}, attachment_id TEXT NOT NULL, value TEXT NOT NULL, updated_at INTEGER NOT NULL`,
 );
+export const mediaTransfers = table<Partition & {
+  attachment_id: AttachmentId; stage_id: MediaStageId; caller: MediaScope["caller"]; parent_scope_id: string;
+  state: MediaTransferState; selected: 0 | 1; file_uri: string | null; created_at: number; value: string;
+}>("media_transfers", [...partitionKey, "attachment_id"], `${partition}, attachment_id TEXT NOT NULL, stage_id TEXT NOT NULL,
+  caller TEXT NOT NULL, parent_scope_id TEXT NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('queued', 'uploading', 'verifying', 'ready', 'failed')),
+  selected INTEGER NOT NULL CHECK (selected IN (0, 1)), file_uri TEXT, created_at INTEGER NOT NULL, value TEXT NOT NULL`);
 export const pendingOnlineReceipts = table<Partition & { operation_id: string; kind: string; resource_id: string; created_at: number }>(
   "pending_online_receipts", [...partitionKey, "operation_id"], `${partition}, operation_id TEXT NOT NULL,
     kind TEXT NOT NULL, resource_id TEXT NOT NULL, created_at INTEGER NOT NULL`,
@@ -43,8 +51,10 @@ export const localSettings = table<{ account_id: string; key: string; value: str
   "local_settings", ["account_id", "key"], "account_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL",
 );
 
-export const schema = [projection, syncState, drafts, outbox, attendanceReceipts, stagedMedia, pendingOnlineReceipts, localSettings]
+export const schema = [projection, syncState, drafts, outbox, attendanceReceipts, stagedMedia, mediaTransfers, pendingOnlineReceipts, localSettings]
   .map(({ schema }) => schema).join("\n") + `
   CREATE INDEX IF NOT EXISTS outbox_drain ON outbox(account_id, context_id, status, created_at, operation_id);
   CREATE INDEX IF NOT EXISTS attendance_by_assignment ON attendance_receipts(account_id, context_id, assignment_id, created_at, operation_id);
-  CREATE INDEX IF NOT EXISTS draft_expiry ON drafts(account_id, context_id, updated_at);`;
+  CREATE INDEX IF NOT EXISTS draft_expiry ON drafts(account_id, context_id, updated_at);
+  CREATE INDEX IF NOT EXISTS media_transfer_parent ON media_transfers(account_id, context_id, caller, parent_scope_id, created_at, attachment_id);
+  CREATE INDEX IF NOT EXISTS media_transfer_work ON media_transfers(account_id, context_id, selected, state, created_at, attachment_id);`;

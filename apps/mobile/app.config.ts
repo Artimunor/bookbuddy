@@ -35,6 +35,14 @@ export default function configureApp({ projectRoot }: ConfigContext): ExpoConfig
       "expo-router",
       "expo-dev-client",
       "expo-notifications",
+      ["expo-image-picker", {
+        cameraPermission: "Allow BookBuddy to take photos you choose to attach.",
+        photosPermission: "Allow BookBuddy to open photos you choose to attach.",
+      }],
+      ["expo-audio", {
+        microphonePermission: "Allow BookBuddy to record a voice note when you choose to record.",
+        enableBackgroundRecording: false, enableBackgroundPlayback: false,
+      }],
       ["expo-localization", { supportedLocales, supportsRTL }],
       ["expo-sqlite", { useSQLCipher: true }],
       "./src/repository/with-ios-offline-directory.cjs",
