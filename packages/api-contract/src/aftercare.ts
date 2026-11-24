@@ -35,6 +35,7 @@ const reference = z.string().regex(/^BB-[A-Z0-9]+$/);
 const shortText = z.string().max(500).refine((value) => value.trim().length > 0);
 const longText = z.string().max(4_000).refine((value) => value.trim().length > 0);
 const termsHash = z.string().min(1).max(128);
+const maxCompletedLines = 500;
 const job = z.strictObject({
   jobId: jobIdSchema, reference, title: name.nullable(), placeAlias: name, siteZone: name, providerDisplayName: name,
 });
@@ -271,7 +272,7 @@ const publishItem = z.discriminatedUnion("outcome", [
 ]);
 export const submitCompletionPayloadSchema = z.strictObject({
   id: completionIdSchema, baseQuoteVersionId: quoteVersionIdSchema, expectedCompletionId: completionIdSchema.nullable(),
-  items: z.array(publishItem).min(1).max(500), billReference: shortText.trim().optional(), billAmountMinor: positiveMinor.optional(),
+  items: z.array(publishItem).min(1).max(maxCompletedLines), billReference: shortText.trim().optional(), billAmountMinor: positiveMinor.optional(),
 }).superRefine(({ items, billReference, billAmountMinor }, ctx) => {
   if ((billReference === undefined) !== (billAmountMinor === undefined)) {
     ctx.addIssue({ code: "custom", path: [billReference === undefined ? "billReference" : "billAmountMinor"],
@@ -315,7 +316,7 @@ export const returnCompletionRoute = defineRoute({
 
 export const issueBillPayloadSchema = z.strictObject({
   id: billIdSchema, replacesId: billIdSchema.nullable(), number: shortText, currency, providerDocumentRef,
-  paymentInstructions, dueAt: timestampSchema.optional(), lines: z.array(invoiceLine).min(1).max(100),
+  paymentInstructions, dueAt: timestampSchema.optional(), lines: z.array(invoiceLine).min(1).max(maxCompletedLines),
 }).refine(({ lines }) => {
   let net = 0, tax = 0;
   for (const line of lines) { net += line.netMinor; tax += line.taxMinor; }
@@ -354,7 +355,7 @@ export const appendCaseEventPayloadSchema = z.discriminatedUnion("kind", [
   eventPayload.extend({ kind: caseEventKind.extract(["reporter_update", "substantive_update", "resolved"]), content: original, evidence: caseEvidenceIds }),
   eventPayload.extend({ kind: caseEventKind.extract(["acknowledged", "closed"]), content: original.optional() }),
   eventPayload.extend({ kind: z.literal("correction_requested"), completionId: completionIdSchema, content: original }),
-  eventPayload.extend({ kind: z.literal("provider_packet"), content: original, evidence: caseEvidenceIds }),
+  eventPayload.extend({ kind: z.literal("provider_packet"), completionId: completionIdSchema.optional(), content: original, evidence: caseEvidenceIds }),
 ]);
 export const appendCaseEventRoute = commandRoute("/cases/:id/events", caseParams, appendCaseEventPayloadSchema, problemCaseProjectionSchema);
 export const submitRatingRoute = commandRoute("/jobs/:j/rating", jobParams,

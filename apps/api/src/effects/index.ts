@@ -56,7 +56,7 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
   // Claim + input in one transactional batch. Bound each sweep; pending work
   // left by a missed wake stays in the ledger for the next scheduled pass.
   const claimResults = await db.batch([
-    ...(keys === null ? [...completionSweepStatements(now), ...caseSweepStatements(now)]
+    ...(keys === null ? [...completionSweepStatements(now), ...caseSweepStatements(now, env.CASE_STEWARD_ACCOUNT_ID)]
       .map(({ sql, params }) => db.prepare(sql).bind(...params ?? [])) : []),
     db.prepare(`${effectClock} UPDATE effect_outbox SET state = 'skipped', resource_ref = ${scrub}
       WHERE id IN (SELECT e.id FROM effect_outbox e WHERE e.state = 'pending' AND ${target}

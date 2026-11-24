@@ -13,7 +13,7 @@ import { registerLinkResolver } from "../links";
 import type { LinkResolver } from "../links";
 import { mayReadCase, mayUseCasePacket } from "./cases";
 import { aftercareAccess, aftercareJobValue, aftercareReceipt, calendarDeadline, jobSource, nameOf, withAftercareSiteClock } from "./completion";
-import { approvedInvoice, billReferenceReserved, billSignals, customerBillReader, foremanBillReader, issuedBillNotice, paymentHead, providerBillReader } from "./invoice";
+import { approvedInvoice, billReferenceReserved, billSignals, customerBillReader, foremanBillReader, invoiceLine, invoiceLines, issuedBillNotice, paymentHead, providerBillReader } from "./invoice";
 
 type ReadBill = RouteResponse<typeof getJobBillRoute.input>;
 type IssueBill = RouteResponse<typeof issueBillRoute.input>;
@@ -64,7 +64,8 @@ const deferral = (scope: string) => `json_object('id', d.id, 'caseId', (SELECT p
   WHERE pc.id = d.case_id AND ${mayReadCase(scope)}), 'amountMinor', d.amount_minor,
   'reviewAt', d.review_at, 'at', d.at, 'actorDisplayName', ${nameOf("d.actor_id")})`;
 const activeDispute = `pc.job_id = b.job_id AND (pc.bill_id IS NULL OR pc.bill_id = b.id) AND pc.state IN ('open', 'awaiting_plan')
-  AND (pc.category = 'bill' OR pc.line_no IS NOT NULL) AND pc.opened_at <= ${at}`;
+  AND pc.opened_at <= ${at}`;
+const disputedLines = "line.bill_id = b.id AND line.case_id = pc.id";
 
 function billValue(s: string, selection: string): string {
   const history = (withReference: boolean) => rows(`SELECT ${stamp("h", withReference)} AS value FROM history h ORDER BY h.depth DESC`);
@@ -91,14 +92,15 @@ function billValue(s: string, selection: string): string {
       '$.actions', json_set(CASE WHEN b.can_record THEN b.payment_actions ELSE
         '{"recordPaid":false,"correctPayment":false,"recordChecking":false,"confirmNoFunds":false}' END,
         '$.deferCollection', ${flag(`b.can_defer AND b.state = 'issued' AND (b.head_kind IS NULL OR b.head_kind = 'no_funds_received')
-          AND b.deferred_minor IS NULL AND EXISTS (SELECT 1 FROM problem_cases pc WHERE ${activeDispute} AND ${mayUseCasePacket(s)})`)},
+          AND b.deferred_minor IS NULL AND EXISTS (SELECT 1 FROM problem_cases pc WHERE ${activeDispute} AND ${mayUseCasePacket(s)}
+            AND EXISTS (SELECT 1 FROM bill_disputed_lines line WHERE ${disputedLines} AND line.amount_minor > 0))`)},
         '$.releaseDeferral', ${flag("b.can_defer AND b.deferred_minor IS NOT NULL")}),
       '$.history', json(CASE WHEN b.can_record THEN ${history(true)} ELSE '[]' END),
       '$.deferrals', json(CASE WHEN b.can_defer THEN ${rows(`SELECT json_set(${deferral(s)}, '$.basis', d.basis,
         '$.affectedLineNos', json(d.affected_line_nos), '$.release', json(CASE WHEN d.released_at IS NOT NULL THEN json_object(
           'at', d.released_at, 'actorDisplayName', ${nameOf("d.released_by")}, 'disposition', d.disposition) END)) AS value
         FROM bill_deferrals d WHERE d.bill_id = b.id ORDER BY d.at, d.id`)} ELSE '[]' END))
-    ELSE json_set(b.core, '$.lines', json(${rows(`SELECT json_set(line.value, '$.lineNo', line.key + 1, '$.labelReading', NULL) AS value
+    ELSE json_set(b.core, '$.lines', json(${rows(`SELECT json_set(${invoiceLine("line.value")}, '$.lineNo', line.key + 1, '$.labelReading', NULL) AS value
       FROM json_each(b.line_items) line ORDER BY line.key`)}), '$.documentUrl', NULL,
       '$.matchesApprovedScope', ${flag(`b.line_items = json_extract((${approvedInvoice("b.issued_at")}), '$.lines')`)},
       '$.paymentInstructions', json(CASE WHEN b.state = 'issued' AND (b.head_kind IS NULL OR b.head_kind = 'no_funds_received')
@@ -145,11 +147,13 @@ function billingReceipt(ctx: RequestScope, access: SessionAccess, spec: Omit<Ope
   }, billValue("scope", billId), expected);
 }
 
+const mayCloseJob = `state = 'open' AND EXISTS (SELECT 1 FROM sign_offs WHERE job_id = jobs.id AND at <= ${at})`;
+const mayReopenJob = `state = 'closed' AND EXISTS (SELECT 1 FROM bills b WHERE b.id = ${billId} AND b.state = 'issued')`;
 const reviseJob = (access: SessionAccess, guard: CommandStatement, kind?: PaymentKind) => scopedStatement(access,
-  `UPDATE jobs SET revision = revision + 1${kind === "matched" ? `, state = CASE WHEN state = 'open'
-    AND EXISTS (SELECT 1 FROM sign_offs WHERE job_id = jobs.id AND at <= ${at}) THEN 'closed' ELSE state END`
-    : kind === "corrected" ? `, state = CASE WHEN state = 'closed' AND EXISTS (
-      SELECT 1 FROM bills b WHERE b.id = ${billId} AND b.state = 'issued') THEN 'open' ELSE state END` : ""}
+  `UPDATE jobs SET revision = revision + 1${kind === "matched"
+    ? `, state = CASE WHEN ${mayCloseJob} THEN 'closed' ELSE state END, closed_at = CASE WHEN ${mayCloseJob} THEN ${at} ELSE closed_at END`
+    : kind === "corrected"
+    ? `, state = CASE WHEN ${mayReopenJob} THEN 'open' ELSE state END, closed_at = CASE WHEN ${mayReopenJob} THEN NULL ELSE closed_at END` : ""}
     WHERE id = (SELECT id FROM aftercare_job) AND ${guard.sql}`, ...guard.params ?? []);
 
 export function issueBill(ctx: RequestScope, session: SessionAccess, { params, body }: IssueBill) {
@@ -168,7 +172,7 @@ export function issueBill(ctx: RequestScope, session: SessionAccess, { params, b
     eligible: { sql: `EXISTS (SELECT 1 FROM aftercare_job j CROSS JOIN invoice i
       LEFT JOIN bills prev ON prev.job_id = j.id AND prev.state = 'issued' LEFT JOIN paid_records p ON p.id = (${paymentHead("prev")})
       WHERE ${revisionMatches} AND j.state = 'open' AND i.replaces_id IS prev.id AND i.due >= ${at}
-        AND i.approved ->> 'lines' = ? AND i.approved ->> 'net' >= 0 AND i.approved ->> 'tax' >= 0
+        AND ${invoiceLines("i.approved -> 'lines'")} = ? AND i.approved ->> 'net' >= 0 AND i.approved ->> 'tax' >= 0
         AND (i.approved ->> 'net') + (i.approved ->> 'tax') > 0 AND NOT EXISTS (
           SELECT 1 FROM bills b WHERE b.id = ${billId} OR (b.business_id = j.business_id AND b.number = i.number AND b.version = i.version))
         AND (i.version <> 1 OR NOT (${billReferenceReserved("i.number")}))
@@ -224,9 +228,9 @@ export function deferCollection(ctx: RequestScope, session: SessionAccess, { par
       LEFT JOIN paid_records p ON p.id = (${paymentHead("b")}) WHERE ${revisionMatches} AND b.state = 'issued' AND b.issued_at <= ${at}
       AND p.id IS ? AND ${due("p")} AND ${activeDispute} AND ${mayUseCasePacket("scope")} AND ? > ${at}
       AND NOT EXISTS (SELECT 1 FROM bill_deferrals d WHERE d.id = ? OR (d.bill_id = b.id AND d.released_at IS NULL))
-      AND ? <= min(b.total_minor, (SELECT sum((item.value ->> 'netMinor') + (item.value ->> 'taxMinor'))
-        FROM json_each(?) selected LEFT JOIN json_each(b.line_items) item ON item.key = selected.value - 1
-        HAVING count(item.key) = count(*))))`, params: [caseId, expectedPriorId, reviewAt, id, amountMinor, lineNos] },
+      AND ? <= min(b.total_minor, (SELECT sum(line.amount_minor)
+        FROM json_each(?) selected LEFT JOIN bill_disputed_lines line ON ${disputedLines} AND line.line_no = selected.value
+        HAVING count(line.line_no) = count(*))))`, params: [caseId, expectedPriorId, reviewAt, id, amountMinor, lineNos] },
     writes(guard) {
       const signals = billSignals(access, guard, billId, notices.defer, `bill-deferral:${id}`);
       return { ...signals, statements: [scopedStatement(access, `INSERT INTO bill_deferrals

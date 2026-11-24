@@ -35,6 +35,10 @@ export async function castSql(domain: string, secret: string) {
     rows.push(insert("accounts", "id,email_normalized,email_key,display_name,verified_at,setup_at,state", [account.id, account.email, account.digest, account.display, 1, 1, "active"]));
     rows.push(insert("account_preferences", "account_id,ui_locale,reading_locale,two_clock", [account.id, account.locale, account.locale, account.name === "claire" ? 1 : 0]));
   }
+  const operationsIssuer = "seed-steward-grant-issuer";
+  rows.push(insert("accounts", "id,email_normalized,display_name,verified_at,state",
+    [operationsIssuer, `operations-provisioner@${domain}`, "BookBuddy Operations", 1, "closed"]));
+  rows.push(insert("steward_grants", "account_id,granted_by,granted_at", [ids.steward, operationsIssuer, 1]));
   rows.push(insert("operating_areas", "id,name,site_zone,polygon", [ids.area, "Demo area", "Europe/Madrid", JSON.stringify([[[-1,-1],[1,-1],[1,1],[-1,1],[-1,-1]]])]));
   for (let day = 1; day <= 5; day++) rows.push(insert("staffed_calendar", "id,area_id,weekday,opens_minute,closes_minute", [`seed-calendar-${day}`, ids.area, day, 480, 1080]));
   rows.push(insert("businesses", "id,legal_name,public_name,verified_work_contact,catchment_id,state", [ids.business, "Reformas Ruiz", "Reformas Ruiz", accounts[1]!.email, ids.area, "approved"]));

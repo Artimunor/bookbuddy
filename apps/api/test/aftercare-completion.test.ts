@@ -9,6 +9,7 @@ import { runEffectBatch } from "../src/effects";
 import { randomToken } from "../src/modules/auth/crypto";
 import { hashSessionCredential } from "../src/modules/auth/session";
 import { createTestD1 } from "./d1";
+import type { TestD1 } from "./d1";
 
 const day = 86_400_000;
 const hour = 3_600_000;
@@ -22,6 +23,22 @@ const completionPath = "/jobs/job/completion";
 const submissions = "/jobs/job/completions";
 const ratingPath = "/jobs/job/rating";
 const eligibility = `${ratingPath}-eligibility`;
+const approvedBillLines = [
+  { originalLabel: "Puerta", originalLanguage: "es", netMinor: 12_000, taxMinor: 2_400 },
+  { originalLabel: "Pestillo", originalLanguage: "es", netMinor: 8_000, taxMinor: 1_600 },
+  { originalLabel: "Carril", originalLanguage: "es", netMinor: 1_000, taxMinor: 200 },
+];
+
+async function grantForemanIssuance(db: TestD1, validFrom: number) {
+  await db.batch([
+    db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at)
+      VALUES ('foreman-admin-role', 'foreman-member', 'business', 'foreman', 'provider_admin', 1)`),
+    db.prepare(`INSERT INTO account_contexts (id, account_id, role, business_id, role_grant_id)
+      VALUES ('foreman-admin-context', 'foreman', 'provider_admin', 'business', 'foreman-admin-role')`),
+    db.prepare(`INSERT INTO business_grants (id, business_id, membership_id, capability, issuer_id, valid_from)
+      VALUES ('foreman-issue', 'business', 'foreman-member', 'issue_bill', 'admin', ?)`).bind(validFrom),
+  ]);
+}
 
 async function fixture() {
   const db = await createTestD1();
@@ -339,7 +356,7 @@ test("sign-off closes an already matched job but never infers delivery from the 
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
-test("sign-off atomically publishes one hinted invoice and only provider billing may reconcile it", async () => {
+test("sign-off retains an unauthorized hint for the provider and never upgrades it using a later grant", async () => {
   const clock = spyOn(Date, "now").mockReturnValue(now);
   const f = await fixture();
   try {
@@ -355,18 +372,31 @@ test("sign-off atomically publishes one hinted invoice and only provider billing
     expect(await f.request("/jobs/job/bill", "customer")).toMatchObject({ status: 200, body: { data: { bill: null } } });
     expect(await f.db.prepare("SELECT count(*) FROM bills").first("count(*)")).toBe(0);
 
+    await grantForemanIssuance(f.db, now + 1);
+    clock.mockReturnValue(now + 1);
     expect((await f.signOff(wrap.id, "confirm-bill")).status).toBe(200);
     expect((await f.signOff(wrap.id, "confirm-bill")).status).toBe(200);
-    expect(await f.db.prepare("SELECT count(*) FROM bills").first("count(*)")).toBe(1);
-    const bill = resultSchema(getJobBillRoute.output).parse((await f.request("/jobs/job/bill", "customer")).body);
-    expect(bill).toMatchObject({ data: { job: { providerDisplayName: "Provider" }, bill: {
-      number: billReference, totalMinor: billAmountMinor, netMinor: 21_000, taxMinor: 4_200, issuedAt: now,
-      dueAt: now + 7 * day - hour, paymentInstructions: null, documentUrl: null, matchesApprovedScope: true,
+    expect(await f.db.prepare("SELECT state, bill_reference_hint, bill_hint_by, bill_hint_grant_id FROM completions").first())
+      .toEqual({ state: "signed_off", bill_reference_hint: billReference, bill_hint_by: "foreman", bill_hint_grant_id: null });
+    expect(await f.db.prepare("SELECT count(*) FROM bills").first("count(*)")).toBe(0);
+    expect(await f.db.prepare("SELECT count(*) FROM notifications WHERE kind = 'bill_issued'").first("count(*)")).toBe(0);
+    expect(await f.request("/jobs/job/bill", "customer")).toMatchObject({ body: { data: { bill: null } } });
+    expect(await f.request("/jobs?segment=needs_you", "admin")).toMatchObject({ body: { data: {
+      items: [{ jobId: "job", readyToBill: true }], unpaidBills: [],
     } } });
-    const notice = await f.db.prepare("SELECT link_token FROM notifications WHERE kind = 'bill_issued'").all<{ link_token: string }>();
-    expect(notice.results).toHaveLength(1);
-    const link = await f.request(`/links/${notice.results[0]!.link_token}`, "customer");
-    expect(link).toMatchObject({ status: 200, body: { data: { kind: "bill", bill: { bill: { number: billReference } } } } });
+    expect(await f.request("/jobs/job", "admin")).toMatchObject({ body: { data: { job: {
+      readyBill: { number: billReference, total: { minor: billAmountMinor }, lines: approvedBillLines },
+    } } } });
+    expect(JSON.stringify((await f.request("/jobs/job", "customer")).body)).not.toContain(billReference);
+    expect(JSON.stringify((await f.request("/jobs/job", "foreman")).body)).not.toContain("readyBill");
+
+    const issued = await f.request("/jobs/job/bills", "admin", "manual-bill", {
+      id: "provider-issued", replacesId: null, number: billReference, currency: "EUR", providerDocumentRef: "doc",
+      paymentInstructions: { instructions: { language: "en", text: "Pay the provider" }, reference: billReference },
+      lines: approvedBillLines,
+    });
+    expect(issued).toMatchObject({ status: 200, body: { data: { bill: { id: "provider-issued", totalMinor: billAmountMinor } } } });
+    expect(await f.request("/jobs/job", "admin")).toMatchObject({ body: { data: { job: { readyToBill: false, readyBill: null } } } });
     expect(f.wakes).toHaveLength(2);
 
     const queue = resultSchema(getJobsRoute.output).parse((await f.request("/jobs?segment=needs_you", "admin")).body);
@@ -383,5 +413,34 @@ test("sign-off atomically publishes one hinted invoice and only provider billing
       bill: { outcome: { status: "paid" } },
     } } });
     expect(await f.request("/jobs?segment=needs_you", "admin")).toMatchObject({ status: 200, body: { data: { unpaidBills: [] } } });
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("sign-off materializes one invoice only for an attributed live same-business issuer at submission", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await grantForemanIssuance(f.db, now);
+    const billReference = "RR-0413";
+    expect(await f.submit({ ...submission("issuer-wrap"), billReference, billAmountMinor: 25_200 })).toMatchObject({
+      status: 200, body: { data: { actions: { canIssueBill: true } } },
+    });
+    expect(await f.db.prepare("SELECT bill_hint_by, bill_hint_grant_id FROM completions").first())
+      .toEqual({ bill_hint_by: "foreman", bill_hint_grant_id: "foreman-issue" });
+    expect(await f.db.prepare("SELECT count(*) FROM bills").first("count(*)")).toBe(0);
+    expect((await f.signOff("issuer-wrap", "publish-authorized")).status).toBe(200);
+    expect((await f.signOff("issuer-wrap", "publish-authorized")).status).toBe(200);
+    expect(await f.db.prepare("SELECT count(*) FROM bills").first("count(*)")).toBe(1);
+    const bill = resultSchema(getJobBillRoute.output).parse((await f.request("/jobs/job/bill", "customer")).body);
+    expect(bill).toMatchObject({ data: { bill: {
+      number: billReference, totalMinor: 25_200, netMinor: 21_000, taxMinor: 4_200, issuedAt: now,
+      dueAt: now + 7 * day - hour, paymentInstructions: null, documentUrl: null, matchesApprovedScope: true,
+    } } });
+    const notices = await f.db.prepare("SELECT link_token FROM notifications WHERE kind = 'bill_issued'").all<{ link_token: string }>();
+    expect(notices.results).toHaveLength(1);
+    expect(await f.request(`/links/${notices.results[0]!.link_token}`, "customer")).toMatchObject({
+      status: 200, body: { data: { kind: "bill", bill: { bill: { number: billReference } } } },
+    });
+    expect(f.wakes).toHaveLength(2);
   } finally { f.db.close(); clock.mockRestore(); }
 });

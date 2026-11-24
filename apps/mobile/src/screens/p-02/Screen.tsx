@@ -1,9 +1,9 @@
-import { getJobRoute, getJobsRoute, offerJobHandoffRoute, recordPaidRoute, withdrawJobHandoffRoute, type RouteResponse } from "@bookbuddy/api-contract";
+import { getJobRoute, getJobsRoute, idSchema, issueBillRoute, offerJobHandoffRoute, recordPaidRoute, withdrawJobHandoffRoute, type RouteResponse } from "@bookbuddy/api-contract";
 import { uuid } from "expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useCommand, useRemote } from "../../api";
-import { useT } from "../../i18n";
+import { useLocale, useT } from "../../i18n";
 import { Badge, BookingCard, Button, Card, ListRow, SegmentedControl, SwitchRow, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { ProviderScreen, ReadState, useProvider, useProviderFormat as useFormat, useProviderLabels } from "../p-01/shared";
@@ -13,6 +13,50 @@ import { CommercialReview, type ReviewTarget } from "./Review";
 
 type Segment = "needs_you" | "active" | "past";
 type UnpaidBill = Extract<RouteResponse<typeof getJobsRoute.output>, { audience: "provider_admin" }>["unpaidBills"][number];
+type ProviderJob = Extract<Extract<RouteResponse<typeof getJobRoute.output>, { audience: "provider_admin" }>["job"], { view: "whole" }>;
+
+function IssueBill({ job, draft, actor, ready, onChanged }: {
+  job: ProviderJob; draft: NonNullable<ProviderJob["readyBill"]>; actor: string; ready: boolean; onChanged: () => void;
+}) {
+  const router = useRouter(); const t = useT(); const format = useFormat(); const offline = useOffline(); const { locale } = useLocale();
+  const issue = useCommand(issueBillRoute, { resourceId: job.jobId });
+  const [number, setNumber] = useState(draft.number);
+  const [document, setDocument] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [reference, setReference] = useState("");
+  const busy = issue.state === "checking" || issue.state === "sending";
+  const disabled = !ready || offline || busy;
+  const billNumber = number.trim(), providerDocumentRef = document.trim(), paymentReference = reference.trim(), paymentText = instructions.trim();
+  const canConfirm = !disabled && !!billNumber && idSchema.safeParse(providerDocumentRef).success && !!paymentReference && !!paymentText;
+  const label = t("mobile.provider.issueBill");
+  const item = t("mobile.provider.bill", { number: billNumber, amount: format.money(draft.total.minor, draft.total.currency) });
+  function confirm() {
+    if (!canConfirm) return;
+    confirmAction(router, {
+      title: label, actionLabel: label, actionLabelKey: "mobile.provider.issueBill",
+      item: `${job.reference} · ${item}`, actor, role: t("mobile.provider.admin"),
+      effects: [t("mobile.wrapUp.directBill")], onReview: onChanged,
+      onConfirm: async () => {
+        const result = await issue.run({ params: { j: job.jobId }, body: { expectedRevision: job.revision, payload: {
+          id: uuid.v4(), replacesId: null, number: billNumber, currency: "EUR", providerDocumentRef, lines: draft.lines,
+          paymentInstructions: { reference: paymentReference, instructions: { language: locale, text: paymentText } },
+        } } });
+        if (result.ok) { onChanged(); return "confirmed"; }
+        return "delivery" in result.error && result.error.delivery === "unknown" ? "uncertain" : "invalidated";
+      },
+    });
+  }
+  return <Card>
+    <Copy>{item}</Copy>
+    {draft.lines.map((line, index) => <Copy key={index}>{line.originalLabel} · {format.money(line.netMinor + line.taxMinor, draft.total.currency)}</Copy>)}
+    <TextField label={t("mobile.provider.billNumber")} value={number} onChangeText={setNumber} maxLength={500} disabled={disabled} autoCapitalize="none" />
+    <TextField label={t("mobile.provider.billDocument")} value={document} onChangeText={setDocument} maxLength={256} disabled={disabled} autoCapitalize="none" />
+    <TextField label={t("mobile.provider.paymentInstructions")} value={instructions} onChangeText={setInstructions} maxLength={4_000} disabled={disabled} multiline />
+    <TextField label={t("mobile.provider.paymentReference")} value={reference} onChangeText={setReference} maxLength={500} disabled={disabled} autoCapitalize="none" />
+    <Button label={label} onPress={confirm} disabled={!canConfirm} />
+    {issue.state === "checking" && <Copy>{t("mobile.provider.checking")}</Copy>}
+  </Card>;
+}
 
 function RecordPayment({ bill, actor, ready, onChanged }: { bill: UnpaidBill; actor: string; ready: boolean; onChanged: () => void }) {
   const router = useRouter(); const t = useT(); const format = useFormat(); const offline = useOffline();
@@ -102,6 +146,7 @@ function ProviderJobs({ jobId, initialSegment }: { jobId?: string; initialSegmen
     <SegmentedControl label={t("mobile.provider.segment")} value={segment} onChange={(value) => { setSegment(value); setCursors([]); setSelected(null); }} options={[{ value: "needs_you", label: `${t("mobile.provider.needsYou")} ${page?.needsYouCount ?? ""}` }, { value: "active", label: `${t("mobile.provider.active")} ${page?.activeCount ?? ""}` }, { value: "past", label: `${t("mobile.provider.past")} ${page?.pastCount ?? ""}` }]} />
     <ReadState status={jobs.status} retry={() => { void jobs.refresh(); }} />
     {items.map((item) => <Card key={item.jobId}><BookingCard title={item.title ?? item.reference} place={`${item.reference} · ${item.place.alias}`} stage={labels.journey(item.journey.step, item.journey.cancelled)} next={item.accountableForeman ? t("mobile.provider.foreman", { name: item.accountableForeman.displayName }) : t("mobile.provider.noForeman")} accessibilityLabel={`${item.title ?? item.reference} · ${item.reference} · ${item.place.alias} · ${labels.journey(item.journey.step, item.journey.cancelled)}`} onPress={() => { setSelected(selected === item.jobId ? null : item.jobId); setRecipient(null); setUrgentCalled(false); }} />
+      {item.readyToBill && <Badge label={t("mobile.provider.readyToBill")} tone="neutral" />}
       {selected === item.jobId && <><ReadState status={detail.status} retry={() => { void detail.refresh(); }} />{job && <>
         {job.handoff && <><Badge label={job.handoff.state === "expired" || job.handoff.state === "declined" ? t("mobile.provider.handoffStuck") : job.handoff.state === "accepted" ? t("mobile.provider.accepted") : job.handoff.state === "withdrawn" ? t("mobile.provider.withdrawn") : t("mobile.provider.offered")} tone={job.handoff.state === "expired" || job.handoff.state === "declined" ? "critical" : "neutral"} /><Copy>{t("mobile.provider.offeredTo", { name: job.handoff.to.displayName })}</Copy><Copy>{t("mobile.provider.replyBy", { time: format.siteTime(job.handoff.expiresAt, job.siteZone) })}</Copy></>}
         {job.commercialReview && <ListRow label={t("mobile.provider.review")} description={t("mobile.provider.reviewVersion", {
@@ -110,6 +155,8 @@ function ProviderJobs({ jobId, initialSegment }: { jobId?: string; initialSegmen
           const record = job.commercialReview;
           if (record) setReview({ jobId: job.jobId, kind: record.kind, versionId: record.versionId });
         }} />}
+        {job.readyBill && <IssueBill key={job.jobId} job={job} draft={job.readyBill} actor={actor} ready={detail.status === "ready"}
+          onChanged={() => { void jobs.refresh(); void detail.refresh(); }} />}
         {job.bill?.outcome.status === "paid" && <>
           <Copy>{t("mobile.provider.bill", { number: job.bill.number, amount: format.money(job.bill.total.minor, job.bill.total.currency) })}</Copy>
           <Copy>{t("mobile.provider.paid", { amount: format.money(job.bill.outcome.matched.minor, job.bill.outcome.matched.currency),

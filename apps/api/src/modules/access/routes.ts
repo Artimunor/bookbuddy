@@ -11,6 +11,7 @@ import { commitCommand, prepareCommand } from "../../db/commit";
 import type { CommandInput } from "../../db/commit";
 import { openRequestScope } from "../../db/scope";
 import type { RequestScope } from "../../db/scope";
+import { withCaseSteward } from "../aftercare/case-policy";
 import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { decodeJobRows, projectJobsBusinessOverview, readJobsBusinessOverview } from "../jobs/read";
@@ -39,7 +40,7 @@ accessRoutes.get(openLinkRoute.path, async (c) => {
   const authorized = await authorize(c);
   if (!authorized) return transportFailure(c, "UNAUTHENTICATED");
   const { ctx, access } = authorized;
-  const statements = await readLink(access, input.data.params.opaque);
+  const statements = await readLink(withCaseSteward(access, c.env.CASE_STEWARD_ACCOUNT_ID), input.data.params.opaque);
   const row = await commitCommand(ctx, prepareCommand(ctx, {
     statements,
     decode: (results) => results.find(({ results }) => results.length)?.results[0] as LinkRow | undefined,

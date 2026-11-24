@@ -1,6 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import {
-  businessOverviewSchema, getJobBillRoute, getProblemCaseRoute, listJobCasesRoute, openLinkRoute, operationIdHeader,
+  businessOverviewSchema, createMediaReadGrantsRoute, getJobBillRoute, getJobCompletionRoute, getProblemCaseRoute, listJobCasesRoute,
+  openLinkRoute, operationIdHeader,
 } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
@@ -30,7 +31,9 @@ async function fixture() {
   const db = await createTestD1();
   const app = createApp();
   app.onError((error) => { throw error; });
-  const env = { DB: db, CASE_STEWARD_ACCOUNT_ID: "steward", EFFECTS: { async send() {} } } as unknown as Bindings;
+  const env = { DB: db, CASE_STEWARD_ACCOUNT_ID: "steward", EFFECTS: { async send() {} },
+    R2_ACCOUNT_ID: "a".repeat(32), R2_EVIDENCE_BUCKET: "fixture-evidence", R2_ACCESS_KEY_ID: "FixtureKey", R2_SECRET_ACCESS_KEY: "fixture-signing-secret",
+  } as unknown as Bindings;
   const execution = { waitUntil() {}, passThroughOnException() {} };
   const identities = await Promise.all(viewers.map(async (id) => {
     const credential = randomToken();
@@ -42,6 +45,7 @@ async function fixture() {
     db.prepare("INSERT INTO account_contexts(id, account_id, role) VALUES (?, ?, 'customer')").bind(`${id}-customer`, id),
     db.prepare(`INSERT INTO sessions(id, account_id, secret_hash, active_context_id, device_id, issued_at, expires_at)
       VALUES (?, ?, ?, ?, 'device', 1, ?)`).bind(`${id}-session`, id, hash, `${id}-customer`, friday + 30 * 86_400_000)]),
+    db.prepare("INSERT INTO steward_grants (account_id, granted_by, granted_at) VALUES ('steward', 'admin', 1)"),
     db.prepare("INSERT INTO operating_areas VALUES ('area', 'Area', 'Europe/Madrid', '[0]')"),
     db.prepare(`INSERT INTO staffed_calendar(id, area_id, local_date) VALUES ('holiday', 'area', '2026-03-30')`),
     db.prepare(`INSERT INTO businesses(id, legal_name, public_name, verified_work_contact, catchment_id, state)
@@ -104,27 +108,31 @@ async function fixture() {
   async function request(path: string, viewer: Viewer, operationId?: string, payload: unknown = {}) {
     const { batch, query } = db.calls;
     const authorization = `Bearer ${identities.find(({ id }) => id === viewer)!.credential}`;
+    const mediaRead = path === createMediaReadGrantsRoute.path;
     const response = await app.request(`https://bookbuddy.test/api/v1${path}`, {
-      method: operationId ? "POST" : "GET",
-      headers: operationId ? { Authorization: authorization, [operationIdHeader]: operationId, "Content-Type": "application/json" }
-        : { Authorization: authorization },
-      body: operationId ? JSON.stringify({ operationId, payload }) : undefined,
+      method: operationId || mediaRead ? "POST" : "GET",
+      headers: { Authorization: authorization, ...(operationId && { [operationIdHeader]: operationId }),
+        ...((operationId || mediaRead) && { "Content-Type": "application/json" }) },
+      body: operationId ? JSON.stringify({ operationId, payload }) : mediaRead ? JSON.stringify(payload) : undefined,
     }, env, execution);
     expect(db.calls.batch - batch + db.calls.query - query).toBe(1);
-    if (operationId) expect(db.calls.batch - batch).toBe(1);
+    if (operationId || mediaRead) expect(db.calls.batch - batch).toBe(1);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     return { status: response.status, body: await response.json() as { ok: boolean; data?: unknown; error?: { code: string } } };
   }
-  const signOff = () => db.batch([
+  const submitWrap = () => db.batch([
     db.prepare(`INSERT INTO completions (id, job_id, base_quote_version_id, no, submitter_id, finished_at, submitted_at, state)
       VALUES ('completion', 'job', 'approved-quote', 1, 'foreman', 7, 8, 'submitted')`),
     db.prepare(`INSERT INTO completion_items (id, completion_id, quote_version_id, line_no, outcome, original_language, result_note)
       VALUES ('item-1', 'completion', 'approved-quote', 1, 'done', 'en', 'Repaired')`),
     db.prepare(`INSERT INTO completion_items (id, completion_id, change_version_id, line_no, outcome, original_language, result_note)
       VALUES ('item-2', 'completion', 'approved-change', 1, 'done', 'en', 'Installed')`),
-    db.prepare("INSERT INTO sign_offs VALUES ('signed', 'job', 'completion', 'customer', 'sign-off', 'terms-hash', 9)"),
   ]);
-  return { db, env, request, signOff };
+  const signOff = async () => {
+    await submitWrap();
+    await db.prepare("INSERT INTO sign_offs VALUES ('signed', 'job', 'completion', 'customer', 'sign-off', 'terms-hash', 9)").run();
+  };
+  return { db, env, request, signOff, submitWrap };
 }
 
 function projection<T>(schema: { parse(value: unknown): T }, result: { status: number; body: { ok: boolean; data?: unknown } }) {
@@ -230,18 +238,37 @@ test("case evidence, due reminders and minimum provider packet obey the live aud
     expect(JSON.stringify(provider)).not.toContain("Villa");
     expect(JSON.stringify(provider)).not.toContain(report.description.text);
 
-    const deferred = { id: "deferral", caseId: "bill-case", expectedPriorId: null, amountMinor: total, basis: "Disputed invoice",
-      affectedLineNos: [1, 2], reviewAt: tuesday };
-    expect((await f.request("/bills/bill-v1/defer-collection", "admin", "forbidden-deferral", deferred)).status).toBe(404);
-    projection(getJobBillRoute.output, await f.request("/bills/bill-v1/defer-collection", "billing", "defer", deferred));
+    const defer = "/bills/bill-v1/defer-collection";
+    const release = "/bills/bill-v1/release-deferral";
+    const deferred = { id: "deferral", caseId: "bill-case", expectedPriorId: null, amountMinor: 24_000, basis: "Disputed invoice line",
+      affectedLineNos: [1], reviewAt: tuesday };
+    expect((await f.request(defer, "admin", "forbidden-deferral", deferred)).status).toBe(404);
+    expect((await f.request(defer, "billing", "unrelated-line", { ...deferred, affectedLineNos: [2], amountMinor: 1 })).status).toBe(409);
+    expect((await f.request(defer, "billing", "unrelated-extra", { ...deferred, affectedLineNos: [1, 2], amountMinor: total })).status).toBe(409);
+    expect((await f.request(defer, "billing", "over-line-total", { ...deferred, amountMinor: 24_001 })).status).toBe(409);
+    projection(getJobBillRoute.output, await f.request(defer, "billing", "defer", deferred));
     expect(projection(getJobBillRoute.output, await f.request(billPath, "customer")).bill).toMatchObject({
-      activeDeferral: { id: "deferral", amountMinor: total }, outcome: { status: "due" }, paymentInstructions: null,
+      activeDeferral: { id: "deferral", amountMinor: 24_000 }, outcome: { status: "due" }, paymentInstructions: instructions,
     });
-    await f.request("/bills/bill-v1/release-deferral", "billing", "release", { deferralId: "deferral", disposition: "resume_collection" });
+    await f.request(release, "billing", "release", { deferralId: "deferral", disposition: "resume_collection" });
+
+    const { affectedItem: _, billId: __, ...unscoped } = report;
+    expect((await f.request(reportsPath, "customer", "open-unscoped", { ...unscoped, id: "no-invoice-scope", reportEventId: "no-scope", evidence: [] })).status).toBe(200);
+    expect((await f.request("/cases/no-invoice-scope/events", "steward", "unscoped-packet", { ...packet, id: "unscoped-packet" })).status).toBe(200);
+    expect((await f.request(defer, "billing", "unscoped-deferral", { ...deferred, id: "unscoped-deferral", caseId: "no-invoice-scope" })).status).toBe(409);
+    expect((await f.request(reportsPath, "customer", "open-whole-bill", { ...unscoped, billId: "bill-v1", id: "whole-bill", reportEventId: "whole-scope", evidence: [] })).status).toBe(200);
+    expect((await f.request("/cases/whole-bill/events", "steward", "whole-packet", { ...packet, id: "whole-packet" })).status).toBe(200);
+    expect((await f.request(defer, "billing", "whole-deferral", { ...deferred, id: "whole-deferral", caseId: "whole-bill",
+      affectedLineNos: [1, 2], amountMinor: total })).status).toBe(200);
+    expect(projection(getJobBillRoute.output, await f.request(billPath, "customer")).bill).toMatchObject({
+      activeDeferral: { id: "whole-deferral", amountMinor: total }, outcome: { status: "due" }, paymentInstructions: null,
+    });
+    await f.request(release, "billing", "release-whole", { deferralId: "whole-deferral", disposition: "resume_collection" });
 
     now.mockReturnValue(tuesday);
     await runEffectBatch(f.env, null, tuesday);
-    const reminder = await f.db.prepare("SELECT link_token FROM notifications WHERE kind = 'case_acknowledgement_due'").first<string>("link_token");
+    const reminder = await f.db.prepare(`SELECT n.link_token FROM notifications n JOIN link_targets l ON l.token = n.link_token
+      WHERE n.kind = 'case_acknowledgement_due' AND l.resource_id = 'bill-case'`).first<string>("link_token");
     expect(projection(openLinkRoute.output, await f.request(`/links/${reminder}`, "steward"))).toMatchObject({ kind: "problem_case", case: { audience: "case_owner" } });
     expect(projection(getProblemCaseRoute.output, await f.request(eventsPath, "steward", "ack", { id: "ack", kind: "acknowledged" }))).toMatchObject({
       receipt: { state: "open", nextUpdateAt: wednesday },
@@ -268,4 +295,82 @@ test("case evidence, due reminders and minimum provider packet obey the live aud
     await f.db.prepare("UPDATE case_grants SET revoked_at = ? WHERE case_id = 'bill-case'").bind(tuesday).run();
     expect((await f.request(casePath, "billing")).status).toBe(404);
   } finally { now.mockRestore(); }
+});
+
+test("the configured steward must also retain live assigned stewardship on detail, evidence, links and case mutations", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(friday);
+  const f = await fixture();
+  try {
+    expect((await f.request(billingPath, "billing", "issue", invoice("bill-v1"))).status).toBe(200);
+    expect((await f.request(reportsPath, "customer", "private-report", report)).status).toBe(200);
+    const token = await f.db.prepare("SELECT link_token FROM notifications WHERE kind = 'case_opened'").first<string>("link_token");
+    const evidence = { scope: { caller: "case", parentScopeId: report.reportEventId }, attachmentIds: ["report-photo"] };
+    const packet = { id: "packet", kind: "provider_packet", content: { language: "en", text: "A minimal provider packet" }, evidence: [] };
+    const media = () => f.request(createMediaReadGrantsRoute.path, "steward", undefined, evidence);
+    expect(projection(createMediaReadGrantsRoute.output, await media()).grants).toMatchObject([{ attachmentId: "report-photo", state: "ready" }]);
+    expect(projection(openLinkRoute.output, await f.request(`/links/${token}`, "steward"))).toMatchObject({ kind: "problem_case" });
+
+    delete f.env.CASE_STEWARD_ACCOUNT_ID;
+    expect((await f.request(casePath, "steward")).status).toBe(404);
+    expect((await f.request(eventsPath, "steward", "disabled-packet", packet)).status).toBe(404);
+    expect(projection(createMediaReadGrantsRoute.output, await media()).grants).toMatchObject([{ attachmentId: "report-photo", state: "unavailable" }]);
+    expect(projection(openLinkRoute.output, await f.request(`/links/${token}`, "steward"))).toMatchObject({ kind: "unavailable" });
+
+    f.env.CASE_STEWARD_ACCOUNT_ID = "steward";
+    expect((await f.request(casePath, "steward")).status).toBe(200);
+    expect((await f.request(eventsPath, "steward", "resolve", { ...packet, id: "resolved", kind: "resolved" })).status).toBe(200);
+    expect((await f.request(reportsPath, "customer", "open-unresolved", { ...report, id: "unresolved", reportEventId: "unresolved-event", evidence: [] })).status).toBe(200);
+    await f.db.prepare("UPDATE steward_grants SET revoked_at = ? WHERE account_id = 'steward'").bind(friday).run();
+    expect((await f.request(casePath, "steward")).status).toBe(404);
+    expect((await f.request(casesPath, "steward")).status).toBe(404);
+    expect((await f.request(eventsPath, "steward", "revoked-close", { id: "close", kind: "closed" })).status).toBe(404);
+    expect(projection(createMediaReadGrantsRoute.output, await media()).grants).toMatchObject([{ attachmentId: "report-photo", state: "unavailable" }]);
+    expect(projection(openLinkRoute.output, await f.request(`/links/${token}`, "steward"))).toMatchObject({ kind: "unavailable" });
+    expect((await f.request(reportsPath, "customer", "report-without-live-steward", { ...report, id: "new-case", reportEventId: "new-event", evidence: [] })).status).toBe(409);
+    expect(projection(getProblemCaseRoute.output, await f.request(casePath, "customer"))).toMatchObject({
+      audience: "reporter", receipt: { state: "resolved" }, report: { content: { original: report.description } },
+    });
+    expect(await f.db.prepare("SELECT count(*) AS n FROM case_events WHERE kind IN ('provider_packet', 'closed')").first("n")).toBe(0);
+    clock.mockReturnValue(tuesday);
+    await runEffectBatch(f.env, null, tuesday);
+    expect(await f.db.prepare("SELECT count(*) AS n FROM notifications WHERE kind IN ('case_acknowledgement_due', 'case_update_due')").first("n")).toBe(0);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("foreman sees only returned until a packet about that completion is shared with their live grant", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(friday);
+  try {
+    for (const audience of [null, "provider_rectification"]) {
+      const f = await fixture();
+      try {
+        await f.submitWrap();
+        await f.db.prepare(`INSERT INTO job_grants (job_id, context_id, capability, valid_from, valid_until)
+          VALUES ('job', 'foreman-staff', 'rectification', 1, ?)`).bind(friday + 86_400_000).run();
+        const { billId: _, ...qualityReport } = report;
+        const privateText = "Private customer and steward correction";
+        const packet = { id: "packet", kind: "provider_packet", content: { language: "en", text: "Provider-safe rectification plan" }, evidence: [] };
+        const completion = async () => projection(getJobCompletionRoute.output, await f.request("/jobs/job/completion", "foreman"));
+        expect((await f.request(reportsPath, "customer", "quality", { ...qualityReport, category: "quality", expectedProviderAudience: audience })).status).toBe(200);
+        expect((await f.request(eventsPath, "steward", "correction", { id: "correction", kind: "correction_requested",
+          completionId: "completion", content: { language: "en", text: privateText },
+        })).status).toBe(200);
+        const returned = await completion();
+        expect(returned).toMatchObject({ submission: { state: "returned" }, correction: null, openCases: [] });
+        expect(JSON.stringify(returned)).not.toMatch(/Private customer and steward correction|bill-case|steward/);
+        expect(projection(getProblemCaseRoute.output, await f.request(casePath, "customer"))).toMatchObject({
+          history: [{ kind: "correction_requested", content: { original: { text: privateText } } }],
+        });
+        if (audience !== null) {
+          expect((await f.request(eventsPath, "steward", "generic-share", packet)).status).toBe(200);
+          expect(await completion()).toMatchObject({ correction: null });
+          expect((await f.request(eventsPath, "steward", "share-correction", { ...packet, id: "correction-packet", completionId: "completion" })).status).toBe(200);
+          const shared = await completion();
+          expect(shared).toMatchObject({ correction: { caseId: "bill-case", reason: { original: packet.content } } });
+          expect(JSON.stringify(shared)).not.toContain(privateText);
+          await f.db.prepare("UPDATE case_grants SET revoked_at = ? WHERE case_id = 'bill-case'").bind(friday).run();
+          expect(await completion()).toMatchObject({ correction: null, openCases: [] });
+        }
+      } finally { f.db.close(); }
+    }
+  } finally { clock.mockRestore(); }
 });

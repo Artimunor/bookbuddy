@@ -16,6 +16,7 @@ import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import { changeBillPayment, deferCollection, issueBill, readBill, releaseDeferral } from "./bills";
+import { withCaseSteward } from "./case-policy";
 import { appendCaseEvent, readJobCases, readProblemCase, submitProblemCase } from "./cases";
 
 export const billingRoutes = new Hono<ApiEnv>();
@@ -30,7 +31,7 @@ interface BillingResult { operation: OperationResult; value: string | null; erro
 async function authorize(c: Context<ApiEnv>) {
   const ctx = openRequestScope(c.env.DB, c.var.requestId);
   const session = await resolveSession(c.req.raw, null, ctx.now);
-  return session && { ctx, session };
+  return session && { ctx, session: withCaseSteward(session, c.env.CASE_STEWARD_ACCOUNT_ID) };
 }
 
 function get<Input>(route: Route<Input>, read: (session: SessionAccess, now: number, input: Input) => CommandStatement | null) {
@@ -78,6 +79,6 @@ post(recordCheckingRoute, (ctx, session, input) => changeBillPayment(ctx, sessio
 post(confirmNoFundsRoute, (ctx, session, input) => changeBillPayment(ctx, session, input, "no_funds_received"));
 post(deferCollectionRoute, deferCollection);
 post(releaseDeferralRoute, releaseDeferral);
-post(submitProblemCaseRoute, (ctx, session, input, env) => submitProblemCase(ctx, session, input, env.CASE_STEWARD_ACCOUNT_ID),
+post(submitProblemCaseRoute, submitProblemCase,
   ({ body }) => !looksLikeAccessCode(body.payload.description.text));
 post(appendCaseEventRoute, appendCaseEvent, ({ body }) => !body.payload.content || !looksLikeAccessCode(body.payload.content.text));

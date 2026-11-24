@@ -123,7 +123,7 @@ const workerOffer = z.discriminatedUnion("kind", [
 ]);
 const workerCard = jobHeading.extend({ place, assignment: workerAssignment });
 
-const providerJobCard = jobCard.extend({ accountableForeman: member.nullable(), handoff: handoff.nullable() });
+const providerJobCard = jobCard.extend({ accountableForeman: member.nullable(), handoff: handoff.nullable(), readyToBill: z.boolean() });
 const providerLive = businessOverviewSchema.shape.liveJob;
 const providerReview = z.object({
   kind: z.enum(["quote", "change"]), versionId: idSchema, version: z.int().positive(), submitted: stamp,
@@ -134,6 +134,10 @@ const providerBill = z.object({
     z.object({ status: z.enum(["due", "checking"]) }),
     z.object({ status: z.literal("paid"), recorded: stamp, matched: money }),
   ]),
+});
+const readyBill = z.strictObject({
+  number: displayText, total: money,
+  lines: z.array(z.strictObject({ originalLabel: displayText, originalLanguage: localeTagSchema, netMinor: z.int(), taxMinor: z.int() })).min(1),
 });
 const unpaidBill = jobHeading.extend({
   billId: idSchemaFor<"bill">(), number: displayText, total: money,
@@ -251,6 +255,7 @@ export const jobDetailSchema = z.discriminatedUnion("audience", [
   z.object({ audience: z.literal("provider_admin"), job: z.discriminatedUnion("view", [
     providerJobCard.extend({
       view: z.literal("whole"), revision: revisionSchema, bill: providerBill.nullable(), commercialReview: providerReview.nullable(),
+      readyBill: readyBill.nullable(),
       canWithdrawHandoff: z.boolean(), handoffPreview: z.object({
         policy: handoffPolicy, expiresAt: timestampSchema, reofferOfId: jobHandoffIdSchema.nullable(), eligibleForemen: z.array(member),
       }).nullable(),

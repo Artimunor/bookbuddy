@@ -8,20 +8,24 @@ CREATE TABLE completions (
   submitted_at INTEGER NOT NULL CHECK (typeof(submitted_at) = 'integer' AND submitted_at >= finished_at),
   bill_reference_hint TEXT,
   bill_amount_minor INTEGER,
+  bill_hint_by TEXT REFERENCES accounts (id),
+  bill_hint_grant_id TEXT REFERENCES business_grants (id),
   state TEXT NOT NULL CHECK (state IN ('submitted', 'returned', 'superseded', 'signed_off')),
   FOREIGN KEY (base_quote_version_id, job_id) REFERENCES quote_versions (id, job_id),
   UNIQUE (id, job_id),
   CONSTRAINT completions_bill CHECK (
-    (bill_reference_hint IS NULL AND bill_amount_minor IS NULL)
+    (bill_reference_hint IS NULL AND bill_amount_minor IS NULL AND bill_hint_by IS NULL AND bill_hint_grant_id IS NULL)
     OR (bill_reference_hint IS NOT NULL AND length(trim(bill_reference_hint)) BETWEEN 1 AND 500
-      AND typeof(bill_amount_minor) = 'integer' AND bill_amount_minor BETWEEN 1 AND 9007199254740991)
+      AND typeof(bill_amount_minor) = 'integer' AND bill_amount_minor BETWEEN 1 AND 9007199254740991
+      AND bill_hint_by IS submitter_id)
   ),
   UNIQUE (job_id, no)
 );
 CREATE UNIQUE INDEX completions_current ON completions (job_id) WHERE state <> 'superseded';
 CREATE INDEX completions_base_quote ON completions (base_quote_version_id, job_id);
 CREATE INDEX completions_pending_bill_reference ON completions (bill_reference_hint, job_id)
-  WHERE state = 'submitted' AND bill_reference_hint IS NOT NULL;
+  WHERE state = 'submitted' AND bill_hint_grant_id IS NOT NULL;
+CREATE INDEX completions_bill_hint_grant ON completions (bill_hint_grant_id) WHERE bill_hint_grant_id IS NOT NULL;
 
 CREATE TABLE completion_items (
   id TEXT PRIMARY KEY NOT NULL,
@@ -76,6 +80,23 @@ WHEN NEW.state <> 'submitted' OR NOT EXISTS (
 ) OR EXISTS (SELECT 1 FROM completions WHERE id = NEW.id OR (job_id = NEW.job_id AND no = NEW.no))
 BEGIN SELECT RAISE(ABORT, 'completion requires a new version of an approved scope'); END;
 
+-- Freeze the issuer's authority at the time they attached the hint. Unattributed
+-- authority is not inferred from a later grant or the customer's sign-off.
+CREATE TRIGGER completions_bill_hint_authority BEFORE INSERT ON completions
+WHEN NEW.bill_hint_grant_id IS NOT NULL AND NOT EXISTS (
+  SELECT 1 FROM jobs AS j
+  JOIN businesses AS b ON b.id = j.business_id AND b.state = 'approved'
+  JOIN business_grants AS g ON g.id = NEW.bill_hint_grant_id AND g.business_id = b.id AND g.capability = 'issue_bill'
+  JOIN memberships AS m ON m.id = g.membership_id AND m.account_id = NEW.bill_hint_by AND m.state = 'active'
+  JOIN accounts AS a ON a.id = m.account_id AND a.state = 'active'
+  JOIN membership_roles AS r ON r.membership_id = m.id AND r.role = 'provider_admin'
+    AND r.revoked_at IS NULL AND r.granted_at <= NEW.submitted_at
+  JOIN account_contexts AS ctx ON ctx.role_grant_id = r.id AND ctx.role = r.role AND ctx.account_id = a.id AND ctx.business_id = b.id
+  WHERE j.id = NEW.job_id AND g.revoked_at IS NULL AND g.valid_from <= NEW.submitted_at
+    AND (g.valid_until IS NULL OR NEW.submitted_at < g.valid_until)
+)
+BEGIN SELECT RAISE(ABORT, 'bill hint requires its named provider issuer at submission'); END;
+
 CREATE TRIGGER completions_no_replace BEFORE INSERT ON completions
 WHEN EXISTS (SELECT 1 FROM completions WHERE job_id = NEW.job_id AND state <> 'superseded')
 BEGIN SELECT RAISE(ABORT, 'job already has a current completion'); END;
@@ -87,7 +108,8 @@ CREATE TRIGGER completions_lock BEFORE UPDATE ON completions
 WHEN NEW.id IS NOT OLD.id OR NEW.job_id IS NOT OLD.job_id OR NEW.base_quote_version_id IS NOT OLD.base_quote_version_id
   OR NEW.no IS NOT OLD.no OR NEW.submitter_id IS NOT OLD.submitter_id OR NEW.finished_at IS NOT OLD.finished_at
   OR NEW.submitted_at IS NOT OLD.submitted_at OR NEW.bill_reference_hint IS NOT OLD.bill_reference_hint
-  OR NEW.bill_amount_minor IS NOT OLD.bill_amount_minor
+  OR NEW.bill_amount_minor IS NOT OLD.bill_amount_minor OR NEW.bill_hint_by IS NOT OLD.bill_hint_by
+  OR NEW.bill_hint_grant_id IS NOT OLD.bill_hint_grant_id
   OR (NEW.state <> OLD.state AND NOT (
     (OLD.state = 'submitted' AND NEW.state IN ('returned', 'superseded'))
     OR (OLD.state = 'returned' AND NEW.state = 'superseded')
@@ -271,6 +293,25 @@ BEGIN SELECT RAISE(ABORT, 'payment records are append-only'); END;
 CREATE TRIGGER paid_records_keep_history BEFORE DELETE ON paid_records
 BEGIN SELECT RAISE(ABORT, 'payment records are append-only'); END;
 
+-- Provisioned only by internal operations, never by customer/provider commands.
+CREATE TABLE steward_grants (
+  account_id TEXT NOT NULL REFERENCES accounts (id),
+  granted_by TEXT NOT NULL REFERENCES accounts (id),
+  granted_at INTEGER NOT NULL CHECK (typeof(granted_at) = 'integer'),
+  revoked_at INTEGER CHECK (revoked_at IS NULL OR (typeof(revoked_at) = 'integer' AND revoked_at >= granted_at)),
+  PRIMARY KEY (account_id, granted_at),
+  CHECK (account_id <> granted_by)
+);
+CREATE UNIQUE INDEX steward_grants_current ON steward_grants (account_id) WHERE revoked_at IS NULL;
+
+CREATE TRIGGER steward_grants_lock BEFORE UPDATE ON steward_grants
+WHEN NEW.account_id IS NOT OLD.account_id OR NEW.granted_by IS NOT OLD.granted_by OR NEW.granted_at IS NOT OLD.granted_at
+  OR (OLD.revoked_at IS NOT NULL AND NEW.revoked_at IS NOT OLD.revoked_at)
+BEGIN SELECT RAISE(ABORT, 'steward grant can only be revoked'); END;
+
+CREATE TRIGGER steward_grants_keep_history BEFORE DELETE ON steward_grants
+BEGIN SELECT RAISE(ABORT, 'steward grant history is retained'); END;
+
 CREATE TABLE problem_cases (
   id TEXT PRIMARY KEY NOT NULL,
   job_id TEXT NOT NULL REFERENCES jobs (id),
@@ -304,6 +345,19 @@ CREATE INDEX problem_cases_quote_line ON problem_cases (quote_version_id, line_n
 CREATE INDEX problem_cases_change_line ON problem_cases (change_version_id, line_no) WHERE change_version_id IS NOT NULL;
 CREATE INDEX problem_cases_owner_due ON problem_cases (case_owner_id, next_update_at, id) WHERE next_update_at IS NOT NULL;
 CREATE INDEX problem_cases_due ON problem_cases (next_update_at, id) WHERE next_update_at IS NOT NULL;
+
+-- An explicitly linked whole-bill case covers its exact invoice only. An item
+-- case matches its quote/change version and line, not the invoice ordinal,
+-- label, or a current reconstruction of the approved scope.
+CREATE VIEW bill_disputed_lines AS
+SELECT b.id AS bill_id, c.id AS case_id, line.key + 1 AS line_no,
+  (line.value ->> 'netMinor') + (line.value ->> 'taxMinor') AS amount_minor
+FROM bills b JOIN problem_cases c ON c.job_id = b.job_id AND (c.bill_id IS NULL OR c.bill_id = b.id)
+CROSS JOIN json_each(b.line_items) AS line
+WHERE (c.category = 'bill' AND c.bill_id = b.id AND c.line_no IS NULL)
+  OR (c.line_no = line.value ->> '$.scope.lineNo'
+    AND c.quote_version_id IS (line.value ->> '$.scope.quoteVersionId')
+    AND c.change_version_id IS (line.value ->> '$.scope.changeVersionId'));
 
 CREATE TRIGGER problem_cases_open BEFORE INSERT ON problem_cases
 WHEN NEW.state <> 'open' OR NEW.next_update_at IS NOT NEW.acknowledge_by
@@ -339,7 +393,10 @@ CREATE TABLE case_events (
   UNIQUE (id, case_id),
   CONSTRAINT case_events_text CHECK ((original_text IS NULL) = (original_language IS NULL)
     AND (kind IN ('acknowledged', 'closed') OR original_text IS NOT NULL)),
-  CONSTRAINT case_events_correction CHECK ((kind = 'correction_requested') = (completion_id IS NOT NULL)),
+  CONSTRAINT case_events_completion_kind CHECK (
+    (kind = 'correction_requested' AND completion_id IS NOT NULL) OR kind = 'provider_packet'
+    OR (kind <> 'correction_requested' AND completion_id IS NULL)
+  ),
   CONSTRAINT case_events_provider_packet CHECK ((kind = 'provider_packet') = (audience <> 'reporter_and_owner'))
 );
 CREATE UNIQUE INDEX case_events_report ON case_events (case_id) WHERE kind = 'reported';
@@ -354,8 +411,16 @@ WHEN EXISTS (SELECT 1 FROM case_events WHERE id = NEW.id OR (case_id = NEW.case_
   OR NOT EXISTS (
     SELECT 1 FROM problem_cases AS c WHERE c.id = NEW.case_id AND c.job_id = NEW.job_id AND c.opened_at <= NEW.at
       AND (NEW.kind NOT IN ('reported', 'reporter_update') OR NEW.actor_id = c.reporter_id)
-      AND (NEW.kind NOT IN ('acknowledged', 'correction_requested', 'resolved', 'closed', 'provider_packet') OR NEW.actor_id = c.case_owner_id)
-      AND (NEW.kind <> 'substantive_update' OR NEW.actor_id = c.case_owner_id OR EXISTS (
+      AND (NEW.kind NOT IN ('acknowledged', 'correction_requested', 'resolved', 'closed', 'provider_packet') OR (
+        NEW.actor_id = c.case_owner_id AND EXISTS (
+          SELECT 1 FROM steward_grants AS g JOIN accounts AS a ON a.id = g.account_id AND a.state = 'active'
+          WHERE g.account_id = NEW.actor_id AND g.granted_at <= NEW.at AND g.revoked_at IS NULL
+        )
+      ))
+      AND (NEW.kind <> 'substantive_update' OR (NEW.actor_id = c.case_owner_id AND EXISTS (
+        SELECT 1 FROM steward_grants AS g JOIN accounts AS a ON a.id = g.account_id AND a.state = 'active'
+        WHERE g.account_id = NEW.actor_id AND g.granted_at <= NEW.at AND g.revoked_at IS NULL
+      )) OR EXISTS (
         SELECT 1 FROM case_grants AS g
         JOIN account_contexts AS ctx ON ctx.id = g.context_id AND ctx.account_id = NEW.actor_id
         JOIN membership_roles AS r ON r.id = ctx.role_grant_id AND r.revoked_at IS NULL AND r.granted_at <= NEW.at
@@ -364,8 +429,13 @@ WHEN EXISTS (SELECT 1 FROM case_events WHERE id = NEW.id OR (case_id = NEW.case_
           AND g.valid_from <= NEW.at AND NEW.at < g.valid_until
       ))
       AND (NEW.kind <> 'provider_packet' OR NEW.audience = c.provider_audience)
-      AND (NEW.completion_id IS NULL OR EXISTS (
+      AND (NEW.kind <> 'correction_requested' OR EXISTS (
         SELECT 1 FROM completions WHERE id = NEW.completion_id AND job_id = c.job_id AND state = 'submitted'
+      ))
+      AND (NEW.kind <> 'provider_packet' OR NEW.completion_id IS NULL OR EXISTS (
+        SELECT 1 FROM case_events correction
+        WHERE correction.case_id = c.id AND correction.kind = 'correction_requested'
+          AND correction.completion_id = NEW.completion_id AND correction.at <= NEW.at
       ))
   )
 BEGIN SELECT RAISE(ABORT, 'case event requires its audience and attributed actor'); END;
@@ -449,10 +519,11 @@ WHEN NEW.released_at IS NOT NULL OR EXISTS (
       SELECT 1 FROM paid_records AS p WHERE p.bill_id = b.id AND p.kind <> 'no_funds_received'
         AND NOT EXISTS (SELECT 1 FROM paid_records AS next WHERE next.prior_id = p.id)
     )
-    AND NOT EXISTS (
-      SELECT 1 FROM json_each(NEW.affected_line_nos) AS line
-      WHERE line.type <> 'integer' OR line.value < 1 OR line.value > json_array_length(b.line_items)
-    )
+    AND NEW.amount_minor <= (SELECT sum(line.amount_minor)
+      FROM json_each(NEW.affected_line_nos) AS selected JOIN bill_disputed_lines AS line
+        ON line.bill_id = b.id AND line.case_id = c.id AND line.line_no = selected.value
+      WHERE selected.type = 'integer'
+      HAVING count(*) = json_array_length(NEW.affected_line_nos) AND count(*) = count(DISTINCT selected.value))
 )
 BEGIN SELECT RAISE(ABORT, 'deferral requires an active unpaid dispute and named provider billing authority'); END;
 

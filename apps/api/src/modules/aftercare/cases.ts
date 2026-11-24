@@ -13,6 +13,7 @@ import { createLinkTarget, linkTokenFor, registerLinkResolver } from "../links";
 import type { LinkResolver } from "../links";
 import { createLinkedNotifications } from "../links/notifications";
 import { placeCapability } from "../places/policy";
+import { casePacketExists, caseProviderGrant, caseSteward, configuredSteward, stewardGrant, withCaseSteward } from "./case-policy";
 import { aftercareAccess, aftercareJobValue, aftercareReceipt, authored, dayMs, jobSource, nameOf, withAftercareSiteClock } from "./completion";
 
 type ReadCase = RouteResponse<typeof getProblemCaseRoute.input>;
@@ -25,15 +26,10 @@ const eventId = "(SELECT event_id FROM case_input)";
 const revisionMatches = "((SELECT revision FROM case_input) IS NULL OR j.revision = (SELECT revision FROM case_input))";
 const activeCase = "pc.state IN ('open', 'awaiting_plan')";
 const reporter = (s: string) => `(${customer(s)} AND pc.reporter_id = ${s}.account_id)`;
-const owner = (s: string) => `(${s}.role = 'customer' AND pc.case_owner_id = ${s}.account_id)`;
-const caseGrant = (s: string) => `(${s}.role IN ('provider_admin', 'foreman') AND ${s}.business_id = j.business_id
-  AND ${s}.membership_id IS NOT NULL AND EXISTS (SELECT 1 FROM case_grants g WHERE g.case_id = pc.id
-    AND g.context_id = ${s}.context_id AND g.capability = pc.provider_audience AND ${liveTerm("g")}))`;
-export const mayReadCase = (s: string) => `(${reporter(s)} OR ${owner(s)} OR ${caseGrant(s)})`;
+export const mayReadCase = (s: string) => `(${reporter(s)} OR ${caseSteward(s)} OR ${caseProviderGrant(s)})`;
 const mayReport = (s: string) => `(${customer(s)} AND (${s}.account_id IN (j.owner_id, j.requester_id)
   OR ${placeCapability("j.place_id", `${s}.account_id`, "book")} OR ${placeCapability("j.place_id", `${s}.account_id`, "approve")}) )`;
-const packetExists = `EXISTS (SELECT 1 FROM case_events p WHERE p.case_id = pc.id AND p.kind = 'provider_packet' AND p.audience = pc.provider_audience)`;
-export const mayUseCasePacket = (s: string) => `(${caseGrant(s)} AND ${packetExists})`;
+export const mayUseCasePacket = (s: string) => `(${caseProviderGrant(s)} AND ${casePacketExists})`;
 const flag = (condition: string) => `json(CASE WHEN ${condition} THEN 'true' ELSE 'false' END)`;
 const rows = (sql: string) => `(SELECT json_group_array(json(value)) FROM (${sql}))`;
 const receipt = `json_object('id', pc.id, 'reference', pc.reference, 'state', pc.state, 'category', pc.category,
@@ -76,7 +72,7 @@ function caseValue(s: string, useCursor = false): string {
   const timeline = (condition: string) => rows(`SELECT CASE WHEN e.kind = 'correction_requested'
     THEN json_set(${eventValue}, '$.completionId', e.completion_id) ELSE ${eventValue} END AS value
     FROM shown e WHERE ${condition} ORDER BY e.stamp DESC, e.id DESC`);
-  return `(WITH audience AS MATERIALIZED (SELECT CASE WHEN ${reporter(s)} THEN 'reporter' WHEN ${owner(s)} THEN 'case_owner'
+  return `(WITH audience AS MATERIALIZED (SELECT CASE WHEN ${reporter(s)} THEN 'reporter' WHEN ${caseSteward(s)} THEN 'case_owner'
     ELSE pc.provider_audience END AS kind), page_rows AS MATERIALIZED (
       SELECT e.*, e.at AS stamp FROM case_events e WHERE e.case_id = pc.id AND e.at <= ${at} AND e.kind <> 'reported'
         AND CASE WHEN ${participant} THEN e.audience = 'reporter_and_owner'
@@ -92,7 +88,7 @@ function caseValue(s: string, useCursor = false): string {
            AND EXISTS (SELECT 1 FROM completions c WHERE c.job_id = j.id AND c.state = 'submitted')`)}))
     ELSE json_object('audience', (SELECT kind FROM audience), 'job', json_object('jobId', j.id, 'reference', j.reference, 'siteZone', j.site_zone),
       'receipt', ${receipt}, 'packets', json(${timeline("e.kind = 'provider_packet'")}), 'replies', json(${timeline("e.kind = 'substantive_update'")}),
-      'page', ${pageInfo}, 'canRespond', ${flag(`${activeCase} AND ${packetExists}`)}) END)`;
+      'page', ${pageInfo}, 'canRespond', ${flag(`${activeCase} AND ${casePacketExists}`)}) END)`;
 }
 
 function caseAccess(session: SessionAccess, now: number, id: string, event: string | null, revision?: number, jobId?: string): SessionAccess {
@@ -236,13 +232,13 @@ const providerRouting = `case_recipients AS MATERIALIZED (
     SELECT *, count(*) OVER (PARTITION BY audience) AS recipient_count FROM case_recipients) WHERE recipient_count = 1
 )`;
 
-export function submitProblemCase(ctx: RequestScope, session: SessionAccess, { params, body }: SubmitCase, stewardId: string | undefined) {
+export function submitProblemCase(ctx: RequestScope, session: SessionAccess, { params, body }: SubmitCase) {
   const { id, reportEventId, category, billId, affectedItem, description, evidence, expectedProviderAudience } = body.payload;
   const base = caseAccess(session, ctx.now, id, reportEventId, body.expectedRevision, params.j);
   const clock = withBusinessTargets(base, ctx.now);
   const reference = `BB-${crypto.randomUUID().replaceAll("-", "").toUpperCase()}`;
-  const access: SessionAccess = { sql: `${clock.sql}, opening(reference, steward_id, category, bill_id, quote_id, change_id, line_no, disclosed_audience)
-    AS (VALUES (?, ?, ?, ?, ?, ?, ?, ?)), ${providerRouting}`, params: [...clock.params, reference, stewardId ?? null, category, billId ?? null,
+  const access: SessionAccess = { sql: `${clock.sql}, opening(reference, category, bill_id, quote_id, change_id, line_no, disclosed_audience)
+    AS (VALUES (?, ?, ?, ?, ?, ?, ?)), ${providerRouting}`, params: [...clock.params, reference, category, billId ?? null,
     affectedItem?.kind === "quote" ? affectedItem.quoteVersionId : null, affectedItem?.kind === "change" ? affectedItem.changeVersionId : null,
     affectedItem?.lineNo ?? null, expectedProviderAudience] };
   return aftercareReceipt(ctx, base, {
@@ -250,9 +246,10 @@ export function submitProblemCase(ctx: RequestScope, session: SessionAccess, { p
     authorize: { sql: `EXISTS (SELECT 1 FROM aftercare_job j WHERE ${mayReport("scope")}
       ${category === "bill" ? `AND ${placeCapability("j.place_id", "scope.account_id", "bill_view")}` : ""})` },
     eligible: { sql: `EXISTS (SELECT 1 FROM aftercare_job j CROSS JOIN opening o
-      JOIN accounts steward ON steward.id = o.steward_id AND steward.state = 'active' AND steward.verified_at <= ${at}
-      WHERE ${revisionMatches} AND o.steward_id <> scope.account_id AND ${firstDeadline} IS NOT NULL AND ${ackDeadline} IS NOT NULL
-      AND EXISTS (SELECT 1 FROM account_contexts c WHERE c.account_id = o.steward_id AND c.role = 'customer')
+      JOIN accounts steward ON steward.id = ${configuredSteward} AND steward.state = 'active' AND steward.verified_at <= ${at}
+      WHERE ${revisionMatches} AND steward.id <> scope.account_id AND ${stewardGrant("steward.id")}
+      AND ${firstDeadline} IS NOT NULL AND ${ackDeadline} IS NOT NULL
+      AND EXISTS (SELECT 1 FROM account_contexts c WHERE c.account_id = steward.id AND c.role = 'customer')
       AND (o.disclosed_audience IS NULL OR o.disclosed_audience IS (SELECT audience FROM case_route))
       AND (o.bill_id IS NULL OR EXISTS (SELECT 1 FROM bills b WHERE b.id = o.bill_id AND b.job_id = j.id AND b.issued_at <= ${at}))
       AND (o.quote_id IS NULL OR EXISTS (SELECT 1 FROM quote_versions q JOIN quote_items i ON i.version_id = q.id
@@ -264,11 +261,11 @@ export function submitProblemCase(ctx: RequestScope, session: SessionAccess, { p
       ${evidence.length ? `AND ${evidenceEligible("j.id")}` : ""})`,
     params: evidence.length ? [JSON.stringify(evidence), evidence.length] : [] },
     writes(guard) {
-      const signals = caseSignals(base, guard, caseOpened, `case-opened:${id}`, owner("dest"));
+      const signals = caseSignals(base, guard, caseOpened, `case-opened:${id}`, caseSteward("dest"));
       return { ...signals, statements: [scopedStatement(access, `INSERT INTO problem_cases
         (id, job_id, reference, reporter_id, case_owner_id, category, provider_audience, bill_id, quote_version_id,
           change_version_id, line_no, state, opened_at, acknowledge_by, first_update_by, next_update_at)
-        SELECT ${caseId}, j.id, o.reference, scope.account_id, o.steward_id, o.category, o.disclosed_audience, o.bill_id,
+        SELECT ${caseId}, j.id, o.reference, scope.account_id, ${configuredSteward}, o.category, o.disclosed_audience, o.bill_id,
           o.quote_id, o.change_id, o.line_no, 'open', ${at}, ${ackDeadline}, ${firstDeadline}, ${ackDeadline}
         FROM aftercare_job j CROSS JOIN opening o CROSS JOIN aftercare_actor scope WHERE ${guard.sql}`, ...guard.params ?? []),
       scopedStatement(base, `INSERT INTO case_events (id, case_id, job_id, actor_id, kind, audience, original_text, original_language, at)
@@ -288,10 +285,12 @@ export function submitProblemCase(ctx: RequestScope, session: SessionAccess, { p
 export function appendCaseEvent(ctx: RequestScope, session: SessionAccess, { params, body }: AppendEvent) {
   const { kind, id, content } = body.payload;
   const evidence = "evidence" in body.payload ? body.payload.evidence : [];
-  const completion = "completionId" in body.payload ? body.payload.completionId : null;
+  const completion = "completionId" in body.payload ? body.payload.completionId ?? null : null;
+  const isCorrection = kind === "correction_requested";
+  const isPacket = kind === "provider_packet";
   const base = caseAccess(session, ctx.now, params.id, id, body.expectedRevision);
   const access = kind === "substantive_update" ? withBusinessTargets(base, ctx.now) : base;
-  const ownerActs = owner("scope");
+  const ownerActs = caseSteward("scope");
   const roleAllowed = {
     reporter_update: `${reporter("scope")} AND ${activeCase}`,
     acknowledged: `${ownerActs} AND pc.state = 'open' AND NOT EXISTS (SELECT 1 FROM case_events e WHERE e.case_id = pc.id AND e.kind = 'acknowledged')`,
@@ -300,11 +299,12 @@ export function appendCaseEvent(ctx: RequestScope, session: SessionAccess, { par
       AND c.state = 'submitted' AND c.submitted_at <= ${at}) AND NOT EXISTS (SELECT 1 FROM sign_offs WHERE job_id = j.id)`,
     resolved: `${ownerActs} AND ${activeCase}`,
     closed: `${ownerActs} AND pc.state = 'resolved'`,
-    provider_packet: `${ownerActs} AND ${activeCase} AND EXISTS (SELECT 1 FROM (${noticeTargets}) dest WHERE ${caseGrant("dest")})`,
+    provider_packet: `${ownerActs} AND ${activeCase} AND EXISTS (SELECT 1 FROM (${noticeTargets}) dest WHERE ${caseProviderGrant("dest")})
+      ${completion === null ? "" : `AND EXISTS (SELECT 1 FROM case_events e WHERE e.case_id = pc.id
+        AND e.kind = 'correction_requested' AND e.completion_id = ? AND e.at <= ${at})`}`,
   }[kind];
   const outboxTarget = `resource_ref = ${caseId} AND kind IN ('${ackDue}', '${updateDue}') AND state = 'pending'`;
-  const isPacket = kind === "provider_packet";
-  const recipient = isPacket ? caseGrant("dest") : `((${owner("dest")} OR ${reporter("dest")})
+  const recipient = isPacket ? caseProviderGrant("dest") : `((${caseSteward("dest")} OR ${reporter("dest")})
     AND dest.account_id <> (SELECT account_id FROM aftercare_actor))`;
   return aftercareReceipt(ctx, base, {
     access, operationId: body.operationId, command: `case.${kind}`, input: [params.id, body], resultRef: id,
@@ -315,14 +315,14 @@ export function appendCaseEvent(ctx: RequestScope, session: SessionAccess, { par
       ${evidence.length ? `AND ${evidenceEligible(caseId)}` : ""})`, params: [...(completion ? [completion] : []),
       ...(evidence.length ? [JSON.stringify(evidence), evidence.length] : [])] },
     writes(guard) {
-      const signals = caseSignals(base, guard, isPacket ? providerPacket : caseUpdate, `case-event:${id}`, recipient, completion !== null);
+      const signals = caseSignals(base, guard, isPacket ? providerPacket : caseUpdate, `case-event:${id}`, recipient, isCorrection || completion !== null);
       const statements: CommandStatement[] = [scopedStatement(base, `INSERT INTO case_events
         (id, case_id, job_id, actor_id, kind, audience, original_text, original_language, completion_id, at)
         SELECT ${eventId}, pc.id, pc.job_id, scope.account_id, ?, ${isPacket ? "pc.provider_audience" : "'reporter_and_owner'"}, ?, ?, ?, ${at}
         FROM problem_cases pc CROSS JOIN aftercare_actor scope WHERE pc.id = ${caseId} AND ${guard.sql}`, kind, content?.text ?? null,
       content?.language ?? null, completion, ...guard.params ?? []), ...attachEvidence(base, guard, evidence)];
       if (kind === "acknowledged" || kind === "substantive_update" || kind === "resolved" || kind === "closed") {
-        const owns = `(SELECT account_id FROM aftercare_actor) = (SELECT case_owner_id FROM problem_cases WHERE id = ${caseId})`;
+        const owns = `EXISTS (SELECT 1 FROM aftercare_actor s JOIN problem_cases pc ON pc.id = ${caseId} WHERE ${caseSteward("s")})`;
         const state = kind === "substantive_update" ? "'awaiting_plan'" : kind === "resolved" ? "'resolved'" : kind === "closed" ? "'closed'" : "state";
         const next = kind === "acknowledged" ? "first_update_by" : kind === "substantive_update" ? nextDeadline : "NULL";
         statements.push(scopedStatement(access, `UPDATE problem_cases SET state = ${state}, next_update_at = ${next}
@@ -333,7 +333,7 @@ export function appendCaseEvent(ctx: RequestScope, session: SessionAccess, { par
           '${updateDue}' AS kind, '${updateDue}:' || ${eventId} AS dedupe_key, id AS resource_ref, next_update_at AS due_at,
           ${Number.MAX_SAFE_INTEGER} AS expires_at FROM problem_cases WHERE id = ${caseId} AND ${owns}`)));
       }
-      if (completion !== null) statements.push(scopedStatement(base, `UPDATE completions SET state = 'returned' WHERE id = ? AND ${guard.sql}`,
+      if (isCorrection) statements.push(scopedStatement(base, `UPDATE completions SET state = 'returned' WHERE id = ? AND ${guard.sql}`,
         completion, ...guard.params ?? []), scopedStatement(base, `UPDATE jobs SET revision = revision + 1
         WHERE id = (SELECT job_id FROM problem_cases WHERE id = ${caseId}) AND ${guard.sql}`, ...guard.params ?? []));
       return { ...signals, statements: [...statements, ...signals.statements] };
@@ -343,8 +343,9 @@ export function appendCaseEvent(ctx: RequestScope, session: SessionAccess, { par
 
 // Sweep these rows in the existing scheduled D1 claim batch. A superseded
 // target, closed case, or inactive steward yields no notification at its due time.
-export function caseSweepStatements(now: number): CommandStatement[] {
-  const work = `WITH clock(at) AS (VALUES (?)), due AS MATERIALIZED (
+export function caseSweepStatements(now: number, stewardId: string | undefined): CommandStatement[] {
+  const clock = withCaseSteward({ sql: "WITH clock(at) AS (VALUES (?))", params: [now] }, stewardId);
+  const work = `${clock.sql}, due AS MATERIALIZED (
     SELECT e.id, e.kind, e.dedupe_key, e.resource_ref, e.due_at, e.expires_at FROM effect_outbox e
     WHERE e.state = 'pending' AND e.kind IN ('${ackDue}', '${updateDue}') AND e.due_at <= ${at}
     ORDER BY e.due_at, e.id LIMIT 32
@@ -352,7 +353,7 @@ export function caseSweepStatements(now: number): CommandStatement[] {
     SELECT due.id AS effect_id, due.kind, due.dedupe_key AS event_key, pc.id AS resource_id, c.id AS required_scope,
       ${noticeExpiry} AS expires_at, ${at} AS created_at FROM due JOIN problem_cases pc ON pc.id = due.resource_ref
     JOIN accounts a ON a.id = pc.case_owner_id AND a.state = 'active' JOIN account_contexts c ON c.account_id = a.id AND c.role = 'customer'
-    WHERE due.expires_at > ${at} AND CASE
+    WHERE due.expires_at > ${at} AND pc.case_owner_id = ${configuredSteward} AND ${stewardGrant("pc.case_owner_id")} AND CASE
       WHEN due.kind = '${ackDue}' THEN pc.state = 'open' AND due.due_at = pc.acknowledge_by
         AND NOT EXISTS (SELECT 1 FROM case_events e WHERE e.case_id = pc.id AND e.kind = 'acknowledged')
       WHEN pc.state = 'open' THEN due.due_at = pc.first_update_by
@@ -361,15 +362,15 @@ export function caseSweepStatements(now: number): CommandStatement[] {
   const token = linkTokenFor("t.kind", "t.resource_id", "t.required_scope", "t.expires_at");
   const posted = `FROM candidates t JOIN notifications n ON n.context_id = t.required_scope AND n.event_key = t.event_key
     WHERE n.created_at = t.created_at AND n.link_token IS NOT NULL`;
-  return [createLinkTarget({ sql: `${work} SELECT * FROM candidates`, params: [now] }),
+  return [createLinkTarget({ sql: `${work} SELECT * FROM candidates`, params: clock.params }),
     { sql: `${work} INSERT INTO notifications (id, context_id, event_key, kind, link_token, created_at)
       SELECT lower(hex(randomblob(16))), t.required_scope, t.event_key, t.kind, ${token}, t.created_at FROM candidates t WHERE 1
-      ON CONFLICT (context_id, event_key) DO NOTHING`, params: [now] },
+      ON CONFLICT (context_id, event_key) DO NOTHING`, params: clock.params },
     { sql: `${work} INSERT INTO sync_changes (kind, resource_id, partition_key, op, at)
-      SELECT 'notification', n.id, n.context_id, 'upsert', ${at} ${posted}`, params: [now] },
+      SELECT 'notification', n.id, n.context_id, 'upsert', ${at} ${posted}`, params: clock.params },
     { sql: `${work} INSERT INTO effect_outbox (id, kind, dedupe_key, resource_ref, due_at, state, expires_at)
       SELECT lower(hex(randomblob(16))), 'notification_push', 'notification_push:' || n.id, n.id, ${at}, 'pending', t.expires_at
-      ${posted} ON CONFLICT (dedupe_key) DO NOTHING`, params: [now] },
+      ${posted} ON CONFLICT (dedupe_key) DO NOTHING`, params: clock.params },
     { sql: `${work} UPDATE effect_outbox SET state = CASE WHEN EXISTS (SELECT 1 FROM candidates WHERE effect_id = effect_outbox.id)
-      THEN 'delivered' ELSE 'skipped' END WHERE id IN (SELECT id FROM due)`, params: [now] }];
+      THEN 'delivered' ELSE 'skipped' END WHERE id IN (SELECT id FROM due)`, params: clock.params }];
 }

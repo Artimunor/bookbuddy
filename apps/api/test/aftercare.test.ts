@@ -103,13 +103,25 @@ test("requires exact approved scope and a current version, then rejects a second
   await expect(db.prepare("UPDATE completion_items SET result_note = 'Different test' WHERE id = 'second-quote'").run()).rejects.toThrow(/immutable/);
 }));
 
+test("completion bill hints cannot borrow issuer proof or gain it after submission", () => withJob(async (db) => {
+  const hinted = db.prepare(`INSERT INTO completions (id, job_id, base_quote_version_id, no, submitter_id, finished_at, submitted_at,
+    bill_reference_hint, bill_amount_minor, bill_hint_by, bill_hint_grant_id, state)
+    VALUES ('hinted', 'job', 'quote-v1', 1, 'foreman', 60, 61, 'REF-0412', 25000, 'foreman', ?, 'submitted')`);
+  await expect(hinted.bind("paid-grant").run()).rejects.toThrow(/named provider issuer/);
+  await hinted.bind(null).run();
+  await expect(db.prepare("UPDATE completions SET bill_hint_grant_id = 'paid-grant'").run()).rejects.toThrow(/immutable/);
+  await expect(db.prepare("UPDATE completions SET bill_hint_by = 'admin'").run()).rejects.toThrow(/immutable/);
+}));
+
 const instructions = { instructions: { language: "en", text: "Pay the provider directly" }, reference: "RR-0412" };
 const line = { originalLabel: "Door", originalLanguage: "es", netMinor: 20_000, taxMinor: 4_000 };
 function invoice(db: TestD1, id: string, number: string, version = 1, replacesId: string | null = null, document = "invoice-doc") {
   return db.prepare(`INSERT INTO bills (id, job_id, business_id, number, version, replaces_id, net_minor, tax_minor, total_minor,
     currency, provider_document_ref, payment_instructions, line_items, issued_at, due_at, state)
     VALUES (?, 'job', 'business', ?, ?, ?, 20000, 4000, 24000, 'EUR', ?, ?, ?, 100, 700, 'issued')`)
-    .bind(id, number, version, replacesId, document, JSON.stringify(instructions), JSON.stringify([line]));
+    .bind(id, number, version, replacesId, document, JSON.stringify(instructions), JSON.stringify([
+      { ...line, scope: { quoteVersionId: "quote-v1", lineNo: 1 } },
+    ]));
 }
 
 test("rejects a second effective bill and keeps a changed replacement linked to the original", () => withJob(async (db) => {
@@ -124,6 +136,23 @@ test("rejects a second effective bill and keeps a changed replacement linked to 
   expect((await db.prepare("SELECT id, state, replaces_id FROM bills ORDER BY version").all()).results).toEqual([
     { id: "invoice", state: "replaced", replaces_id: null }, { id: "revision", state: "issued", replaces_id: "invoice" },
   ]);
+}));
+
+test("steward grants are independently issued and revocation blocks direct case event writes", () => withJob(async (db) => {
+  await expect(db.prepare("INSERT INTO steward_grants VALUES ('desk', 'desk', 1, NULL)").run()).rejects.toThrow(/CHECK/);
+  await db.batch([
+    db.prepare("INSERT INTO steward_grants VALUES ('desk', 'admin', 1, NULL)"),
+    db.prepare(`INSERT INTO problem_cases (id, job_id, reference, reporter_id, case_owner_id, category,
+      state, opened_at, acknowledge_by, first_update_by, next_update_at)
+      VALUES ('case', 'job', 'BB-C43', 'customer', 'desk', 'quality', 'open', 105, 200, 300, 200)`),
+    db.prepare(`INSERT INTO case_events (id, case_id, job_id, actor_id, kind, audience, at)
+      VALUES ('ack', 'case', 'job', 'desk', 'acknowledged', 'reporter_and_owner', 106)`),
+    db.prepare("UPDATE steward_grants SET revoked_at = 107 WHERE account_id = 'desk'"),
+  ]);
+  await expect(db.prepare(`INSERT INTO case_events (id, case_id, job_id, actor_id, kind, audience, original_text, original_language, at)
+    VALUES ('resolved', 'case', 'job', 'desk', 'resolved', 'reporter_and_owner', 'Closed privately', 'en', 108)`).run())
+    .rejects.toThrow(/attributed actor/);
+  await expect(db.prepare("UPDATE steward_grants SET revoked_at = NULL WHERE account_id = 'desk'").run()).rejects.toThrow(/can only be revoked/);
 }));
 
 function payment(db: TestD1, id: string, kind: PaidRecordKind, prior: string | null, actor = "admin") {
@@ -142,14 +171,14 @@ async function status(db: TestD1) {
 test("provider-only corrections keep the stamped history and do not restore due or defer collection while checking", () => withJob(async (db) => {
   await db.batch([
     invoice(db, "invoice", "RR-0412"),
-    db.prepare(`INSERT INTO problem_cases (id, job_id, reference, reporter_id, case_owner_id, category, bill_id,
+    db.prepare(`INSERT INTO problem_cases (id, job_id, reference, reporter_id, case_owner_id, category, bill_id, quote_version_id, line_no,
       state, opened_at, acknowledge_by, first_update_by, next_update_at)
-      VALUES ('case', 'job', 'BB-C42', 'customer', 'desk', 'bill', 'invoice', 'open', 105, 200, 300, 200)`),
+      VALUES ('case', 'job', 'BB-C42', 'customer', 'desk', 'bill', 'invoice', 'quote-v1', 1, 'open', 105, 200, 300, 200)`),
     db.prepare(`INSERT INTO case_events (id, case_id, job_id, actor_id, kind, audience, original_text, original_language, at)
       VALUES ('report', 'case', 'job', 'customer', 'reported', 'reporter_and_owner', 'Please check the invoice.', 'en', 105)`),
   ]);
   const defer = db.prepare(`INSERT INTO bill_deferrals (id, job_id, bill_id, case_id, actor_id, grant_id, amount_minor, basis,
-    affected_line_nos, at, review_at) VALUES ('defer', 'job', 'invoice', 'case', 'admin', 'defer-grant', 4000, 'Disputed amount', '[1]', 120, 300)`);
+    affected_line_nos, at, review_at) VALUES ('defer', 'job', 'invoice', 'case', 'admin', 'defer-grant', 4000, 'Disputed amount', ?, 120, 300)`);
   await expect(payment(db, "customer-report", "matched", null, "customer").run()).rejects.toThrow(/provider billing authority/);
   await expect(payment(db, "foreman-report", "matched", null, "foreman").run()).rejects.toThrow(/provider billing authority/);
   await payment(db, "matched", "matched", null).run();
@@ -157,10 +186,11 @@ test("provider-only corrections keep the stamped history and do not restore due 
   await payment(db, "correction", "corrected", "matched").run();
   expect(await status(db)).toBe("checking");
   await expect(payment(db, "stale", "corrected", "matched").run()).rejects.toThrow(/current record/);
-  await expect(defer.run()).rejects.toThrow(/active unpaid dispute/);
+  await expect(defer.bind("[1]").run()).rejects.toThrow(/active unpaid dispute/);
   await payment(db, "unmatched", "no_funds_received", "correction").run();
   expect(await status(db)).toBe("due");
-  await defer.run();
+  await expect(defer.bind("[1,1]").run()).rejects.toThrow(/active unpaid dispute/);
+  await defer.bind("[1]").run();
   await db.prepare("UPDATE problem_cases SET state = 'resolved', next_update_at = NULL WHERE id = 'case'").run();
   expect(await db.prepare("SELECT released_at FROM bill_deferrals WHERE id = 'defer'").first()).toEqual({ released_at: null });
   await db.prepare(`UPDATE bill_deferrals SET released_at = 150, released_by = 'admin', release_grant_id = 'defer-grant',

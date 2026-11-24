@@ -3,7 +3,7 @@ import {
   COMPLETION_ITEM_OUTCOMES, COMPLETION_STATES, PAID_RECORD_KINDS, PROBLEM_CASE_CATEGORIES, PROBLEM_CASE_STATES, RATING_STATES,
 } from "@bookbuddy/domain";
 import { sql } from "drizzle-orm";
-import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, foreignKey, index, integer, primaryKey, sqliteTable, sqliteView, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { accountContexts, businessGrants, placeGrants } from "./access";
 import { changeItems, quoteItems, quoteVersions } from "./commercial";
 import { accounts } from "./identity";
@@ -20,14 +20,18 @@ export const completions = sqliteTable("completions", {
   submittedAt: integer("submitted_at").notNull(),
   billReferenceHint: text("bill_reference_hint"),
   billAmountMinor: integer("bill_amount_minor"),
+  billHintBy: text("bill_hint_by").references(() => accounts.id),
+  billHintGrantId: text("bill_hint_grant_id").references(() => businessGrants.id),
   state: text({ enum: COMPLETION_STATES }).notNull(),
 }, (t) => [
   check("completions_no", sql`typeof(${t.no}) = 'integer' AND ${t.no} > 0`),
   check("completions_finished", sql`typeof(${t.finishedAt}) = 'integer'`),
   check("completions_submitted", sql`typeof(${t.submittedAt}) = 'integer' AND ${t.submittedAt} >= ${t.finishedAt}`),
-  check("completions_bill", sql`(${t.billReferenceHint} IS NULL AND ${t.billAmountMinor} IS NULL)
+  check("completions_bill", sql`
+    (${t.billReferenceHint} IS NULL AND ${t.billAmountMinor} IS NULL AND ${t.billHintBy} IS NULL AND ${t.billHintGrantId} IS NULL)
     OR (${t.billReferenceHint} IS NOT NULL AND length(trim(${t.billReferenceHint})) BETWEEN 1 AND 500
-      AND typeof(${t.billAmountMinor}) = 'integer' AND ${t.billAmountMinor} BETWEEN 1 AND 9007199254740991)`),
+      AND typeof(${t.billAmountMinor}) = 'integer' AND ${t.billAmountMinor} BETWEEN 1 AND 9007199254740991
+      AND ${t.billHintBy} IS ${t.submitterId})`),
   check("completions_state", sql`${t.state} IN ('submitted', 'returned', 'superseded', 'signed_off')`),
   foreignKey({ columns: [t.baseQuoteVersionId, t.jobId], foreignColumns: [quoteVersions.id, quoteVersions.jobId] }),
   unique().on(t.id, t.jobId),
@@ -35,7 +39,8 @@ export const completions = sqliteTable("completions", {
   uniqueIndex("completions_current").on(t.jobId).where(sql`${t.state} <> 'superseded'`),
   index("completions_base_quote").on(t.baseQuoteVersionId, t.jobId),
   index("completions_pending_bill_reference").on(t.billReferenceHint, t.jobId)
-    .where(sql`${t.state} = 'submitted' AND ${t.billReferenceHint} IS NOT NULL`),
+    .where(sql`${t.state} = 'submitted' AND ${t.billHintGrantId} IS NOT NULL`),
+  index("completions_bill_hint_grant").on(t.billHintGrantId).where(sql`${t.billHintGrantId} IS NOT NULL`),
 ]);
 
 export const completionItems = sqliteTable("completion_items", {
@@ -152,6 +157,19 @@ export const paidRecords = sqliteTable("paid_records", {
   index("paid_records_bill_time").on(t.billId, t.at, t.id),
 ]);
 
+export const stewardGrants = sqliteTable("steward_grants", {
+  accountId: text("account_id").notNull().references(() => accounts.id),
+  grantedBy: text("granted_by").notNull().references(() => accounts.id),
+  grantedAt: integer("granted_at").notNull(),
+  revokedAt: integer("revoked_at"),
+}, (t) => [
+  primaryKey({ columns: [t.accountId, t.grantedAt] }),
+  check("steward_grants_independent", sql`${t.accountId} <> ${t.grantedBy}`),
+  check("steward_grants_granted_at", sql`typeof(${t.grantedAt}) = 'integer'`),
+  check("steward_grants_revoked_at", sql`${t.revokedAt} IS NULL OR (typeof(${t.revokedAt}) = 'integer' AND ${t.revokedAt} >= ${t.grantedAt})`),
+  uniqueIndex("steward_grants_current").on(t.accountId).where(sql`${t.revokedAt} IS NULL`),
+]);
+
 export const problemCases = sqliteTable("problem_cases", {
   id: text().notNull().primaryKey(),
   jobId: text("job_id").notNull().references(() => jobs.id),
@@ -194,6 +212,13 @@ export const problemCases = sqliteTable("problem_cases", {
   index("problem_cases_due").on(t.nextUpdateAt, t.id).where(sql`${t.nextUpdateAt} IS NOT NULL`),
 ]);
 
+export const billDisputedLines = sqliteView("bill_disputed_lines", {
+  billId: text("bill_id").notNull(),
+  caseId: text("case_id").notNull(),
+  lineNo: integer("line_no").notNull(),
+  amountMinor: integer("amount_minor").notNull(),
+}).existing();
+
 export const caseEvents = sqliteTable("case_events", {
   id: text().notNull().primaryKey(),
   caseId: text("case_id").notNull(),
@@ -212,7 +237,8 @@ export const caseEvents = sqliteTable("case_events", {
   check("case_events_at", sql`typeof(${t.at}) = 'integer'`),
   check("case_events_text", sql`(${t.originalText} IS NULL) = (${t.originalLanguage} IS NULL)
     AND (${t.kind} IN ('acknowledged', 'closed') OR ${t.originalText} IS NOT NULL)`),
-  check("case_events_correction", sql`(${t.kind} = 'correction_requested') = (${t.completionId} IS NOT NULL)`),
+  check("case_events_completion_kind", sql`(${t.kind} = 'correction_requested' AND ${t.completionId} IS NOT NULL)
+    OR ${t.kind} = 'provider_packet' OR (${t.kind} <> 'correction_requested' AND ${t.completionId} IS NULL)`),
   check("case_events_provider_packet", sql`(${t.kind} = 'provider_packet') = (${t.audience} <> 'reporter_and_owner')`),
   foreignKey({ columns: [t.caseId, t.jobId], foreignColumns: [problemCases.id, problemCases.jobId] }),
   foreignKey({ columns: [t.completionId, t.jobId], foreignColumns: [completions.id, completions.jobId] }),

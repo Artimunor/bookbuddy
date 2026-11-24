@@ -11,8 +11,9 @@ import type { SessionAccess } from "../auth/session";
 import { withSiteClock } from "../commercial/deadlines";
 import { customer, foreman } from "../commercial/policy";
 import { readyPhotoSql } from "../field/attendance";
-import { businessCapability, currentMembership } from "../jobs/projections";
+import { currentMembership } from "../jobs/projections";
 import { createLinkedNotifications } from "../links/notifications";
+import { casePacket, casePacketExists, caseProviderGrant } from "./case-policy";
 import { approvedInvoice, billReferenceReserved, billSignals, issuedBillNotice } from "./invoice";
 
 export const dayMs = 86_400_000;
@@ -76,12 +77,14 @@ const crewAttendance = `FROM shifts sh JOIN shift_slots slot ON slot.shift_id = 
 const checkout = `(SELECT CASE WHEN sum(kind = 'arrival') = sum(kind = 'departure') THEN max(actual_at) FILTER (WHERE kind = 'departure') END
   FROM (SELECT e.kind, e.actual_at ${crewAttendance}))`;
 
-// Issuance requires a separate provider-admin context and a live named grant.
-// This only advertises the viewer's authority; it does not authorize a bill command in foreman scope.
-const hasBillingAuthority = (scope: string) => `${businessCapability(`${scope}.membership_id`, "issue_bill", at)}
-  AND EXISTS (SELECT 1 FROM account_contexts c JOIN membership_roles r ON r.id = c.role_grant_id
-    WHERE c.role = 'provider_admin' AND c.account_id = ${scope}.account_id AND c.business_id = j.business_id
-      AND r.role = c.role AND r.membership_id = ${scope}.membership_id AND r.revoked_at IS NULL AND r.granted_at <= ${at})`;
+// The same account may use both contexts. A foreman cannot issue directly, but
+// a same-business billing issuer can authorize this exact hint at submission.
+const billingGrant = (scope: string) => `SELECT g.id FROM business_grants g
+  JOIN account_contexts c ON c.role = 'provider_admin' AND c.account_id = ${scope}.account_id AND c.business_id = g.business_id
+  JOIN membership_roles r ON r.id = c.role_grant_id AND r.role = c.role AND r.membership_id = g.membership_id
+    AND r.revoked_at IS NULL AND r.granted_at <= ${at}
+  WHERE g.business_id = j.business_id AND g.membership_id = ${scope}.membership_id AND g.capability = 'issue_bill'
+    AND ${liveTerm("g")} ORDER BY g.valid_from DESC, g.id LIMIT 1`;
 
 const returnedOrEmpty = `NOT EXISTS (SELECT 1 FROM completions WHERE job_id = j.id AND state IN ('submitted', 'signed_off'))`;
 export const awaitingSignOff = (completion: string) => `${completion}.state = 'submitted' AND ${completion}.submitted_at <= ${at}
@@ -132,9 +135,8 @@ export function completionValue(scope: string, version: string, receiptState?: "
   const submitted = `json_set(${completionStamp("chosen", receiptState)}, '$.items', json((SELECT json_group_array(json(value)) FROM (
     SELECT ${itemProjection} AS value FROM completion_items i WHERE i.completion_id = chosen.id
     ORDER BY i.quote_version_id IS NULL, i.change_version_id, i.line_no))))`;
-  const caseVisible = `(${customerView} AND pc.reporter_id = ${scope}.account_id OR pc.case_owner_id = ${scope}.account_id
-    OR NOT (${customerView}) AND EXISTS (SELECT 1 FROM case_events e WHERE e.case_id = pc.id
-      AND e.kind = 'correction_requested' AND e.completion_id = chosen.id))`;
+  const sharedWithProvider = `${caseProviderGrant(scope)} AND ${casePacketExists}`;
+  const caseVisible = `((${customerView} AND pc.reporter_id = ${scope}.account_id) OR (${sharedWithProvider}))`;
   return `(WITH chosen AS MATERIALIZED (SELECT * FROM completions WHERE job_id = j.id AND id = coalesce(${version}, ${currentId})),
     base AS MATERIALIZED (SELECT q.*, t.hash FROM quote_versions q JOIN terms_versions t ON t.id = q.terms_id
       JOIN approvals a ON a.quote_version_id = q.id AND a.decision = 'approve' AND a.at <= ${at}
@@ -170,12 +172,14 @@ export function completionValue(scope: string, version: string, receiptState?: "
       ELSE json_object('submit', ${flag(`j.state = 'open' AND j.place_state IN ('in_area', 'out_of_area')
         AND work.finished_at IS NOT NULL AND ${returnedOrEmpty}`)},
         'messageApprover', ${flag("chosen.state = 'submitted'")},
-        'canIssueBill', ${flag(hasBillingAuthority(scope))}) END AS actions,
+        'canIssueBill', ${flag(`EXISTS (${billingGrant(scope)})`)}) END AS actions,
       CASE WHEN NOT (${customerView}) AND work.finished_at IS NOT NULL THEN json_object('finishedAt', work.finished_at,
         'crewCheckedOutAt', ${checkout}) END AS work,
       CASE WHEN NOT (${customerView}) AND chosen.state = 'returned' THEN (SELECT json_object('at', e.at,
-        'actorDisplayName', ${nameOf("e.actor_id")}, 'caseId', e.case_id, 'reason', json(${authored("e.original_text", "e.original_language")}))
-        FROM case_events e WHERE e.completion_id = chosen.id AND e.kind = 'correction_requested' ORDER BY e.at DESC, e.id DESC LIMIT 1) END AS correction
+        'actorDisplayName', ${nameOf("e.actor_id")}, 'caseId', pc.id, 'reason', json(${authored("e.original_text", "e.original_language")}))
+        FROM case_events e JOIN problem_cases pc ON pc.id = e.case_id AND pc.job_id = j.id
+        WHERE e.completion_id = chosen.id AND ${casePacket("e")} AND ${caseProviderGrant(scope)}
+        ORDER BY e.at DESC, e.id DESC LIMIT 1) END AS correction
     FROM base LEFT JOIN chosen ON 1 LEFT JOIN work_finish work ON NOT (${customerView})
     WHERE j.named_approver_id IS NOT NULL AND (${version} IS NULL OR chosen.id IS NOT NULL))
   SELECT CASE WHEN ${customerView} THEN json_set(value, '$.actions', json(actions))
@@ -222,11 +226,13 @@ const customerContexts = `JOIN place_people pp ON pp.place_id = j.place_id AND p
 const jobChanges = `SELECT 'job' AS kind, j.id AS resource_id, target.id AS partition_key, 'upsert' AS op, ${at} AS at
   FROM aftercare_job j ${customerContexts} WHERE ${customer("target")}`;
 const notificationsChange = `SELECT 'notification', n.id, n.context_id, 'upsert', ${at} FROM notifications n WHERE n.event_key = ?`;
+const mayCloseJob = `state = 'open' AND EXISTS (
+  SELECT 1 FROM bills b JOIN paid_records r ON r.bill_id = b.id AND r.kind = 'matched'
+  WHERE b.job_id = jobs.id AND b.state = 'issued' AND NOT EXISTS (SELECT 1 FROM paid_records next WHERE next.prior_id = r.id))`;
 const updateRevision = (access: SessionAccess, guard: CommandStatement, close = false) => scopedStatement(access,
-  `UPDATE jobs SET revision = revision + 1${close ? `, state = CASE WHEN EXISTS (
-    SELECT 1 FROM bills b JOIN paid_records r ON r.bill_id = b.id AND r.kind = 'matched'
-    WHERE b.job_id = jobs.id AND b.state = 'issued' AND NOT EXISTS (SELECT 1 FROM paid_records next WHERE next.prior_id = r.id)
-  ) THEN 'closed' ELSE state END` : ""} WHERE id = (SELECT id FROM aftercare_job) AND ${guard.sql}`, ...guard.params ?? []);
+  `UPDATE jobs SET revision = revision + 1${close ? `, state = CASE WHEN ${mayCloseJob} THEN 'closed' ELSE state END,
+    closed_at = CASE WHEN ${mayCloseJob} THEN ${at} ELSE closed_at END` : ""}
+    WHERE id = (SELECT id FROM aftercare_job) AND ${guard.sql}`, ...guard.params ?? []);
 
 const commandBody = `, result_input(id) AS (VALUES (?))`;
 const resultId = "(SELECT id FROM result_input)";
@@ -266,7 +272,7 @@ export function submitCompletion(ctx: RequestScope, session: SessionAccess, { pa
     SELECT 1 FROM (SELECT (${approvedInvoice(at)}) AS approved) CROSS JOIN completion_input input
     WHERE approved ->> 'net' >= 0 AND approved ->> 'tax' >= 0
       AND (approved ->> 'net') + (approved ->> 'tax') = input.bill_amount
-      AND (EXISTS (SELECT 1 FROM bills b WHERE b.job_id = j.id AND b.state = 'issued') OR (
+      AND (NOT EXISTS (${billingGrant("scope")}) OR EXISTS (SELECT 1 FROM bills b WHERE b.job_id = j.id AND b.state = 'issued') OR (
         NOT EXISTS (SELECT 1 FROM bills b WHERE b.business_id = j.business_id AND b.number = input.bill_reference AND b.version = 1)
         AND NOT (${billReferenceReserved("input.bill_reference")}))))`;
   const eventKey = `${readyKind}:${id}`;
@@ -303,9 +309,11 @@ export function submitCompletion(ctx: RequestScope, session: SessionAccess, { pa
       return {
         statements: [...(expectedCompletionId === null ? [] : [prior]),
           scopedStatement(writesAccess, `INSERT INTO completions (id, job_id, base_quote_version_id, no, submitter_id, finished_at,
-            submitted_at, bill_reference_hint, bill_amount_minor, state) SELECT ${resultId}, j.id, input.base_id,
+            submitted_at, bill_reference_hint, bill_amount_minor, bill_hint_by, bill_hint_grant_id, state) SELECT ${resultId}, j.id, input.base_id,
             1 + coalesce((SELECT max(no) FROM completions WHERE job_id = j.id), 0), scope.account_id,
-            ${finishedAt}, ${at}, input.bill_reference, input.bill_amount, 'submitted'
+            ${finishedAt}, ${at}, input.bill_reference, input.bill_amount,
+            CASE WHEN input.bill_reference IS NOT NULL THEN scope.account_id END,
+            CASE WHEN input.bill_reference IS NOT NULL THEN (${billingGrant("scope")}) END, 'submitted'
             FROM aftercare_job j CROSS JOIN aftercare_actor scope CROSS JOIN completion_input input WHERE ${guard.sql}`, ...guard.params ?? []),
           scopedStatement(writesAccess, `INSERT INTO completion_items (id, completion_id, quote_version_id, change_version_id, line_no,
             outcome, original_language, result_note, not_done_reason, evidence_alternative)
@@ -363,12 +371,15 @@ export function signOffCompletion(ctx: RequestScope, session: SessionAccess, { p
           SELECT j.id AS job_id, j.business_id, c.bill_reference_hint AS number, c.bill_amount_minor AS total,
             (${approvedInvoice("c.submitted_at")}) AS approved, ${calendarDeadline(at, AFTERCARE_TARGETS.billDueCalendarDays)} AS due
           FROM aftercare_job j JOIN completions c ON c.id = ${resultId} AND c.state = 'signed_off'
-          WHERE ${guard.sql} AND c.bill_reference_hint IS NOT NULL
-            AND NOT EXISTS (SELECT 1 FROM bills b WHERE b.job_id = j.id AND b.state = 'issued')
+          WHERE ${guard.sql} AND c.bill_hint_grant_id IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM bills b WHERE (b.job_id = j.id AND b.state = 'issued')
+              OR (b.business_id = j.business_id AND b.number = c.bill_reference_hint AND b.version = 1))
         ) INSERT INTO bills (id, job_id, business_id, number, version, net_minor, tax_minor, total_minor, currency,
           line_items, issued_at, due_at, state)
           SELECT ${candidate}, job_id, business_id, number, 1, approved ->> 'net', approved ->> 'tax', total, 'EUR',
-            approved ->> 'lines', ${at}, due, 'issued' FROM bill_basis`, ...guard.params ?? []),
+            approved ->> 'lines', ${at}, due, 'issued' FROM bill_basis
+          WHERE due IS NOT NULL AND (approved ->> 'net') >= 0 AND (approved ->> 'tax') >= 0
+            AND total = (approved ->> 'net') + (approved ->> 'tax')`, ...guard.params ?? []),
         updateRevision(access, guard, true), disablePending(access, guard), ...signals.statements] };
     },
   }, completionValue("scope", resultId), body.expectedRevision);

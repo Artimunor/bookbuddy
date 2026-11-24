@@ -78,7 +78,7 @@ function WrapUpRoute() {
     const effects = [t("mobile.wrapUp.submitEffect"), t("mobile.photos.completionCount", { count: photoCount })];
     if (invoice.billReference && invoice.billAmountMinor !== undefined) {
       review.push(`${invoice.billReference} · ${format.money(invoice.billAmountMinor, data.approvedScope.currency)}`);
-      effects.push(t("mobile.wrapUp.billAfterSignOff"));
+      effects.push(data.actions.canIssueBill ? t("mobile.wrapUp.billAfterSignOff") : t("mobile.wrapUp.billForProvider"));
     }
     confirmAction(router, { title: label, actionLabel: label, actionLabelKey: "mobile.wrapUp.submit", item: review.join("\n"),
       actor: bootstrap?.account.displayName ?? "", role: data.job.providerDisplayName, effects, onReview: () => { void remote.refresh(); },
@@ -115,7 +115,9 @@ export function WrapUpView(p: Props) {
   const set = (line: Line, patch: Partial<DraftItem>) => p.change(patchItem(p.draft, lineKey(line), patch));
   return <Screen title={t("mobile.wrapUp.title")} navigation={{ kind: "back", label: t("mobile.wrapUp.back"), onPress: p.onBack }} dock={d ? <Dock context={editable ? p.waitingPhotos ? t("mobile.photos.wait") : t("mobile.wrapUp.submitEffect") : t("mobile.wrapUp.waiting", { name: d.namedApproverDisplayName })} primary={editable ? { label: t("mobile.wrapUp.submit"), onPress: p.onSubmit, disabled: !valid || p.offline || p.busy || p.status !== "ready", busy: p.busy, live: true } : { label: t("mobile.wrapUp.job"), onPress: p.onJob }} /> : undefined}>
     {(p.status === "loading" || p.status === "idle") && <Copy>{t("mobile.wrapUp.loading")}</Copy>}{(p.status === "error" || p.status === "offline") && <><Copy>{t("mobile.wrapUp.unavailable")}</Copy><Button label={t("mobile.wrapUp.retry")} onPress={p.onRetry} /></>}{p.offline && <Copy>{t("mobile.wrapUp.offline")}</Copy>}{p.saved && editable && <Copy>{t("mobile.wrapUp.saved")}</Copy>}{p.saveFailed && <Copy>{t("mobile.wrapUp.saveFailed")}</Copy>}{p.busy && <Copy>{t("mobile.wrapUp.checking")}</Copy>}{p.failed && <Copy>{t("mobile.wrapUp.failed")}</Copy>}
-    {d && <><Copy variant="supporting">{d.job.reference} · {d.job.title} · {d.job.siteZone}</Copy>{d.work && <Card><Copy>{t("mobile.wrapUp.finishedAt", { time: time(format, d.work.finishedAt, d.job.siteZone) })}</Copy>{d.work.crewCheckedOutAt && <Copy>{t("mobile.wrapUp.checkedOutAt", { time: time(format, d.work.crewCheckedOutAt, d.job.siteZone) })}</Copy>}</Card>}{d.correction && <Card><Copy variant="sectionTitle">{t("mobile.wrapUp.returned")}</Copy><Copy>{d.correction.reason.original.text}</Copy></Card>}{d.submission && <Card><Copy variant="sectionTitle">{t("mobile.wrapUp.submitted")}</Copy><Copy>{!d.correction && t("mobile.wrapUp.waiting", { name: d.namedApproverDisplayName })} · {time(format, d.submission.submitted.at, d.job.siteZone)}</Copy></Card>}
+    {d && <><Copy variant="supporting">{d.job.reference} · {d.job.title} · {d.job.siteZone}</Copy>{d.work && <Card><Copy>{t("mobile.wrapUp.finishedAt", { time: time(format, d.work.finishedAt, d.job.siteZone) })}</Copy>{d.work.crewCheckedOutAt && <Copy>{t("mobile.wrapUp.checkedOutAt", { time: time(format, d.work.crewCheckedOutAt, d.job.siteZone) })}</Copy>}</Card>}
+    {d.submission?.state === "returned" ? <Card><Copy variant="sectionTitle">{t("mobile.wrapUp.returned")}</Copy>{d.correction && <Copy>{d.correction.reason.original.text}</Copy>}</Card>
+      : d.submission && <Card><Copy variant="sectionTitle">{t("mobile.wrapUp.submitted")}</Copy><Copy>{d.submission.state === "submitted" && `${t("mobile.wrapUp.waiting", { name: d.namedApproverDisplayName })} · `}{time(format, d.submission.submitted.at, d.job.siteZone)}</Copy></Card>}
     <Card><Copy variant="sectionTitle">{t("mobile.wrapUp.scope")}</Copy><Copy>{t("mobile.wrapUp.version", { number: d.approvedScope.version })} · {format.money(d.approvedScope.totalMinor, d.approvedScope.currency)}</Copy><Copy>{d.approvedScope.scope.original.text}</Copy>{d.approvedScope.exclusions && <Copy>{t("mobile.wrapUp.excluded")}: {d.approvedScope.exclusions.original.text}</Copy>}</Card>
     {d.approvedScope.lines.map(line => {
       const key = lineKey(line);
@@ -143,7 +145,8 @@ export function WrapUpView(p: Props) {
       <TextField label={t("mobile.wrapUp.billAmount")} inputMode="decimal" value={p.draft.billAmount ?? ""}
         onChangeText={billAmount => p.change({ ...p.draft, billAmount })} />
       <Copy>{t("mobile.wrapUp.billApproved", { amount: format.money(d.approvedScope.totalMinor, d.approvedScope.currency) })}</Copy>
-      <Copy variant="supporting">{invoice === null ? t("mobile.wrapUp.billMismatch") : t("mobile.wrapUp.billAfterSignOff")}</Copy>
+      <Copy variant="supporting">{invoice === null ? t("mobile.wrapUp.billMismatch")
+        : d.actions.canIssueBill ? t("mobile.wrapUp.billAfterSignOff") : t("mobile.wrapUp.billForProvider")}</Copy>
     </Card> : d.submission?.billReference && d.submission.billAmountMinor !== null && <Card>
       <Copy>{t("mobile.aftercare.reference", { reference: d.submission.billReference })}</Copy>
       <Copy>{format.money(d.submission.billAmountMinor, d.approvedScope.currency)}</Copy>
