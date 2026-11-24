@@ -62,8 +62,9 @@ function QuoteRoute() {
     const publishing = version.actions.issue;
     if ((!publishing && !version.actions.submitReview) || offline || busy) return;
     const actionLabelKey = publishing ? "mobile.foremanQuote.issue" : "mobile.foremanQuote.review";
+    const actionLabel = publishing ? t("mobile.foremanQuote.issue") : t("mobile.foremanQuote.review");
     confirmAction(router, {
-      title: t(actionLabelKey), actionLabel: t(actionLabelKey), actionLabelKey,
+      title: actionLabel, actionLabel, actionLabelKey,
       item: [
         version.job.reference,
         t("mobile.foremanQuote.version", { number: version.no, status: t("mobile.foremanQuote.draft") }),

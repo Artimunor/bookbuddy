@@ -28,8 +28,10 @@ const ApiContext = createContext<ApiAccess | null>(null);
 
 export function ApiProvider({ children, baseUrl, fetch }: { children: ReactNode; baseUrl?: string; fetch?: ApiFetch }) {
   const extra = Constants.expoConfig?.extra;
-  const cookieSession = Platform.OS === "web" && extra?.localWebApi === true && typeof window !== "undefined"
-    && window.location.protocol === "http:" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  const location = "location" in globalThis ? globalThis.location : undefined;
+  const cookieSession = Platform.OS === "web" && extra?.localWebApi === true
+    && !!location && typeof location === "object" && "protocol" in location && location.protocol === "http:"
+    && "hostname" in location && (location.hostname === "localhost" || location.hostname === "127.0.0.1");
   const url = cookieSession ? "/api/v1" : baseUrl ?? (Platform.OS !== "web" && typeof extra?.apiBaseUrl === "string" ? extra.apiBaseUrl : undefined);
   const locales = useLocales();
   const credential = useRef<string | null>(null);
