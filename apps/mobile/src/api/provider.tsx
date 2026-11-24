@@ -29,7 +29,7 @@ const ApiContext = createContext<ApiAccess | null>(null);
 export function ApiProvider({ children, baseUrl, fetch }: { children: ReactNode; baseUrl?: string; fetch?: ApiFetch }) {
   const extra = Constants.expoConfig?.extra;
   const location: unknown = Reflect.get(globalThis, "location");
-  const cookieSession = Platform.OS === "web" && extra?.localWebApi === true
+  const cookieSession = Platform.OS === "web" && process.env.EXPO_PUBLIC_BOOKBUDDY_LOCAL_WEB === "1"
     && !!location && typeof location === "object" && "protocol" in location && location.protocol === "http:"
     && "hostname" in location && (location.hostname === "localhost" || location.hostname === "127.0.0.1");
   const url = cookieSession ? "/api/v1" : baseUrl ?? (Platform.OS !== "web" && typeof extra?.apiBaseUrl === "string" ? extra.apiBaseUrl : undefined);

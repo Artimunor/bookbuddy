@@ -11,7 +11,7 @@ config.resolver.nodeModulesPaths = [join(__dirname, "node_modules"), workspaceMo
 
 const parser = "@formatjs/icu-messageformat-parser";
 const resolveRequest = config.resolver.resolveRequest;
-const localWeb = process.env.APP_ENV === "local";
+const localWeb = process.env.EXPO_PUBLIC_BOOKBUDDY_LOCAL_WEB === "1";
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   let target = moduleName;
   if (moduleName === parser) target = "@formatjs/icu-messageformat-parser/no-parser.js";
