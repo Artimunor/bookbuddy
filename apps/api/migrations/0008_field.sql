@@ -16,6 +16,10 @@ CREATE TABLE attendance_events (
     typeof(actual_at) = 'integer' AND typeof(captured_at) = 'integer' AND typeof(received_at) = 'integer'
   ),
   CONSTRAINT attendance_events_state CHECK (review_state IN ('accepted', 'needs_review')),
+  -- Two minutes of device clock skew; historical/offline captures have no minimum against receipt.
+  CONSTRAINT attendance_events_received_time CHECK (
+    review_state <> 'accepted' OR max(actual_at, captured_at) <= received_at + 120000
+  ),
   CONSTRAINT attendance_events_reason CHECK (
     reason_code IN ('out_of_window', 'duplicate_event', 'missing_arrival', 'out_of_order', 'disputed', 'correction') OR reason_code IS NULL
   ),
@@ -112,6 +116,7 @@ CREATE TABLE customer_updates (
   visit_id TEXT NOT NULL REFERENCES visits (id),
   actor_id TEXT REFERENCES accounts (id),
   kind TEXT NOT NULL,
+  booked_window_id TEXT,
   band_start INTEGER,
   band_end INTEGER,
   next_update_at INTEGER,
@@ -122,7 +127,7 @@ CREATE TABLE customer_updates (
   recorded_at INTEGER NOT NULL,
   CONSTRAINT customer_updates_kind CHECK (kind IN (
     'crew_confirmed', 'on_the_way', 'arrival_revised', 'arrival_withdrawn', 'on_site', 'working',
-    'paused', 'photo', 'cover_arranging', 'crew_updated', 'finished'
+    'paused', 'photo', 'cover_arranging', 'no_crew_available', 'crew_updated', 'finished'
   )),
   -- The first accepted arrival emits an anonymous crew-level stamp in the same
   -- batch. Later arrivals never publish another stamp or identify who checked in.
@@ -139,12 +144,14 @@ CREATE TABLE customer_updates (
     )
   ),
   CONSTRAINT customer_updates_correction CHECK ((kind IN ('arrival_revised', 'arrival_withdrawn')) = (corrects_id IS NOT NULL)),
+  CONSTRAINT customer_updates_booked_window CHECK ((kind = 'no_crew_available') = (booked_window_id IS NOT NULL)),
   CONSTRAINT customer_updates_caption CHECK (
     (caption IS NULL AND caption_language IS NULL)
     OR (kind = 'photo' AND caption IS NOT NULL AND caption_language IS NOT NULL)
   ),
   UNIQUE (visit_id, id),
-  FOREIGN KEY (visit_id, corrects_id) REFERENCES customer_updates (visit_id, id)
+  FOREIGN KEY (visit_id, corrects_id) REFERENCES customer_updates (visit_id, id),
+  FOREIGN KEY (visit_id, booked_window_id) REFERENCES visit_windows (visit_id, id)
 );
 CREATE INDEX customer_updates_visit_time ON customer_updates (visit_id, recorded_at, id);
 CREATE UNIQUE INDEX customer_updates_one_on_site ON customer_updates (visit_id) WHERE kind = 'on_site';
@@ -349,6 +356,9 @@ WHEN OLD.state <> 'active' OR NEW.state <> 'cleared' OR NEW.id IS NOT OLD.id
     SELECT 1 FROM safety_acknowledgements WHERE version_id = OLD.version_id AND assignment_id = OLD.assignment_id AND at <= NEW.cleared_at
   ))
 BEGIN SELECT RAISE(ABORT, 'briefing clearance requires that version’s worker acknowledgement'); END;
+CREATE TRIGGER safety_holds_no_delete_active BEFORE DELETE ON safety_holds
+WHEN OLD.state = 'active'
+BEGIN SELECT RAISE(ABORT, 'active safety holds must be cleared before disposal'); END;
 
 CREATE TABLE safety_questions (
   id TEXT PRIMARY KEY NOT NULL,

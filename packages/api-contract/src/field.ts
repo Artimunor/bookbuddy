@@ -62,7 +62,7 @@ export const customerUpdateSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("cover_arranging"), ...attributedUpdate, nextUpdateAt: timestampSchema }),
   z.strictObject({ kind: z.literal("paused"), ...attributedUpdate, nextUpdateAt: timestampSchema.nullable() }),
   z.strictObject({ kind: z.literal("photo"), ...attributedUpdate, photo, caption: caption.nullable() }),
-  z.strictObject({ kind: z.enum(["crew_confirmed", "crew_updated", "working", "finished"]), ...attributedUpdate }),
+  z.strictObject({ kind: z.enum(["crew_confirmed", "crew_updated", "no_crew_available", "working", "finished"]), ...attributedUpdate }),
 ]);
 
 const customerLiveState = z.strictObject({
@@ -243,6 +243,7 @@ const publishUpdate = z.discriminatedUnion("kind", [
   z.strictObject({ id: updateId, kind: z.literal("arrival_revised"), correctsId: updateId, band: timeBand }),
   z.strictObject({ id: updateId, kind: z.literal("arrival_withdrawn"), correctsId: updateId }),
   z.strictObject({ id: updateId, kind: z.literal("paused"), nextUpdateAt: timestampSchema.optional() }),
+  z.strictObject({ id: updateId, kind: z.literal("no_crew_available"), gapId: idSchemaFor<"cover_gap">(), bookedWindowId: windowId }),
   z.strictObject({
     id: updateId, kind: z.literal("photo"), attachmentId: attachmentIdSchema,
     progressEventId: activityId.optional(), caption: originalCaption.optional(),

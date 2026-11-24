@@ -98,7 +98,7 @@ export const ATTENDANCE_REVIEW_STATES = ["accepted", "needs_review"] as const;
 export type AttendanceReviewState = (typeof ATTENDANCE_REVIEW_STATES)[number];
 export const CUSTOMER_UPDATE_KINDS = [
   "crew_confirmed", "on_the_way", "arrival_revised", "arrival_withdrawn", "on_site", "working",
-  "paused", "photo", "cover_arranging", "crew_updated", "finished",
+  "paused", "photo", "cover_arranging", "no_crew_available", "crew_updated", "finished",
 ] as const;
 export type CustomerUpdateKind = (typeof CUSTOMER_UPDATE_KINDS)[number];
 export const TEACH_BACK_OUTCOMES = ["passed", "not_understood"] as const;

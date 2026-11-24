@@ -275,7 +275,7 @@ test("photo stamps require a ready attachment with the exact visit scope", async
   } finally { clock.mockRestore(); f.db.close(); }
 });
 
-test("sync only caches the named worker's current safety briefing and removes it on assignment dropout", async () => {
+test("dropout removes live details and briefing access while preserving the worker's Past receipt", async () => {
   const f = await fixture();
   const clock = spyOn(Date, "now").mockReturnValue(now);
   try {
@@ -294,6 +294,8 @@ test("sync only caches the named worker's current safety briefing and removes it
     expect(briefings(await f.sync("helper")).map(({ resourceId }) => resourceId)).toEqual(["second-assignment"]);
     expect((await f.call("worker", briefingPath)).body).toMatchObject({ data: { site: { address: "Private address",
       arrivalPlan: { original: { text: arrivalPlan } } } } });
+    expect((await f.call("candidate", "/assignments/old-assignment/briefing")).status).toBe(404);
+    expect(initial.upserts).toContainEqual(expect.objectContaining({ kind: "worker_field_shift", resourceId: "assignment" }));
 
     const original = { language: "es", text: "Peligro: polvo. Control: usa la mascarilla. Si falla, avisa al encargado." };
     const reviewedHumanReadingAid = { language: "en", text: "Dust hazard. Wear a mask. If it fails, alert the foreman." };
@@ -324,9 +326,26 @@ test("sync only caches the named worker's current safety briefing and removes it
       state: "awaiting_teach_back", reviewedHumanReadingAid: null } });
 
     expect((await f.call("worker", "/assignments/assignment/dropout", operation("drop", { source: "self" }))).status).toBe(200);
+    clock.mockReturnValue(now + minute);
+    await f.db.prepare(`INSERT INTO visit_activity_events (id, visit_id, actor_id, kind, at)
+      VALUES ('post-drop-work', 'visit', 'foreman', 'work_started', ?)`).bind(now + minute).run();
+    expect((await f.call("helper", "/assignments/second-assignment/field")).body).toMatchObject({
+      data: { work: { id: "post-drop-work", byName: "foreman name" } },
+    });
+    expect((await f.call("worker", "/assignments/assignment/field")).status).toBe(404);
+    expect((await f.call("worker", "/shifts/shift")).status).toBe(404);
+    expect((await f.call("worker", briefingPath)).status).toBe(404);
     const afterDrop = await f.sync("worker", replaced.cursor);
-    expect(briefings(afterDrop)).toEqual([]);
-    expect(afterDrop.removals).toContainEqual({ kind: "assignment_briefing", resourceId: "assignment" });
-    expect(briefings(await f.sync("worker"))).toEqual([]);
+    expect(afterDrop.upserts.some(({ resourceId }) => resourceId === "assignment")).toBe(false);
+    expect(afterDrop.removals).toEqual(expect.arrayContaining([
+      { kind: "assignment_briefing", resourceId: "assignment" },
+      { kind: "worker_field_shift", resourceId: "assignment" },
+    ]));
+    expect((await f.sync("worker")).upserts.some(({ resourceId }) => resourceId === "assignment")).toBe(false);
+    const past = await f.call("worker", "/shifts?segment=past");
+    expect(past.body).toMatchObject({ data: { segment: "past", rows: [
+      { kind: "shift", assignment: { id: "assignment", state: "dropped" }, outcome: "dropped", endedAt: now, shift: { placeAlias: null } },
+    ] } });
+    expect(JSON.stringify(past.body)).not.toMatch(/post-drop-work|Private address|side gate/);
   } finally { clock.mockRestore(); f.db.close(); }
 });

@@ -125,6 +125,7 @@ export function LiveVisitView({ visit, status, lastConfirmed, twoClock = false, 
       case "on_the_way": return t("mobile.liveVisit.stepWay"); case "arrival_revised": return t("mobile.liveVisit.revised"); case "arrival_withdrawn": return t("mobile.liveVisit.withdrawn");
       case "on_site": return t("mobile.liveVisit.onSite"); case "working": return t("mobile.liveVisit.working"); case "finished": return t("mobile.liveVisit.stepFinished");
       case "cover_arranging": return t("mobile.liveVisit.cover"); case "paused": return t("mobile.liveVisit.paused"); case "photo": return t("mobile.liveVisit.photo");
+      case "no_crew_available": return t("mobile.liveVisit.noCrew");
     }
   };
   return <Screen title={visit?.job.title ?? t("mobile.customerHome.untitled")} navigation={{ kind: "back", label: t("mobile.jobHome.back"), onPress: onBack }} dock={dock} scroll={false}>
@@ -137,6 +138,7 @@ export function LiveVisitView({ visit, status, lastConfirmed, twoClock = false, 
       {visit && <>
         <LiveCapsule size="hero" state={state} stateLabel={label} source={visit.providerName} reference={visitDate} time={time} estimate={estimateLabel} zoneLine={[zoneLabel, second].filter(Boolean).join(" · ")} provenance={provenance} accessibilityLabel={[label, time, zoneLabel, second, t("mobile.liveVisit.step", { step: index + 1, stage: labels[index] }), provenance].filter(Boolean).join(", ")} line={{ kind: "visit", steps: labels, ...(index === 1 ? { current: 1 as const, estimate: estimateLabel ? { fraction, label: estimateLabel } : undefined } : { current: index }), accessibilityLabel: t("mobile.liveVisit.step", { step: index + 1, stage: labels[index] }), ...(state === "coverBeingArranged" ? { status: { state: "cover" as const, label } } : {}) }} crew={{ audience: "customer", people: crew }} />
         {changed && <Copy variant="supporting">{t("mobile.liveVisit.sameWindow")}</Copy>}
+        {live?.status === "no_crew_available" && <Button variant="quiet" label={t("mobile.visitWindow.title")} onPress={() => onNavigate(`${root}/windows?visitId=${encodeURIComponent(visit.visitId)}`)} />}
         {arrival && (live?.status === "on_the_way" || passed) && bandClock && <ArrivalBand state={passed ? "noUpdateSince" : "onTheWay"} label={passed ? t("mobile.liveVisit.passed") : t("mobile.liveVisit.arrival")} time={{ siteTime: bandClock.site, siteZone: zoneLabel, viewerLine: bandClock.other }} provenance={provenance} />}
         {statusCardsAvailable && live?.status !== "finished" && <Card><SwitchRow label={t("mobile.liveVisit.follow")} description={t("mobile.statusCards.visitDescription")} value={following} disabled={followBusy || (!following && status !== "ready")} onValueChange={onFollow} /><Button variant="quiet" label={t("mobile.liveVisit.privacy")} onPress={() => onNavigate("/live-privacy")} />{saveError && <Copy accessibilityRole="alert">{t("mobile.statusCards.unavailable")}</Copy>}</Card>}
         <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.liveVisit.moments")}</Copy><Copy variant="supporting">{zoneLabel}</Copy>

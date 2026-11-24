@@ -16,6 +16,14 @@ CREATE TABLE visits (
 );
 CREATE INDEX visits_job_state ON visits (job_id, state, id);
 
+-- A visit, shift, or slot cannot acquire another job's staffing history by reparenting.
+CREATE TRIGGER visits_keep_job BEFORE UPDATE OF id, job_id ON visits
+WHEN NEW.id IS NOT OLD.id OR NEW.job_id IS NOT OLD.job_id
+BEGIN SELECT RAISE(ABORT, 'visit job is immutable'); END;
+CREATE TRIGGER visits_keep_job_on_insert BEFORE INSERT ON visits
+WHEN EXISTS (SELECT 1 FROM visits WHERE id = NEW.id AND job_id <> NEW.job_id)
+BEGIN SELECT RAISE(ABORT, 'visit job is immutable'); END;
+
 CREATE TABLE reschedule_requests (
   id TEXT PRIMARY KEY NOT NULL,
   visit_id TEXT NOT NULL REFERENCES visits (id),
@@ -84,6 +92,13 @@ CREATE TABLE shifts (
 );
 CREATE INDEX shifts_visit_start ON shifts (visit_id, starts_at, id);
 
+CREATE TRIGGER shifts_keep_visit BEFORE UPDATE OF id, visit_id ON shifts
+WHEN NEW.id IS NOT OLD.id OR NEW.visit_id IS NOT OLD.visit_id
+BEGIN SELECT RAISE(ABORT, 'shift visit is immutable'); END;
+CREATE TRIGGER shifts_keep_visit_on_insert BEFORE INSERT ON shifts
+WHEN EXISTS (SELECT 1 FROM shifts WHERE id = NEW.id AND visit_id <> NEW.visit_id)
+BEGIN SELECT RAISE(ABORT, 'shift visit is immutable'); END;
+
 CREATE TABLE shift_slots (
   id TEXT PRIMARY KEY NOT NULL,
   shift_id TEXT NOT NULL REFERENCES shifts (id),
@@ -94,6 +109,13 @@ CREATE TABLE shift_slots (
   UNIQUE (shift_id, number)
 );
 CREATE UNIQUE INDEX shift_slots_one_lead ON shift_slots (shift_id) WHERE is_lead = 1;
+
+CREATE TRIGGER shift_slots_keep_shift BEFORE UPDATE OF id, shift_id ON shift_slots
+WHEN NEW.id IS NOT OLD.id OR NEW.shift_id IS NOT OLD.shift_id
+BEGIN SELECT RAISE(ABORT, 'slot shift is immutable'); END;
+CREATE TRIGGER shift_slots_keep_shift_on_insert BEFORE INSERT ON shift_slots
+WHEN EXISTS (SELECT 1 FROM shift_slots WHERE id = NEW.id AND shift_id <> NEW.shift_id)
+BEGIN SELECT RAISE(ABORT, 'slot shift is immutable'); END;
 
 -- Dated intervals are UTC instants. Recurring rules are ISO weekdays (1–7)
 -- with local clock offsets, resolved in the membership's business zone for

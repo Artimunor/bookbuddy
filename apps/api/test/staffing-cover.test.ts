@@ -1,7 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
 import {
-  acceptCoverRoute, closeCoverRoute, confirmCoverRoute, declineCoverRoute, getCoverRoute, getHomeRoute, issueCoverRoute,
-  listShiftsRoute, operationIdHeader, releaseCoverRoute, resultSchema, withdrawCoverRoute,
+  acceptCoverRoute, closeCoverRoute, confirmCoverRoute, declineCoverRoute, getBusinessScheduleRoute, getCoverRoute, getHomeRoute,
+  getJobWindowsRoute, getVisitLiveRoute, issueCoverRoute, listShiftsRoute, operationIdHeader, publishVisitUpdateRoute,
+  releaseCoverRoute, resultSchema, withdrawCoverRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
@@ -18,7 +19,7 @@ const start = base + 60 * minute;
 const end = start + 60 * minute;
 const actors = ["customer", "foreman", "first", "second", "third", "prior", "foreign", "noncrew"] as const;
 type Actor = typeof actors[number];
-type TestCommand = { operationId: string; expectedRevision: number; expectedRoundNo: number | null; payload: object };
+type TestCommand = { operationId: string; expectedRevision: number; expectedRoundNo?: number | null; payload: object };
 
 function command(operationId: string, expectedRevision: number, expectedRoundNo: number | null, payload: object = {}): TestCommand {
   return { operationId, expectedRevision, expectedRoundNo, payload };
@@ -72,6 +73,18 @@ async function fixture() {
         pin = '{"latitude":0,"longitude":0}' WHERE id = 'place'`),
       db.prepare(`INSERT INTO jobs (id, reference, business_id, place_id, requester_id, accountable_foreman_membership_id, trade, origin, state)
         VALUES ('job', 'BB-ABC', 'provider', 'place', 'customer', 'foreman-member', 'carpentry', 'provider', 'open')`),
+      db.prepare(`INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, valid_from)
+        VALUES ('approval-grant', 'place', 'customer', 'approve', 'customer', 1)`),
+      db.prepare("INSERT INTO terms_versions VALUES ('terms', 'provider', 1, 'Provider snapshot', 'Terms', 'en', 'Approve', 'terms-hash')"),
+      db.prepare("INSERT INTO quotes (id, job_id) VALUES ('quote', 'job')"),
+      db.prepare(`INSERT INTO quote_versions (id, quote_id, job_id, business_id, no, author_id, terms_id, original_locale,
+        scope, exclusions, net_minor, tax_minor, total_minor, currency, state)
+        VALUES ('quote-v1', 'quote', 'job', 'provider', 1, 'foreman', 'terms', 'en', 'Door', 'None', 20000, 4000, 24000, 'EUR', 'draft')`),
+      db.prepare("UPDATE quote_versions SET publisher_id = 'noncrew', issued_at = ?, expires_at = ?, state = 'issued' WHERE id = 'quote-v1'")
+        .bind(base - 2 * minute, base + 24 * 60 * minute),
+      db.prepare(`INSERT INTO approvals (id, quote_version_id, account_id, grant_id, terms_hash, decision, at)
+        VALUES ('approval', 'quote-v1', 'customer', 'approval-grant', 'terms-hash', 'approve', ?)`).bind(base - minute),
+      db.prepare("UPDATE quote_versions SET state = 'approved' WHERE id = 'quote-v1'"),
       db.prepare(`INSERT INTO visits (id, job_id, kind, state) VALUES ('visit', 'job', 'work', 'booked')`),
       db.prepare(`INSERT INTO visit_windows (id, visit_id, starts_at, ends_at, expires_at, provider_authorized, proposed_at, proposed_by,
         confirmed_at, confirmed_by, state) VALUES ('booked', 'visit', ?, ?, ?, 1, 1, 'foreman', 2, 'customer', 'confirmed')`)
@@ -213,6 +226,86 @@ test("one worker wins the epoch, the rival and replay do not write, and confirma
     const sibling = data(await f.call(actors[loser]!, getCoverRoute));
     expect(sibling).toMatchObject({ audience: "worker", offer: { state: "filled_elsewhere" } });
     expect(JSON.stringify(sibling)).not.toContain(`${actors[winner]} name`);
+  } finally { f.close(); }
+});
+
+test.each(["issue", "accept", "confirm"] as const)("cover rechecks approved scope after withdrawal at %s", async (transition) => {
+  const f = await fixture();
+  try {
+    const offer = transition === "issue" ? null : (await f.issue(["first-member"]), await f.offer("first"));
+    if (transition === "confirm" && offer) {
+      data(await f.call("first", acceptCoverRoute, command("prior-accept", 1, 1, { offerId: offer.offerId })));
+    }
+    await f.db.prepare(`INSERT INTO contract_notices
+      (id, job_id, quote_version_id, account_id, terms_hash, kind, at, notice_text, notice_locale)
+      VALUES ('withdrawal', 'job', 'quote-v1', 'customer', 'terms-hash', 'withdrawal', ?, 'I withdraw.', 'en')`).bind(base).run();
+    switch (transition) {
+      case "issue":
+        expect(await f.call("foreman", issueCoverRoute, command("after-withdrawal", 0, null, { recipientMembershipIds: ["first-member"] })))
+          .toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+        expect(f.batchWriteCounts.at(-1)).toBe(0);
+        break;
+      case "accept":
+        expect(await f.call("first", acceptCoverRoute, command("after-withdrawal", 1, 1, { offerId: offer!.offerId })))
+          .toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+        expect(f.batchWriteCounts.at(-1)).toBe(0);
+        break;
+      case "confirm":
+        expect(data(await f.call("foreman", confirmCoverRoute, command("after-withdrawal", 2, 1)))).toMatchObject({
+          outcome: "not_confirmed", cover: { actions: { canConfirm: false, canIssue: false } },
+        });
+        expect(await f.db.prepare(`SELECT (SELECT count(*) FROM assignments WHERE cover_gap_id = 'gap') AS replacements,
+          (SELECT count(*) FROM customer_updates WHERE kind = 'crew_updated') AS updates,
+          (SELECT state FROM cover_rounds WHERE gap_id = 'gap' AND round_no = 1) AS round`).first())
+          .toEqual({ replacements: 0, updates: 0, round: "closed" });
+        break;
+    }
+  } finally { f.close(); }
+});
+
+test("customer schedule shows a shortage only when the foreman publishes it for the agreed window", async () => {
+  const f = await fixture();
+  try {
+    const windows = { ...getJobWindowsRoute, path: "/jobs/job/windows" };
+    const board = { ...getBusinessScheduleRoute, path: "/businesses/provider/schedule?jobId=job&visitId=visit" };
+    const live = { ...getVisitLiveRoute, path: "/visits/visit/live" };
+    const publish = { ...publishVisitUpdateRoute, path: "/visits/visit/updates" };
+    const shortage = (id: string, window = "booked") => ({ operationId: id, expectedRevision: 0,
+      payload: { id, kind: "no_crew_available", bookedWindowId: window, gapId: "gap" } });
+
+    await f.issue(["first-member"]);
+    expect(await f.call("foreman", publish, shortage("still-searching"))).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+    f.advance(16);
+    await f.db.prepare(`UPDATE availability_intervals SET kind = 'unavailable' WHERE membership_id IN ('first-member', 'second-member', 'third-member')`).run();
+    expect(data(await f.call("foreman", board)).visit?.bookedWindow?.crewAvailability).toBe("no_crew_available");
+    expect(data(await f.call("customer", windows)).visits[0]?.bookedWindow?.crewAvailability).toBe("as_agreed");
+    expect(data(await f.call("foreman", getCoverRoute))).toMatchObject({
+      noCrewUpdate: { visitId: "visit", bookedWindowId: "booked", expectedRevision: 0 },
+    });
+    expect(await f.call("customer", publish, shortage("untrusted"))).toMatchObject({ ok: false, error: { code: "NOT_FOUND" } });
+    expect(await f.call("foreman", publish, shortage("wrong-window", "other-window"))).toMatchObject({ ok: false, error: { code: "CONFLICT" } });
+    expect(data(await f.call("foreman", publish, shortage("publish-shortage")))).toMatchObject({
+      revision: 1, update: { kind: "no_crew_available", sharedByName: "foreman name" },
+      customerPreview: { window: { id: "booked" }, live: { status: "no_crew_available", step: null, arrival: null } },
+    });
+    expect(data(await f.call("customer", windows)).visits[0]?.bookedWindow?.crewAvailability).toBe("no_crew_available");
+    const published = data(await f.call("customer", live));
+    expect(published).toMatchObject({ live: { status: "no_crew_available" }, moments: [
+      { kind: "no_crew_available", sharedByName: "foreman name" }, { kind: "cover_arranging" },
+    ] });
+    expect(JSON.stringify(published)).not.toMatch(/first name|recipient|prior-assignment|bookedWindowId|gapId/);
+
+    // Reopening capacity alone must not rewrite what the customer has been told.
+    await f.db.prepare("UPDATE availability_intervals SET kind = 'duty' WHERE id = 'first-duty'").run();
+    const secondDispatch = await f.issue(["first-member"], 1, 1, "retry-cover");
+    const replacement = await f.offer("first");
+    data(await f.call("first", acceptCoverRoute, command("accept-retry", secondDispatch.revision, secondDispatch.currentRoundNo,
+      { offerId: replacement.offerId })));
+    expect(data(await f.call("customer", windows)).visits[0]?.bookedWindow?.crewAvailability).toBe("no_crew_available");
+    expect(data(await f.call("foreman", confirmCoverRoute, command("confirm-retry", secondDispatch.revision + 1, secondDispatch.currentRoundNo))).outcome)
+      .toBe("confirmed");
+    expect(data(await f.call("customer", windows)).visits[0]?.bookedWindow?.crewAvailability).toBe("as_agreed");
+    expect(data(await f.call("customer", live))).toMatchObject({ live: { status: "confirmed" } });
   } finally { f.close(); }
 });
 

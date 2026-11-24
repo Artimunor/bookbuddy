@@ -8,6 +8,7 @@ import { memberships } from "./access";
 import { accounts } from "./identity";
 import { jobs } from "./jobs";
 
+// 0006 also locks the visit → shift → slot parent relationships with SQL triggers.
 export const visits = sqliteTable("visits", {
   id: text().notNull().primaryKey(),
   jobId: text("job_id").notNull().references(() => jobs.id),

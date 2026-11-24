@@ -71,6 +71,37 @@ test("one live assignment and one live ordinary offer per slot; prior assignment
   }
 });
 
+test("staffing cannot link a foreign worker or confirm an ordinary offer for a different recipient", async () => {
+  const db = await staffingDatabase();
+  try {
+    await db.batch([
+      db.prepare(`INSERT INTO businesses (id, legal_name, public_name, verified_work_contact, catchment_id, state)
+        VALUES ('other', 'Other', 'Other', 'other@example.test', 'area', 'approved')`),
+      db.prepare("INSERT INTO memberships VALUES ('foreign-member', 'other', 'first', 'active')"),
+      db.prepare("INSERT INTO jobs (id, reference, business_id, place_id, requester_id, origin, state) VALUES ('other-job', 'BB-8', 'other', 'place', 'owner', 'bookbuddy', 'open')"),
+      db.prepare(confirmAssignment).bind("ordinary", "first-member", null, "ordinary", 100),
+    ]);
+    await expect(db.prepare(confirmAssignment).bind("foreign", "foreign-member", null, "ordinary", 100).run())
+      .rejects.toThrow(/assignment worker must belong to the slot business/);
+    const issue = db.prepare(`INSERT INTO assignment_offers (id, slot_id, recipient_id, issued_by, issued_at, expires_at, state)
+      VALUES ('ordinary-offer', 'slot', ?, 'foreman', 100, 1000000, 'offered')`);
+    await expect(issue.bind("foreign-member").run()).rejects.toThrow(/ordinary offer recipient must belong to the slot business/);
+    await issue.bind("second-member").run();
+    await expect(db.prepare(`UPDATE assignment_offers SET state = 'confirmed', resolved_at = 200, assignment_id = 'ordinary'
+      WHERE id = 'ordinary-offer'`).run()).rejects.toThrow(/foreign key constraint failed/i);
+    await expect(db.prepare("UPDATE assignments SET worker_membership_id = 'foreign-member' WHERE id = 'ordinary'").run())
+      .rejects.toThrow(/assignment identity is immutable/);
+    await expect(db.prepare("UPDATE memberships SET business_id = 'other' WHERE id = 'second-member'").run())
+      .rejects.toThrow(/membership identity is immutable/);
+    await expect(db.prepare("UPDATE jobs SET business_id = 'other' WHERE id = 'job'").run())
+      .rejects.toThrow(/job business is immutable/);
+    await expect(db.prepare("INSERT OR REPLACE INTO visits (id, job_id, kind, state) VALUES ('visit', 'other-job', 'work', 'booked')").run())
+      .rejects.toThrow(/visit job is immutable/);
+  } finally {
+    db.close();
+  }
+});
+
 test("cover CAS has one immutable winner per round, even when a fresh epoch reuses its dispatch", async () => {
   const db = await staffingDatabase();
   try {
@@ -88,6 +119,14 @@ test("cover CAS has one immutable winner per round, even when a fresh epoch reus
         VALUES ('gap', 1, 1, 'open', 120000)`),
       db.prepare(`UPDATE cover_gaps SET current_round_no = 1, revision = 1 WHERE id = 'gap'`),
     ]);
+    await db.batch([
+      db.prepare(`INSERT INTO businesses (id, legal_name, public_name, verified_work_contact, catchment_id, state)
+        VALUES ('other', 'Other', 'Other', 'other@example.test', 'area', 'approved')`),
+      db.prepare("INSERT INTO memberships VALUES ('foreign-member', 'other', 'second', 'active')"),
+    ]);
+    await expect(db.prepare(`INSERT INTO cover_offers (id, gap_id, dispatch_no, recipient_id, expires_at, state)
+      VALUES ('foreign-offer', 'gap', 1, 'foreign-member', 700000, 'offered')`).run())
+      .rejects.toThrow(/cover offer recipient must belong to the gap business/);
 
     const accept = (offerId: string, recipient: string, round: number, revision: number, at: number) => db.batch([
       db.prepare(`UPDATE cover_rounds SET state = 'accepted_pending_confirmation', winner_offer_id = ?1, accepted_at = ?2, confirm_by = ?2 + 300000
@@ -125,9 +164,15 @@ test("cover CAS has one immutable winner per round, even when a fresh epoch reus
       .toBe("offer-a");
 
     const confirm = db.prepare(confirmAssignment);
+    await expect(db.prepare("UPDATE cover_rounds SET state = 'confirmed', ended_at = 270000 WHERE gap_id = 'gap' AND round_no = 2").run())
+      .rejects.toThrow(/cover confirmation requires the current accepted offer and assignment/);
+    await expect(confirm.bind("wrong-recipient", "first-member", "gap", "cover", 270000).run())
+      .rejects.toThrow(/cover assignment worker must match the current accepted offer/);
+    await expect(db.prepare("UPDATE cover_offers SET recipient_id = 'foreign-member' WHERE id = 'offer-b'").run())
+      .rejects.toThrow(/cover offer identity is immutable/);
     await confirm.bind("replacement", "second-member", "gap", "cover", 270000).run();
     await db.prepare(`UPDATE assignments SET state = 'released' WHERE id = 'replacement'`).run();
-    await expect(confirm.bind("second-replacement", "first-member", "gap", "cover", 280000).run())
+    await expect(confirm.bind("second-replacement", "second-member", "gap", "cover", 280000).run())
       .rejects.toThrow(/unique constraint failed: assignments\.cover_gap_id/i);
   } finally {
     db.close();

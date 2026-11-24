@@ -104,8 +104,13 @@ const holdsValue = (assignment: string) => jsonArray(`SELECT json_patch(json_obj
   CASE WHEN h.state = 'cleared' THEN json_object('clearedAt', h.cleared_at) ELSE '{}' END) AS value
   FROM safety_holds h LEFT JOIN safety_versions ver ON ver.id = h.version_id WHERE ${applicableHolds(assignment)} ORDER BY h.id`);
 
+// Compare both device times to receipt time, not the shift start or the age
+// of the submission: a delayed offline capture can still be valid.
+const attendanceClockSkewMs = 2 * 60_000;
+
 const reviewReason = `CASE WHEN EXISTS (SELECT 1 FROM attendance_events e WHERE e.assignment_id = x.id
   AND e.kind = x.kind AND ${currentAccepted("e")}) THEN 'duplicate_event'
+  WHEN max(x.actual_at, x.captured_at) > ${at} + ${attendanceClockSkewMs} THEN 'out_of_window'
   WHEN x.kind = 'arrival' AND x.actual_at NOT BETWEEN
     x.starts_at - ${ATTENDANCE_REVIEW_POLICY.arrivalBeforeStartMs} AND x.starts_at + ${ATTENDANCE_REVIEW_POLICY.arrivalAfterStartMs}
     THEN 'out_of_window'
@@ -341,12 +346,10 @@ export const progressAttachmentSyncOperation = syncOperation("attachment_link", 
   } };
 });
 
-const canViewShift = (scope: string) => `${namedWorker(scope)} AND a.confirmed_at <= ${at} AND p.state = 'in_area'`;
-const bookedWindow = `JOIN visit_windows booked ON booked.id = (
-  SELECT w.id FROM visit_windows w WHERE w.visit_id = v.id AND w.confirmed_at <= ${at}
-    AND w.starts_at <= a.starts_at AND w.ends_at >= a.ends_at
-    AND w.state IN ('confirmed', 'superseded', 'cancelled')
-  ORDER BY w.state = 'confirmed' DESC, w.confirmed_at DESC, w.id DESC LIMIT 1)`;
+const canViewShift = (scope: string) => `${namedWorker(scope)} AND a.state = 'confirmed' AND a.confirmed_at <= ${at}
+  AND sh.state <> 'cancelled' AND v.state IN ('booked', 'finished') AND j.state <> 'cancelled' AND p.state = 'in_area'`;
+const bookedWindow = `JOIN visit_windows booked ON booked.visit_id = v.id AND booked.state = 'confirmed'
+  AND booked.confirmed_at <= ${at} AND booked.starts_at <= a.starts_at AND booked.ends_at >= a.ends_at`;
 const pendingReview = `SELECT e.id FROM attendance_events e WHERE e.assignment_id = a.id AND e.review_state = 'needs_review'
   AND NOT EXISTS (SELECT 1 FROM attendance_events successor WHERE successor.corrects_id = e.id AND successor.review_state = 'accepted')`;
 const hasPendingReview = `EXISTS (${pendingReview})
@@ -358,10 +361,10 @@ function shiftRows(scope: string, filter: string, cached: boolean, from = "assig
   const title = "nullif(j.trade, '')";
   const crewThread = cached ? "NULL" : `(SELECT t.id FROM chat_threads t JOIN chat_members cm ON cm.thread_id = t.id
     WHERE t.job_id = j.id AND t.audience = 'crew' AND cm.context_id = ${scope}.context_id AND cm.revoked_at IS NULL
-      AND a.state = 'confirmed' AND sh.state IN ('planned', 'active') AND v.state = 'booked' AND j.state = 'open')`;
+      AND sh.state IN ('planned', 'active') AND v.state = 'booked' AND j.state = 'open')`;
   return `SELECT a.id AS resource_id, json_object('id', a.id, 'shiftId', sh.id, 'visitId', v.id,
     'job', json_object('id', j.id, 'reference', j.reference, 'title', ${title}${cached ? "" : `, 'placeAlias',
-      CASE WHEN a.state = 'confirmed' AND sh.state <> 'cancelled' AND v.state = 'booked' AND j.state = 'open' THEN p.alias END`}),
+      CASE WHEN v.state = 'booked' AND j.state = 'open' THEN p.alias END`}),
     'siteZone', ${placeZone}, 'bookedWindow', json_object('id', booked.id, 'startsAt', booked.starts_at, 'endsAt', booked.ends_at),
     'task', coalesce(${title}, sh.skill), 'state', a.state, 'isLead', ${bool("slot.is_lead = 1")},
     'foremanName', coalesce(${namedActor("manager.account_id")}, ${namedActor("a.confirmed_by")}), 'crewThreadId', ${crewThread},
@@ -372,7 +375,7 @@ function shiftRows(scope: string, filter: string, cached: boolean, from = "assig
         FROM (${pendingReview} ORDER BY e.id)))), 'holds', json(${holdsValue("a.id")}),
     'work', json((SELECT ${workValue("e")} FROM visit_activity_events e WHERE e.visit_id = v.id AND e.at <= ${at}
       AND e.kind IN ('work_started', 'work_paused', 'work_finished') ORDER BY e.at DESC, e.rowid DESC LIMIT 1)),
-    'nextAction', CASE WHEN a.state <> 'confirmed' OR sh.state = 'cancelled' OR v.state NOT IN ('booked', 'finished') OR j.state <> 'open' THEN NULL
+    'nextAction', CASE WHEN j.state <> 'open' THEN NULL
       WHEN EXISTS (SELECT 1 ${acceptedEvent("a.id", "departure")}) THEN NULL
       WHEN EXISTS (SELECT 1 ${acceptedEvent("a.id", "arrival")}) THEN CASE
         WHEN EXISTS (SELECT 1 FROM safety_holds h WHERE ${applicableHolds("a.id")} AND h.state = 'active') THEN 'view_briefing'
@@ -399,7 +402,7 @@ export const workerFieldShiftSyncProjection: SyncProjectionReader = {
   kind: workerFieldShiftKind,
   schema: cachedWorkerFieldShiftSchema,
   snapshotIds: (now) => ({ sql: `WITH clock(at) AS (VALUES (?))
-    SELECT a.id AS resource_id FROM snapshot_scope scope JOIN assignments a ON a.id > scope.after_id
+    SELECT a.id AS resource_id FROM snapshot_scope scope CROSS JOIN assignments a ON a.id > scope.after_id
     ${assignmentJoins} ${bookedWindow} WHERE ${canViewShift("scope")}`, params: [now] }),
   project: (now) => ({ sql: `WITH clock(at) AS (VALUES (?))
     ${shiftRows("scope", `k.kind = '${workerFieldShiftKind}'`, true,

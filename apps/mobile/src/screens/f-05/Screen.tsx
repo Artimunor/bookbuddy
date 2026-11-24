@@ -86,7 +86,7 @@ export function JobControlView({ job, visit, status, visitStatus, busy, checking
   const t = useT(), { locale } = useLocale(); const [previewView, setPreviewView] = useState<ViewMode>(initialView ?? "today");
   const view = viewMode ?? previewView;
   const root = job ? `/f/jobs/${job.jobId}` : ""; const ready = status === "ready" && visitStatus === "ready"; const live = visit?.customerPreview.live;
-  const statusLabels = { confirmed: t("mobile.foremanHome.confirmed"), on_the_way: t("mobile.foremanHome.onWay"), on_site: t("mobile.foremanHome.onSite"), working: t("mobile.foremanHome.working"), finished: t("mobile.foremanHome.finished"), paused: t("mobile.foremanHome.paused"), cover_arranging: t("mobile.foremanHome.gap"), no_crew_available: t("mobile.foremanHome.gap") };
+  const statusLabels = { confirmed: t("mobile.foremanHome.confirmed"), on_the_way: t("mobile.foremanHome.onWay"), on_site: t("mobile.foremanHome.onSite"), working: t("mobile.foremanHome.working"), finished: t("mobile.foremanHome.finished"), paused: t("mobile.foremanHome.paused"), cover_arranging: t("mobile.foremanHome.gap"), no_crew_available: t("mobile.liveVisit.noCrew") };
   const statusStates: Record<keyof typeof statusLabels, LiveCapsuleState> = { confirmed: "crewConfirmed", on_the_way: "onTheWay", on_site: "onSite", working: "working", finished: "finished", paused: "paused", cover_arranging: "coverBeingArranged", no_crew_available: "quiet" };
   const customerLabel = live?.status ? statusLabels[live.status] : t("mobile.jobControl.noUpdate");
   const at = (value: number) => clockTime(value, visit?.siteZone ?? job?.siteZone ?? "UTC", locale);
@@ -261,6 +261,7 @@ function History({ history, earlier, status, siteZone, onEarlier, onRetry }: {
     crew_confirmed: t("mobile.foremanHome.confirmed"), on_the_way: t("mobile.foremanHome.onWay"), arrival_revised: t("mobile.jobControl.arrivalRevised"),
     arrival_withdrawn: t("mobile.jobControl.arrivalWithdrawn"), on_site: t("mobile.foremanHome.onSite"), working: t("mobile.foremanHome.working"),
     paused: t("mobile.foremanHome.paused"), photo: t("mobile.liveVisit.photo"), cover_arranging: t("mobile.cover.coverArranging"),
+    no_crew_available: t("mobile.liveVisit.noCrew"),
     crew_updated: t("mobile.cover.crewUpdated"), finished: t("mobile.foremanHome.finished"),
     quote_in_review: t("mobile.jobControl.quoteInReview"), quote_returned: t("mobile.jobControl.quoteReturned"),
     change_in_review: t("mobile.jobControl.changeInReview"), change_returned: t("mobile.jobControl.changeReturned"),

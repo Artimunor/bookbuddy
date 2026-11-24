@@ -65,6 +65,8 @@ test("field migration preserves ordered, unique accepted attendance even on a sa
     await insert.bind("no-arrival", "departure", startsAt, startsAt, receivedAt, "needs_review", null, "missing_arrival").run();
     await expect(insert.bind("early", "arrival", arrival - 1, startsAt, receivedAt, "accepted", null, null).run())
       .rejects.toThrow(/out-of-window attendance/);
+    await expect(insert.bind("future", "arrival", startsAt + 120001, startsAt + 120001, startsAt, "accepted", null, null).run())
+      .rejects.toThrow(/attendance_events_received_time/);
     await insert.bind("arrive", "arrival", arrival, startsAt, receivedAt, "accepted", null, null).run();
     await expect(insert.bind("duplicate", "arrival", startsAt, startsAt, receivedAt, "accepted", null, null).run())
       .rejects.toThrow(/already has an accepted event/);
@@ -106,6 +108,20 @@ test("customer arrival estimates append revisions and withdrawals on the same vi
     await expect(onSite.bind("named", "worker", startsAt, startsAt + 1).run()).rejects.toThrow(/customer_updates_attribution/);
     await onSite.bind("crew", null, startsAt, startsAt + 1).run();
     await expect(onSite.bind("again", null, startsAt + 2, startsAt + 3).run()).rejects.toThrow(/append-only/);
+  } finally {
+    db.close();
+  }
+});
+
+test("an active incident hold cannot be deleted instead of cleared", async () => {
+  const db = await fieldDatabase();
+  try {
+    await db.prepare("INSERT INTO safety_holds (id, assignment_id, kind, state) VALUES ('incident', 'assignment', 'incident', 'active')").run();
+    const remove = db.prepare("DELETE FROM safety_holds WHERE id = 'incident'");
+    await expect(remove.run()).rejects.toThrow(/active safety holds must be cleared/);
+    expect(await db.prepare("SELECT state FROM safety_holds WHERE id = 'incident'").first("state")).toBe("active");
+    await db.prepare("UPDATE safety_holds SET state = 'cleared', cleared_at = ? WHERE id = 'incident'").bind(startsAt).run();
+    expect((await remove.run()).meta.changes).toBe(1);
   } finally {
     db.close();
   }

@@ -62,6 +62,16 @@ export const workerContext = (scope: string, clock = at) => `(${scope}.role = 'w
 export const confirmedWindow = (visit: string, alias = "booked") => `LEFT JOIN visit_windows ${alias}
   ON ${alias}.visit_id = ${visit}.id AND ${alias}.state = 'confirmed' AND ${alias}.confirmed_at <= ${at}`;
 
+// A shortage belongs to the booking it was published for. A newer public
+// service update can resolve it; internal staffing and proposals cannot.
+export const currentNoCrewStamp = (visitId: string, booked: string) => `(SELECT
+  CASE WHEN u.kind = 'no_crew_available' THEN u.id END FROM customer_updates u
+  WHERE u.visit_id = ${visitId} AND u.recorded_at BETWEEN ${booked}.confirmed_at AND ${at}
+    AND (u.booked_window_id IS NULL OR u.booked_window_id = ${booked}.id)
+    AND u.kind IN ('no_crew_available', 'crew_confirmed', 'crew_updated', 'cover_arranging',
+      'on_the_way', 'arrival_revised', 'arrival_withdrawn', 'on_site', 'working', 'paused', 'finished')
+  ORDER BY u.recorded_at DESC, u.rowid DESC LIMIT 1)`;
+
 // An active/finished shift is evidence that work has already started even if the clock is early.
 export const unstarted = (visit: string, booked: string) => `(${visit}.state IN ('planned', 'booked')
   AND (${booked}.id IS NULL OR ${booked}.starts_at > ${at})

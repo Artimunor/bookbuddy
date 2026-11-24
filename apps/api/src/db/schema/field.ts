@@ -8,7 +8,7 @@ import { sql } from "drizzle-orm";
 import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { accounts } from "./identity";
 import { jobs } from "./jobs";
-import { visits } from "./schedule";
+import { visits, visitWindows } from "./schedule";
 import { assignments } from "./staffing";
 
 // SQL-only triggers in 0008 enforce append semantics and cross-row guards.
@@ -29,6 +29,7 @@ export const attendanceEvents = sqliteTable("attendance_events", {
   check("attendance_events_source", sql`${t.source} IN ('self', 'assisted', 'manual')`),
   check("attendance_events_times", sql`typeof(${t.actualAt}) = 'integer' AND typeof(${t.capturedAt}) = 'integer' AND typeof(${t.receivedAt}) = 'integer'`),
   check("attendance_events_state", sql`${t.reviewState} IN ('accepted', 'needs_review')`),
+  check("attendance_events_received_time", sql`${t.reviewState} <> 'accepted' OR max(${t.actualAt}, ${t.capturedAt}) <= ${t.receivedAt} + 120000`),
   check("attendance_events_reason", sql`${t.reasonCode} IN ('out_of_window', 'duplicate_event', 'missing_arrival', 'out_of_order', 'disputed', 'correction') OR ${t.reasonCode} IS NULL`),
   unique().on(t.assignmentId, t.id),
   foreignKey({ columns: [t.assignmentId, t.correctsId], foreignColumns: [t.assignmentId, t.id] }),
@@ -73,6 +74,7 @@ export const customerUpdates = sqliteTable("customer_updates", {
   visitId: text("visit_id").notNull().references(() => visits.id),
   actorId: text("actor_id").references(() => accounts.id),
   kind: text({ enum: CUSTOMER_UPDATE_KINDS }).notNull(),
+  bookedWindowId: text("booked_window_id"),
   bandStart: integer("band_start"),
   bandEnd: integer("band_end"),
   nextUpdateAt: integer("next_update_at"),
@@ -84,7 +86,7 @@ export const customerUpdates = sqliteTable("customer_updates", {
 }, (t) => [
   check("customer_updates_kind", sql`${t.kind} IN (
     'crew_confirmed', 'on_the_way', 'arrival_revised', 'arrival_withdrawn', 'on_site', 'working',
-    'paused', 'photo', 'cover_arranging', 'crew_updated', 'finished'
+    'paused', 'photo', 'cover_arranging', 'no_crew_available', 'crew_updated', 'finished'
   )`),
   check("customer_updates_attribution", sql`(${t.kind} = 'on_site' AND ${t.actorId} IS NULL AND typeof(${t.occurredAt}) = 'integer')
     OR (${t.kind} <> 'on_site' AND ${t.actorId} IS NOT NULL AND ${t.occurredAt} IS NULL)`),
@@ -93,10 +95,12 @@ export const customerUpdates = sqliteTable("customer_updates", {
     AND (${t.kind} IN ('on_the_way', 'arrival_revised') AND typeof(${t.bandStart}) = 'integer' AND typeof(${t.bandEnd}) = 'integer' AND ${t.bandStart} < ${t.bandEnd}
       OR ${t.kind} NOT IN ('on_the_way', 'arrival_revised') AND ${t.bandStart} IS NULL AND ${t.bandEnd} IS NULL)`),
   check("customer_updates_correction", sql`(${t.kind} IN ('arrival_revised', 'arrival_withdrawn')) = (${t.correctsId} IS NOT NULL)`),
+  check("customer_updates_booked_window", sql`(${t.kind} = 'no_crew_available') = (${t.bookedWindowId} IS NOT NULL)`),
   check("customer_updates_caption", sql`(${t.caption} IS NULL AND ${t.captionLanguage} IS NULL)
     OR (${t.kind} = 'photo' AND ${t.caption} IS NOT NULL AND ${t.captionLanguage} IS NOT NULL)`),
   unique().on(t.visitId, t.id),
   foreignKey({ columns: [t.visitId, t.correctsId], foreignColumns: [t.visitId, t.id] }),
+  foreignKey({ columns: [t.visitId, t.bookedWindowId], foreignColumns: [visitWindows.visitId, visitWindows.id] }),
   index("customer_updates_visit_time").on(t.visitId, t.recordedAt, t.id),
   uniqueIndex("customer_updates_one_on_site").on(t.visitId).where(sql`${t.kind} = 'on_site'`),
   uniqueIndex("customer_updates_one_successor").on(t.visitId, t.correctsId).where(sql`${t.correctsId} IS NOT NULL`),
@@ -192,6 +196,7 @@ export const safetyAcknowledgements = sqliteTable("safety_acknowledgements", {
   index("safety_acknowledgements_assignment").on(t.assignmentId, t.at, t.versionId),
 ]);
 
+// 0008 rejects deletion of active holds; clearance is separate from disposal.
 export const safetyHolds = sqliteTable("safety_holds", {
   id: text().notNull().primaryKey(),
   assignmentId: text("assignment_id").notNull().references(() => assignments.id),

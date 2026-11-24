@@ -14,9 +14,10 @@ import { liveContextPredicate } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { workerFieldChangeRows, workerFieldShiftKind } from "../field/attendance";
 import { currentMembership, memberJson } from "../jobs/projections";
-import { foreman, jobOpen } from "../schedule/policy";
+import { currentNoCrewStamp, foreman, jobOpen } from "../schedule/policy";
 import { crewAvailabilityKind, workerAgendaKind } from "../schedule/projections";
 import type { SyncProjectionReader } from "../sync/registry";
+import { approvedJob } from "./crew";
 
 interface CoverBodies {
   issue: RouteResponse<typeof issueCoverRoute.input>["body"];
@@ -45,7 +46,7 @@ function target(gap: string) {
     g.closed_at, g.revised_window_id, prior.worker_membership_id AS prior_worker, prior.dropped_at,
     sh.id AS shift_id, sh.starts_at, sh.ends_at, sh.state AS shift_state, sh.skill, sh.briefing_language,
     coalesce(nullif(j.trade, ''), sh.skill) AS task, coalesce(p.site_zone, area.site_zone) AS site_zone, area.name AS town,
-    v.id AS visit_id, v.state AS visit_state, r.state AS round_state, r.opened_at, r.winner_offer_id,
+    v.id AS visit_id, v.state AS visit_state, v.revision AS visit_revision, r.state AS round_state, r.opened_at, r.winner_offer_id,
     r.accepted_at, r.confirm_by, r.ended_at AS round_ended_at,
     d.dispatch_no, d.state AS dispatch_state, d.issued_at, d.reply_until, d.closed_at AS dispatch_closed_at
   FROM cover_gaps g JOIN assignments prior ON prior.id = g.prior_assignment_id
@@ -59,9 +60,10 @@ function target(gap: string) {
 const workerScope = (scope: string, g: string) => `(${scope}.role = 'worker' AND ${scope}.business_id = ${g}.business_id)`;
 const ownsOffer = (scope: string, g: string, offer: string) => `${workerScope(scope, g)} AND ${offer}.recipient_id = ${currentMembership(scope, at)}`;
 const foremanScope = (scope: string, g: string) => `(${currentMembership(scope, at)} IS NOT NULL AND ${foreman(scope, g)})`;
-const vacant = (g: string) => `(${jobOpen(g)} AND ${g}.visit_state = 'booked' AND ${g}.shift_state = 'planned'
-  AND ${g}.starts_at > ${at} AND NOT EXISTS (SELECT 1 FROM assignments a WHERE a.slot_id = ${g}.slot_id AND a.state = 'confirmed')
-  AND NOT EXISTS (SELECT 1 FROM assignment_offers a WHERE a.slot_id = ${g}.slot_id AND a.state = 'offered' AND a.expires_at > ${at}))`;
+const slotWithoutCommitment = (g: string) => `NOT EXISTS (SELECT 1 FROM assignments a WHERE a.slot_id = ${g}.slot_id AND a.state = 'confirmed')
+  AND NOT EXISTS (SELECT 1 FROM assignment_offers a WHERE a.slot_id = ${g}.slot_id AND a.state = 'offered' AND a.expires_at > ${at})`;
+const vacant = (g: string) => `(${jobOpen(g)} AND ${approvedJob(g)} AND ${g}.visit_state = 'booked' AND ${g}.shift_state = 'planned'
+  AND ${g}.starts_at > ${at} AND ${slotWithoutCommitment(g)})`;
 const cutoff = (g: string) => `min(${g}.safe_cutoff, ${g}.starts_at)`;
 const replyDeadline = (g: string) => `min(${at} + ${defaultReplyMs}, ${cutoff(g)} - ${confirmationMs})`;
 const holdAlive = (g: string) => `(${g}.gap_state = 'accepted_pending_confirmation' AND ${g}.round_state = 'accepted_pending_confirmation'
@@ -157,10 +159,28 @@ const reusableDispatch = (g: string) => `(${vacant(g)} AND ${liveOffers(g)}
   AND EXISTS (SELECT 1 FROM cover_offers o WHERE o.gap_id = ${g}.gap_id AND o.dispatch_no = ${g}.dispatch_no
     AND ${unanswered("o")} AND ${canCover(g, "o.recipient_id")}))`;
 const hasOffersOut = (g: string) => `(${g}.gap_state = 'open' AND ${g}.round_state = 'open' AND ${liveOffers(g)} AND ${vacant(g)})`;
+const anotherDispatchFits = (g: string, count: string) => `(${count} < ${maxDispatchesPerGap}
+  AND ${replyDeadline(g)} >= ${at} + ${minimumReplyMs})`;
 const canIssue = (g: string, count: string) => `(${vacant(g)} AND ${g}.gap_state IN ('open', 'accepted_pending_confirmation')
   AND NOT coalesce(${holdAlive(g)}, 0) AND NOT coalesce(${hasOffersOut(g)}, 0)
-  AND NOT coalesce(${reusableDispatch(g)}, 0) AND ${count} < ${maxDispatchesPerGap}
-  AND ${replyDeadline(g)} >= ${at} + ${minimumReplyMs})`;
+  AND NOT coalesce(${reusableDispatch(g)}, 0) AND ${anotherDispatchFits(g, count)})`;
+
+const publishableShortage = (g: string, booked: string, dispatches: string, hasCandidate: string) => `(${jobOpen(g)} AND ${approvedJob(g)}
+  AND ${g}.visit_state = 'booked' AND ${g}.shift_state = 'planned' AND ${g}.gap_state <> 'filled' AND ${g}.dropped_at <= ${at}
+  AND ${booked}.starts_at <= ${g}.starts_at AND ${booked}.ends_at >= ${g}.ends_at AND ${slotWithoutCommitment(g)}
+  AND NOT coalesce(${holdAlive(g)}, 0)
+  AND NOT EXISTS (SELECT 1 FROM customer_updates u WHERE u.visit_id = ${g}.visit_id
+    AND u.kind IN ('on_site', 'working', 'finished') AND u.recorded_at <= ${at})
+  AND (${g}.gap_state = 'closed' OR (NOT coalesce(${hasOffersOut(g)}, 0) AND NOT coalesce(${reusableDispatch(g)}, 0)
+    AND NOT (${anotherDispatchFits(g, dispatches)} AND ${hasCandidate}))))`;
+
+// The publishing command must recheck the same gap and window as the preview.
+export function coverAllowsShortage(gap: string, visit: string, booked: string) {
+  const count = "(SELECT count(*) FROM cover_dispatches d WHERE d.gap_id = g.gap_id)";
+  const hasCandidate = `EXISTS (SELECT 1 FROM (${fits("g", "1")}) f WHERE ${fitToCover("f", "g")})`;
+  return `EXISTS (SELECT 1 FROM (${target(`g.id = ${gap}`)}) g
+    WHERE g.visit_id = ${visit} AND ${publishableShortage("g", booked, count, hasCandidate)})`;
+}
 
 const joinedOffer = (g: string, predicate: string) => `FROM cover_offers o
   JOIN cover_dispatches d ON d.gap_id = o.gap_id AND d.dispatch_no = o.dispatch_no
@@ -217,11 +237,16 @@ const candidateResponse = (g: string) => `(SELECT json_object('offerId', o.id, '
 
 const customerUpdateId = (kind: "cover_arranging" | "crew_updated", gap: string) => `'${kind}-' || ${gap}`;
 function foremanCover(g: string, scope: string) {
-  const issuable = `${canIssue(g, "dispatches.used")} AND EXISTS (SELECT 1 FROM crew f WHERE ${fitToCover("f", g)})`;
+  const hasCandidate = `EXISTS (SELECT 1 FROM crew f WHERE ${fitToCover("f", g)})`;
   return `(WITH crew AS MATERIALIZED (${fits(g, "1")}), dispatches AS (
     SELECT count(*) AS used FROM cover_dispatches d WHERE d.gap_id = ${g}.gap_id
   ), holder AS MATERIALIZED (
     SELECT o.recipient_id, f.* FROM cover_offers o LEFT JOIN crew f ON f.id = o.recipient_id WHERE o.id = ${g}.winner_offer_id
+  ), issue_now AS MATERIALIZED (
+    SELECT (${canIssue(g, "dispatches.used")} AND ${hasCandidate}) AS allowed FROM dispatches
+  ), booked AS MATERIALIZED (
+    SELECT w.id, w.starts_at, w.ends_at, ${currentNoCrewStamp(`${g}.visit_id`, "w")} AS shortage_id
+    FROM visit_windows w WHERE w.visit_id = ${g}.visit_id AND w.state = 'confirmed' AND w.confirmed_at <= ${at}
   ) SELECT json_object('audience', 'foreman', 'gapId', ${g}.gap_id, 'slotId', ${g}.slot_id,
     'shift', json_object('shiftId', ${g}.shift_id, 'reference', ${g}.reference, 'window', ${span(g)},
       'siteZone', ${g}.site_zone, 'task', ${g}.task, 'skill', ${g}.skill, 'briefingLanguage', ${g}.briefing_language),
@@ -238,7 +263,7 @@ function foremanCover(g: string, scope: string) {
         'offerId', ${g}.winner_offer_id, 'worker', json(${memberJson("h.recipient_id")}), 'acceptedAt', ${g}.accepted_at,
         'confirmBy', ${g}.confirm_by, 'fit', json(${fitJson("h", g)}), 'onDuty', ${bool("h.on_duty")}, 'gapStillOpen', ${bool(vacant(g))})) FROM holder h)
       WHEN ${hasOffersOut(g)} THEN json_object('state', 'offers_out', 'sentAt', ${g}.issued_at, 'replyBy', ${g}.reply_until)
-      WHEN ${issuable} OR ${g}.dispatch_no IS NULL THEN json_object('state', 'gap', 'reportedAt', ${g}.dropped_at)
+      WHEN issue_now.allowed OR ${g}.dispatch_no IS NULL THEN json_object('state', 'gap', 'reportedAt', ${g}.dropped_at)
       ELSE json_object('state', 'no_cover', 'endedAt', max(${g}.dropped_at, min(${at},
         coalesce(${g}.round_ended_at, ${g}.confirm_by, ${g}.reply_until, ${g}.safe_cutoff)))) END),
     'candidates', json(${list(`SELECT json_object('membershipId', f.id, 'displayName', f.name,
@@ -249,11 +274,15 @@ function foremanCover(g: string, scope: string) {
       FROM crew f ORDER BY f.name, f.id`)}),
     'customerUpdate', json(coalesce((SELECT json_object('state', 'published', 'kind', u.kind,
       'publishedAt', u.recorded_at, 'nextUpdateAt', u.next_update_at) FROM customer_updates u WHERE u.visit_id = ${g}.visit_id
-      AND u.id IN (${customerUpdateId("crew_updated", `${g}.gap_id`)}, ${customerUpdateId("cover_arranging", `${g}.gap_id`)})
-      ORDER BY u.kind = 'crew_updated' DESC LIMIT 1), json_object('state', 'not_shared'))),
-    'actions', json_object('canIssue', ${bool(issuable)}, 'canClose', ${bool(`${g}.gap_state IN ('open', 'accepted_pending_confirmation')
+      AND u.id IN (${customerUpdateId("crew_updated", `${g}.gap_id`)}, ${customerUpdateId("cover_arranging", `${g}.gap_id`)},
+        (SELECT shortage_id FROM booked))
+      ORDER BY u.recorded_at DESC, u.rowid DESC LIMIT 1), json_object('state', 'not_shared'))),
+    'noCrewUpdate', json((SELECT json_object('visitId', ${g}.visit_id, 'bookedWindowId', booked.id, 'expectedRevision', ${g}.visit_revision)
+      FROM booked WHERE booked.shortage_id IS NULL AND ${publishableShortage(g, "booked", "dispatches.used", hasCandidate)})),
+    'actions', json_object('canIssue', ${bool("issue_now.allowed")}, 'canClose', ${bool(`${g}.gap_state IN ('open', 'accepted_pending_confirmation')
       AND NOT coalesce(${holdAlive(g)}, 0)`)}, 'canRelease', ${bool(`${g}.gap_state = 'accepted_pending_confirmation'`)},
-      'canConfirm', ${bool(`${holdAlive(g)} AND ${vacant(g)} AND EXISTS (SELECT 1 FROM holder h WHERE ${fitToCover("h", g)})`)})) FROM dispatches)`;
+      'canConfirm', ${bool(`${holdAlive(g)} AND ${vacant(g)} AND EXISTS (SELECT 1 FROM holder h WHERE ${fitToCover("h", g)})`)}))
+    FROM dispatches CROSS JOIN issue_now)`;
 }
 
 function workerView(g: string, scope: string, exact?: string) {

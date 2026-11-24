@@ -4,7 +4,7 @@ import type { CommandStatement } from "../../db/commit";
 import { accessClock, at, displayName, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import { currentMembership } from "../jobs/projections";
-import { foreman, jobOpen, scheduleAccess, targetId, workerContext } from "./policy";
+import { foreman, jobOpen, scheduleAccess, targetId } from "./policy";
 
 const pageSize = 50;
 const array = (select: string) => `(SELECT json_group_array(json(value)) FROM (${select}))`;
@@ -14,9 +14,7 @@ const activeWork = (clock: string) => `(${liveShift} AND sh.ends_at > ${clock} A
 const taskJoin = `JOIN shifts sh ON sh.id = slot.shift_id JOIN visits v ON v.id = sh.visit_id
   JOIN jobs j ON j.id = v.job_id JOIN places p ON p.id = j.place_id JOIN businesses b ON b.id = j.business_id
   JOIN operating_areas area ON area.id = b.catchment_id`;
-const assignmentFrom = `FROM assignments a JOIN shift_slots slot ON slot.id = a.slot_id JOIN shifts sh ON sh.id = slot.shift_id
-  JOIN visits v ON v.id = sh.visit_id JOIN jobs j ON j.id = v.job_id JOIN places p ON p.id = j.place_id
-  JOIN businesses b ON b.id = j.business_id JOIN operating_areas area ON area.id = b.catchment_id`;
+const assignmentJoins = `JOIN shift_slots slot ON slot.id = a.slot_id ${taskJoin}`;
 const zone = "coalesce(p.site_zone, area.site_zone)";
 
 const upcoming = shiftAgendaSchema.options[0];
@@ -88,11 +86,12 @@ export function readShift(session: SessionAccess, now: number, shift: string): C
   const missingSlot = `EXISTS (SELECT 1 FROM shift_slots slot WHERE slot.shift_id = sh.id AND NOT EXISTS (
     SELECT 1 FROM assignments a WHERE a.slot_id = slot.id AND a.state = 'confirmed'))`;
   const worker = `SELECT json_object('view', 'worker', 'shift', ${shiftJson("j.site_zone",
-    `CASE WHEN a.state = 'confirmed' AND sh.state IN ('planned', 'active') AND ${jobOpen()} THEN j.alias END`, "a.starts_at", "a.ends_at")},
-    'assignment', ${assignmentJson("a")}, 'holds', json(${holdsJson("a.state = 'confirmed' AND h.assignment_id = a.id")}), 'crewThreadId', NULL)
+    `CASE WHEN sh.state IN ('planned', 'active') AND ${jobOpen()} THEN j.alias END`, "a.starts_at", "a.ends_at")},
+    'assignment', ${assignmentJson("a")}, 'holds', json(${holdsJson("h.assignment_id = a.id")}), 'crewThreadId', NULL)
     FROM assignments a JOIN shift_slots slot ON slot.id = a.slot_id AND slot.shift_id = sh.id
-    WHERE a.worker_membership_id = ${currentMembership("scope", at)} AND a.confirmed_at <= ${at}
-    ORDER BY a.state = 'confirmed' DESC, a.confirmed_at DESC, a.id LIMIT 1`;
+    WHERE a.worker_membership_id = ${currentMembership("scope", at)} AND a.state = 'confirmed' AND a.confirmed_at <= ${at}
+      AND sh.state <> 'cancelled' AND v.state IN ('booked', 'finished') AND j.state <> 'cancelled' AND j.place_state = 'in_area'
+    ORDER BY a.confirmed_at DESC, a.id LIMIT 1`;
   return scopedStatement(access, `SELECT (SELECT CASE WHEN ${foreman("scope")} THEN json_object('view', 'foreman',
     'shift', ${shiftJson("j.site_zone", "j.alias")}, 'slots', json(${slots}), 'holds', json(${rosterHolds}),
     'customerUpdate', json(coalesce((SELECT json_object('state', 'published', 'kind', cu.kind, 'publishedAt', cu.recorded_at)
@@ -102,7 +101,7 @@ export function readShift(session: SessionAccess, now: number, shift: string): C
       WHEN NOT (${missingSlot}) THEN 'share_update' WHEN sh.starts_at > ${at} THEN CASE WHEN EXISTS (
         SELECT 1 FROM cover_gaps cg JOIN shift_slots slot ON slot.id = cg.slot_id WHERE slot.shift_id = sh.id
           AND cg.state IN ('open', 'accepted_pending_confirmation') AND cg.safe_cutoff > ${at}) THEN 'find_cover' ELSE 'assign_crew' END END END)
-    WHEN ${workerContext("scope")} AND scope.business_id = j.business_id THEN (${worker}) END
+    WHEN scope.role = 'worker' AND scope.business_id = j.business_id THEN (${worker}) END
     FROM live_scope scope CROSS JOIN schedule_job j JOIN visits v ON v.job_id = j.id
     JOIN shifts sh ON sh.visit_id = v.id AND sh.id = ${targetId}) AS value FROM acting_session`);
 }
@@ -119,7 +118,7 @@ function nextAction(clock: string) {
 export function cachedAgendaJson(member: string, business: string, clock: string) {
   return `json_object('segment', 'upcoming', 'rows', json(${array(`SELECT json_object('kind', 'shift', 'shift',
     json_object('id', sh.id, 'startsAt', a.starts_at, 'endsAt', a.ends_at, 'siteZone', ${zone}, 'state', sh.state),
-    'assignment', ${assignmentJson("a")}) AS value ${assignmentFrom}
+    'assignment', ${assignmentJson("a")}) AS value FROM assignments a ${assignmentJoins}
     WHERE a.worker_membership_id = ${member} AND j.business_id = ${business} AND a.confirmed_at <= ${clock}
       AND ${activeWork(clock)} ORDER BY a.starts_at, a.id LIMIT ${pageSize}`)}))`;
 }
@@ -186,17 +185,18 @@ export function readShiftAgenda(session: SessionAccess, now: number, segment: Sh
     'assignment', ${assignmentJson("a")}${ascending ? `, 'nextAction', ${nextAction(at)}` : `,
     'endedAt', ${ended}, 'outcome', CASE WHEN sh.state = 'cancelled' OR v.state = 'cancelled' OR j.state = 'cancelled' THEN 'cancelled'
       WHEN a.state IN ('dropped', 'released') THEN a.state ELSE 'completed' END`}) AS value
-    ${assignmentFrom} CROSS JOIN actor WHERE a.worker_membership_id = actor.member_id AND j.business_id = actor.business_id
-    AND a.confirmed_at <= ${at} AND ${ascending ? activeWork(at) : `NOT ${activeWork(at)}`}`;
+    FROM actor CROSS JOIN assignments a ON a.worker_membership_id = actor.member_id ${assignmentJoins}
+    WHERE j.business_id = actor.business_id AND a.confirmed_at <= ${at} AND ${ascending ? activeWork(at) : `NOT ${activeWork(at)}`}`;
   const sources = segment === "upcoming" ? assignments : segment === "offers" ? offerRows : `${assignments} UNION ALL ${offerRows}`;
   return scopedStatement(access, `, actor AS MATERIALIZED (SELECT scope.business_id, ${currentMembership("scope", at)} AS member_id
-    FROM live_scope scope WHERE ${workerContext("scope")})${offers}, agenda AS MATERIALIZED (${sources}),
+    FROM live_scope scope WHERE scope.role = 'worker')${offers}, agenda AS MATERIALIZED (${sources}),
     mark(key, id) AS (VALUES (?, ?)), page AS (
       SELECT agenda.* FROM agenda CROSS JOIN mark WHERE mark.key IS NULL OR (agenda.key, agenda.id) ${compare} (mark.key, mark.id)
       ORDER BY agenda.key ${order}, agenda.id ${order} LIMIT ${pageSize + 1})
     SELECT (SELECT json_object('segment', '${segment}', 'rows', json(${array(`SELECT json_object('key', key, 'id', id,
       'entry', json(value)) AS value FROM page ORDER BY key ${order}, id ${order}`)})
-      ${segment === "upcoming" ? ", 'total', (SELECT count(*) FROM agenda)" : ""}) FROM actor) AS value FROM acting_session`, cursor.key, cursor.id);
+      ${segment === "upcoming" ? ", 'total', (SELECT count(*) FROM agenda)" : ""})
+      FROM actor WHERE actor.member_id IS NOT NULL) AS value FROM acting_session`, cursor.key, cursor.id);
 }
 
 export function projectShiftAgenda(value: unknown) {

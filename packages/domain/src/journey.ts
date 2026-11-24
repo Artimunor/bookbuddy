@@ -45,6 +45,7 @@ export function projectVisit(updates: readonly CustomerUpdateKind[]): VisitProje
         if (step === null) step = "confirmed";
         break;
       case "cover_arranging":
+      case "no_crew_available":
         crewConfirmed = false;
         if (step === "confirmed" || step === "on_the_way") step = null;
         break;

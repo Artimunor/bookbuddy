@@ -29,12 +29,14 @@ CREATE TABLE assignments (
       AND dropout_source IS NULL AND dropout_reason IS NULL)
   ),
   UNIQUE (slot_id, id),
+  UNIQUE (slot_id, id, worker_membership_id),
   FOREIGN KEY (slot_id, cover_gap_id) REFERENCES cover_gaps (slot_id, id)
 );
 CREATE UNIQUE INDEX assignments_one_live_slot ON assignments (slot_id) WHERE state = 'confirmed';
 CREATE UNIQUE INDEX assignments_one_cover_gap ON assignments (cover_gap_id) WHERE cover_gap_id IS NOT NULL;
 CREATE INDEX assignments_worker_active_interval ON assignments (worker_membership_id, starts_at, ends_at, id)
   WHERE state = 'confirmed';
+CREATE INDEX assignments_worker_history ON assignments (worker_membership_id, id);
 
 CREATE TABLE assignment_offers (
   id TEXT PRIMARY KEY NOT NULL,
@@ -58,7 +60,7 @@ CREATE TABLE assignment_offers (
   CONSTRAINT assignment_offers_decline_reason CHECK (
     decline_reason IS NULL OR (state = 'declined' AND decline_reason IN ('busy_then', 'too_far_away'))
   ),
-  FOREIGN KEY (slot_id, assignment_id) REFERENCES assignments (slot_id, id)
+  FOREIGN KEY (slot_id, assignment_id, recipient_id) REFERENCES assignments (slot_id, id, worker_membership_id)
 );
 CREATE UNIQUE INDEX assignment_offers_one_live_slot ON assignment_offers (slot_id) WHERE state = 'offered';
 CREATE INDEX assignment_offers_slot_issued ON assignment_offers (slot_id, issued_at, id);
@@ -91,6 +93,13 @@ CREATE UNIQUE INDEX cover_gaps_one_open_slot ON cover_gaps (slot_id)
   WHERE state IN ('open', 'accepted_pending_confirmation');
 CREATE INDEX cover_gaps_due ON cover_gaps (safe_cutoff, id)
   WHERE state IN ('open', 'accepted_pending_confirmation');
+
+CREATE TRIGGER cover_gaps_keep_slot BEFORE UPDATE OF id, slot_id, prior_assignment_id ON cover_gaps
+WHEN NEW.id IS NOT OLD.id OR NEW.slot_id IS NOT OLD.slot_id OR NEW.prior_assignment_id IS NOT OLD.prior_assignment_id
+BEGIN SELECT RAISE(ABORT, 'cover gap assignment and slot are immutable'); END;
+CREATE TRIGGER cover_gaps_keep_slot_on_insert BEFORE INSERT ON cover_gaps
+WHEN EXISTS (SELECT 1 FROM cover_gaps WHERE id = NEW.id AND (slot_id <> NEW.slot_id OR prior_assignment_id <> NEW.prior_assignment_id))
+BEGIN SELECT RAISE(ABORT, 'cover gap assignment and slot are immutable'); END;
 
 CREATE TABLE cover_dispatches (
   gap_id TEXT NOT NULL REFERENCES cover_gaps (id),
@@ -182,6 +191,7 @@ WHEN OLD.winner_offer_id IS NOT NULL AND (
   NEW.winner_offer_id IS NOT OLD.winner_offer_id OR NEW.accepted_at IS NOT OLD.accepted_at
   OR NEW.confirm_by IS NOT OLD.confirm_by OR NEW.gap_id IS NOT OLD.gap_id
   OR NEW.dispatch_no IS NOT OLD.dispatch_no OR NEW.round_no IS NOT OLD.round_no
+  OR (OLD.state = 'confirmed' AND NEW.state <> 'confirmed')
 )
 BEGIN
   SELECT RAISE(ABORT, 'cover round winner is immutable');
@@ -199,3 +209,101 @@ WHEN EXISTS (
 BEGIN
   SELECT RAISE(ABORT, 'cover round winner is immutable');
 END;
+
+-- Staffing depends on these tenant roots and the immutable schedule parents in 0006.
+CREATE TRIGGER jobs_keep_business BEFORE UPDATE OF id, business_id ON jobs
+WHEN NEW.id IS NOT OLD.id OR NEW.business_id IS NOT OLD.business_id
+BEGIN SELECT RAISE(ABORT, 'job business is immutable'); END;
+CREATE TRIGGER jobs_keep_business_on_insert BEFORE INSERT ON jobs
+WHEN EXISTS (SELECT 1 FROM jobs WHERE id = NEW.id AND business_id <> NEW.business_id)
+BEGIN SELECT RAISE(ABORT, 'job business is immutable'); END;
+
+CREATE TRIGGER memberships_keep_identity BEFORE UPDATE OF id, business_id, account_id ON memberships
+WHEN NEW.id IS NOT OLD.id OR NEW.business_id IS NOT OLD.business_id OR NEW.account_id IS NOT OLD.account_id
+BEGIN SELECT RAISE(ABORT, 'membership identity is immutable'); END;
+CREATE TRIGGER memberships_keep_identity_on_insert BEFORE INSERT ON memberships
+WHEN EXISTS (SELECT 1 FROM memberships WHERE id = NEW.id AND (business_id <> NEW.business_id OR account_id <> NEW.account_id))
+BEGIN SELECT RAISE(ABORT, 'membership identity is immutable'); END;
+
+CREATE TRIGGER assignments_guard BEFORE INSERT ON assignments
+BEGIN
+  SELECT RAISE(ABORT, 'assignment identity is immutable')
+    WHERE EXISTS (SELECT 1 FROM assignments WHERE id = NEW.id);
+  SELECT RAISE(ABORT, 'assignment worker must belong to the slot business')
+    WHERE NOT EXISTS (
+      SELECT 1 FROM shift_slots slot JOIN shifts sh ON sh.id = slot.shift_id
+      JOIN visits v ON v.id = sh.visit_id JOIN jobs j ON j.id = v.job_id
+      JOIN memberships m ON m.id = NEW.worker_membership_id AND m.business_id = j.business_id
+      WHERE slot.id = NEW.slot_id
+    );
+  SELECT RAISE(ABORT, 'cover assignment worker must match the current accepted offer')
+    WHERE NEW.source = 'cover' AND NOT EXISTS (
+      SELECT 1 FROM cover_gaps g JOIN cover_rounds r ON r.gap_id = g.id AND r.round_no = g.current_round_no
+      JOIN cover_offers o ON o.gap_id = r.gap_id AND o.dispatch_no = r.dispatch_no AND o.id = r.winner_offer_id
+      WHERE g.id = NEW.cover_gap_id AND g.slot_id = NEW.slot_id AND g.state = 'accepted_pending_confirmation'
+        AND r.state = 'accepted_pending_confirmation' AND o.state = 'offered' AND o.recipient_id = NEW.worker_membership_id
+    );
+END;
+CREATE TRIGGER assignments_keep_identity BEFORE UPDATE OF id, slot_id, worker_membership_id, source, cover_gap_id ON assignments
+WHEN NEW.id IS NOT OLD.id OR NEW.slot_id IS NOT OLD.slot_id OR NEW.worker_membership_id IS NOT OLD.worker_membership_id
+  OR NEW.source IS NOT OLD.source OR NEW.cover_gap_id IS NOT OLD.cover_gap_id
+BEGIN SELECT RAISE(ABORT, 'assignment identity is immutable'); END;
+
+CREATE TRIGGER assignment_offers_guard BEFORE INSERT ON assignment_offers
+BEGIN
+  SELECT RAISE(ABORT, 'ordinary offer identity is immutable')
+    WHERE EXISTS (SELECT 1 FROM assignment_offers WHERE id = NEW.id);
+  SELECT RAISE(ABORT, 'ordinary offer recipient must belong to the slot business')
+    WHERE NOT EXISTS (
+      SELECT 1 FROM shift_slots slot JOIN shifts sh ON sh.id = slot.shift_id
+      JOIN visits v ON v.id = sh.visit_id JOIN jobs j ON j.id = v.job_id
+      JOIN memberships m ON m.id = NEW.recipient_id AND m.business_id = j.business_id
+      WHERE slot.id = NEW.slot_id
+    );
+  SELECT RAISE(ABORT, 'ordinary offer requires an ordinary assignment')
+    WHERE NEW.assignment_id IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM assignments WHERE id = NEW.assignment_id AND source = 'ordinary'
+    );
+END;
+CREATE TRIGGER assignment_offers_keep_identity BEFORE UPDATE OF id, slot_id, recipient_id, assignment_id ON assignment_offers
+BEGIN
+  SELECT RAISE(ABORT, 'ordinary offer identity is immutable')
+    WHERE NEW.id IS NOT OLD.id OR NEW.slot_id IS NOT OLD.slot_id OR NEW.recipient_id IS NOT OLD.recipient_id
+      OR (OLD.assignment_id IS NOT NULL AND NEW.assignment_id IS NOT OLD.assignment_id);
+  SELECT RAISE(ABORT, 'ordinary offer requires an ordinary assignment')
+    WHERE NEW.assignment_id IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM assignments WHERE id = NEW.assignment_id AND source = 'ordinary'
+    );
+END;
+
+CREATE TRIGGER cover_offers_guard BEFORE INSERT ON cover_offers
+BEGIN
+  SELECT RAISE(ABORT, 'cover offer identity is immutable')
+    WHERE EXISTS (SELECT 1 FROM cover_offers WHERE id = NEW.id);
+  SELECT RAISE(ABORT, 'cover offer recipient must belong to the gap business')
+    WHERE NOT EXISTS (
+      SELECT 1 FROM cover_gaps g JOIN shift_slots slot ON slot.id = g.slot_id JOIN shifts sh ON sh.id = slot.shift_id
+      JOIN visits v ON v.id = sh.visit_id JOIN jobs j ON j.id = v.job_id
+      JOIN memberships m ON m.id = NEW.recipient_id AND m.business_id = j.business_id
+      WHERE g.id = NEW.gap_id
+    );
+END;
+CREATE TRIGGER cover_offers_keep_identity BEFORE UPDATE OF id, gap_id, dispatch_no, recipient_id ON cover_offers
+WHEN NEW.id IS NOT OLD.id OR NEW.gap_id IS NOT OLD.gap_id OR NEW.dispatch_no IS NOT OLD.dispatch_no
+  OR NEW.recipient_id IS NOT OLD.recipient_id
+BEGIN SELECT RAISE(ABORT, 'cover offer identity is immutable'); END;
+
+-- Commands insert the assignment while the accepted round is current, then close the round as confirmed.
+CREATE TRIGGER cover_rounds_no_confirmed_insert BEFORE INSERT ON cover_rounds
+WHEN NEW.state = 'confirmed'
+BEGIN SELECT RAISE(ABORT, 'cover confirmation requires the current accepted offer and assignment'); END;
+CREATE TRIGGER cover_rounds_confirm_guard BEFORE UPDATE OF state ON cover_rounds
+WHEN NEW.state = 'confirmed' AND OLD.state <> 'confirmed' AND (
+  OLD.state <> 'accepted_pending_confirmation' OR NOT EXISTS (
+    SELECT 1 FROM cover_gaps g JOIN assignments a ON a.cover_gap_id = g.id AND a.slot_id = g.slot_id AND a.state = 'confirmed'
+    JOIN cover_offers o ON o.gap_id = g.id AND o.dispatch_no = NEW.dispatch_no AND o.id = NEW.winner_offer_id
+      AND o.recipient_id = a.worker_membership_id
+    WHERE g.id = NEW.gap_id AND g.current_round_no = NEW.round_no AND g.state = 'accepted_pending_confirmation'
+  )
+)
+BEGIN SELECT RAISE(ABORT, 'cover confirmation requires the current accepted offer and assignment'); END;

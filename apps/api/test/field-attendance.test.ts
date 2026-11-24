@@ -186,6 +186,26 @@ test("attendance enforces order, named assignment, review bounds and a location-
   } finally { f.db.close(); }
 });
 
+test("future arrival does not publish on site; a delayed valid capture still can", async () => {
+  const f = await fieldFixture();
+  try {
+    const future = f.startsAt + 30 * minute; // Inside the shift's arrival window, well after receipt.
+    const arrival = await data(await f.command("attendance", "future-op", capture("future-arrival", "arrival", future)), recordAttendanceRoute.output);
+    expect(arrival.event).toMatchObject({ actualAt: future, reviewState: "needs_review", reasonCode: "out_of_window" });
+    expect(f.hints).not.toContain("customer-visit:visit");
+    expect(await f.db.prepare("SELECT count(*) AS updates FROM customer_updates").first("updates")).toBe(0);
+
+    const offline = await data(await f.command("attendance", "offline-op", capture("offline-arrival", "arrival", f.startsAt)),
+      recordAttendanceRoute.output);
+    expect(offline.event).toMatchObject({ actualAt: f.startsAt, reviewState: "accepted" });
+    expect(await f.db.prepare("SELECT kind, occurred_at FROM customer_updates").first())
+      .toEqual({ kind: "on_site", occurred_at: f.startsAt });
+    const clockAhead = { ...capture("future-capture", "departure", f.startsAt + minute), capturedAt: future };
+    const departure = await data(await f.command("attendance", "future-capture-op", clockAhead), recordAttendanceRoute.output);
+    expect(departure.event).toMatchObject({ reviewState: "needs_review", reasonCode: "out_of_window" });
+  } finally { f.db.close(); }
+});
+
 test("sync applies attendance and snapshots in one batch and replays the same receipt without writes", async () => {
   const f = await fieldFixture();
   try {

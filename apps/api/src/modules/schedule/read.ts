@@ -6,8 +6,8 @@ import { confirmedAssignments, weekBounds } from "./availability";
 import { calendarDay, calendarWeek, intersect, localDate, mergeSpans } from "./calendar";
 import type { Span } from "./calendar";
 import {
-  approvedQuoteJoin, capacity, confirmationMode, confirmedWindow, customer, eligibleWorkers, foreman, jobOpen, namedApprover,
-  noWithdrawal, provider, scheduleAccess, unstarted, visitManager,
+  approvedQuoteJoin, capacity, confirmationMode, confirmedWindow, currentNoCrewStamp, customer, eligibleWorkers, foreman,
+  jobOpen, namedApprover, noWithdrawal, provider, scheduleAccess, unstarted, visitManager,
 } from "./policy";
 
 const bool = (predicate: string) => `json(CASE WHEN ${predicate} THEN 'true' ELSE 'false' END)`;
@@ -32,8 +32,10 @@ export function visitJson(j: string, v: string, booked: string, scope: string) {
   return `json_object('id', ${v}.id, 'kind', ${v}.kind, 'state', ${v}.state, 'revision', ${v}.revision,
     'bookedWindow', json(CASE WHEN ${booked}.id IS NOT NULL THEN json_object('id', ${booked}.id,
       'startsAt', ${booked}.starts_at, 'endsAt', ${booked}.ends_at, 'confirmedAt', ${booked}.confirmed_at,
-      'crewAvailability', CASE WHEN ${v}.state = 'booked' AND ${booked}.starts_at > ${at} AND ${needsCrew}
-        AND NOT ${capacity(j, `${v}.id`, `${booked}.starts_at`, `${booked}.ends_at`)}
+      'crewAvailability', CASE WHEN ${v}.state = 'booked' AND CASE WHEN ${scope}.role = 'customer'
+        THEN ${currentNoCrewStamp(`${v}.id`, booked)} IS NOT NULL
+        ELSE ${booked}.starts_at > ${at} AND ${needsCrew}
+          AND NOT ${capacity(j, `${v}.id`, `${booked}.starts_at`, `${booked}.ends_at`)} END
         THEN 'no_crew_available' ELSE 'as_agreed' END) END),
     'offeredWindows', json(${jsonArray(`SELECT json_object('id', w.id, 'startsAt', w.starts_at, 'endsAt', w.ends_at,
       'expiresAt', w.expires_at, 'proposedAt', w.proposed_at, 'replacesWindowId', w.replaces_window_id,

@@ -22,6 +22,7 @@ function updateTitle(t: T, u: CustomerUpdate) {
     case "arrival_withdrawn": return t("mobile.siteLog.withdrawn");
     case "on_site": return t("mobile.siteLog.crewOnSite");
     case "cover_arranging": return t("mobile.siteLog.cover");
+    case "no_crew_available": return t("mobile.liveVisit.noCrew");
     case "paused": return t("mobile.siteLog.paused");
     case "photo": return t("mobile.siteLog.photo");
     case "crew_confirmed": return t("mobile.siteLog.crewConfirmed");

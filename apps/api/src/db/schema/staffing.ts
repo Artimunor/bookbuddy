@@ -9,6 +9,7 @@ import { memberships } from "./access";
 import { accounts } from "./identity";
 import { shiftSlots, visitWindows } from "./schedule";
 
+// 0007 also checks tenant and cover-winner scope and locks staffing identities with SQL triggers.
 export const assignments = sqliteTable("assignments", {
   id: text().notNull().primaryKey(),
   slotId: text("slot_id").notNull().references(() => shiftSlots.id),
@@ -36,10 +37,12 @@ export const assignments = sqliteTable("assignments", {
     OR (${t.state} <> 'dropped' AND ${t.droppedAt} IS NULL AND ${t.dropoutReportedBy} IS NULL
       AND ${t.dropoutSource} IS NULL AND ${t.dropoutReason} IS NULL)`),
   unique().on(t.slotId, t.id),
+  unique().on(t.slotId, t.id, t.workerMembershipId),
   foreignKey({ columns: [t.slotId, t.coverGapId], foreignColumns: [coverGaps.slotId, coverGaps.id] }),
   uniqueIndex("assignments_one_live_slot").on(t.slotId).where(sql`${t.state} = 'confirmed'`),
   uniqueIndex("assignments_one_cover_gap").on(t.coverGapId).where(sql`${t.coverGapId} IS NOT NULL`),
   index("assignments_worker_active_interval").on(t.workerMembershipId, t.startsAt, t.endsAt, t.id).where(sql`${t.state} = 'confirmed'`),
+  index("assignments_worker_history").on(t.workerMembershipId, t.id),
 ]);
 
 export const assignmentOffers = sqliteTable("assignment_offers", {
@@ -62,7 +65,7 @@ export const assignmentOffers = sqliteTable("assignment_offers", {
   check("assignment_offers_assignment", sql`(${t.state} = 'confirmed') = (${t.assignmentId} IS NOT NULL)`),
   check("assignment_offers_decline_reason", sql`${t.declineReason} IS NULL
     OR (${t.state} = 'declined' AND ${t.declineReason} IN ('busy_then', 'too_far_away'))`),
-  foreignKey({ columns: [t.slotId, t.assignmentId], foreignColumns: [assignments.slotId, assignments.id] }),
+  foreignKey({ columns: [t.slotId, t.assignmentId, t.recipientId], foreignColumns: [assignments.slotId, assignments.id, assignments.workerMembershipId] }),
   uniqueIndex("assignment_offers_one_live_slot").on(t.slotId).where(sql`${t.state} = 'offered'`),
   index("assignment_offers_slot_issued").on(t.slotId, t.issuedAt, t.id),
   index("assignment_offers_recipient_state").on(t.recipientId, t.state, t.expiresAt, t.id),

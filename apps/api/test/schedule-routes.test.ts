@@ -4,6 +4,7 @@ import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { randomToken } from "../src/modules/auth/crypto";
 import { hashSessionCredential } from "../src/modules/auth/session";
+import { readShiftAgenda } from "../src/modules/schedule/shifts";
 import { createTestD1 } from "./d1";
 
 const at = Date.parse("2026-11-23T08:00:00Z");
@@ -366,13 +367,27 @@ test("worker reads only their confirmed shift, their named offer, and an address
     const delta = resultSchema(syncRoute.output).parse((await sync({ cursor: snapshot.data.cursor })).body);
     if (!delta.ok) throw new Error(JSON.stringify(delta));
     expect(delta.data.upserts.find(({ kind }) => kind === "shift_agenda")).toMatchObject({ value: { rows: [] } });
-    expect(delta.data.upserts.find(({ kind }) => kind === "worker_field_shift"))
-      .toMatchObject({ resourceId: "crew-assignment", value: { state: "released", nextAction: null } });
-    expect(delta.data.removals).toContainEqual({ kind: "assignment_briefing", resourceId: "crew-assignment" });
+    expect(delta.data.removals).toEqual(expect.arrayContaining([
+      { kind: "assignment_briefing", resourceId: "crew-assignment" },
+      { kind: "worker_field_shift", resourceId: "crew-assignment" },
+    ]));
+    expect((await f.call("crew", `/shifts/${own.id}`)).status).toBe(404);
     expect((await f.call("crew", "/shifts?segment=past")).body).toMatchObject({ data: { rows: [
       { shift: { id: own.id, placeAlias: null }, outcome: "cancelled", endedAt: at },
     ] } });
   } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("Past shift agenda looks up history by the scoped worker rather than scanning assignments", async () => {
+  const db = await createTestD1();
+  try {
+    const { sql, params } = readShiftAgenda({
+      sql: "WITH acting_session AS (SELECT 1), live_scope AS (SELECT 'crew-context' AS context_id, 'worker' AS role, 'business' AS business_id)",
+      params: [],
+    }, at, "past", { key: null, id: "" });
+    const { results } = await db.prepare(`EXPLAIN QUERY PLAN ${sql}`).bind(...params ?? []).all<{ detail: string }>();
+    expect(results.map(({ detail }) => detail)).toContainEqual(expect.stringMatching(/SEARCH a .*assignments_worker_history \(worker_membership_id=\?\)/));
+  } finally { db.close(); }
 });
 
 test("shift detail gives the foreman only the current cover gap for each slot", async () => {

@@ -145,10 +145,11 @@ export const foremanCoverSchema = z.object({
   customerUpdate: z.discriminatedUnion("state", [
     z.object({ state: z.literal("not_shared") }),
     z.object({
-      state: z.literal("published"), kind: z.enum(["cover_arranging", "crew_updated"]),
+      state: z.literal("published"), kind: z.enum(["cover_arranging", "crew_updated", "no_crew_available"]),
       publishedAt: timestampSchema, nextUpdateAt: timestampSchema.nullable(),
     }),
   ]),
+  noCrewUpdate: z.strictObject({ visitId: idSchemaFor<"visit">(), bookedWindowId: windowId, expectedRevision: revisionSchema }).nullable(),
   actions: z.object({ canIssue: z.boolean(), canClose: z.boolean(), canRelease: z.boolean(), canConfirm: z.boolean() }),
 });
 export const coverViewSchema = z.discriminatedUnion("audience", [

@@ -51,6 +51,7 @@ export function momentLabel(t: T, kind: Extract<HomeProjection, { audience: "cus
     case "paused": return t("web.portal.work.eventPaused");
     case "photo": return t("web.portal.work.eventPhoto");
     case "cover_arranging": return t("web.portal.work.eventCover");
+    case "no_crew_available": return t("web.portal.schedule.noCrew");
     case "crew_updated": return t("web.portal.work.eventCrewUpdated");
     case "finished": return t("web.portal.work.eventFinished");
   }
