@@ -1,6 +1,7 @@
 import { cachedWorkerFieldShiftSchema, mediaFileSchema, mediaLimits } from "@bookbuddy/api-contract";
 import type {
-  departAssignmentRoute, OperationId, recordAssignmentProgressRoute, recordAttendanceRoute, requestAttendanceCorrectionRoute, RouteResponse,
+  departAssignmentRoute, ErrorBody, OperationId, ProgressPhotoOutcome, recordAssignmentProgressRoute, recordAttendanceRoute,
+  requestAttendanceCorrectionRoute, RouteResponse, SyncProgressPhoto,
 } from "@bookbuddy/api-contract";
 import { ATTENDANCE_REVIEW_POLICY } from "@bookbuddy/domain";
 import type { CommandInput, CommandStatement } from "../../db/commit";
@@ -247,26 +248,35 @@ const photoMimes = mediaFileSchema.options[0].shape.mime.options.map((mime) => `
 export const readyPhotoSql = (media: string) => `${media}.state = 'ready' AND ${media}.mime IN (${photoMimes})
   AND ${media}.bytes <= ${mediaLimits.photoBytes} AND (${media}.delete_after IS NULL OR ${media}.delete_after > ${at})`;
 
-export async function recordAssignmentProgress(ctx: Clock, session: SessionAccess, { params, body }: Input<typeof recordAssignmentProgressRoute>) {
-  const { photos } = body.payload;
-  const scoped = assignmentAccess(session, ctx.now, params.id, "worker");
+async function planProgress(ctx: Clock, session: SessionAccess, assignmentId: string,
+  operationId: OperationId, photos: readonly SyncProgressPhoto[], delivery: "atomic" | "partial") {
+  const scoped = assignmentAccess(session, ctx.now, assignmentId, "worker");
   const access: SessionAccess = { sql: `${scoped.sql}, photo_input AS MATERIALIZED (
-    SELECT key AS position, value ->> 'id' AS id, value ->> 'attachmentId' AS attachment_id,
+    SELECT key AS position, value ->> 'activityId' AS id, value ->> 'attachmentId' AS attachment_id,
       value ->> 'capturedAt' AS captured_at, value ->> '$.caption.text' AS caption, value ->> '$.caption.language' AS language
     FROM json_each(?)
-  )`, params: [...scoped.params, JSON.stringify(photos)] };
+  ), progress_assignee AS MATERIALIZED (SELECT * FROM field_actor WHERE state = 'confirmed')`,
+  params: [...scoped.params, JSON.stringify(photos)] };
+  const authorize = { sql: "EXISTS (SELECT 1 FROM progress_assignee)" };
+  const existing = `SELECT x.id, x.position, x.attachment_id, e.at AS received_at
+    FROM progress_assignee f CROSS JOIN photo_input x
+    JOIN visit_activity_events e ON e.id = x.id AND e.assignment_id = f.id AND e.visit_id = f.visit_id
+      AND e.actor_id = f.actor_id AND e.kind = 'progress_photo' AND e.captured_at = x.captured_at
+      AND e.safe_detail IS x.caption AND e.detail_language IS x.language
+    JOIN shift_evidence link ON link.activity_event_id = e.id AND link.shift_id = f.shift_id AND link.attachment_id = x.attachment_id`;
   const eligible = `f.job_state = 'open' AND EXISTS (
     SELECT 1 FROM memberships manager JOIN accounts actor ON actor.id = manager.account_id AND actor.state = 'active'
     JOIN membership_roles role ON role.membership_id = manager.id AND role.role = 'foreman'
     WHERE manager.id = f.foreman_id AND manager.state = 'active' AND role.revoked_at IS NULL AND role.granted_at <= ${at})
     AND NOT EXISTS (SELECT 1 FROM safety_holds h WHERE ${applicableHolds("f.id")} AND h.state = 'active')
     AND NOT EXISTS (SELECT 1 FROM safety_versions ver WHERE ver.id = (${latestBriefing("f.id")}) AND NOT EXISTS (
-      SELECT 1 FROM safety_acknowledgements ack WHERE ack.version_id = ver.id AND ack.assignment_id = f.id AND ack.at <= ${at}))
-    AND (SELECT count(*) FROM shift_evidence used WHERE used.shift_id = f.shift_id) <= 6 - ?
-    AND (SELECT count(*) FROM photo_input x JOIN attachments media ON media.id = x.attachment_id
+      SELECT 1 FROM safety_acknowledgements ack WHERE ack.version_id = ver.id AND ack.assignment_id = f.id AND ack.at <= ${at}))`;
+  const candidates = `SELECT x.id FROM progress_assignee f CROSS JOIN photo_input x
+      JOIN attachments media ON media.id = x.attachment_id
       JOIN media_stages stage ON stage.id = media.stage_id AND stage.context_id = f.context_id
         AND stage.caller = 'progress' AND stage.parent_scope_id = f.id
-      WHERE stage.created_at <= ${at} AND stage.expires_at > ${at} AND ${readyPhotoSql("media")}
+      WHERE (${eligible}) AND (
+        stage.created_at <= ${at} AND stage.expires_at > ${at} AND ${readyPhotoSql("media")}
         AND NOT EXISTS (SELECT 1 FROM job_handoffs h WHERE h.job_id = f.job_id AND h.state = 'accepted' AND h.ended_at >= stage.created_at)
         AND NOT EXISTS (SELECT 1 FROM shift_evidence used WHERE used.shift_id = f.shift_id AND used.attachment_id = x.attachment_id)
         AND NOT EXISTS (SELECT 1 FROM visit_activity_events e WHERE e.id = x.id)
@@ -274,29 +284,62 @@ export async function recordAssignmentProgress(ctx: Clock, session: SessionAcces
         AND EXISTS (SELECT 1 ${acceptedEvent("f.id", "arrival")} AND e.actual_at <= x.captured_at)
         AND NOT EXISTS (SELECT 1 ${acceptedEvent("f.id", "departure")} AND e.actual_at < x.captured_at)
         AND (SELECT e.kind FROM visit_activity_events e WHERE e.visit_id = f.visit_id AND e.at <= x.captured_at
-          AND e.kind IN ('work_started', 'work_paused', 'work_finished') ORDER BY e.at DESC, e.rowid DESC LIMIT 1) = 'work_started') = ?`;
+          AND e.kind IN ('work_started', 'work_paused', 'work_finished') ORDER BY e.at DESC, e.rowid DESC LIMIT 1) = 'work_started')
+      ORDER BY x.position LIMIT coalesce((SELECT max(0, 6 - (SELECT count(*) FROM shift_evidence link WHERE link.shift_id = f.shift_id))
+        FROM progress_assignee f), 0)`;
   const plan = await planOperation(ctx, {
-    access, authorize, operationId: body.operationId, command: "assignment_progress", input: { assignmentId: params.id, photos },
-    resultRef: photos[0]!.id, eligible: { sql: `EXISTS (SELECT 1 FROM field_actor f WHERE ${eligible})`, params: [photos.length, photos.length] },
+    access, authorize, operationId, command: "assignment_progress", input: { assignmentId, photos },
+    resultRef: operationId, unchanged: { sql: `(SELECT count(*) FROM (${existing})) = (SELECT count(*) FROM photo_input)` },
+    selectWrites: { sql: delivery === "partial" ? candidates : `WITH candidates AS MATERIALIZED (${candidates})
+      SELECT id FROM candidates WHERE (SELECT count(*) FROM candidates) + (SELECT count(*) FROM (${existing})) = (SELECT count(*) FROM photo_input)` },
     ineligible: { code: "VALIDATION_FAILED" },
-    writes: (guard) => ({ statements: [
-      scopedStatement(access, `INSERT INTO visit_activity_events (id, visit_id, assignment_id, actor_id, kind, at, captured_at, safe_detail, detail_language)
-        SELECT x.id, f.visit_id, f.id, f.actor_id, 'progress_photo', ${at}, x.captured_at, x.caption, x.language
-        FROM photo_input x CROSS JOIN field_actor f WHERE ${guard.sql}
-        RETURNING (SELECT job_id FROM field_actor) AS job_id`, ...guard.params ?? []),
-      scopedStatement(access, `INSERT INTO shift_evidence (shift_id, attachment_id, activity_event_id)
-        SELECT f.shift_id, x.attachment_id, x.id FROM photo_input x CROSS JOIN field_actor f WHERE ${guard.sql}`, ...guard.params ?? []),
-      scopedStatement(access, `UPDATE attachments SET retention_class = 'progress', delete_after = NULL
-        WHERE id IN (SELECT attachment_id FROM photo_input) AND (retention_class <> 'progress' OR delete_after IS NOT NULL)
-          AND ${guard.sql}`, ...guard.params ?? []),
-    ] }),
+    writes: (_guard, selected) => {
+      const accepted = `, accepted_photos AS MATERIALIZED (SELECT x.* FROM photo_input x JOIN (${selected.sql}) picked ON picked.id = x.id)`;
+      return { statements: [
+        scopedStatement(access, `${accepted} INSERT INTO visit_activity_events (
+          id, visit_id, assignment_id, actor_id, kind, at, captured_at, safe_detail, detail_language)
+          SELECT x.id, f.visit_id, f.id, f.actor_id, 'progress_photo', ${at}, x.captured_at, x.caption, x.language
+          FROM accepted_photos x CROSS JOIN progress_assignee f
+          RETURNING id, (SELECT job_id FROM progress_assignee) AS job_id`, ...selected.params ?? []),
+        scopedStatement(access, `${accepted} INSERT INTO shift_evidence (shift_id, attachment_id, activity_event_id)
+          SELECT f.shift_id, x.attachment_id, x.id FROM accepted_photos x CROSS JOIN progress_assignee f`, ...selected.params ?? []),
+        scopedStatement(access, `${accepted} UPDATE attachments SET retention_class = 'progress', delete_after = NULL
+          WHERE id IN (SELECT attachment_id FROM accepted_photos) AND (retention_class <> 'progress' OR delete_after IS NOT NULL)`,
+        ...selected.params ?? []),
+      ] };
+    },
   });
-  return withValue(withTopics(plan, null), scopedStatement(access, `SELECT json_object('assignmentId', f.id, 'receipts', json(${jsonArray(`
-    SELECT json_object('id', e.id, 'attachmentId', link.attachment_id, 'receivedAt', e.at) AS value
-    FROM photo_input x JOIN visit_activity_events e ON e.id = x.id AND e.assignment_id = f.id AND e.kind = 'progress_photo'
-    JOIN shift_evidence link ON link.activity_event_id = e.id AND link.attachment_id = x.attachment_id
-    ORDER BY x.position`)})) AS value FROM field_actor f`));
+  return { plan: withTopics(plan, null), access, existing };
 }
+
+export async function recordAssignmentProgress(ctx: Clock, session: SessionAccess, { params, body }: Input<typeof recordAssignmentProgressRoute>) {
+  const photos = body.payload.photos.map(({ id, ...photo }) => ({ activityId: id, ...photo }));
+  const { plan, access, existing } = await planProgress(ctx, session, params.id, body.operationId, photos, "atomic");
+  return withValue(plan, scopedStatement(access, `SELECT json_object('assignmentId', f.id, 'receipts', json(${jsonArray(`
+    SELECT json_object('id', e.id, 'attachmentId', e.attachment_id, 'receivedAt', e.received_at) AS value
+    FROM (${existing}) e ORDER BY e.position`)})) AS value FROM progress_assignee f`));
+}
+
+export const progressAttachmentSyncOperation = syncOperation("attachment_link", async ({ access: session, now }, { operationId, payload }) => {
+  const { assignmentId, photos } = payload;
+  const { plan, access, existing } = await planProgress({ now }, session, assignmentId, operationId, photos, "partial");
+  const resultIndex = plan.statements.length;
+  return { statements: [...plan.statements, scopedStatement(access, existing)], decode(rows) {
+    const result = plan.decode(rows);
+    const outcome = result.outcome;
+    const error: ErrorBody = outcome.status === "rejected" ? outcome.error : { code: "VALIDATION_FAILED" };
+    const canRead = outcome.status !== "rejected" || outcome.error.code === "VALIDATION_FAILED";
+    const receipts = (rows[resultIndex]?.results ?? []) as { id: string; received_at: number }[];
+    const written = new Set(((rows[1]?.results ?? []) as { id: string }[]).map(({ id }) => id));
+    const saved = new Map(canRead ? receipts.map(({ id, received_at }) => [id, received_at] as const) : []);
+    const photoOutcomes: ProgressPhotoOutcome[] = photos.map(({ activityId }) => {
+      const receivedAt = saved.get(activityId);
+      return receivedAt === undefined ? { activityId, status: "rejected", error }
+        : { activityId, status: written.has(activityId) ? "committed" : "replayed", receivedAt };
+    });
+    return { ...result, outcome: { ...outcome, photoOutcomes } };
+  } };
+});
 
 const canViewShift = (scope: string) => `${namedWorker(scope)} AND a.confirmed_at <= ${at} AND p.state = 'in_area'`;
 const bookedWindow = `JOIN visit_windows booked ON booked.id = (

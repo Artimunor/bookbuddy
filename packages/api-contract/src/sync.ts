@@ -4,6 +4,7 @@ import {
   accountIdSchema, attachmentIdSchema, commandInputSchema, errorBodySchema, idSchema, localeTagSchema,
   operationIdSchema, revisionSchema, scopeHeaderSchema, timestampSchema,
 } from "./common";
+import { syncProgressPhotoLimit, syncProgressPhotosSchema } from "./field";
 import { defineRoute } from "./route";
 import { syncPageSchema, syncRequestSchema } from "./sync-envelope";
 
@@ -33,7 +34,7 @@ export const syncOperationSchema = z.discriminatedUnion("kind", [
   }).refine((entry) => entry.originalText !== undefined || !!entry.attachmentIds?.length))
     .extend({ kind: z.literal("chat_append") }).strict(),
   commandInputSchema(z.strictObject({
-    assignmentId: idSchema, attachmentIds: z.array(attachmentIdSchema).min(1).max(6),
+    assignmentId: idSchema, photos: syncProgressPhotosSchema,
   })).extend({ kind: z.literal("attachment_link") }).strict(),
   commandInputSchema(z.strictObject({ threadId: idSchema, position: z.int().nonnegative() }))
     .extend({ kind: z.literal("chat_read_mark") }).strict(),
@@ -44,11 +45,21 @@ export const syncOperationSchema = z.discriminatedUnion("kind", [
 export type SyncOp = z.output<typeof syncOperationSchema>;
 export type SyncOpKind = SyncOp["kind"];
 
+const progressPhotoOutcomeSchema = z.discriminatedUnion("status", [
+  z.strictObject({ activityId: idSchema, status: z.enum(["committed", "replayed"]), receivedAt: timestampSchema }),
+  z.strictObject({ activityId: idSchema, status: z.literal("rejected"), error: errorBodySchema }),
+]);
+export type ProgressPhotoOutcome = z.output<typeof progressPhotoOutcomeSchema>;
+
+const operationOutcomeFields = {
+  operationId: operationIdSchema,
+  photoOutcomes: z.array(progressPhotoOutcomeSchema).min(1).max(syncProgressPhotoLimit).optional(),
+};
 export const operationOutcomeSchema = z.discriminatedUnion("status", [
-  z.object({ operationId: operationIdSchema, status: z.literal("committed"), resultRef: idSchema }),
-  z.object({ operationId: operationIdSchema, status: z.literal("replayed"), resultRef: idSchema }),
-  z.object({ operationId: operationIdSchema, status: z.literal("unchanged") }),
-  z.object({ operationId: operationIdSchema, status: z.literal("rejected"), error: errorBodySchema }),
+  z.object({ ...operationOutcomeFields, status: z.literal("committed"), resultRef: idSchema }),
+  z.object({ ...operationOutcomeFields, status: z.literal("replayed"), resultRef: idSchema }),
+  z.object({ ...operationOutcomeFields, status: z.literal("unchanged") }),
+  z.object({ ...operationOutcomeFields, status: z.literal("rejected"), error: errorBodySchema }),
 ]);
 export type OpOutcome = z.output<typeof operationOutcomeSchema>;
 

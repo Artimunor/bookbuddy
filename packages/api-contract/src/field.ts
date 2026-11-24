@@ -203,7 +203,7 @@ const logEntry = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("setting_off"), ...privateLogFields, assignmentId, estimate: estimateReceipt }),
   z.strictObject({ kind: z.literal("work"), ...privateLogFields, activity: workStamp }),
   z.strictObject({
-    kind: z.literal("progress_photo"), ...privateLogFields, id: activityId, assignmentId, photo,
+    kind: z.literal("progress_photo"), ...privateLogFields, id: activityId, assignmentId, shiftId: shiftId.optional(), photo,
     capturedAt: timestampSchema, caption: caption.nullable(), canShareWithCustomer: z.boolean(),
   }),
   z.strictObject({ kind: z.literal("arrival_plan_set"), at: timestampSchema, actorName: displayText, id: activityId, original }),
@@ -229,10 +229,15 @@ const correctionPayload = z.discriminatedUnion("reasonCode", [
   z.strictObject({ id: correctionRequestId, eventId: attendanceEventId, reasonCode: z.literal("wrong_time"), proposedActualAt: timestampSchema }),
   z.strictObject({ id: correctionRequestId, eventId: attendanceEventId, reasonCode: z.literal("disputed"), proposedActualAt: timestampSchema.optional() }),
 ]);
-const progressPhotos = z.array(z.strictObject({
-  id: activityId, attachmentId: attachmentIdSchema, capturedAt: timestampSchema, caption: originalCaption.optional(),
-})).min(1).max(6).refine((items) => new Set(items.map(({ id }) => id)).size === items.length
-  && new Set(items.map(({ attachmentId }) => attachmentId)).size === items.length);
+const progressCapture = { attachmentId: attachmentIdSchema, capturedAt: timestampSchema, caption: originalCaption.optional() };
+const progressPhotos = z.array(z.strictObject({ id: activityId, ...progressCapture })).min(1).max(6)
+  .refine((items) => new Set(items.map(({ id }) => id)).size === items.length
+    && new Set(items.map(({ attachmentId }) => attachmentId)).size === items.length);
+export const syncProgressPhotoLimit = 5;
+export const syncProgressPhotosSchema = z.array(z.strictObject({ activityId, ...progressCapture })).min(1).max(syncProgressPhotoLimit)
+  .refine((items) => new Set(items.map(({ activityId }) => activityId)).size === items.length
+    && new Set(items.map(({ attachmentId }) => attachmentId)).size === items.length);
+export type SyncProgressPhoto = z.output<typeof syncProgressPhotosSchema>[number];
 const publishUpdate = z.discriminatedUnion("kind", [
   z.strictObject({ id: updateId, kind: z.literal("on_the_way"), band: timeBand }),
   z.strictObject({ id: updateId, kind: z.literal("arrival_revised"), correctsId: updateId, band: timeBand }),

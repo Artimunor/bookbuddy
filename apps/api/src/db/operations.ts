@@ -38,6 +38,12 @@ export interface OperationSpec {
   writes: (invocation: CommandStatement) => OperationWrites;
 }
 
+type SelectedOperationSpec = Omit<OperationSpec, "eligible" | "writes"> & {
+  // Select exactly the eligible IDs once, before any mutations. No IDs means ineligible.
+  selectWrites: CommandStatement;
+  writes: (invocation: CommandStatement, selectedIds: CommandStatement) => OperationWrites;
+};
+
 const encoder = new TextEncoder();
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -86,8 +92,12 @@ interface StoredResult { authorized: number; result_ref: string | null; matches_
 // Compose the returned input with prepareCommand. Only this invocation's
 // temporary receipt can authorize writes; all valid result references exclude
 // the private pending namespace. A D1 failure rolls back the entire batch.
-export async function planOperation(ctx: Pick<RequestScope, "now">, spec: OperationSpec): Promise<CommandInput<OperationResult>> {
-  const { operationId, command, access, scope, authorize = { sql: "1" }, eligible, unchanged } = spec;
+export function planOperation(ctx: Pick<RequestScope, "now">, spec: OperationSpec): Promise<CommandInput<OperationResult>>;
+export function planOperation(ctx: Pick<RequestScope, "now">, spec: SelectedOperationSpec): Promise<CommandInput<OperationResult>>;
+export async function planOperation(ctx: Pick<RequestScope, "now">, spec: OperationSpec | SelectedOperationSpec): Promise<CommandInput<OperationResult>> {
+  const { operationId, command, access, scope, authorize = { sql: "1" }, unchanged } = spec;
+  const selection = "selectWrites" in spec ? spec.selectWrites : null;
+  const eligible = "eligible" in spec ? spec.eligible : { sql: "EXISTS (SELECT 1 FROM selected_for_write)" };
   const prefix = scope ? `${access.sql}, command_scope AS MATERIALIZED (${scope.sql})` : access.sql;
   const scopeName = scope ? "command_scope" : "live_scope";
   const prefixParams = scope?.params ? [...access.params ?? [], ...scope.params] : access.params ?? [];
@@ -95,18 +105,29 @@ export async function planOperation(ctx: Pick<RequestScope, "now">, spec: Operat
   const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(canonical([command, spec.input]))));
   const inputHash = Array.from(hash, (byte) => byte.toString(16).padStart(2, "0")).join("");
   const pending = `pending:${crypto.randomUUID()}`;
-  const pendingWhere = "result_ref = ? AND result_ref GLOB 'pending:*'";
-  const guard = { sql: `EXISTS (SELECT 1 FROM operation_receipts WHERE ${pendingWhere})`, params: [pending] };
-  const { statements: mutations, changes, effects, topics = [], topicChanges } = spec.writes(guard);
+  // Optional selected IDs live only in the invocation's provisional receipt, never in the public result.
+  const pendingWhere = `${selection ? "result_ref GLOB ?" : "result_ref = ?"} AND result_ref GLOB 'pending:*'`;
+  const pendingKey = selection ? `${pending}:*` : pending;
+  const pendingParams = [pendingKey];
+  const guard = { sql: `EXISTS (SELECT 1 FROM operation_receipts WHERE ${pendingWhere})`, params: pendingParams };
+  const { statements: mutations, changes, effects, topics = [], topicChanges } = "selectWrites" in spec
+    ? spec.writes(guard, {
+      sql: `SELECT value AS id FROM json_each((SELECT substr(result_ref, ${pending.length + 2})
+        FROM operation_receipts WHERE ${pendingWhere}))`,
+      params: pendingParams,
+    }) : spec.writes(guard);
+  const selectedCte = selection ? `, selected_for_write AS MATERIALIZED (${selection.sql})` : "";
+  const pendingValue = selection ? "? || ':' || (SELECT json_group_array(id) FROM selected_for_write)" : "?";
   const statements: [CommandStatement, ...CommandStatement[]] = [{
-    sql: `${prefix}
+    sql: `${prefix}${selectedCte}
           INSERT INTO operation_receipts (account_id, context_id, operation_id, input_hash, command, result_ref, committed_at)
-          SELECT scope.account_id, scope.context_id, ?, ?, ?, ?, ? FROM ${scopeName} scope
+          SELECT scope.account_id, scope.context_id, ?, ?, ?, ${pendingValue}, ? FROM ${scopeName} scope
           WHERE (${authorize.sql}) AND NOT EXISTS (
             SELECT 1 FROM operation_receipts r WHERE r.account_id = scope.account_id AND r.context_id = scope.context_id AND r.operation_id = ?
           ) AND (${eligible.sql})
           ON CONFLICT (account_id, context_id, operation_id) DO NOTHING`,
-    params: [...prefixParams, operationId, inputHash, command, pending, ctx.now, ...authorize.params ?? [], operationId, ...eligible.params ?? []],
+    params: [...prefixParams, ...selection?.params ?? [], operationId, inputHash, command, pending, ctx.now,
+      ...authorize.params ?? [], operationId, ...eligible.params ?? []],
   }, ...mutations];
   if (changes) statements.push(recordSyncChanges(guard, changes));
   const effectIndex = effects ? statements.push(recordEffectIntents(guard, effects)) - 1 : -1;
@@ -116,7 +137,7 @@ export async function planOperation(ctx: Pick<RequestScope, "now">, spec: Operat
   }) - 1 : -1;
   const finalizeIndex = statements.push({
     sql: `UPDATE operation_receipts SET result_ref = ? WHERE ${pendingWhere} RETURNING result_ref`,
-    params: [resultRef, pending],
+    params: [resultRef, ...pendingParams],
   }) - 1;
   const replayIndex = statements.push({
     sql: `${prefix}

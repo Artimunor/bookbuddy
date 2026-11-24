@@ -9,7 +9,10 @@ import { authRoutes } from "./modules/auth/routes";
 import { chatThreadSyncProjection } from "./modules/chat/read";
 import { chatRoutes } from "./modules/chat/routes";
 import { chatAppendSyncOperation, chatReadSyncOperation } from "./modules/chat/sync";
-import { assignmentBriefingSyncProjection, attendanceRoutes, attendanceSyncOperation, fieldLiveRoutes, workerFieldShiftSyncProjection } from "./modules/field";
+import {
+  assignmentBriefingSyncProjection, attendanceRoutes, attendanceSyncOperation, fieldLiveRoutes, progressAttachmentSyncOperation,
+  workerFieldShiftSyncProjection,
+} from "./modules/field";
 import { jobSyncProjections } from "./modules/jobs/projections";
 import { jobsCommandRoutes } from "./modules/jobs/routes.commands";
 import { jobsReadRoutes } from "./modules/jobs/routes.read";
@@ -41,7 +44,7 @@ export function createApp() {
   app.route(API_BASE_PATH, jobsCommandRoutes);
   app.route(API_BASE_PATH, jobsReadRoutes);
   app.route(API_BASE_PATH, createTransportRoutes({
-    operations: [attendanceSyncOperation, chatAppendSyncOperation, chatReadSyncOperation],
+    operations: [attendanceSyncOperation, progressAttachmentSyncOperation, chatAppendSyncOperation, chatReadSyncOperation],
     projections: [
       placeSyncProjection, ...jobSyncProjections, ...scheduleSyncProjections,
       { ...coverSyncProjection, roles: ["foreman", "worker"] },

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   departAssignmentRoute, getVisitLogRoute, getWorkerFieldShiftRoute, operationIdHeader, recordAssignmentProgressRoute, recordAttendanceRoute,
-  requestAttendanceCorrectionRoute, resultSchema, syncRoute,
+  requestAttendanceCorrectionRoute, resultSchema, syncLimits, syncProgressPhotoLimit, syncRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
 import { ATTENDANCE_REVIEW_POLICY } from "@bookbuddy/domain";
@@ -91,8 +91,8 @@ async function fieldFixture() {
   return { db, hints, startsAt, endsAt, request, batchRequest,
     command: (path: string, operationId: string, payload: unknown, person: Person = "worker", assignment = "assignment") =>
       batchRequest(person, `/assignments/${assignment}/${path}`, { operationId, payload }, operationId),
-    sync: (cursor: string | null, operations: readonly unknown[] = []) =>
-      batchRequest("worker", "/sync", { contextId: "worker-context", cursor, operations }),
+    sync: (cursor: string | null, operations: readonly unknown[] = [], person: Person = "worker") =>
+      batchRequest(person, "/sync", { contextId: `${person}-context`, cursor, operations }),
   };
 }
 
@@ -287,10 +287,127 @@ test("progress links only ready photos for the named worker and remains private 
       (SELECT count(*) FROM operation_receipts WHERE command = 'assignment_progress') AS receipts`).first()).toEqual({ links: 1, photos: 1, receipts: 1 });
     const log = await data(await f.request("foreman", "/visits/visit/log", "GET"), getVisitLogRoute.output);
     if (log.view !== "all") throw new Error("Expected private log");
-    expect(log.stamps.find(({ kind }) => kind === "progress_photo")).toMatchObject({ actorName: "Lucía Martín", capturedAt: photo.capturedAt,
+    expect(log.stamps.find(({ kind }) => kind === "progress_photo")).toMatchObject({ shiftId: "shift", actorName: "Lucía Martín", capturedAt: photo.capturedAt,
       photo: { attachmentId: "ready-photo", availability: "available" }, caption: { original: photo.caption }, customerUpdateId: null,
       canShareWithCustomer: true });
     const preview = await data(await f.request("foreman", "/visits/visit/log?view=customer", "GET"), getVisitLogRoute.output);
     expect(JSON.stringify(preview)).not.toMatch(/ready-photo|Listo/);
+  } finally { f.db.close(); }
+});
+
+test("sync links each eligible photo once and returns an exact receipt, rejection or replay per activity", async () => {
+  const f = await fieldFixture();
+  try {
+    await data(await f.command("attendance", "lead-arrival-op", capture("lead-arrival", "arrival", f.startsAt),
+      "lead", "lead-assignment"), recordAttendanceRoute.output);
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO visit_activity_events (id, visit_id, actor_id, kind, at)
+        VALUES ('start', 'visit', 'foreman', 'work_started', ?)`).bind(f.startsAt + minute),
+      f.db.prepare(`INSERT INTO media_stages (id, context_id, caller, parent_scope_id, created_at, expires_at)
+        VALUES ('mine', 'lead-context', 'progress', 'lead-assignment', ?, ?),
+          ('other-stage', 'worker-context', 'progress', 'assignment', ?, ?)`)
+        .bind(f.startsAt + minute, f.endsAt, f.startsAt + minute, f.endsAt),
+      f.db.prepare(`INSERT INTO attachments (id, stage_id, object_key, mime, bytes, state, etag, retention_class)
+        VALUES ('ready', 'mine', 'obj-ready', 'image/jpeg', 1024, 'ready', 'etag', 'unlinked'),
+          ('pending', 'mine', 'obj-pending', 'image/jpeg', 1024, 'uploading', NULL, 'unlinked'),
+          ('other', 'other-stage', 'obj-other', 'image/jpeg', 1024, 'ready', 'etag', 'unlinked')`),
+    ]);
+    const capturedAt = f.startsAt + 2 * minute;
+    const ready = { activityId: "photo-ready", attachmentId: "ready", capturedAt, caption: { language: "es", text: "Listo" } };
+    const pending = { activityId: "photo-pending", attachmentId: "pending", capturedAt };
+    const other = { activityId: "photo-other", attachmentId: "other", capturedAt };
+    const operation = { kind: "attachment_link", operationId: "offline-photos", payload: { assignmentId: "lead-assignment",
+      photos: [pending, ready, other] } };
+    const denied = await data(await f.sync(null, [operation]), syncRoute.output);
+    expect(denied.outcomes[0]).toMatchObject({ status: "rejected", error: { code: "NOT_FOUND" }, photoOutcomes:
+      [pending, ready, other].map(({ activityId }) => ({ activityId, status: "rejected", error: { code: "NOT_FOUND" } })) });
+
+    const page = await data(await f.sync(null, [operation, operation], "lead"), syncRoute.output);
+    const [committed, replayed] = page.outcomes;
+    expect(committed).toMatchObject({ operationId: operation.operationId, status: "committed", resultRef: operation.operationId, photoOutcomes: [
+      { activityId: pending.activityId, status: "rejected", error: { code: "VALIDATION_FAILED" } },
+      { activityId: ready.activityId, status: "committed", receivedAt: expect.any(Number) },
+      { activityId: other.activityId, status: "rejected", error: { code: "VALIDATION_FAILED" } },
+    ] });
+    const receipt = committed?.photoOutcomes?.[1];
+    if (!receipt || receipt.status === "rejected") throw new Error("Missing committed photo");
+    expect(replayed).toEqual({ ...committed, status: "replayed", photoOutcomes: [
+      committed?.photoOutcomes?.[0], { ...receipt, status: "replayed" }, committed?.photoOutcomes?.[2],
+    ] });
+    const { activityId, ...fields } = ready;
+    const online = await data(await f.command("progress", "online-same-photo", { photos: [{ id: activityId, ...fields }] },
+      "lead", "lead-assignment"), recordAssignmentProgressRoute.output);
+    expect(online.receipts).toEqual([{ id: activityId, attachmentId: ready.attachmentId, receivedAt: receipt.receivedAt }]);
+    const changed = { ...operation, payload: { ...operation.payload, photos: [{ ...ready, capturedAt: ready.capturedAt + 1 }] } };
+    const consumed = { ...operation, operationId: "new-id-same-photo", payload: { ...operation.payload, photos: [ready] } };
+    const conflictingId = { ...changed, operationId: "new-id-changed-photo" };
+    const reconciliation = await data(await f.sync(page.cursor, [changed, consumed, conflictingId], "lead"), syncRoute.output);
+    expect(reconciliation.outcomes).toMatchObject([
+      { status: "rejected", error: { code: "OPERATION_ID_REUSED" }, photoOutcomes: [{ activityId, status: "rejected" }] },
+      { status: "unchanged", photoOutcomes: [{ activityId, status: "replayed", receivedAt: receipt.receivedAt }] },
+      { status: "rejected", error: { code: "VALIDATION_FAILED" }, photoOutcomes: [{ activityId, status: "rejected" }] },
+    ]);
+    await f.db.batch([
+      f.db.prepare("UPDATE attachments SET state = 'verifying' WHERE id = 'pending'"),
+      f.db.prepare("UPDATE attachments SET state = 'ready', etag = 'etag' WHERE id = 'pending'"),
+    ]);
+    const retry = { ...operation, operationId: "retry-pending", payload: { ...operation.payload, photos: [pending] } };
+    const reconciled = await data(await f.sync(reconciliation.cursor, [operation, retry], "lead"), syncRoute.output);
+    expect(reconciled.outcomes).toMatchObject([
+      { status: "replayed", photoOutcomes: [{ status: "rejected" }, { status: "replayed" }, { status: "rejected" }] },
+      { status: "committed", photoOutcomes: [{ activityId: pending.activityId, status: "committed", receivedAt: expect.any(Number) }] },
+    ]);
+    const log = await data(await f.request("foreman", "/visits/visit/log", "GET"), getVisitLogRoute.output);
+    if (log.view !== "all") throw new Error("Expected private log");
+    expect(log.stamps.filter(({ kind }) => kind === "progress_photo")).toMatchObject([
+      { id: expect.any(String), shiftId: "shift" }, { id: expect.any(String), shiftId: "shift" },
+    ]);
+    const preview = await data(await f.request("foreman", "/visits/visit/log?view=customer", "GET"), getVisitLogRoute.output);
+    expect(JSON.stringify(preview)).not.toMatch(/photo-ready|photo-pending|Listo/);
+    expect(await f.db.prepare(`SELECT (SELECT count(*) FROM shift_evidence) AS links,
+      (SELECT count(*) FROM visit_activity_events WHERE kind = 'progress_photo') AS photos,
+      (SELECT count(*) FROM operation_receipts WHERE command = 'assignment_progress') AS receipts`).first())
+      .toEqual({ links: 2, photos: 2, receipts: 2 });
+  } finally { f.db.close(); }
+});
+
+test("eight five-photo operations fit a single sync batch and cannot exceed the six-photo shift cap", async () => {
+  const f = await fieldFixture();
+  try {
+    await data(await f.command("attendance", "lead-arrival-op", capture("lead-arrival", "arrival", f.startsAt),
+      "lead", "lead-assignment"), recordAttendanceRoute.output);
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO visit_activity_events (id, visit_id, actor_id, kind, at)
+        VALUES ('start', 'visit', 'foreman', 'work_started', ?)`).bind(f.startsAt + minute),
+      f.db.prepare(`INSERT INTO media_stages VALUES ('mine', 'lead-context', 'progress', 'lead-assignment', ?, ?)`)
+        .bind(f.startsAt + minute, f.endsAt),
+      f.db.prepare(`INSERT INTO attachments (id, stage_id, object_key, mime, bytes, state, etag, retention_class)
+        SELECT 'photo-' || value, 'mine', 'object-' || value, 'image/jpeg', 1024, 'ready', 'etag', 'unlinked' FROM json_each(?)`)
+        .bind(JSON.stringify(Array.from({ length: syncProgressPhotoLimit * syncLimits.operations }, (_, index) => index))),
+    ]);
+    const operations = Array.from({ length: syncLimits.operations }, (_, i) => ({
+      operationId: `op-${i}`, kind: "attachment_link",
+      payload: { assignmentId: "lead-assignment", photos: Array.from({ length: syncProgressPhotoLimit }, (_, j) => {
+        const slot = i * syncProgressPhotoLimit + j;
+        return { activityId: `activity-${slot}`, attachmentId: `photo-${slot}`, capturedAt: f.startsAt + 2 * minute };
+      }) },
+    }));
+    const before = { ...f.db.calls };
+    const page = await data(await f.sync(null, operations, "lead"), syncRoute.output);
+    expect(f.db.calls.prepare - before.prepare).toBeLessThanOrEqual(7 * syncLimits.operations + 3);
+    expect(page.outcomes.flatMap(({ photoOutcomes }) => photoOutcomes ?? []).map(({ status }) => status)).toEqual([
+      ...Array<string>(6).fill("committed"), ...Array<string>(syncProgressPhotoLimit * syncLimits.operations - 6).fill("rejected"),
+    ]);
+    expect(await f.db.prepare("SELECT count(*) AS links FROM shift_evidence").first()).toEqual({ links: 6 });
+    const first = operations[0]!;
+    const invalidPayloads = [
+      { assignmentId: "lead-assignment", attachmentIds: ["photo-0"] },
+      { ...first.payload, photos: [...first.payload.photos, { activityId: "extra", attachmentId: "extra", capturedAt: f.startsAt }] },
+    ];
+    for (const payload of invalidPayloads) {
+      const rejected = await f.request("lead", "/sync", "POST", { contextId: "lead-context", cursor: page.cursor,
+        operations: [{ ...first, payload }] });
+      expect(rejected.status).toBe(422);
+    }
   } finally { f.db.close(); }
 });

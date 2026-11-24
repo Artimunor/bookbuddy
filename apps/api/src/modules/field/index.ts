@@ -1,4 +1,4 @@
 export { attendanceRoutes } from "./routes.attendance";
-export { attendanceSyncOperation, workerFieldShiftSyncProjection } from "./attendance";
+export { attendanceSyncOperation, progressAttachmentSyncOperation, workerFieldShiftSyncProjection } from "./attendance";
 export { fieldLiveRoutes } from "./routes.live";
 export { assignmentBriefingSyncProjection } from "./safety";

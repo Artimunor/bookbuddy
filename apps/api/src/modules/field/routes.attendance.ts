@@ -102,7 +102,7 @@ function readVisitLog(session: SessionAccess, now: number, { params, query }: Lo
     JOIN accounts actor ON actor.id = e.actor_id
     WHERE e.kind <> 'progress_photo' AND (mark.shift_id IS NULL OR e.assignment_id IS NULL OR e.assignment_id IN (SELECT id FROM log_assignments))
     UNION ALL SELECT e.at, 'activity', e.id, json_object('kind', 'progress_photo', 'id', e.id, 'assignmentId', a.id,
-      'at', e.at, 'actorName', ${displayName("actor")}, 'customerUpdateId', shared.id, 'capturedAt', e.captured_at,
+      'shiftId', evidence.shift_id, 'at', e.at, 'actorName', ${displayName("actor")}, 'customerUpdateId', shared.id, 'capturedAt', e.captured_at,
       'photo', json_object('attachmentId', media.id, 'availability', CASE WHEN ${photoReady} THEN 'available' ELSE 'unavailable' END),
       'caption', json(CASE WHEN e.safe_detail IS NOT NULL THEN json_object('original',
         json_object('language', e.detail_language, 'text', e.safe_detail), 'reading', NULL) END),
