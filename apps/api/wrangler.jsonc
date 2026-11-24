@@ -1,6 +1,8 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "bookbuddy-api",
+  // Set the BookBuddy Cloudflare account ID here and in the web Worker config.
+  "account_id": "<CLOUDFLARE_ACCOUNT_ID>",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-24",
   "compatibility_flags": [],
@@ -9,25 +11,27 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "bookbuddy-local",
+      "database_name": "bookbuddy-db",
+      "database_id": "<D1_DATABASE_ID>",
       "migrations_dir": "migrations"
     }
   ],
   // Provision EVIDENCE with public bucket access disabled; grants are scoped by the API.
-  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "bookbuddy-evidence-local" }],
+  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "bookbuddy-evidence" }],
   "queues": {
-    "producers": [{ "binding": "EFFECTS", "queue": "bookbuddy-effects-local" }],
-    "consumers": [{ "queue": "bookbuddy-effects-local" }]
+    "producers": [{ "binding": "EFFECTS", "queue": "bookbuddy-effects" }],
+    "consumers": [{ "queue": "bookbuddy-effects" }]
   },
   "durable_objects": {
     "bindings": [{ "name": "LIVE", "class_name": "LiveTopic" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveTopic"] }],
-  "triggers": { "crons": ["* * * * *"] }
-  // Configure PUBLIC_APP_ORIGIN as the public HTTPS origin for invitation links.
-  // Configure R2_ACCOUNT_ID and R2_EVIDENCE_BUCKET (the deployed EVIDENCE bucket name) for presigned URLs.
-  // Deployment secrets for feature waves (names only; never configure values here):
-  // OTP_HMAC_KEY, EFFECTS_ENCRYPTION_KEY, SYNC_CURSOR_HMAC_KEY,
-  // R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, POSTMARK_SERVER_TOKEN,
-  // GOOGLE_TRANSLATION_CREDENTIAL (only when an approved translation pair is enabled).
+  "triggers": { "crons": ["* * * * *"] },
+  // Production vars; override locally in the ignored .dev.vars.
+  "vars": {
+    "PUBLIC_APP_ORIGIN": "<PUBLIC_APP_ORIGIN>",
+    "R2_ACCOUNT_ID": "<CLOUDFLARE_ACCOUNT_ID>",
+    "R2_EVIDENCE_BUCKET": "bookbuddy-evidence",
+    "POSTMARK_SENDER": "<POSTMARK_SENDER>"
+  }
 }

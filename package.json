@@ -7,6 +7,7 @@
     "typecheck": "bun scripts/typecheck.ts",
     "test": "bun test",
     "check-layout": "bun scripts/check-layout.ts",
+    "check:wrangler": "bun scripts/check-wrangler.ts",
     "i18n:build": "bun packages/i18n/scripts/build.ts",
     "i18n:check": "bun packages/i18n/scripts/build.ts --check",
     "tokens:build": "bun packages/design-tokens/scripts/build.ts",

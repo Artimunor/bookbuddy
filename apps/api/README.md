@@ -8,7 +8,7 @@ SEED_EMAIL_DOMAIN=bookbuddy.test bun scripts/seed.ts --scenario construction --u
 
 The command above applies migrations and uses only local Wrangler state under `apps/api/.wrangler/state`; `--reset` deletes its D1 database files, not other local resources. Without `--reset`, seed only into a fresh database. It prints the synthetic account emails and roles. Available checkpoints are `request-sent`, `assessment-done`, `quote-issued`, `quote-approved`, `visit-booked`, `crew-confirmed`, `dropout`, `cover-offered`, `cover-accepted`, `cover-confirmed`, `on-the-way`, `checked-in`, `briefed`, `work-started`, `work-finished`, `checked-out`, `completion-submitted`, `signed-off`, `bill-issued`, and `paid-recorded`. The snapshot uses the actual November 2026 story timestamps; seeded quotes expire on 30 November 2026.
 
-Wrangler's `dev` proxy requires Node to forward requests to Miniflare. Under Bun it returns HTTP 503 before the Worker route runs. The Wrangler migration and seed commands above still work under Bun.
+Run `bun run dev:api` from the repository root with Node.js 22.12 or later on `PATH`. Wrangler's `dev` proxy needs Node to forward requests to Miniflare. The local migration and seed commands still work under Bun.
 
 ## Bun-only portal demo
 
@@ -26,6 +26,10 @@ Run `bun run dev:web` in another terminal. Open `/portal/sign-in` on the Vite or
 The API listens only on loopback and uses the real Hono routes, migrations, SQL and outbox consumer. It does not emulate Cloudflare queue delivery, live updates or evidence storage, and it does not call external mail or push providers. The SQLite file persists between runs and is separate from Wrangler's state. Stop the API before replacing that file with `--reset`.
 
 To issue a first quote through the app, seed through `assessment-done` instead. It leaves BB-1042 assigned to Mateo with a finished assessment and no quote. `EXPO_PUBLIC_BOOKBUDDY_LOCAL_WEB=1 bun run export:preview` exports the real Expo routes rather than the screen catalog. Serve that export on a loopback origin with a same-origin `/api` proxy to the Bun API, preserving `Host` and `Origin`. This export uses the API’s HttpOnly session cookie; the native bearer flow and ordinary screen-catalog export are unchanged.
+
+## Cloudflare deployment
+
+See [Cloudflare account and Wrangler profile](../../docs/operations/cloudflare-auth.md) for account setup and deployment, and [Worker secrets and environment](../../docs/operations/secrets-and-environment.md) for resource names, secrets, and local overrides.
 
 ## Production live upgrades
 

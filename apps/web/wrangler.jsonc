@@ -1,0 +1,23 @@
+{
+  "$schema": "../api/node_modules/wrangler/config-schema.json",
+  "name": "bookbuddy-web",
+  // Use the same BookBuddy Cloudflare account ID as the API Worker.
+  "account_id": "<CLOUDFLARE_ACCOUNT_ID>",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-24",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none",
+    "run_worker_first": [
+      "/api", "/api/*",
+      "/", "/services", "/services/", "/services/repairs", "/services/repairs/",
+      "/book", "/book/", "/help", "/help/", "/privacy", "/privacy/", "/terms", "/terms/",
+      "/portal", "/portal/*", "/l/*"
+    ]
+  },
+  "services": [{ "binding": "API", "service": "bookbuddy-api" }]
+}
