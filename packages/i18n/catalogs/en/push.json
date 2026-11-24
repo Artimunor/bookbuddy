@@ -1,1 +1,6 @@
-{}
+{
+  "push.coverOffer.body": "You have a cover offer. Open BookBuddy to review it.",
+  "push.generic.body": "You have an update.",
+  "push.generic.title": "BookBuddy",
+  "push.placeInvite.body": "You have an invitation. Open BookBuddy to review it."
+}

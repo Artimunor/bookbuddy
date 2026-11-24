@@ -3,7 +3,15 @@ import type { Catalogs } from "../translator";
 
 export default {
   "en": {
+    "push.coverOffer.body": [{"type":0,"value":"You have a cover offer. Open BookBuddy to review it."}],
+    "push.generic.body": [{"type":0,"value":"You have an update."}],
+    "push.generic.title": [{"type":0,"value":"BookBuddy"}],
+    "push.placeInvite.body": [{"type":0,"value":"You have an invitation. Open BookBuddy to review it."}],
   },
   "pt-PT": {
+    "push.coverOffer.body": [{"type":0,"value":"Tem uma proposta de substituição. Abra a BookBuddy para a consultar."}],
+    "push.generic.body": [{"type":0,"value":"Tem uma atualização."}],
+    "push.generic.title": [{"type":0,"value":"BookBuddy"}],
+    "push.placeInvite.body": [{"type":0,"value":"Tem um convite. Abra a BookBuddy para o consultar."}],
   },
 } satisfies Catalogs;

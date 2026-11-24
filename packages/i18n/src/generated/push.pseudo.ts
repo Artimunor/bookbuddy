@@ -3,7 +3,15 @@ import type { Catalogs } from "../translator";
 
 export default {
   "ar-XB": {
+    "push.coverOffer.body": [{"type":0,"value":"\u202eYou have a cover offer. Open BookBuddy to review it.\u202c"}],
+    "push.generic.body": [{"type":0,"value":"\u202eYou have an update.\u202c"}],
+    "push.generic.title": [{"type":0,"value":"\u202eBookBuddy\u202c"}],
+    "push.placeInvite.body": [{"type":0,"value":"\u202eYou have an invitation. Open BookBuddy to review it.\u202c"}],
   },
   "en-XA": {
+    "push.coverOffer.body": [{"type":0,"value":"Ÿôü ħáṽë á çôṽëř ôƒƒëř. Ôþëñ ɃôôķɃüďďÿ ţô řëṽïëŵ ïţ.~~~~~~~~~~~~~~~~~~~~~"}],
+    "push.generic.body": [{"type":0,"value":"Ÿôü ħáṽë áñ üþďáţë.~~~~~~~~"}],
+    "push.generic.title": [{"type":0,"value":"ɃôôķɃüďďÿ~~~~"}],
+    "push.placeInvite.body": [{"type":0,"value":"Ÿôü ħáṽë áñ ïñṽïţáţïôñ. Ôþëñ ɃôôķɃüďďÿ ţô řëṽïëŵ ïţ.~~~~~~~~~~~~~~~~~~~~~"}],
   },
 } satisfies Catalogs;
