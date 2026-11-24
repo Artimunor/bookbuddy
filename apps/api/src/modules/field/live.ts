@@ -113,13 +113,15 @@ const customerSummary = customerLiveSelection(customerStampSql("arrival", "j.pro
     json_object('step', basis.step, 'status', basis.status, 'since', coalesce(source.occurred_at, source.recorded_at),
       'source', json(${liveSource("j.provider_name")}), 'arrival', json(basis.arrival), 'nextUpdateAt', source.next_update_at))`);
 
-// Expects the C-09 visit/job/confirmed-window aliases (v, j, booked).
-export function customerJobVisitSummarySql(scope: string, providerName: string, siteZone: string): string {
-  return `CASE WHEN ${visitReadable} AND ${liveCustomer(scope)} THEN ${customerLiveSelection(
-    `json_object('start', arrival.band_start, 'end', arrival.band_end, 'siteZone', ${siteZone})`,
-    `json_object('status', basis.status, 'step', basis.step, 'arrivalWindow', json(basis.arrival),
-      'source', json(${liveSource(providerName)}))`,
-  )} END`;
+// Expects the C-09 visit/job/confirmed-window aliases (v, j, booked). The
+// exact opening is available to authorized viewers; only the requester gets a summary here.
+export function customerJobVisitOpeningSql(scope: string, providerName: string, siteZone: string): string {
+  return `CASE WHEN ${visitReadable} AND ${liveCustomer(scope)} THEN json_object('summary',
+    json(CASE WHEN j.requester_id = ${scope}.account_id THEN ${customerLiveSelection(
+      `json_object('start', arrival.band_start, 'end', arrival.band_end, 'siteZone', ${siteZone})`,
+      `json_object('status', basis.status, 'step', basis.step, 'arrivalWindow', json(basis.arrival),
+        'source', json(${liveSource(providerName)}))`,
+    )} END)) END`;
 }
 
 function customerVisitSql(cursorAt: string, cursorId: string): string {

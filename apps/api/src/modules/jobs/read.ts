@@ -5,7 +5,7 @@ import { at, currentCheck, displayName, eligibilityStatus, liveTerm, scopedState
 import type { SessionAccess } from "../auth/session";
 import { approvedInvoice, invoiceLines, paymentHead } from "../aftercare/invoice";
 import { routedReviewer } from "../commercial/policy";
-import { customerJobVisitSummarySql } from "../field/live";
+import { customerJobVisitOpeningSql } from "../field/live";
 import { mediaLinkAvailable } from "../media/deadlines";
 import { readyAttachmentSql } from "../media/policy";
 import { placeCapability } from "../places/policy";
@@ -169,8 +169,8 @@ const readyBillDetails = `(WITH basis(value) AS MATERIALIZED (${approvedInvoice(
 const todayVisits = (linked: boolean, whole: boolean) => {
   const visit = visitJson("v", "booked");
   const staff = whole ? linked ? "s.role = 'foreman' AND (SELECT visit_id FROM input) IS NOT NULL" : "0" : "s.role = 'foreman'";
-  const customer = whole ? `WHEN s.role = 'customer' AND j.requester_id = s.account_id THEN json_set(${visit},
-    '$.summary', json(${customerJobVisitSummarySql("s", "b.public_name", placeZone)}))` : "";
+  const customer = whole ? `WHEN s.role = 'customer' THEN json_set(${visit},
+    '$.opening', json(${customerJobVisitOpeningSql("s", "b.public_name", placeZone)}))` : "";
   const staffing = staff === "0" ? "" : `WHEN ${staff} THEN json_set(${visit},
     '$.shifts', json(${shiftSlots("v")}), '$.vacantSlotId', ${vacantSlot})`;
   const packet = `CASE ${customer} ${staffing} ELSE ${visit} END`;
@@ -496,7 +496,7 @@ interface Stamp { at: number; by: string | null }
 interface ShiftSlots { shiftId: string; slotIds: string[] }
 interface VisitStaffing { shifts?: ShiftSlots[]; vacantSlotId?: string | null }
 type CustomerJobVisit = NonNullable<Extract<Extract<JobDetail, { audience: "customer" }>["job"], { view: "whole" }>["visit"]>;
-type DetailedVisit = VisitRow & VisitStaffing & { summary?: CustomerJobVisit | null };
+type DetailedVisit = VisitRow & VisitStaffing & { opening?: { summary: Omit<CustomerJobVisit, "visitId"> | null } | null };
 type InvoiceAmount = { minor: number; currency: "EUR" };
 interface ProviderInvoice {
   billId: string; number: string; total: InvoiceAmount; expectedPriorId: string | null; canRecordPaid: boolean;
@@ -733,7 +733,8 @@ export function projectJob(rows: ReadRows, view: View, now: number, exactVisit =
       if (view === "today") return today ? { audience, job: { ...customerLive(job, today), view,
         nextStep: customerStep(job, now), crewNames: [] } } : null;
       return { audience, job: { ...customerCard(job, now), view, revision: job.revision, hasTodayView: !!today,
-        ...(today?.summary ? { visit: today.summary } : {}),
+        ...(today?.opening ? { todayVisitId: today.visitId } : {}),
+        ...(today?.opening?.summary ? { visit: { visitId: today.visitId, ...today.opening.summary } } : {}),
         attachmentIds: job.attachmentIds ?? [],
         quote: quote && { versionId: quote.versionId, version: quote.version, state: quote.state, total: { minor: quote.minor, currency: "EUR" },
           sent: { at: quote.issuedAt, by: quote.by }, approved: quote.approved ?? null },

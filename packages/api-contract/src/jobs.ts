@@ -148,7 +148,8 @@ const unpaidBill = jobHeading.extend({
 export const homeProjectionSchema = z.discriminatedUnion("audience", [
   z.object({
     audience: z.literal("customer"), unreadCount: count, place: place.extend({ siteZone: siteZone.nullable() }).nullable(),
-    liveVisits: z.array(customerLive), decisions: z.array(customerDecision), upcoming: z.array(customerCard), recent: z.array(customerMoment),
+    liveVisits: z.array(customerLive), decisions: z.array(customerDecision),
+    upcoming: z.array(customerCard.extend({ nextVisit: booking })), recent: z.array(customerMoment),
   }),
   z.object({
     audience: z.literal("foreman"), unreadCount: count, businessName: displayText, siteZone,
@@ -217,6 +218,7 @@ const foremanJobBill = z.discriminatedUnion("state", [
 
 const customerLiveState = customerLiveVisitSchema.shape.live.shape;
 const customerJobVisit = z.strictObject({
+  visitId: booking.shape.visitId,
   status: customerLiveState.status, step: customerLiveState.step,
   arrivalWindow: z.strictObject({ start: timestampSchema, end: timestampSchema, siteZone })
     .refine(({ start, end }) => start < end, { path: ["end"] }).nullable(),
@@ -227,7 +229,7 @@ export const jobDetailSchema = z.discriminatedUnion("audience", [
   z.object({ audience: z.literal("customer"), job: z.discriminatedUnion("view", [
     customerCard.extend({
       view: z.literal("whole"), revision: revisionSchema, hasTodayView: z.boolean(), quote: quoteSummary.nullable(),
-      visit: customerJobVisit.optional(),
+      todayVisitId: booking.shape.visitId.optional(), visit: customerJobVisit.optional(),
       foremanName: displayText.nullable(), chatThreadId: idSchemaFor<"chat_thread">().nullable(),
       attachmentIds: requestAttachmentIds,
       change: z.object({ versionId: idSchemaFor<"change_version">(), state: z.enum(CHANGE_VERSION_STATES).extract(["issued", "approved", "rejected"]),

@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { getBusinessOverviewRoute, getHandoffRoute, getHomeRoute, getJobRoute, getJobsRoute, resultSchema, syncRoute } from "@bookbuddy/api-contract";
+import { getBusinessOverviewRoute, getHandoffRoute, getHomeRoute, getJobRoute, getJobsRoute, getVisitLiveRoute, resultSchema, syncRoute } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { randomToken } from "../src/modules/auth/crypto";
@@ -102,8 +102,9 @@ async function fixture() {
       headers: { Authorization: `Bearer ${credentials.get(user)}` },
       body: body === undefined ? undefined : JSON.stringify(body),
     }, env, execution);
-    expect(db.calls.batch - batch).toBe(1);
-    expect(db.calls.query - query).toBe(0);
+    const exactLiveRead = body === undefined && path.startsWith("/visits/");
+    expect(db.calls.batch - batch).toBe(exactLiveRead ? 0 : 1);
+    expect(db.calls.query - query).toBe(exactLiveRead ? 1 : 0);
     if (body === undefined) expect(response.headers.get("cache-control")).toBe("private, no-store");
     return { status: response.status, body: await response.json() as unknown };
   }
@@ -194,13 +195,13 @@ test("whole-job visit summary selects the site-day visit and is only visible to 
       f.db.prepare(`INSERT INTO customer_updates (id, visit_id, actor_id, kind, band_start, band_end, recorded_at)
         VALUES ('travel', 'visit', 'foreman', 'on_the_way', ?, ?, ?)`).bind(start, end, now),
     ]);
-    const summary = { status: "on_the_way", step: "on_the_way", arrivalWindow: { start, end, siteZone: "Europe/Madrid" },
+    const summary = { visitId: "visit", status: "on_the_way", step: "on_the_way", arrivalWindow: { start, end, siteZone: "Europe/Madrid" },
       source: { at: now, sharedByName: "foreman" } };
     const mine = await f.request("/jobs/mine", "owner");
     expect(mine.body).toMatchObject({ data: { audience: "customer", job: { view: "whole", hasTodayView: true, visit: summary } } });
     expect(resultSchema(getJobRoute.output).parse(mine.body)).toMatchObject({ data: { job: { visit: summary } } });
     const viewer = await f.request("/jobs/mine", "viewer");
-    expect(viewer.body).toMatchObject({ data: { audience: "customer", job: { view: "whole", hasTodayView: true } } });
+    expect(viewer.body).toMatchObject({ data: { audience: "customer", job: { view: "whole", hasTodayView: true, todayVisitId: "visit" } } });
     expect(viewer.body).not.toHaveProperty("data.job.visit");
     const staff = await f.request("/jobs/mine", "foreman");
     expect(staff.body).toMatchObject({ data: { audience: "foreman", job: { view: "whole" } } });
@@ -213,7 +214,38 @@ test("whole-job visit summary selects the site-day visit and is only visible to 
     const earlier = await f.request("/jobs/mine", "owner");
     expect(earlier.body).toMatchObject({ data: { job: { hasTodayView: false } } });
     expect(earlier.body).not.toHaveProperty("data.job.visit");
+    expect(earlier.body).not.toHaveProperty("data.job.todayVisitId");
   } finally { f.db.close(); date.mockRestore(); }
+});
+
+test("Now identifies the selected visit even when an earlier same-day visit is still unfinished", async () => {
+  const midday = Date.UTC(2026, 10, 25, 11);
+  const laterStart = midday + 120 * minute, laterEnd = laterStart + 60 * minute;
+  const clock = spyOn(Date, "now").mockReturnValue(midday);
+  const f = await fixture();
+  try {
+    await f.db.batch([
+      f.db.prepare("UPDATE visit_windows SET starts_at = ?, ends_at = ? WHERE id = 'window'").bind(laterStart, laterEnd),
+      f.db.prepare("INSERT INTO visits (id, job_id, kind, state) VALUES ('morning', 'mine', 'work', 'booked')"),
+      f.db.prepare(`INSERT INTO visit_windows (id, visit_id, starts_at, ends_at, expires_at, provider_authorized, proposed_at,
+        proposed_by, confirmed_at, confirmed_by, state) VALUES ('morning-window', 'morning', ?, ?, ?, 1, ?, 'foreman', ?, 'owner', 'confirmed')`)
+        .bind(midday - 180 * minute, midday - 120 * minute, now + minute, old + minute, old + 2 * minute),
+    ]);
+    const home = async () => resultSchema(getHomeRoute.output).parse((await f.request("/home?placeId=place", "owner")).body);
+    expect(await home()).toMatchObject({ data: { liveVisits: [], upcoming: [{
+      jobId: "mine", nextVisit: { visitId: "visit", window: { startsAt: laterStart, endsAt: laterEnd } },
+    }] } });
+    expect((await f.request("/jobs/mine", "owner")).body).toMatchObject({ data: { job: {
+      nextVisit: { visitId: "visit" }, todayVisitId: "morning", visit: { visitId: "morning" },
+    } } });
+    const exact = await f.request("/visits/visit/live", "owner");
+    expect(resultSchema(getVisitLiveRoute.output).parse(exact.body)).toMatchObject({ data: {
+      visitId: "visit", window: { startsAt: laterStart, endsAt: laterEnd },
+    } });
+    expect(await f.request("/visits/visit/live", "other")).toMatchObject({ status: 404, body: noAccess });
+    clock.mockReturnValue(laterStart);
+    expect(await home()).toMatchObject({ data: { upcoming: [], liveVisits: [{ jobId: "mine", visit: { visitId: "visit" } }] } });
+  } finally { f.db.close(); clock.mockRestore(); }
 });
 
 test("staff reads separate accountability, active intake, business oversight, and absent worker assignment", async () => {
