@@ -65,6 +65,12 @@ WHEN NEW.corrects_id IS NOT NULL AND NOT EXISTS (
 )
 BEGIN SELECT RAISE(ABORT, 'correction must append after the previous revision of this message'); END;
 
+CREATE TRIGGER chat_entries_no_replace BEFORE INSERT ON chat_entries
+WHEN EXISTS (SELECT 1 FROM chat_entries WHERE id = NEW.id)
+  OR EXISTS (SELECT 1 FROM chat_entries WHERE root_id = NEW.root_id AND revision = NEW.revision)
+  OR EXISTS (SELECT 1 FROM chat_entries WHERE thread_id = NEW.thread_id AND position = NEW.position)
+BEGIN SELECT RAISE(ABORT, 'message entries are append-only'); END;
+
 CREATE TRIGGER chat_messages_immutable BEFORE UPDATE ON chat_messages
 BEGIN SELECT RAISE(ABORT, 'message identity and attribution are immutable'); END;
 CREATE TRIGGER chat_entries_immutable BEFORE UPDATE ON chat_entries
@@ -100,12 +106,17 @@ CREATE TABLE reading_artifacts (
   translated_text TEXT NOT NULL CONSTRAINT reading_artifacts_text CHECK (length(trim(translated_text)) > 0),
   reviewed_by_context_id TEXT NOT NULL REFERENCES account_contexts (id),
   reviewed_at INTEGER NOT NULL CONSTRAINT reading_artifacts_reviewed_at CHECK (typeof(reviewed_at) = 'integer'),
-  CONSTRAINT reading_artifacts_scope CHECK ((quote_version_id IS NULL) <> (change_version_id IS NULL))
+  CONSTRAINT reading_artifacts_scope CHECK ((quote_version_id IS NULL) <> (change_version_id IS NULL)),
+  UNIQUE (id, quote_version_id),
+  UNIQUE (id, change_version_id)
 );
 CREATE INDEX reading_artifacts_quote ON reading_artifacts (quote_version_id, target_locale, reviewed_at, id) WHERE quote_version_id IS NOT NULL;
 CREATE INDEX reading_artifacts_change ON reading_artifacts (change_version_id, target_locale, reviewed_at, id) WHERE change_version_id IS NOT NULL;
 CREATE INDEX reading_artifacts_reviewer ON reading_artifacts (reviewed_by_context_id);
 CREATE TRIGGER reading_artifacts_immutable BEFORE UPDATE ON reading_artifacts
+BEGIN SELECT RAISE(ABORT, 'reviewed reading aids are immutable'); END;
+CREATE TRIGGER reading_artifacts_no_replace BEFORE INSERT ON reading_artifacts
+WHEN EXISTS (SELECT 1 FROM reading_artifacts WHERE id = NEW.id)
 BEGIN SELECT RAISE(ABORT, 'reviewed reading aids are immutable'); END;
 
 CREATE TABLE thread_reads (

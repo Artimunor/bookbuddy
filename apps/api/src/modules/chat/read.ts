@@ -6,9 +6,10 @@ import type { SessionAccess } from "../auth/session";
 import { customerStampSql } from "../field/live";
 import { activeHold, currentSafetyVersion, effectiveAttendance } from "../field/safety";
 import { currentMembership } from "../jobs/projections";
+import { mediaLinkAvailable } from "../media/deadlines";
 import type { SyncProjectionReader } from "../sync/registry";
 import { chatMediaAvailable, chatThreadKind, mediaKind, readingLocales, receiptFields, savedReadPosition } from "./commands";
-import { chatParticipants, chatScope, chatTargets, entryVisible, exactThread, threadPageFilter } from "./policy";
+import { chatParticipants, chatScope, chatTargets, entryVisible, exactThread, inboxThreadScope } from "./policy";
 import { bindTranslation, preferredTranslation } from "./translation";
 
 const entryPageSize = 16; // Bound a page of original and translated texts below D1's row size limit.
@@ -45,11 +46,10 @@ export function entryCursor(cursor?: string): number | null | undefined {
 }
 
 export function readThreadList(session: SessionAccess, now: number, after: readonly [string, string], pairs: readonly LanguagePair[]) {
-  const scope = chatScope(session, now, threadPageFilter(after));
-  return scopedStatement(scope, `, translation_config(pairs) AS (VALUES (?)), list AS MATERIALIZED (
-      SELECT *, coalesce(job_id, session_booking_id) AS parent_id FROM chat_scope ORDER BY parent_id, audience LIMIT ${inboxPageSize + 1}),
-    all_chat_members AS MATERIALIZED (WITH inbox_targets AS (SELECT target.* FROM chat_targets target
-      JOIN list page ON page.id = target.id) SELECT * FROM (${chatParticipants("1", "inbox_targets")}))
+  const scope = inboxThreadScope(session, now, after);
+  return scopedStatement(scope, `, translation_config(pairs) AS (VALUES (?)),
+    list AS MATERIALIZED (SELECT t.*, page.parent_id FROM inbox_page page JOIN chat_scope t ON t.id = page.id),
+    all_chat_members AS MATERIALIZED (${chatParticipants()})
     SELECT (SELECT json_object('threads', json(${items(`SELECT json_object(${threadFields("t")},
       'contact', json((SELECT json_object(${actorFields("a", "member", "t")}) FROM all_chat_members member
         JOIN accounts a ON a.id = member.account_id WHERE member.id = t.id AND (${contact("member", "t")}) LIMIT 1)),
@@ -59,7 +59,8 @@ export function readThreadList(session: SessionAccess, now: number, after: reado
         'preferredTranslation', json(${preferredTranslation("e", "pref.reading_locale", "mt", pairs, true)}),
         'author', json_object(${actorFields("person", "author", "t")}), 'receivedAt', e.received_at,
         'attachmentKind', (SELECT ${mediaKind("media")} FROM entry_attachments ea JOIN attachments media ON media.id = ea.attachment_id
-          WHERE ea.entry_id = e.id ORDER BY media.id LIMIT 1))
+          WHERE ea.entry_id = e.id AND ${chatMediaAvailable("media")} AND ${mediaLinkAvailable("t.job_id", "media.id", "ordinary")}
+          ORDER BY media.id LIMIT 1))
         FROM chat_entries e ${authorJoins} ${bindTranslation("e", "pref.reading_locale")}
         WHERE ${entryVisible("t", "e")} ORDER BY e.position DESC LIMIT 1))) AS value
       FROM list t LEFT JOIN account_preferences pref ON pref.account_id = t.account_id
@@ -140,7 +141,8 @@ const threadEntriesSql = (initial: boolean, pairs: readonly LanguagePair[], incl
           'originalText', e.original_text, 'preferredTranslation', json(${preferredTranslation("e", "pref.reading_locale", "mt", pairs)}),
           'author', json_object(${actorFields("person", "author", "t")}), 'attachments', json(${items(`SELECT
             json_object('attachmentId', a.id, 'kind', ${mediaKind("a")},
-              'availability', CASE WHEN ${chatMediaAvailable("a")} THEN 'available' ELSE 'unavailable' END) AS value
+              'availability', CASE WHEN ${chatMediaAvailable("a")} AND ${mediaLinkAvailable("t.job_id", "a.id", "ordinary")}
+                THEN 'available' ELSE 'unavailable' END) AS value
               FROM entry_attachments ea JOIN attachments a ON a.id = ea.attachment_id WHERE ea.entry_id = e.id ORDER BY a.id`)})) AS entry,
           author.context_id AS author_context,
           CASE WHEN author.context_id = t.context_id THEN ${readingLocales("e", "t.account_id")} END AS locales

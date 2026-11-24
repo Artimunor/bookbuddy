@@ -19,7 +19,7 @@ import {
   appendReceipts, planChatAppend, planChatReadMark, planTranslationReport, planTranslationRetry, readMarkResult, withChatValue,
 } from "./commands";
 import type { CommandValue } from "./commands";
-import { chatScope, ensureChatMember, ensureInboxThreads, sessionThreadProvision, threadPageFilter } from "./policy";
+import { chatScope, ensureChatMember, ensureInboxThreads, inboxThreadScope, sessionThreadProvision } from "./policy";
 import { entryCursor, inboxCursor, readThread, readThreadEntries, readThreadList } from "./read";
 import { isSessionThread } from "./session";
 
@@ -38,7 +38,7 @@ chatRoutes.get(listThreadsRoute.path, async (c) => {
   const ctx = openRequestScope(c.env.DB, c.var.requestId);
   const session = await resolveSession(c.req.raw, null, ctx.now);
   if (!session) return transportFailure(c, "UNAUTHENTICATED");
-  const scoped = chatScope(session, ctx.now, threadPageFilter(after));
+  const scoped = inboxThreadScope(session, ctx.now, after);
   const statements = [ensureInboxThreads(session, ctx.now, after), ensureChatMember(scoped, {
     sql: `id IN (SELECT id FROM chat_scope ORDER BY coalesce(job_id, session_booking_id), audience LIMIT ${syncLimits.changes})`,
   }), readThreadList(session, ctx.now, after, enabledTranslationPairs(c.env))];

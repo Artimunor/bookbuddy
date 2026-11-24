@@ -3,51 +3,30 @@ import { createPushTranslator } from "@bookbuddy/i18n/push";
 import type { Bindings } from "../bindings";
 import { at } from "../modules/access/policy";
 import { liveContextPredicate } from "../modules/auth/session";
-import { chatNoticeKind, threadLinkKind, visibleThreadFor } from "../modules/chat/links";
-import { scopedIntakeIds } from "../modules/jobs/projections";
+import { noticeLink, pushNoticeAllowed } from "../modules/notifications/policy";
 import { createExpoPush, maxReceiptIds } from "../providers/expo-push";
 import type { ExpoFetch, ExpoMessage } from "../providers/expo-push";
 import type { ClaimedEffect } from ".";
 
 // Notifications are durable recipient intents, not a transport payload. An
 // orphaned, read or expired intent, or a disabled installation, needs no send.
-const input = `FROM notifications n JOIN account_contexts c ON c.id = n.context_id
-  JOIN accounts a ON a.id = c.account_id AND a.state = 'active'
-  JOIN link_targets l ON l.token = n.link_token AND l.required_scope = c.id AND l.expires_at > ${at}`;
-const eligible = `n.id = e.resource_ref AND n.read_at IS NULL AND ${liveContextPredicate}
-  AND CASE n.kind
-    WHEN '${chatNoticeKind}' THEN l.kind = '${threadLinkKind}' AND EXISTS (${visibleThreadFor("l.resource_id", "n.context_id")})
-    WHEN 'job_handoff_offered' THEN l.kind = 'job_handoff' AND EXISTS (
-      WITH notice_scope AS (SELECT c.id AS context_id, c.role, c.business_id)
-      ${scopedIntakeIds("notice_scope", at, "h.id = l.resource_id")})
-    WHEN 'assignment_offer' THEN l.kind = 'assignment_offer' AND EXISTS (
-      SELECT 1 FROM assignment_offers o JOIN shift_slots slot ON slot.id = o.slot_id
-      JOIN shifts sh ON sh.id = slot.shift_id JOIN visits v ON v.id = sh.visit_id JOIN jobs j ON j.id = v.job_id
-      JOIN membership_roles role ON role.id = c.role_grant_id AND role.membership_id = o.recipient_id
-      WHERE o.id = l.resource_id AND c.role = 'worker' AND c.business_id = j.business_id AND role.granted_at <= ${at}
-        AND o.state = 'offered' AND o.issued_at <= ${at} AND o.expires_at > ${at}
-        AND sh.state = 'planned' AND sh.starts_at > ${at} AND v.state = 'booked' AND j.state = 'open')
-    WHEN 'cover_offer' THEN l.kind = 'cover_offer' AND EXISTS (
-      SELECT 1 FROM cover_offers o JOIN cover_gaps g ON g.id = o.gap_id
-      JOIN cover_rounds r ON r.gap_id = g.id AND r.round_no = g.current_round_no AND r.dispatch_no = o.dispatch_no
-      JOIN cover_dispatches d ON d.gap_id = g.id AND d.dispatch_no = o.dispatch_no
-      JOIN shift_slots slot ON slot.id = g.slot_id JOIN shifts sh ON sh.id = slot.shift_id
-      JOIN visits v ON v.id = sh.visit_id JOIN jobs j ON j.id = v.job_id
-      JOIN membership_roles role ON role.id = c.role_grant_id AND role.membership_id = o.recipient_id
-      WHERE o.id = l.resource_id AND c.role = 'worker' AND c.business_id = j.business_id AND role.granted_at <= ${at}
-        AND o.state = 'offered' AND o.expires_at > ${at} AND g.state = 'open' AND g.safe_cutoff > ${at}
-        AND d.issued_at <= ${at} AND r.state = 'open' AND d.state = 'open' AND d.reply_until > ${at}
-        AND sh.state = 'planned' AND sh.starts_at > ${at} AND v.state = 'booked' AND j.state = 'open')
-    ELSE 1 END`;
+const input = `FROM notifications n JOIN (
+    SELECT c.id AS context_id, c.account_id, c.business_id, c.role, g.membership_id
+    FROM account_contexts c JOIN accounts a ON a.id = c.account_id AND a.state = 'active'
+    LEFT JOIN membership_roles g ON g.id = c.role_grant_id AND g.granted_at <= ${at}
+    WHERE ${liveContextPredicate} AND (c.role = 'customer' OR g.id IS NOT NULL)
+  ) scope ON scope.context_id = n.context_id
+  JOIN link_targets l ON ${noticeLink}`;
+const eligible = `n.id = e.resource_ref AND n.read_at IS NULL AND (${pushNoticeAllowed})`;
 export const pushNotificationEffect = {
   kind: "notification_push",
   eligible: `EXISTS (SELECT 1 ${input} WHERE ${eligible} AND EXISTS (
-    SELECT 1 FROM push_installations i WHERE i.account_id = c.account_id AND i.state = 'active'))`,
+    SELECT 1 FROM push_installations i WHERE i.account_id = scope.account_id AND i.state = 'active'))`,
   scrub: "resource_ref", // Retain only the notification ID in the ledger, never a device token.
   claimResource: `coalesce((SELECT json_object('kind', n.kind, 'token', l.token, 'locale', p.ui_locale,
     'installations', json((SELECT json_group_array(json_object('id', i.id, 'epoch', i.token_epoch, 'token', i.token))
-      FROM push_installations i WHERE i.account_id = c.account_id AND i.state = 'active')))
-    ${input} LEFT JOIN account_preferences p ON p.account_id = c.account_id WHERE n.id = e.resource_ref), '')`,
+      FROM push_installations i WHERE i.account_id = scope.account_id AND i.state = 'active')))
+    ${input} LEFT JOIN account_preferences p ON p.account_id = scope.account_id WHERE n.id = e.resource_ref), '')`,
 } as const;
 
 const receiptDelay = 15 * 60_000;

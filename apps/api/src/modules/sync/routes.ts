@@ -7,6 +7,7 @@ import type { CommandInput } from "../../db/commit";
 import type { OperationResult } from "../../db/operations";
 import { openRequestScope } from "../../db/scope";
 import { enabledTranslationPairs } from "../../providers/translate";
+import { withCaseSteward } from "../aftercare/case-policy";
 import { resolveSession } from "../auth/session";
 import { notificationReadSyncOperation } from "../notifications/commands";
 import { notificationSyncProjection } from "../notifications/read";
@@ -47,7 +48,7 @@ export function createTransportRoutes({ operations = [], projections = [] }: {
       const handler = registry.operations.get(operation.kind);
       return handler ? handler.plan({ now: ctx.now, requestId: ctx.requestId, access, contextId, translationPairs }, operation) : null;
     }));
-    const feed = syncFeed(access, cursor, ctx.now, registry);
+    const feed = syncFeed(withCaseSteward(access, c.env.CASE_STEWARD_ACCOUNT_ID), cursor, ctx.now, registry);
     const count = plans.reduce((sum, plan) => sum + (plan?.statements.length ?? 0), feed.length);
     if (count > statementBudget) return transportFailure(c, "VALIDATION_FAILED");
     const prepared = plans.map((plan) => plan === null ? null : prepareCommand(ctx, plan));
@@ -71,8 +72,9 @@ export function createTransportRoutes({ operations = [], projections = [] }: {
       }
     }
     scheduleOperationSignals(c, results);
-    const { accountId, epoch, position, ...content } = page;
-    const response: SyncPage = { ...content, outcomes, cursor: await codec.issue({ accountId, epoch, context: page.context }, position, ctx.now) };
+    const { accountId, epoch, nextExpiry, position, ...content } = page;
+    const response: SyncPage = { ...content, outcomes,
+      cursor: await codec.issue({ accountId, epoch, nextExpiry, context: page.context }, position, ctx.now) };
     return transportSuccess(c, response, ctx.now);
   });
   return routes;

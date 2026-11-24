@@ -1,12 +1,15 @@
 import { mediaFileSchema, mediaLimits } from "@bookbuddy/api-contract";
 import type { MediaCaller } from "@bookbuddy/api-contract";
 import { accessClock, at, liveTerm } from "../access/policy";
+import { casePacketExists, caseProviderGrant, caseSteward } from "../aftercare/case-policy";
 import type { SessionAccess } from "../auth/session";
 import { chatScope, entryVisible } from "../chat/policy";
 import { customer, foreman as commercialForeman, models, versionVisible } from "../commercial/policy";
 import { currentMembership, scopedIntakeIds } from "../jobs/projections";
 import { currentPerson, placeCapability } from "../places/policy";
 import { confirmedWindow, foreman, jobOpen, provider } from "../schedule/policy";
+import { sessionsCustomerPlace } from "../sessions/policy";
+import { mediaLinkDeadline, noMediaDeadline } from "./deadlines";
 
 const photoMimes = mediaFileSchema.options[0].shape.mime.options;
 const voiceMimes = mediaFileSchema.options[1].shape.mime.options;
@@ -45,16 +48,11 @@ const job = `(SELECT base.*, p.state AS place_state, p.owner_id, p.named_approve
 const ownAssignment = `scope.role = 'worker' AND scope.business_id = j.business_id AND scope.membership_id = a.worker_membership_id
   AND a.state IN ('confirmed', 'completed') AND a.confirmed_at <= ${at}`;
 const liveVisit = `v.state IN ('booked', 'finished') AND booked.id IS NOT NULL AND j.place_state <> 'restricted' AND j.state <> 'cancelled'`;
-const allowedVisit = `((j.place_state IN ('in_area', 'out_of_area') AND ${customer("scope")}) OR ${foreman("scope")})`;
-const caseGrant = `(scope.role IN ('provider_admin', 'foreman') AND scope.business_id = j.business_id
-  AND scope.membership_id IS NOT NULL AND EXISTS (SELECT 1 FROM case_grants g
-    WHERE g.case_id = pc.id AND g.context_id = scope.context_id AND g.capability = pc.provider_audience AND ${liveTerm("g")}))`;
+const caseGrant = caseProviderGrant("scope");
 const caseReporter = `pc.reporter_id = scope.account_id AND ${customer("scope")}`;
-const caseOwner = `scope.role = 'customer' AND pc.case_owner_id = scope.account_id`;
+const caseOwner = caseSteward("scope");
 const mayReport = `(${customer("scope")} AND (scope.account_id IN (j.owner_id, j.requester_id)
   OR ${placeCapability("j.place_id", "scope.account_id", "book")} OR ${placeCapability("j.place_id", "scope.account_id", "approve")}))`;
-const hasPacket = `EXISTS (SELECT 1 FROM case_events e WHERE e.case_id = pc.id AND e.kind = 'provider_packet'
-  AND e.audience = pc.provider_audience AND e.at <= ${at})`;
 
 // Upload parents are currently writable records, not untrusted future IDs. New
 // request, completion, case and commercial drafts use a place/job and their own stage ID.
@@ -76,7 +74,7 @@ const writePolicy = {
     AND NOT EXISTS (SELECT 1 FROM completions c WHERE c.job_id = j.id AND c.state IN ('submitted', 'signed_off')))`,
   case: (id: string) => `(EXISTS (SELECT 1 FROM problem_cases pc JOIN ${job} j ON j.id = pc.job_id
     WHERE pc.id = ${id} AND pc.opened_at <= ${at} AND pc.state IN ('open', 'awaiting_plan')
-      AND (${caseReporter} OR ${caseOwner} OR (${caseGrant} AND ${hasPacket}))) OR (
+      AND (${caseReporter} OR ${caseOwner} OR (${caseGrant} AND ${casePacketExists}))) OR (
       NOT EXISTS (SELECT 1 FROM problem_cases WHERE id = ${id}) AND EXISTS (SELECT 1 FROM ${job} j
         WHERE j.id = ${id} AND j.state <> 'cancelled' AND ${mayReport})))`,
   quote: commercialDraft,
@@ -92,36 +90,81 @@ export function uploadAllowed(parent: string, caller?: MediaCaller) {
   return `(CASE stage.caller ${Object.entries(writePolicy).map(([kind, policy]) => `WHEN '${kind}' THEN ${policy(parent)}`).join(" ")} END)`;
 }
 
+// A grant without a time limit uses a finite sentinel; an absent authorization
+// stays NULL. Intersections cap by the earliest deadline of the required grants,
+// while either of two independent authorized paths is sufficient.
+const deadline = (table: string, where: string) => `(SELECT max(coalesce(g.valid_until, ${noMediaDeadline}))
+  FROM ${table} g WHERE ${where} AND ${liveTerm("g")})`;
+const placeDeadline = (place: string, account: string, capability: string) => deadline("place_grants",
+  `g.place_id = ${place} AND g.account_id = ${account} AND g.capability = '${capability}'`);
+const jobDeadline = (capability: string) => deadline("job_grants",
+  `g.job_id = j.id AND g.context_id = scope.context_id AND g.capability = '${capability}'`);
+const businessDeadline = (capability: string) => deadline("business_grants",
+  `g.business_id = j.business_id AND g.membership_id = scope.membership_id AND g.capability = '${capability}'`);
+const later = (...paths: string[]) => `max(${paths.map((path) => `coalesce(${path}, 0)`).join(", ")})`;
+const customerRead = `CASE WHEN ${customer("scope")} THEN CASE WHEN j.owner_id = scope.account_id THEN ${noMediaDeadline}
+  ELSE ${placeDeadline("j.place_id", "scope.account_id", "view")} END END`;
+const foremanRead = `CASE WHEN scope.role = 'foreman' AND scope.business_id = j.business_id THEN
+  CASE WHEN scope.membership_id = j.accountable_foreman_membership_id THEN ${noMediaDeadline}
+    ELSE min(${jobDeadline("backup")}, ${businessDeadline("backup_foreman")}) END END`;
+const intakeRead = `(SELECT max(min(h.expires_at, g.valid_until))
+  FROM (${scopedIntakeIds("live_scope", at, "h.job_id = l.job_id")}) permitted
+  JOIN job_handoffs h ON h.id = permitted.resource_id
+  JOIN job_grants g ON g.job_id = h.job_id AND g.context_id = scope.context_id AND g.capability = 'intake' AND ${liveTerm("g")})`;
+const caseRead = `CASE WHEN ${caseGrant} THEN ${deadline("case_grants",
+  "g.case_id = pc.id AND g.context_id = scope.context_id AND g.capability = pc.provider_audience")} END`;
+const chatRead = `CASE WHEN scope.role <> 'customer' THEN ${noMediaDeadline}
+  WHEN t.audience = 'job' THEN ${placeDeadline("t.place_id", "scope.account_id", "message")}
+  ELSE (SELECT max(CASE WHEN p.owner_id = scope.account_id THEN ${noMediaDeadline}
+    ELSE ${placeDeadline("p.id", "scope.account_id", "view")} END)
+    FROM place_people pp JOIN places p ON p.id = pp.place_id
+    WHERE p.area_id = t.session_area_id AND ${sessionsCustomerPlace("p", "pp", "scope.account_id")}) END`;
+
+const linkRow = (authorization: string, jobId?: string, purpose: "progress" | "ordinary" = "ordinary") =>
+  `SELECT l.attachment_id, ${jobId ? `min((${authorization}), ${mediaLinkDeadline(jobId, "l.attachment_id", purpose)})` : authorization}
+    AS authorized_through FROM media_actor scope CROSS JOIN`;
+
 const readers = {
-  request: (id: string) => `SELECT l.attachment_id FROM request_attachments l JOIN ${job} j ON j.id = l.job_id
-    WHERE l.job_id = ${id} AND (${customer("scope")} OR ${foreman("scope")} OR ${provider("scope")} OR EXISTS (
-      ${scopedIntakeIds("live_scope", at, `j.id = ${id}`)}))`,
-  chat: (id: string) => `SELECT l.attachment_id FROM entry_attachments l JOIN chat_entries e ON e.id = l.entry_id
+  request: (id: string) => `${linkRow(later(customerRead, foremanRead,
+    `CASE WHEN ${provider("scope")} THEN ${noMediaDeadline} END`, intakeRead), "j.id")}
+    request_attachments l JOIN ${job} j ON j.id = l.job_id WHERE l.job_id = ${id}`,
+  chat: (id: string) => `${linkRow(chatRead, "t.job_id")}
+    entry_attachments l JOIN chat_entries e ON e.id = l.entry_id
     JOIN chat_scope t ON t.context_id = scope.context_id AND ${entryVisible("t", "e")} WHERE l.entry_id = ${id}`,
-  progress: (id: string) => `SELECT l.attachment_id FROM shift_evidence l JOIN visit_activity_events e ON e.id = l.activity_event_id
+  progress: (id: string) => `${linkRow(later(foremanRead, `CASE WHEN ${ownAssignment} THEN ${noMediaDeadline} END`), "j.id", "progress")}
+    shift_evidence l JOIN visit_activity_events e ON e.id = l.activity_event_id
     JOIN assignments a ON a.id = e.assignment_id JOIN shifts sh ON sh.id = l.shift_id
     JOIN visits v ON v.id = sh.visit_id JOIN ${job} j ON j.id = v.job_id WHERE l.shift_id = ${id}
       AND j.place_state <> 'restricted' AND j.state <> 'cancelled' AND v.state IN ('booked', 'finished') AND sh.state <> 'cancelled'
-      AND e.at <= ${at} AND (${foreman("scope")} OR (${ownAssignment}))`,
-  update: (id: string) => `SELECT l.attachment_id FROM update_attachments l JOIN customer_updates u ON u.id = l.update_id
+      AND e.at <= ${at}`,
+  update: (id: string) => `${linkRow(later(foremanRead, `CASE WHEN j.place_state IN ('in_area', 'out_of_area') THEN ${customerRead} END`), "j.id")}
+    update_attachments l JOIN customer_updates u ON u.id = l.update_id
     JOIN visits v ON v.id = u.visit_id JOIN ${job} j ON j.id = v.job_id ${confirmedWindow("v")}
-    WHERE l.update_id = ${id} AND u.kind = 'photo' AND u.recorded_at <= ${at} AND ${liveVisit} AND ${allowedVisit}`,
+    WHERE l.update_id = ${id} AND u.kind = 'photo' AND u.recorded_at <= ${at} AND ${liveVisit}`,
   quote: (id: string) => commercialLinks("quote", id),
   change: (id: string) => commercialLinks("change", id),
-  completion: (id: string) => `SELECT l.attachment_id FROM completion_attachments l JOIN completions c ON c.id = l.completion_id
-    JOIN ${job} j ON j.id = c.job_id WHERE l.completion_item_id = ${id} AND c.submitted_at <= ${at}
-      AND (${customer("scope")} OR ${commercialForeman("scope")})`,
-  case: (id: string) => `SELECT l.attachment_id FROM case_attachments l JOIN case_events e ON e.id = l.case_event_id AND e.case_id = l.case_id
+  completion: (id: string) => `${linkRow(later(customerRead, `CASE WHEN ${commercialForeman("scope")} THEN ${noMediaDeadline} END`))}
+    completion_attachments l JOIN completions c ON c.id = l.completion_id
+    JOIN ${job} j ON j.id = c.job_id WHERE l.completion_item_id = ${id} AND c.submitted_at <= ${at}`,
+  case: (id: string) => `${linkRow(later(
+    `CASE WHEN e.audience = 'reporter_and_owner' THEN ${later(`CASE WHEN ${caseReporter} THEN ${customerRead} END`,
+      `CASE WHEN ${caseOwner} THEN ${noMediaDeadline} END`)} END`,
+    `CASE WHEN (e.kind = 'provider_packet' AND e.audience = pc.provider_audience)
+      OR (e.kind = 'substantive_update' AND e.actor_id = scope.account_id) THEN ${caseRead} END`))}
+    case_attachments l JOIN case_events e ON e.id = l.case_event_id AND e.case_id = l.case_id
     JOIN problem_cases pc ON pc.id = e.case_id JOIN ${job} j ON j.id = pc.job_id
-    WHERE l.case_event_id = ${id} AND e.at <= ${at} AND (
-      (e.audience = 'reporter_and_owner' AND (${caseReporter} OR ${caseOwner})) OR
-      (${caseGrant} AND ((e.kind = 'provider_packet' AND e.audience = pc.provider_audience)
-        OR (e.kind = 'substantive_update' AND e.actor_id = scope.account_id))))`,
+    WHERE l.case_event_id = ${id} AND e.at <= ${at}`,
 } satisfies Record<MediaCaller, (id: string) => string>;
 
 function commercialLinks(kind: "quote" | "change", id: string) {
   const { ref, versions } = models[kind];
-  return `SELECT l.attachment_id FROM ${linkTables[kind]} l JOIN ${versions} v ON v.id = l.${ref}
+  const reviewer = `min(${businessDeadline("review_commercial")}, ${later(
+    `CASE WHEN review.reviewer_id = scope.account_id THEN ${jobDeadline("reviewer")} END`,
+    `CASE WHEN review.backup_id = scope.account_id AND review.due_at <= ${at} THEN ${jobDeadline("backup")} END`)})`;
+  return `${linkRow(`CASE WHEN scope.role = 'customer' THEN ${customerRead}
+    WHEN ${commercialForeman("scope")} AND (v.issued_at IS NOT NULL OR v.author_id = scope.account_id) THEN ${noMediaDeadline}
+    ELSE ${reviewer} END`)}
+    ${linkTables[kind]} l JOIN ${versions} v ON v.id = l.${ref}
     JOIN ${job} j ON j.id = v.job_id LEFT JOIN commercial_reviews review ON review.${ref} = v.id
     WHERE l.${ref} = ${id} AND ${versionVisible(kind, "scope")}`;
 }

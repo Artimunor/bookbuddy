@@ -32,7 +32,7 @@ export async function createCursorCodec(secret: string) {
         return null;
       }
     },
-    async issue(base: Pick<SyncCursor, "accountId" | "context" | "epoch">, position: CursorPosition, now: number): Promise<string> {
+    async issue(base: Pick<SyncCursor, "accountId" | "context" | "epoch" | "nextExpiry">, position: CursorPosition, now: number): Promise<string> {
       const body = encode(encoder.encode(JSON.stringify({ version: 1, ...base, ...position, expiresAt: now + TTL })));
       return `${body}.${encode(new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(body))))}`;
     },

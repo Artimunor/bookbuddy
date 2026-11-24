@@ -4,6 +4,7 @@ import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { randomToken } from "../src/modules/auth/crypto";
 import { hashSessionCredential } from "../src/modules/auth/session";
+import { createCursorCodec } from "../src/modules/sync/cursor";
 import { createTestD1 } from "./d1";
 import type { TestD1 } from "./d1";
 
@@ -14,6 +15,7 @@ const expiry = now + 30 * minute;
 const base = "https://bookbuddy.test/api/v1";
 const execution = { waitUntil() {}, passThroughOnException() {} };
 const noAccess = { ok: false, error: { code: "NOT_FOUND" } };
+const syncSecret = "test-job-sync-cursor-key-more-than-32-chars";
 
 const users = ["owner", "other", "viewer", "foreman", "recipient", "admin", "backup", "worker", "helper"] as const;
 type User = typeof users[number];
@@ -21,7 +23,7 @@ type User = typeof users[number];
 async function fixture() {
   const db = await createTestD1();
   const app = createApp().onError((error) => { throw error; });
-  const env = { DB: db, SYNC_CURSOR_HMAC_KEY: "test-job-sync-cursor-key-more-than-32-chars" } as unknown as Bindings;
+  const env = { DB: db, SYNC_CURSOR_HMAC_KEY: syncSecret } as unknown as Bindings;
   const credentials = new Map<User, string>();
   try {
     await db.batch([
@@ -212,13 +214,48 @@ test("job sync snapshots and deltas use the same live role predicates without ex
     if (!result.ok) throw new Error(JSON.stringify(result));
     expect(result.data.upserts.map(({ kind, resourceId }) => [kind, resourceId])).toEqual([["job", "not-mine"], ["job_handoff", "offer"]]);
     expect(JSON.stringify(result.data.upserts)).not.toMatch(/Private alias|Private Street|A new repair|Private arrival note/);
-    await f.db.prepare(`INSERT INTO sync_changes(kind,resource_id,partition_key,op,at) VALUES
-      ('job','mine','recipient-staff','upsert',?),('job_handoff','offer','recipient-staff','upsert',?)`).bind(expiry, expiry).run();
-    date.mockReturnValue(expiry);
+    await f.db.batch([
+      f.db.prepare("UPDATE job_grants SET revoked_at = ? WHERE context_id = 'recipient-staff' AND capability = 'intake'").bind(now + 1),
+      f.db.prepare(`INSERT INTO sync_changes(kind,resource_id,partition_key,op,at) VALUES
+        ('job','mine','recipient-staff','upsert',?),('job_handoff','offer','recipient-staff','upsert',?)`).bind(now + 1, now + 1),
+    ]);
+    date.mockReturnValue(now + 1);
     const delta = await f.request("/sync", "recipient", { contextId: "recipient-staff", cursor: result.data.cursor, operations: [] });
     expect(resultSchema(syncRoute.output).parse(delta.body)).toMatchObject({ data: { upserts: [], removals: [
       { kind: "job", resourceId: "mine" }, { kind: "job_handoff", resourceId: "offer" },
     ] } });
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
+test("a clean delta resets the scope exactly when a backup foreman's grant expires", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  const deadline = now + minute;
+  try {
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO job_grants(job_id,context_id,capability,valid_from,valid_until)
+        VALUES ('mine','recipient-staff','backup',1,?)`).bind(deadline + minute),
+      f.db.prepare(`INSERT INTO business_grants(id,business_id,membership_id,capability,issuer_id,valid_from,valid_until)
+        VALUES ('timed-backup','business','recipient-member','backup_foreman','admin',1,?)`).bind(deadline),
+    ]);
+    async function sync(cursor: string | null) {
+      const response = await f.request("/sync", "recipient", { contextId: "recipient-staff", cursor, operations: [] });
+      const envelope = resultSchema(syncRoute.output).parse(response.body);
+      if (!envelope.ok) throw new Error(`Sync failed: ${envelope.error.code}`);
+      return envelope.data;
+    }
+    const initial = await sync(null);
+    expect(initial.upserts).toContainEqual(expect.objectContaining({ kind: "job", resourceId: "mine" }));
+    const codec = await createCursorCodec(syncSecret);
+    expect(await codec.read(initial.cursor)).toMatchObject({ phase: "delta", nextExpiry: deadline });
+    date.mockReturnValue(deadline - 1);
+    const clean = await sync(initial.cursor);
+    expect(clean).toMatchObject({ mode: "delta", upserts: [], removals: [] });
+    date.mockReturnValue(deadline);
+    const reset = await sync(clean.cursor);
+    expect(reset).toMatchObject({ mode: "reset", removals: [{ kind: "scope", resourceId: "recipient-staff" }] });
+    expect(reset.upserts.filter(({ kind }) => kind === "job").map(({ resourceId }) => resourceId)).toEqual(["not-mine"]);
+    expect(await codec.read(reset.cursor)).toMatchObject({ nextExpiry: deadline + minute });
   } finally { f.db.close(); date.mockRestore(); }
 });
 

@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { createMediaGrantsRoute, createMediaReadGrantsRoute, recoverMediaRoute, resultSchema, settleMediaRoute } from "@bookbuddy/api-contract";
+import { createMediaGrantsRoute, createMediaReadGrantsRoute, mediaLimits, recoverMediaRoute, resultSchema, settleMediaRoute } from "@bookbuddy/api-contract";
 import type { MediaUploadGrant } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
@@ -205,6 +205,57 @@ test("conditional small PUTs, batched settle, ready skip, and current exact-link
   expect((await f.call("/settle", { stageId: "draft", files }, 1, [], "visitor")).status).toBe(404);
 }));
 
+test("the voice reservation caps bytes at a 90-second device recording budget, regardless of declared duration", () => withFixture(async (f) => {
+  const voice = (bytes: number) => ({
+    stageId: "voice-draft", scope,
+    files: [{ attachmentId: "voice", file: { kind: "voice", mime: "audio/mp4", bytes, durationMs: 1_000 } }],
+  });
+  expect((await f.call("/grants", voice(mediaLimits.voiceBytes + 1), 0)).json)
+    .toMatchObject({ ok: false, error: { code: "VALIDATION_FAILED" } });
+  const granted = grantResult.parse((await f.call("/grants", voice(mediaLimits.voiceBytes), 1)).json);
+  if (!granted.ok || granted.data.grants[0]?.state !== "uploading" || granted.data.grants[0].grant.kind !== "single") {
+    throw new Error("Missing voice grant");
+  }
+  const { grant } = granted.data.grants[0];
+  expect(grant.headers["Content-Type"]).toBe("audio/mp4");
+  f.r2.put(grant, mediaLimits.voiceBytes + 1);
+  expect((await f.call("/settle", { stageId: "voice-draft", files: [settling("voice")] }, 2, ["head"])).json)
+    .toMatchObject({ data: { acknowledgements: [{ state: "rejected" }] } });
+}));
+
+test("request media signatures cannot outlive either the handoff or the recipient's intake grant", () => withFixture(async (f) => {
+  const handoffEnds = now + 65_000;
+  const grantEnds = now + 23_000;
+  f.r2.put(await firstGrant(f, "handoff-photo"));
+  await f.call("/settle", { stageId: "draft", files: [settling("handoff-photo")] }, 2, ["head"]);
+  await f.db.batch([
+    f.db.prepare("INSERT INTO request_attachments VALUES ('job', 'handoff-photo')"),
+    f.db.prepare("INSERT INTO memberships (id, business_id, account_id, state) VALUES ('member', 'provider', 'visitor', 'active')"),
+    f.db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at)
+      VALUES ('foreman-role', 'member', 'provider', 'visitor', 'foreman', 1)`),
+    f.db.prepare(`INSERT INTO account_contexts (id, account_id, role, business_id, role_grant_id)
+      VALUES ('foreman-context', 'visitor', 'foreman', 'provider', 'foreman-role')`),
+    f.db.prepare("UPDATE sessions SET active_context_id = 'foreman-context' WHERE id = 'visitor-session'"),
+    f.db.prepare(`INSERT INTO job_handoffs (id, job_id, business_id, recipient_id, policy, offered_at, expires_at, state)
+      VALUES ('handoff', 'job', 'provider', 'member', 'standard', 1, ?, 'offered')`).bind(handoffEnds),
+    f.db.prepare(`INSERT INTO job_grants (job_id, context_id, capability, valid_from, valid_until)
+      VALUES ('job', 'foreman-context', 'intake', 1, ?)`).bind(now + 120_000),
+  ]);
+  const read = () => f.call("/read-grants", { scope: { caller: "request", parentScopeId: "job" }, attachmentIds: ["handoff-photo"] },
+    1, [], "visitor");
+  for (const expiresAt of [handoffEnds, grantEnds]) {
+    if (expiresAt === grantEnds) await f.db.batch([
+      f.db.prepare("UPDATE job_grants SET valid_until = ? WHERE job_id = 'job' AND capability = 'intake'").bind(grantEnds),
+    ]);
+    const body = readResult.parse((await read()).json);
+    expect(body).toMatchObject({ data: { grants: [{ state: "ready", expiresAt }] } });
+    if (!body.ok || body.data.grants[0]?.state !== "ready") throw new Error("Missing handoff media grant");
+    expect(new URL(body.data.grants[0].url).searchParams.get("X-Amz-Expires")).toBe(String((expiresAt - now) / 1_000));
+  }
+  f.clock.mockReturnValue(grantEnds);
+  expect((await read()).json).toMatchObject({ data: { grants: [{ state: "unavailable" }] } });
+}));
+
 test("multipart keeps sessions, lists only a known upload, and recovers a lost completion without repeating it", () => withFixture(async (f) => {
   const body = { stageId: "draft", scope, files: [attachment("clip-a", largeBytes), attachment("clip-b", largeBytes)] };
   const first = grantResult.parse((await f.call("/grants", body, 2, ["create", "create"])).json);
@@ -283,6 +334,107 @@ test("retention expires unlinked reservations and deletes due objects in one bat
   await sweepMediaRetention(f.env, now + expiry);
   expect(f.db.calls.batch - passes).toBe(1);
   expect(f.r2.deletions).toHaveLength(1);
+}));
+
+test("job close schedules ordinary media and a hold preserves bytes without extending read access", () => withFixture(async (f) => {
+  const ordinaryDue = now + 180 * 86_400_000;
+  f.r2.put(await firstGrant(f, "linked"));
+  await f.call("/settle", { stageId: "draft", files: [settling("linked")] }, 2, ["head"]);
+  await f.db.batch([
+    f.db.prepare("INSERT INTO request_attachments VALUES ('job', 'linked')"),
+    f.db.prepare("UPDATE attachments SET retention_class = 'ordinary' WHERE id = 'linked'"),
+    f.db.prepare("UPDATE sessions SET expires_at = ? WHERE id = 'owner-session'").bind(ordinaryDue + expiry),
+    f.db.prepare(`INSERT INTO retention_holds (id, record_kind, record_id, reason, review_at)
+      VALUES ('review', 'attachment', 'linked', 'Dispute', ?)`).bind(ordinaryDue),
+    f.db.prepare("UPDATE jobs SET state = 'closed', closed_at = ? WHERE id = 'job'").bind(now),
+  ]);
+  expect(await f.db.prepare("SELECT delete_after FROM attachments WHERE id = 'linked'").first("delete_after")).toBe(ordinaryDue);
+  const read = () => f.call("/read-grants", { scope: { caller: "request", parentScopeId: "job" }, attachmentIds: ["linked"] }, 1);
+  f.clock.mockReturnValue(ordinaryDue - 2_000);
+  expect((await read()).json).toMatchObject({ data: { grants: [{ state: "ready", expiresAt: ordinaryDue }] } });
+  f.clock.mockReturnValue(ordinaryDue);
+  expect((await read()).json).toMatchObject({ data: { grants: [{ state: "unavailable" }] } });
+  await f.db.batch([f.db.prepare("UPDATE jobs SET state = 'open', closed_at = NULL WHERE id = 'job'")]);
+  expect((await read()).json).toMatchObject({ data: { grants: [{ state: "unavailable" }] } });
+  const before = { ...f.db.calls };
+  await sweepMediaRetention(f.env, ordinaryDue);
+  expect(f.db.calls.batch - before.batch).toBe(1);
+  expect(f.db.calls.query - before.query).toBe(0);
+  expect(f.r2.deletions).toEqual([]);
+  expect(f.r2.objects.size).toBe(1);
+}));
+
+test("reusing a request attachment in another job does not extend the first link or delete the new link's bytes", () => withFixture(async (f) => {
+  const firstDue = now + 180 * 86_400_000;
+  const secondClose = now + 60_000;
+  f.r2.put(await firstGrant(f, "reused"));
+  await f.call("/settle", { stageId: "draft", files: [settling("reused")] }, 2, ["head"]);
+  await f.db.batch([
+    f.db.prepare("INSERT INTO request_attachments VALUES ('job', 'reused')"),
+    f.db.prepare("UPDATE jobs SET state = 'closed', closed_at = ? WHERE id = 'job'").bind(now),
+    f.db.prepare("INSERT INTO request_attachments VALUES ('other-job', 'reused')"),
+  ]);
+  expect(await f.db.prepare("SELECT delete_after FROM attachments WHERE id = 'reused'").first()).toEqual({ delete_after: null });
+  await f.db.batch([
+    f.db.prepare("UPDATE jobs SET state = 'closed', closed_at = ? WHERE id = 'other-job'").bind(secondClose),
+    f.db.prepare("UPDATE sessions SET expires_at = ? WHERE id = 'owner-session'").bind(firstDue + expiry),
+  ]);
+  expect(await f.db.prepare("SELECT delete_after FROM attachments WHERE id = 'reused'").first())
+    .toEqual({ delete_after: firstDue + secondClose - now });
+  f.clock.mockReturnValue(firstDue);
+  for (const [parentScopeId, state] of [["job", "unavailable"], ["other-job", "ready"]]) {
+    expect((await f.call("/read-grants", { scope: { caller: "request", parentScopeId }, attachmentIds: ["reused"] }, 1)).json)
+      .toMatchObject({ data: { grants: [{ state }] } });
+  }
+}));
+
+test("sharing progress media keeps the object for the ordinary link but not the 90-day progress authorization", () => withFixture(async (f) => {
+  const progressDue = now + 90 * 86_400_000;
+  const ordinaryDue = now + 180 * 86_400_000;
+  await f.db.batch([
+    f.db.prepare("INSERT INTO memberships (id, business_id, account_id, state) VALUES ('foreman', 'provider', 'visitor', 'active')"),
+    f.db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at)
+      VALUES ('role', 'foreman', 'provider', 'visitor', 'foreman', 1)`),
+    f.db.prepare(`INSERT INTO account_contexts (id, account_id, role, business_id, role_grant_id)
+      VALUES ('foreman-context', 'visitor', 'foreman', 'provider', 'role')`),
+    f.db.prepare("UPDATE sessions SET active_context_id = 'foreman-context' WHERE id = 'visitor-session'"),
+    f.db.prepare("UPDATE sessions SET expires_at = ?").bind(ordinaryDue + expiry),
+    f.db.prepare("UPDATE jobs SET accountable_foreman_membership_id = 'foreman' WHERE id = 'job'"),
+    f.db.prepare("INSERT INTO visits (id, job_id, kind, state) VALUES ('visit', 'job', 'work', 'booked')"),
+    f.db.prepare(`INSERT INTO visit_windows (id, visit_id, starts_at, ends_at, expires_at, provider_authorized, proposed_at,
+      proposed_by, confirmed_at, confirmed_by, state) VALUES ('window', 'visit', 10, 20, 9, 1, 1, 'visitor', 2, 'owner', 'confirmed')`),
+    f.db.prepare(`INSERT INTO shifts (id, visit_id, starts_at, ends_at, skill, briefing_language, state)
+      VALUES ('shift', 'visit', 10, 20, 'work', 'en', 'active')`),
+    f.db.prepare("INSERT INTO shift_slots (id, shift_id, number, is_lead) VALUES ('slot', 'shift', 1, 1)"),
+    f.db.prepare(`INSERT INTO assignments (id, slot_id, worker_membership_id, source, state, confirmed_by, confirmed_at, starts_at, ends_at)
+      VALUES ('assignment', 'slot', 'foreman', 'ordinary', 'confirmed', 'visitor', 3, 10, 20)`),
+    f.db.prepare("INSERT INTO media_stages VALUES ('progress-stage', 'foreman-context', 'progress', 'assignment', 10, 40)"),
+    f.db.prepare(`INSERT INTO attachments (id, stage_id, object_key, mime, bytes, retention_class, state, etag) VALUES
+      ('solo', 'progress-stage', 'fixture/solo', 'image/jpeg', 123, 'progress', 'ready', 'etag'),
+      ('shared', 'progress-stage', 'fixture/shared', 'image/jpeg', 123, 'progress', 'ready', 'etag')`),
+    f.db.prepare(`INSERT INTO visit_activity_events (id, visit_id, assignment_id, actor_id, kind, at, captured_at) VALUES
+      ('take-solo', 'visit', 'assignment', 'visitor', 'progress_photo', 11, 11),
+      ('take-shared', 'visit', 'assignment', 'visitor', 'progress_photo', 12, 12)`),
+    f.db.prepare("INSERT INTO shift_evidence VALUES ('shift', 'solo', 'take-solo'), ('shift', 'shared', 'take-shared')"),
+    f.db.prepare(`INSERT INTO customer_updates (id, visit_id, actor_id, kind, recorded_at, caption, caption_language)
+      VALUES ('update', 'visit', 'visitor', 'photo', 13, 'Visible progress', 'en')`),
+    f.db.prepare("INSERT INTO update_attachments VALUES ('update', 'shared')"),
+    f.db.prepare("UPDATE jobs SET state = 'closed', closed_at = ? WHERE id = 'job'").bind(now),
+  ]);
+  expect((await f.db.prepare("SELECT id, delete_after FROM attachments ORDER BY id").all()).results)
+    .toEqual([{ id: "shared", delete_after: ordinaryDue }, { id: "solo", delete_after: progressDue }]);
+  const readProgress = () => f.call("/read-grants", { scope: { caller: "progress", parentScopeId: "shift" }, attachmentIds: ["shared", "solo"] },
+    1, [], "visitor");
+  f.clock.mockReturnValue(progressDue - 2_000);
+  expect((await readProgress()).json).toMatchObject({
+    data: { grants: [{ state: "ready", expiresAt: progressDue }, { state: "ready", expiresAt: progressDue }] },
+  });
+  f.clock.mockReturnValue(progressDue);
+  expect((await readProgress()).json).toMatchObject({
+    data: { grants: [{ state: "unavailable", attachmentId: "shared" }, { state: "unavailable", attachmentId: "solo" }] },
+  });
+  expect((await f.call("/read-grants", { scope: { caller: "update", parentScopeId: "update" }, attachmentIds: ["shared"] }, 1)).json)
+    .toMatchObject({ data: { grants: [{ state: "ready", attachmentId: "shared" }] } });
 }));
 
 test("chat grants require current send authority and do not bypass entry history boundaries", () => withFixture(async (f) => {

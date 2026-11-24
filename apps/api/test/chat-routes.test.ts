@@ -8,6 +8,7 @@ import type { Bindings } from "../src/bindings";
 import { runEffectBatch } from "../src/effects";
 import { randomToken } from "../src/modules/auth/crypto";
 import { hashSessionCredential } from "../src/modules/auth/session";
+import { readThreadList } from "../src/modules/chat/read";
 import type { ExpoFetch, ExpoMessage } from "../src/providers/expo-push";
 import type { TranslationFetch } from "../src/providers/translate";
 import { createTestD1 } from "./d1";
@@ -143,6 +144,37 @@ test("lazily provisions distinct Job/Crew threads and rechecks every role, messa
     expect(await f.request(details(jobThread), "worker")).toMatchObject({ status: 404, body: noAccess });
     await f.db.prepare("UPDATE place_grants SET revoked_at=? WHERE id='chat-message'").bind(Date.now()).run();
     expect(await f.request(details(jobThread), "customer")).toMatchObject({ status: 404, body: noAccess });
+  } finally { f.db.close(); }
+});
+
+test("the inbox scopes tenant keys before materializing either page", async () => {
+  const f = await fixture();
+  try {
+    const ids = "WITH RECURSIVE ids(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM ids WHERE n < 100)";
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO businesses (id,legal_name,public_name,verified_work_contact,catchment_id,state)
+        VALUES ('elsewhere','Other Ltd','Other','elsewhere@example.test','chat-area','approved')`),
+      f.db.prepare(`INSERT INTO places (id,owner_id,alias,normalized_address,state)
+        VALUES ('other-place','viewer','Other site','900 Other Road','pending_verification')`),
+      f.db.prepare("INSERT INTO place_people (place_id,account_id,verified_from,history_from) VALUES ('other-place','viewer',1,1)"),
+      f.db.prepare(`${ids} INSERT INTO jobs (id,reference,business_id,place_id,requester_id,origin,state)
+        SELECT printf('a-hidden-%03d', n), printf('BB-H%03d', n), 'elsewhere', 'other-place', 'viewer', 'bookbuddy', 'open' FROM ids
+        UNION ALL SELECT printf('z-visible-%03d', n), printf('BB-V%03d', n), 'chat-business', 'chat-place', 'customer', 'bookbuddy', 'open' FROM ids`),
+      f.db.prepare(`INSERT INTO chat_threads (id, job_id, audience, write_state)
+        SELECT 'thread-' || j.id, j.id, 'job', 'open' FROM jobs j WHERE j.business_id = 'elsewhere'`),
+    ]);
+    const first = data(listThreadsRoute.output, await f.request("/threads", "customer"));
+    expect(first.threads).toHaveLength(100);
+    expect(first.page).toEqual({ hasMore: true, cursor: "z-visible-099~job" });
+    const second = data(listThreadsRoute.output, await f.request(`/threads?cursor=${first.page.cursor}`, "customer"));
+    expect(second.threads).toMatchObject([{ job: { id: "z-visible-100" } }]);
+    expect(second.page).toEqual({ hasMore: false, cursor: null });
+    expect(JSON.stringify({ first, second })).not.toContain("a-hidden-");
+    const access = { sql: `WITH acting_session AS (SELECT 'customer' AS account_id), live_scope AS (
+      SELECT account_id, id AS context_id, role, business_id FROM account_contexts WHERE id = 'customer-ctx')`, params: [] };
+    const query = readThreadList(access, Date.now(), ["", ""], []);
+    const plan = await f.db.prepare(`EXPLAIN QUERY PLAN ${query.sql}`).bind(...query.params ?? []).all<{ detail: string }>();
+    expect(plan.results.map(({ detail }) => detail).join("\n")).toMatch(/SEARCH j USING INDEX jobs_place_state \(place_id=\?/);
   } finally { f.db.close(); }
 });
 
@@ -444,7 +476,7 @@ test("session chat opens lazily for the exact booking, fences flags and hosts, a
     expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "customer"))).toEqual({ kind: "thread", threadId, audience: "session" });
     expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "viewer"))).toMatchObject({ kind: "unavailable" });
 
-    await f.db.prepare("UPDATE place_grants SET revoked_at=?, revoked_by='customer' WHERE id='chat-view'").bind(now).run();
+    await f.db.prepare("UPDATE place_grants SET revoked_at=? WHERE id='chat-view'").bind(now).run();
     expect(await f.request(entries(otherThread), "viewer")).toMatchObject({ status: 404, body: noAccess });
     expect(data(listThreadsRoute.output, await f.request("/threads", "viewer")).threads)
       .not.toContainEqual(expect.objectContaining({ id: otherThread, audience: "session" }));

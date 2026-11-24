@@ -5,6 +5,7 @@ import { at, currentCheck, displayName, eligibilityStatus, liveTerm, scopedState
 import type { SessionAccess } from "../auth/session";
 import { approvedInvoice, invoiceLines, paymentHead } from "../aftercare/invoice";
 import { routedReviewer } from "../commercial/policy";
+import { mediaLinkAvailable } from "../media/deadlines";
 import { readyAttachmentSql } from "../media/policy";
 import { placeCapability } from "../places/policy";
 import { approvedVersion, noWithdrawal } from "../schedule/policy";
@@ -201,7 +202,9 @@ function jobPacket(mode: ReadMode, linked = false): string {
     ${mode === "list" || mode === "whole" ? `, 'providerInvoice', json(CASE WHEN s.role = 'provider_admin' THEN ${providerInvoice} END)` : ""}
     ${mode === "whole" ? `, 'attachmentIds', json(CASE WHEN s.role = 'customer' THEN (
       SELECT json_group_array(attachment_id) FROM (
-        SELECT attachment_id FROM request_attachments WHERE job_id = j.id ORDER BY attachment_id)) END),
+        SELECT link.attachment_id FROM request_attachments link JOIN attachments a ON a.id = link.attachment_id
+        WHERE link.job_id = j.id AND ${readyAttachmentSql("a")} AND ${mediaLinkAvailable("j.id", "a.id", "ordinary")}
+        ORDER BY link.attachment_id)) END),
       'crew', json(CASE WHEN s.role = 'customer' AND j.state <> 'cancelled' THEN ${customerCrew} END),
       'cancellation', json(CASE WHEN s.role = 'customer' THEN ${cancelledVisit} END),
       'visits', json(CASE WHEN s.role = 'foreman' THEN ${foremanVisits} END),
@@ -231,7 +234,8 @@ function intakePacket(detail: boolean, reply = "'available'"): string {
       'submitted', json_object('at', r.submitted_at, 'by', ${displayName("customer")}),
       'originalText', r.original_text, 'originalLanguage', r.original_language,
       'attachments', json(${jsonRows(`json_object('attachmentId', a.id, 'durationMs', a.duration_ms,
-        'availability', CASE WHEN ${readyAttachmentSql("a")} THEN 'available' ELSE 'unavailable' END)`,
+        'availability', CASE WHEN ${readyAttachmentSql("a")} AND ${mediaLinkAvailable("j.id", "a.id", "ordinary")}
+          THEN 'available' ELSE 'unavailable' END)`,
       `FROM request_attachments link JOIN attachments a ON a.id = link.attachment_id
         WHERE link.job_id = j.id ORDER BY link.attachment_id`)})) END)` : ""})`;
 }

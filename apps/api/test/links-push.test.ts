@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { openLinkRoute, resultSchema } from "@bookbuddy/api-contract";
+import { notificationsRoute, openLinkRoute, resultSchema, syncRoute } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { runEffectBatch } from "../src/effects";
@@ -9,6 +9,7 @@ import { hashSessionCredential } from "../src/modules/auth/session";
 import { createLinkTarget, linkTokenFor } from "../src/modules/links";
 import type { ExpoFetch, ExpoMessage } from "../src/providers/expo-push";
 import { createTestD1 } from "./d1";
+import type { TestD1 } from "./d1";
 
 const now = 1_800_000_000_000;
 const minute = 60_000;
@@ -29,6 +30,31 @@ async function fixture() {
     ]);
   } catch (error) { db.close(); throw error; }
   return { db, env };
+}
+
+async function seedBillRecipient(db: TestD1, billGrantEnds: number | null = null) {
+  await db.batch([
+    db.prepare("INSERT INTO operating_areas VALUES ('area', 'Area', 'Europe/Lisbon', '[0]')"),
+    db.prepare(`INSERT INTO businesses (id, legal_name, public_name, verified_work_contact, catchment_id, state)
+      VALUES ('business','Book Service LLC','Book Service','work@example.test','area','approved')`),
+    db.prepare(`INSERT INTO places (id, owner_id, alias, normalized_address, state)
+      VALUES ('property','recipient','Private house','19 Private Street','pending_verification')`),
+    db.prepare(`INSERT INTO place_people (place_id, account_id, verified_from, history_from) VALUES
+      ('property','recipient',1,1), ('property','other',1,1)`),
+    db.prepare(`UPDATE places SET state='in_area', area_id='area', site_zone='Europe/Lisbon',
+      named_approver_id='recipient', pin='{"latitude":0,"longitude":0}' WHERE id='property'`),
+    db.prepare(`INSERT INTO place_grants (id,place_id,account_id,capability,issuer_id,valid_from,valid_until) VALUES
+      ('recipient-bill','property','recipient','bill_view','recipient',1,?),
+      ('other-bill','property','other','bill_view','recipient',1,NULL),
+      ('other-view','property','other','view','recipient',1,NULL)`).bind(billGrantEnds),
+    db.prepare(`INSERT INTO jobs (id,reference,business_id,place_id,requester_id,origin,state)
+      VALUES ('private-job-id','BB-1','business','property','recipient','bookbuddy','open')`),
+    db.prepare(`INSERT INTO requests (job_id, original_text, arrival_arrangement, submitted_at)
+      VALUES ('private-job-id','Private request','requester',2)`),
+    db.prepare(`INSERT INTO bills (id,job_id,business_id,number,version,net_minor,tax_minor,total_minor,currency,line_items,issued_at,due_at,state)
+      VALUES ('bill','private-job-id','business','PRIVATE-BILL',1,100,20,120,'EUR',
+        '[{"originalLabel":"Repair","originalLanguage":"en","netMinor":100,"taxMinor":20}]',1,2,'issued')`),
+  ]);
 }
 
 test("opaque open keeps invitation, recipient, role and live job checks in one D1 call", async () => {
@@ -67,9 +93,9 @@ test("opaque open keeps invitation, recipient, role and live job checks in one D
         named_approver_id='recipient', pin='{"latitude":0,"longitude":0}' WHERE id='property'`),
       db.prepare(`INSERT INTO place_grants (id,place_id,account_id,capability,issuer_id,valid_from)
         VALUES ('approve','property','recipient','approve','recipient',1)`),
-      db.prepare(`INSERT INTO invitations (id, token_hash, recipient_key, recipient_email_ciphertext, place_id,
+      db.prepare(`INSERT INTO invitations (id, token_hash, recipient_key, recipient_email_ciphertext, place_id, address_revision,
         inviter_id, grant_snapshot, issued_at, expires_at, recipient_id, pending_slot, state)
-        VALUES ('place-invite', 'place-hash', 'other-mailbox', 'sealed', 'property', 'recipient', '{"kind":"place_view"}',
+        VALUES ('place-invite', 'place-hash', 'other-mailbox', 'sealed', 'property', 0, 'recipient', '{"kind":"place_view"}',
           ?, ? + 172800000, 'other', 1, 'pending')`).bind(now - 1, now - 1),
       db.prepare(`INSERT INTO jobs (id,reference,business_id,place_id,requester_id,accountable_foreman_membership_id,origin,state)
         VALUES ('job','BB-1','business','property','recipient','foreman-member','bookbuddy','open')`),
@@ -154,17 +180,18 @@ test("push claims once, localizes opaque-only notices and batches Expo tickets a
   const { db, env } = await fixture();
   const expiry = now + minute;
   try {
+    await seedBillRecipient(db);
     await db.batch([
       db.prepare(`INSERT INTO link_targets VALUES
-        ('recipient-link','job_update','private-job-id','recipient-customer',?),
-        ('other-link','job_update','private-job-id','other-customer',?),
+        ('recipient-link','bill_issued','bill','recipient-customer',?),
+        ('other-link','bill_issued','bill','other-customer',?),
         ('stale-cover','cover_offer','withdrawn-cover','recipient-customer',?)`).bind(expiry, expiry, expiry),
       db.prepare(`INSERT INTO notifications (id,context_id,event_key,kind,link_token,created_at) VALUES
-        ('recipient-notice','recipient-customer','Private property 19 Private Street','job_update','recipient-link',?),
-        ('other-notice','other-customer','Private quote amount 100 EUR','quote_ready','other-link',?),
+        ('recipient-notice','recipient-customer','Private property 19 Private Street','bill_issued','recipient-link',?),
+        ('other-notice','other-customer','Private bill amount 100 EUR','bill_issued','other-link',?),
         ('no-link','recipient-customer','Private linkless event','quote_ready',NULL,?),
         ('old-cover','recipient-customer','Old cover event','cover_offer','stale-cover',?),
-        ('wrong-scope','recipient-customer','Wrong context event','job_update','other-link',?)`).bind(now, now, now, now, now),
+        ('wrong-scope','recipient-customer','Wrong context event','bill_issued','other-link',?)`).bind(now, now, now, now, now),
       db.prepare(`INSERT INTO effect_outbox SELECT 'effect-' || id, 'notification_push', event_key, id, ?, 'pending', ? FROM notifications`)
         .bind(now, expiry),
       db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
@@ -242,9 +269,10 @@ test("push claims once, localizes opaque-only notices and batches Expo tickets a
 test("an ambiguous Expo send is not retried by a duplicate wake or due sweep", async () => {
   const { db, env } = await fixture();
   try {
+    await seedBillRecipient(db);
     await db.batch([
-      db.prepare("INSERT INTO link_targets VALUES ('dest','job_update','job','recipient-customer',?)").bind(now + minute),
-      db.prepare("INSERT INTO notifications VALUES ('n','recipient-customer','event','job_update','dest',?,NULL)").bind(now),
+      db.prepare("INSERT INTO link_targets VALUES ('dest','bill_issued','bill','recipient-customer',?)").bind(now + minute),
+      db.prepare("INSERT INTO notifications VALUES ('n','recipient-customer','event','bill_issued','dest',?,NULL)").bind(now),
       db.prepare("INSERT INTO effect_outbox VALUES ('effect','notification_push','event','n',?,'pending',?)").bind(now, now + minute),
       db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
         VALUES ('phone','recipient','ExpoPushToken[phone]',1,'ios','active',?)`).bind(now),
@@ -257,4 +285,64 @@ test("an ambiguous Expo send is not retried by a duplicate wake or due sweep", a
     expect(calls).toBe(1);
     expect(await db.prepare("SELECT state FROM effect_outbox WHERE id='effect'").first("state")).toBe("unknown");
   } finally { db.close(); }
+});
+
+test("bill grant expiry suppresses queued push, online inbox and cached notice; unknown kinds are never delivered", async () => {
+  const { db, env } = await fixture();
+  const clock = spyOn(Date, "now").mockReturnValue(now);
+  const grantDeadline = now + minute, tokenExpiry = now + 3 * minute;
+  const credential = randomToken();
+  env.SYNC_CURSOR_HMAC_KEY = "test-notification-cursor-key-more-than-32-chars";
+  const app = createApp().onError((error) => { throw error; });
+  try {
+    await seedBillRecipient(db, grantDeadline);
+    await db.batch([
+      db.prepare(`INSERT INTO sessions (id,account_id,secret_hash,active_context_id,device_id,issued_at,expires_at)
+        VALUES ('session','recipient',?,'recipient-customer','device',1,?)`).bind(await hashSessionCredential(credential), tokenExpiry),
+      db.prepare("INSERT INTO link_targets VALUES ('bill-link','bill_paid','bill','recipient-customer',?)").bind(tokenExpiry),
+      db.prepare(`INSERT INTO notifications VALUES ('paid','recipient-customer','payment','bill_paid','bill-link',?,NULL),
+        ('unknown','recipient-customer','mystery','unrecognized_event','bill-link',?,NULL)`).bind(now, now),
+      db.prepare(`INSERT INTO effect_outbox SELECT 'effect-' || id, 'notification_push', event_key, id, ?, 'pending', ? FROM notifications`)
+        .bind(now, tokenExpiry),
+      db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
+        VALUES ('phone','recipient','ExpoPushToken[phone]',1,'ios','active',?)`).bind(now),
+    ]);
+    async function read(path: string, body?: unknown) {
+      const before = { ...db.calls };
+      const response = await app.request(`${origin}/api/v1${path}`, {
+        method: body === undefined ? "GET" : "POST", headers: { Authorization: `Bearer ${credential}` },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      }, env);
+      expect(db.calls.batch - before.batch + db.calls.query - before.query).toBe(1);
+      return response.json();
+    }
+    const inbox = `/notifications?contextId=recipient-customer`;
+    const sync = (cursor: string | null) => read("/sync", { contextId: "recipient-customer", cursor, operations: [] });
+    expect(resultSchema(notificationsRoute.output).parse(await read(inbox))).toMatchObject({
+      data: { items: [{ id: "paid", kind: "bill_paid" }] },
+    });
+    const initial = resultSchema(syncRoute.output).parse(await sync(null));
+    if (!initial.ok) throw new Error("Missing sync snapshot");
+    expect(initial.data.upserts.filter(({ kind }) => kind === "notification").map(({ resourceId }) => resourceId)).toEqual(["paid"]);
+
+    let pushes = 0;
+    const send: ExpoFetch = async () => { pushes++; return Response.json({ data: [] }); };
+    const beforeUnknown = { ...db.calls };
+    await runEffectBatch(env, ["effect-unknown"], now, send);
+    expect(db.calls.batch - beforeUnknown.batch).toBe(1);
+
+    clock.mockReturnValue(grantDeadline);
+    const beforeExpiry = { ...db.calls };
+    await runEffectBatch(env, ["effect-paid"], grantDeadline, send);
+    expect(db.calls.batch - beforeExpiry.batch).toBe(1);
+    expect(db.calls.query - beforeExpiry.query).toBe(0);
+    expect(pushes).toBe(0);
+    expect((await db.prepare("SELECT state FROM effect_outbox ORDER BY id").all()).results)
+      .toEqual([{ state: "skipped" }, { state: "skipped" }]);
+    expect(resultSchema(notificationsRoute.output).parse(await read(inbox))).toMatchObject({ data: { items: [] } });
+    const reset = resultSchema(syncRoute.output).parse(await sync(initial.data.cursor));
+    if (!reset.ok) throw new Error("Missing scoped reset");
+    expect(reset.data.removals).toEqual([{ kind: "scope", resourceId: "recipient-customer" }]);
+    expect(reset.data.upserts.some(({ kind }) => kind === "notification")).toBe(false);
+  } finally { clock.mockRestore(); db.close(); }
 });

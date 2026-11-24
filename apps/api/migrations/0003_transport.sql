@@ -43,6 +43,7 @@ CREATE TABLE link_targets (
   expires_at INTEGER NOT NULL
 );
 CREATE INDEX link_targets_resource ON link_targets(kind, resource_id, required_scope, expires_at);
+CREATE INDEX link_targets_scope_expiry ON link_targets(required_scope, expires_at, token);
 
 CREATE TABLE notifications (
   id TEXT NOT NULL PRIMARY KEY,
@@ -52,7 +53,7 @@ CREATE TABLE notifications (
   link_token TEXT REFERENCES link_targets(token),
   created_at INTEGER NOT NULL,
   read_at INTEGER,
-  UNIQUE (context_id, event_key)
+  UNIQUE (event_key, context_id)
 );
 CREATE INDEX notifications_context_created ON notifications(context_id, created_at, id);
 CREATE INDEX notifications_context_id ON notifications(context_id, id);

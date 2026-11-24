@@ -4,6 +4,7 @@ import type { Context } from "hono";
 import type { ApiEnv } from "../../bindings";
 import { commitCommand, prepareCommand } from "../../db/commit";
 import { openRequestScope } from "../../db/scope";
+import { withCaseSteward } from "../aftercare/case-policy";
 import { resolveSession } from "../auth/session";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import { planNotificationRead, planPushInstallation } from "./commands";
@@ -21,7 +22,7 @@ notificationRoutes.get(notificationsRoute.path, async (c) => {
   const access = await resolveSession(c.req.raw, contextId, ctx.now);
   if (!access) return transportFailure(c, "UNAUTHENTICATED");
   const page = await commitCommand(ctx, prepareCommand(ctx, {
-    statements: [readNotifications(access, ctx.now, position)],
+    statements: [readNotifications(withCaseSteward(access, c.env.CASE_STEWARD_ACCOUNT_ID), ctx.now, position)],
     decode: (results) => decodeNotifications(results[0]?.results ?? []),
   }));
   return typeof page === "string" ? transportFailure(c, page) : transportSuccess(c, page, ctx.now);

@@ -10,6 +10,7 @@ CREATE TABLE jobs (
   origin TEXT NOT NULL,
   state TEXT NOT NULL,
   revision INTEGER NOT NULL DEFAULT 0,
+  closed_at INTEGER CONSTRAINT jobs_closed_at CHECK (closed_at IS NULL OR (typeof(closed_at) = 'integer' AND state = 'closed')),
   CONSTRAINT jobs_reference CHECK (reference GLOB 'BB-[A-Z0-9]*' AND substr(reference, 4) NOT GLOB '*[^A-Z0-9]*'),
   CONSTRAINT jobs_origin CHECK (origin IN ('bookbuddy', 'provider')),
   CONSTRAINT jobs_state CHECK (state IN ('open', 'cancelled', 'closed')),

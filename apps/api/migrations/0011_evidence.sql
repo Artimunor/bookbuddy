@@ -125,6 +125,86 @@ CREATE TABLE case_attachments (
 );
 CREATE INDEX case_attachments_attachment ON case_attachments (attachment_id);
 
+-- These are the two routine purposes. Decision, case and safety evidence has
+-- a separate schedule. A shared progress photo may have an ordinary purpose,
+-- but sharing it must not also extend the progress link's read deadline.
+CREATE VIEW job_media_links (job_id, attachment_id, purpose) AS
+  SELECT job_id, attachment_id, 'ordinary' FROM request_attachments
+  UNION ALL
+  SELECT t.job_id, l.attachment_id, 'ordinary' FROM chat_threads t JOIN chat_entries e ON e.thread_id = t.id
+    JOIN entry_attachments l ON l.entry_id = e.id WHERE t.job_id IS NOT NULL
+  UNION ALL
+  SELECT v.job_id, l.attachment_id, 'progress' FROM visits v JOIN shifts sh ON sh.visit_id = v.id
+    JOIN shift_evidence l ON l.shift_id = sh.id
+  UNION ALL
+  SELECT v.job_id, l.attachment_id, 'ordinary' FROM visits v JOIN customer_updates u ON u.visit_id = v.id
+    JOIN update_attachments l ON l.update_id = u.id;
+
+CREATE TABLE job_media_deadlines (
+  job_id TEXT NOT NULL REFERENCES jobs (id),
+  attachment_id TEXT NOT NULL REFERENCES attachments (id),
+  purpose TEXT NOT NULL CONSTRAINT job_media_deadlines_purpose CHECK (purpose IN ('progress', 'ordinary')),
+  expires_at INTEGER NOT NULL CONSTRAINT job_media_deadlines_expiry CHECK (typeof(expires_at) = 'integer'),
+  PRIMARY KEY (job_id, attachment_id, purpose)
+);
+CREATE INDEX job_media_deadlines_attachment ON job_media_deadlines (attachment_id, expires_at);
+
+-- The sign-off/payment transition supplies the request clock in its existing
+-- batch. A bookkeeping reopen cannot revive expired access: keep each
+-- previously assigned deadline and schedule any new purpose on the next close.
+CREATE TRIGGER job_media_close AFTER UPDATE OF closed_at ON jobs
+WHEN NEW.closed_at IS NOT NULL AND NEW.closed_at IS NOT OLD.closed_at
+BEGIN
+  INSERT INTO job_media_deadlines (job_id, attachment_id, purpose, expires_at)
+  SELECT l.job_id, l.attachment_id, l.purpose, NEW.closed_at +
+    CASE l.purpose WHEN 'progress' THEN 7776000000 ELSE 15552000000 END -- 90 / 180 days in ms
+  FROM job_media_links l WHERE l.job_id = NEW.id
+  ON CONFLICT (job_id, attachment_id, purpose) DO NOTHING;
+
+  UPDATE attachments SET delete_after = CASE
+    WHEN retention_class IN ('decision', 'case', 'safety')
+      OR EXISTS (SELECT 1 FROM quote_attachments l WHERE l.attachment_id = attachments.id)
+      OR EXISTS (SELECT 1 FROM change_attachments l WHERE l.attachment_id = attachments.id)
+      OR EXISTS (SELECT 1 FROM completion_attachments l WHERE l.attachment_id = attachments.id)
+      OR EXISTS (SELECT 1 FROM case_attachments l WHERE l.attachment_id = attachments.id)
+      OR EXISTS (SELECT 1 FROM entry_attachments l JOIN chat_entries e ON e.id = l.entry_id
+        JOIN chat_threads t ON t.id = e.thread_id WHERE l.attachment_id = attachments.id AND t.session_booking_id IS NOT NULL)
+    THEN NULL
+    ELSE (SELECT CASE WHEN count(*) = count(d.expires_at) THEN max(d.expires_at) END
+      FROM job_media_links l LEFT JOIN job_media_deadlines d
+        ON d.attachment_id = l.attachment_id AND d.job_id = l.job_id AND d.purpose = l.purpose
+      WHERE l.attachment_id = attachments.id)
+    END
+  WHERE state = 'ready' AND (delete_after IS NULL OR delete_after > NEW.closed_at)
+    AND id IN (SELECT attachment_id FROM job_media_deadlines WHERE job_id = NEW.id);
+END;
+
+-- A still-live request draft can supply the same object to another job.
+-- Starting a second purpose must not let the first job's physical timer win.
+CREATE TRIGGER shared_request_keeps_object AFTER INSERT ON request_attachments
+BEGIN
+  UPDATE attachments SET delete_after = NULL
+  WHERE id = NEW.attachment_id AND state = 'ready'
+    AND delete_after > (SELECT submitted_at FROM requests WHERE job_id = NEW.job_id)
+    AND EXISTS (SELECT 1 FROM job_media_deadlines d WHERE d.attachment_id = attachments.id AND d.expires_at = attachments.delete_after)
+    AND NOT EXISTS (SELECT 1 FROM job_media_deadlines d WHERE d.job_id = NEW.job_id
+      AND d.attachment_id = attachments.id AND d.purpose = 'ordinary');
+END;
+
+-- A reopened job can share a still-live progress photo for a new purpose.
+-- The original progress deadline remains, but the new update needs its own
+-- clock at the next close. Never unset an already-due deletion or a claim.
+CREATE TRIGGER shared_progress_keeps_object AFTER INSERT ON update_attachments
+BEGIN
+  UPDATE attachments SET delete_after = NULL
+  WHERE id = NEW.attachment_id AND state = 'ready'
+    AND delete_after > (SELECT recorded_at FROM customer_updates WHERE id = NEW.update_id)
+    AND EXISTS (SELECT 1 FROM job_media_deadlines d WHERE d.attachment_id = attachments.id AND d.expires_at = attachments.delete_after)
+    AND NOT EXISTS (SELECT 1 FROM job_media_deadlines d JOIN visits v ON v.job_id = d.job_id
+      JOIN customer_updates u ON u.visit_id = v.id WHERE u.id = NEW.update_id AND d.attachment_id = attachments.id
+        AND d.purpose = 'ordinary');
+END;
+
 CREATE TABLE retention_holds (
   id TEXT PRIMARY KEY NOT NULL,
   record_kind TEXT NOT NULL CONSTRAINT retention_holds_record_kind CHECK (length(record_kind) > 0),

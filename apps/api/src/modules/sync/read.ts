@@ -1,7 +1,10 @@
 import { accountIdSchema, scopeHeaderSchema, syncLimits } from "@bookbuddy/api-contract";
 import type { ScopeHeader, SyncCursor, SyncPage, SyncProjection, SyncRemoval } from "@bookbuddy/api-contract";
 import type { CommandStatement } from "../../db/commit";
+import { accessClock, at, liveTerm } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { currentMembership, scopedIntakeIds } from "../jobs/projections";
+import { currentPerson } from "../places/policy";
 import type { CursorPosition } from "./cursor";
 import type { SyncRegistry } from "./registry";
 
@@ -20,6 +23,38 @@ function compoundSelect(parts: readonly string[], empty: string): string {
 
 const sqlEncoder = new TextEncoder();
 const emptyProjection = "SELECT NULL AS kind, NULL AS resource_id, NULL AS value WHERE 0";
+
+// A future-only horizon from this reader's grants (never a tenant-wide sweep).
+// The *previously signed* horizon is the barrier; after it lapses, a new MIN
+// would forget that access existed and the delta could otherwise be empty.
+const nextGrantExpiry = `SELECT min(deadline) FROM (
+  SELECT min(grant_row.valid_until) AS deadline FROM expiry_scope s
+  CROSS JOIN place_grants grant_row ON grant_row.account_id = s.account_id
+  JOIN place_people pp ON pp.place_id = grant_row.place_id AND pp.account_id = s.account_id AND ${currentPerson("pp")}
+  WHERE s.role = 'customer' AND grant_row.valid_until IS NOT NULL AND ${liveTerm("grant_row")}
+  UNION ALL
+  SELECT min(grant_row.valid_until) FROM expiry_scope s
+  CROSS JOIN business_grants grant_row ON grant_row.membership_id = s.membership_id AND grant_row.business_id = s.business_id
+  WHERE grant_row.valid_until IS NOT NULL AND ${liveTerm("grant_row")}
+  UNION ALL
+  SELECT min(grant_row.valid_until) FROM expiry_scope s
+  CROSS JOIN job_grants grant_row ON grant_row.context_id = s.context_id
+  JOIN jobs j ON j.id = grant_row.job_id AND j.business_id = s.business_id
+  WHERE ${liveTerm("grant_row")}
+  UNION ALL
+  SELECT min(grant_row.valid_until) FROM expiry_scope s
+  CROSS JOIN case_grants grant_row ON grant_row.context_id = s.context_id
+  WHERE ${liveTerm("grant_row")}
+  UNION ALL
+  SELECT deadline FROM (
+    SELECT min(h.expires_at) AS deadline FROM (${scopedIntakeIds("expiry_scope", at, "1")}) intake
+    JOIN job_handoffs h ON h.id = intake.resource_id
+    UNION ALL
+    SELECT min(l.expires_at) FROM expiry_scope s
+    CROSS JOIN link_targets l ON l.required_scope = s.context_id
+    WHERE l.expires_at > ${at} AND EXISTS (SELECT 1 FROM notifications n WHERE n.link_token = l.token)
+  )
+)`;
 
 export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: number, registry: SyncRegistry): CommandStatement[] {
   const expired = cursor !== null && cursor.expiresAt <= now;
@@ -44,8 +79,9 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
     const projection = reader.project(now);
     projectionParts.push({ sql: `SELECT '${kind}' AS kind, resource_id, value FROM (${projection.sql})`, params: projection.params });
   }
-  const prefix = `${access.sql},
-      cursor_input(phase, epoch, seq, through_seq, anchor, after_kind, after_id) AS (VALUES (?, ?, ?, ?, ?, ?, ?)),
+  const clock = accessClock(access, now);
+  const prefix = `${clock.sql},
+      cursor_input(phase, epoch, seq, through_seq, anchor, after_kind, after_id, next_expiry) AS (VALUES (?, ?, ?, ?, ?, ?, ?, ?)),
       state AS MATERIALIZED (
         SELECT s.account_id, l.context_id, l.role, l.business_id,
           COALESCE(e.visibility_epoch, 0) AS epoch, r.floor_seq,
@@ -54,6 +90,7 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
           CASE
             WHEN l.context_id IS NULL THEN 'revoked'
             WHEN i.epoch IS NOT NULL AND i.epoch <> COALESCE(e.visibility_epoch, 0) THEN 'reset'
+            WHEN i.next_expiry <= ${at} THEN 'reset'
             WHEN i.phase = 'delta' AND i.seq >= r.floor_seq THEN 'delta'
             ELSE 'snapshot'
           END AS mode
@@ -94,7 +131,11 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
         )
       ),
       projection_keys AS MATERIALIZED (SELECT kind, resource_id FROM page_keys WHERE op = 'upsert')`;
+  const expirySql = `, expiry_scope AS MATERIALIZED (
+      SELECT s.*, ${currentMembership("s", at)} AS membership_id FROM live_scope s
+    ), expiry AS MATERIALIZED (${nextGrantExpiry})`;
   const pageRows = `SELECT b.account_id, b.context_id, b.role, b.business_id, b.epoch, b.mode, b.barrier, b.high,
+        (SELECT * FROM expiry) AS next_expiry,
         b.delta_through, b.snapshot_anchor, (SELECT MAX(seq) FROM delta_page) AS delta_last,
         CASE WHEN b.mode = 'delta' THEN (SELECT count(*) FROM delta_scan) > ${pageLimit}
              ELSE (SELECT count(*) FROM snapshot_scan) > ${pageLimit} - b.barrier END AS has_more,
@@ -102,25 +143,29 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
       FROM bounds b LEFT JOIN page_keys k ON 1
       LEFT JOIN projections p ON p.kind = k.kind AND p.resource_id = k.resource_id
       ORDER BY k.seq, k.kind, k.resource_id`;
-  const commonParams = [...access.params ?? [], expired ? "expired" : cursor?.phase ?? "initial", cursor?.epoch ?? null,
-    delta?.seq ?? null, delta?.through ?? null, snapshot?.anchor ?? null, snapshot?.kind ?? null, snapshot?.id ?? null, ...snapshotParams];
+  const commonParams = [...clock.params, expired ? "expired" : cursor?.phase ?? "initial", cursor?.epoch ?? null,
+    delta?.seq ?? null, delta?.through ?? null, snapshot?.anchor ?? null, snapshot?.kind ?? null, snapshot?.id ?? null,
+    cursor?.nextExpiry ?? null, ...snapshotParams];
 
   // A large projection does not justify another D1 request. Keep the same
   // scoped page derivation in each necessary shard; all shards read the same
   // transaction after its ordered writes, and each projection is evaluated once.
-  const fixedBytes = sqlEncoder.encode(`${prefix}, projections AS () ${pageRows}`).byteLength;
+  const supplementRows = "SELECT kind, resource_id, value FROM projections";
+  const frameBytes = sqlEncoder.encode(`${prefix}, projections AS () \n      `).byteLength;
+  const headerBytes = frameBytes + sqlEncoder.encode(expirySql + pageRows).byteLength;
+  const supplementBytes = frameBytes + sqlEncoder.encode(supplementRows).byteLength;
   const groups: CommandStatement[][] = [[]];
-  let bytes = fixedBytes, parameters = commonParams.length;
+  let bytes = headerBytes, parameters = commonParams.length;
   for (const part of projectionParts) {
     // Allow for compound separators and grouping parentheses around each arm.
     const partBytes = sqlEncoder.encode(part.sql).byteLength + 40;
     const partParameters = part.params?.length ?? 0;
-    if (fixedBytes + partBytes > 100_000 || commonParams.length + partParameters > 100) {
-      throw new RangeError("A sync projection cannot fit in a D1 statement");
+    if (supplementBytes + partBytes > 100_000 || commonParams.length + partParameters > 100) {
+      throw new RangeError(`A sync projection cannot fit in a D1 statement (${supplementBytes} + ${partBytes} bytes)`);
     }
     if (bytes + partBytes > 100_000 || parameters + partParameters > 100) {
       groups.push([]);
-      bytes = fixedBytes;
+      bytes = supplementBytes;
       parameters = commonParams.length;
     }
     groups.at(-1)!.push(part);
@@ -128,8 +173,8 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
     parameters += partParameters;
   }
   return groups.map((group, index) => ({
-    sql: `${prefix}, projections AS (${compoundSelect(group.map(({ sql }) => sql), emptyProjection)})
-      ${index === 0 ? pageRows : "SELECT kind, resource_id, value FROM projections"}`,
+    sql: `${prefix}${index === 0 ? expirySql : ""}, projections AS (${compoundSelect(group.map(({ sql }) => sql), emptyProjection)})
+      ${index === 0 ? pageRows : supplementRows}`,
     params: [...commonParams, ...group.flatMap(({ params }) => params ?? [])],
   }));
 }
@@ -140,6 +185,7 @@ interface FeedRow {
   role: string | null;
   business_id: string | null;
   epoch: number;
+  next_expiry: number | null;
   mode: SyncPage["mode"] | "revoked";
   barrier: number;
   high: number;
@@ -154,7 +200,7 @@ interface FeedRow {
 }
 
 export type FeedPage = Pick<SyncPage, "mode" | "context" | "upserts" | "removals" | "hasMore"> & {
-  accountId: SyncCursor["accountId"]; epoch: number; position: CursorPosition;
+  accountId: SyncCursor["accountId"]; epoch: number; nextExpiry: number | null; position: CursorPosition;
 };
 
 interface ProjectedRow { kind: string; resource_id: string; value: string | null }
@@ -168,7 +214,7 @@ export function decodeFeed(results: readonly D1Result[], cursor: SyncCursor | nu
   if (first.mode === "revoked") {
     // Only an authenticated former recipient with a signed context may purge a revoked scope.
     if (!cursor) return "NOT_FOUND";
-    return { mode: "reset", accountId, context: cursor.context, epoch: cursor.epoch,
+    return { mode: "reset", accountId, context: cursor.context, epoch: cursor.epoch, nextExpiry: null,
       upserts: [], removals: [{ kind: "scope", resourceId: cursor.context.contextId }], position: { phase: "revoked" }, hasMore: false };
   }
   const context: ScopeHeader = scopeHeaderSchema.parse({ contextId: first.context_id, businessId: first.business_id, role: first.role });
@@ -200,5 +246,5 @@ export function decodeFeed(results: readonly D1Result[], cursor: SyncCursor | nu
     : hasMoreInWindow && lastKey
       ? { phase: "snapshot", anchor: first.snapshot_anchor, ...lastKey }
       : { phase: "delta", seq: first.snapshot_anchor };
-  return { mode: first.mode, context, accountId, epoch: first.epoch, removals, upserts, position, hasMore };
+  return { mode: first.mode, context, accountId, epoch: first.epoch, nextExpiry: first.next_expiry, removals, upserts, position, hasMore };
 }

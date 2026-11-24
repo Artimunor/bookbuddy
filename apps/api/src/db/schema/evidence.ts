@@ -5,7 +5,7 @@ import { caseEvents, completionItems } from "./aftercare";
 import { changeVersions, quoteVersions } from "./commercial";
 import { chatEntries } from "./conversations";
 import { customerUpdates, visitActivityEvents } from "./field";
-import { requests } from "./jobs";
+import { jobs, requests } from "./jobs";
 import { shifts } from "./schedule";
 
 export const mediaStages = sqliteTable("media_stages", {
@@ -122,6 +122,19 @@ export const caseAttachments = sqliteTable("case_attachments", {
   primaryKey({ columns: [t.caseId, t.caseEventId, t.attachmentId] }),
   foreignKey({ columns: [t.caseEventId, t.caseId], foreignColumns: [caseEvents.id, caseEvents.caseId] }),
   index("case_attachments_attachment").on(t.attachmentId),
+]);
+
+// The purpose view and the close/share trigger logic live in 0011_evidence.sql.
+export const jobMediaDeadlines = sqliteTable("job_media_deadlines", {
+  jobId: text("job_id").notNull().references(() => jobs.id),
+  attachmentId: text("attachment_id").notNull().references(() => attachments.id),
+  purpose: text({ enum: ["progress", "ordinary"] }).notNull(),
+  expiresAt: integer("expires_at").notNull(),
+}, (t) => [
+  check("job_media_deadlines_purpose", sql`${t.purpose} IN ('progress', 'ordinary')`),
+  check("job_media_deadlines_expiry", sql`typeof(${t.expiresAt}) = 'integer'`),
+  primaryKey({ columns: [t.jobId, t.attachmentId, t.purpose] }),
+  index("job_media_deadlines_attachment").on(t.attachmentId, t.expiresAt),
 ]);
 
 export const retentionHolds = sqliteTable("retention_holds", {

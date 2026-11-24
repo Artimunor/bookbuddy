@@ -46,9 +46,11 @@ export function createApp() {
   app.route(API_BASE_PATH, createTransportRoutes({
     operations: [attendanceSyncOperation, progressAttachmentSyncOperation, chatAppendSyncOperation, chatReadSyncOperation],
     projections: [
-      placeSyncProjection, ...jobSyncProjections, ...scheduleSyncProjections,
+      placeSyncProjection, ...jobSyncProjections,
+      ...scheduleSyncProjections.map((reader) => ({ ...reader, roles: ["worker"] as const })),
       { ...coverSyncProjection, roles: ["foreman", "worker"] },
-      workerFieldShiftSyncProjection, assignmentBriefingSyncProjection,
+      { ...workerFieldShiftSyncProjection, roles: ["worker"] },
+      { ...assignmentBriefingSyncProjection, roles: ["worker"] },
       chatThreadSyncProjection, sessionBookingSyncProjection,
     ],
   }));

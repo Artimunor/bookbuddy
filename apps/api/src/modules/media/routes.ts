@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import type { ApiEnv, Bindings } from "../../bindings";
 import { openRequestScope } from "../../db/scope";
 import type { RequestScope } from "../../db/scope";
+import { withCaseSteward } from "../aftercare/case-policy";
 import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { boundedBody, transportFailure, transportSuccess } from "../sync/http";
@@ -23,7 +24,7 @@ function post<Body>(route: {
     const ctx = openRequestScope(c.env.DB, c.var.requestId);
     const access = await resolveSession(c.req.raw, null, ctx.now);
     if (!access) return transportFailure(c, "UNAUTHENTICATED");
-    const outcome = await run(ctx, access, c.env, parsed.data.body);
+    const outcome = await run(ctx, withCaseSteward(access, c.env.CASE_STEWARD_ACCOUNT_ID), c.env, parsed.data.body);
     if (typeof outcome === "string") return transportFailure(c, outcome);
     return transportSuccess(c, route.output.parse(outcome), ctx.now);
   });

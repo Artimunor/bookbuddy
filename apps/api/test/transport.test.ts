@@ -25,10 +25,14 @@ async function fixture(staff = false) {
   await db.batch([
     db.prepare("INSERT INTO accounts (id, email_normalized, verified_at, state) VALUES ('actor', 'actor@example.invalid', 1, 'active')"),
     db.prepare("INSERT INTO account_contexts (id, account_id, role) VALUES ('customer-context', 'actor', 'customer')"),
+    db.prepare(`INSERT INTO operating_areas (id, name, site_zone, polygon) VALUES ('area', 'Area', 'Europe/Lisbon', '[0]')`),
+    db.prepare(`INSERT INTO businesses (id, legal_name, public_name, verified_work_contact, catchment_id, state)
+      VALUES ('business', 'Business', 'Business', 'test', 'area', 'approved')`),
+    db.prepare(`INSERT INTO invitations (id, token_hash, recipient_key, business_id, inviter_id, grant_snapshot, issued_at,
+      expires_at, ended_at, recipient_id, state) VALUES ('invite', 'hash', 'key', 'business', 'actor',
+        '{"kind":"business_role","role":"worker"}', 1, 172800001, 2, 'actor', 'accepted')`),
+    db.prepare("INSERT INTO link_targets VALUES ('notice-target', 'invitation', 'invite', ?, ?)").bind(contextId, Date.now() + 60_000),
     ...(staff ? [
-      db.prepare(`INSERT INTO operating_areas (id, name, site_zone, polygon) VALUES ('area', 'Area', 'Europe/Lisbon', '[0]')`),
-      db.prepare(`INSERT INTO businesses (id, legal_name, public_name, verified_work_contact, catchment_id, state)
-        VALUES ('business', 'Business', 'Business', 'test', 'area', 'approved')`),
       db.prepare("INSERT INTO memberships (id, business_id, account_id, state) VALUES ('member', 'business', 'actor', 'active')"),
       db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at)
         VALUES ('grant', 'member', 'business', 'actor', 'worker', 1)`),
@@ -37,8 +41,9 @@ async function fixture(staff = false) {
     ] : []),
     db.prepare(`INSERT INTO sessions (id, account_id, secret_hash, active_context_id, device_id, issued_at, expires_at)
       VALUES ('session', 'actor', ?, ?, 'device', 1, ?)`).bind(hash, contextId, Date.now() + 60_000),
-    db.prepare(`INSERT INTO notifications (id, context_id, event_key, kind, created_at)
-      VALUES ('notice-a', ?, 'event-a', 'test_update', 1), ('notice-b', ?, 'event-b', 'test_update', 2)`).bind(contextId, contextId),
+    db.prepare(`INSERT INTO notifications (id, context_id, event_key, kind, link_token, created_at)
+      VALUES ('notice-a', ?, 'event-a', 'invitation', 'notice-target', 1), ('notice-b', ?, 'event-b', 'invitation', 'notice-target', 2)`)
+      .bind(contextId, contextId),
   ]);
   let apiCalls = 0;
   async function request(path: string, method: string, body?: unknown, opId?: string) {
@@ -110,7 +115,7 @@ test("expired cursor starts a scoped snapshot with a first-page discard barrier"
   const f = await fixture();
   try {
     const codec = await createCursorCodec(secret);
-    const cursor = await codec.issue({ accountId: accountIdSchema.parse("actor"), epoch: 0,
+    const cursor = await codec.issue({ accountId: accountIdSchema.parse("actor"), epoch: 0, nextExpiry: null,
       context: { contextId: contextIdSchema.parse(f.contextId), role: "customer", businessId: null } },
     { phase: "delta", seq: 0 }, Date.now() - 8 * 86_400_000);
     const page = await f.sync(cursor);
@@ -153,14 +158,14 @@ test("snapshot anchor catches an insert behind its keyset and never returns over
   const f = await fixture();
   try {
     await f.db.prepare(`WITH RECURSIVE ids(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM ids WHERE n < 100)
-      INSERT INTO notifications (id, context_id, event_key, kind, created_at)
-      SELECT printf('x-%03d', n), ?, printf('event-%03d', n), 'test_update', n FROM ids`).bind(f.contextId).run();
+      INSERT INTO notifications (id, context_id, event_key, kind, link_token, created_at)
+      SELECT printf('x-%03d', n), ?, printf('event-%03d', n), 'invitation', 'notice-target', n FROM ids`).bind(f.contextId).run();
     const first = await f.sync(null);
     expect(first.upserts).toHaveLength(100);
     expect(first.hasMore).toBe(true);
     await f.db.batch([
-      f.db.prepare(`INSERT INTO notifications (id, context_id, event_key, kind, created_at)
-        VALUES ('a-late', ?, 'late', 'test_update', 5)`).bind(f.contextId),
+      f.db.prepare(`INSERT INTO notifications (id, context_id, event_key, kind, link_token, created_at)
+        VALUES ('a-late', ?, 'late', 'invitation', 'notice-target', 5)`).bind(f.contextId),
       f.db.prepare(`INSERT INTO sync_changes (kind, resource_id, partition_key, op, at)
         VALUES ('notification', 'a-late', ?, 'upsert', 5)`).bind(f.contextId),
     ]);
@@ -184,12 +189,29 @@ test("invalid and foreign cursors and oversized requests cannot commit an operat
     expect((await request(initial.cursor, [{ ...readMark("notice-a"), overLimit: "x".repeat(256 * 1024) }])).status).toBe(422);
     expect(f.db.calls.batch).toBe(before);
     const codec = await createCursorCodec(secret);
-    const foreign = await codec.issue({ accountId: accountIdSchema.parse("different-actor"), epoch: 0,
+    const foreign = await codec.issue({ accountId: accountIdSchema.parse("different-actor"), epoch: 0, nextExpiry: null,
       context: { contextId: contextIdSchema.parse(f.contextId), role: "customer", businessId: null } },
     { phase: "delta", seq: 0 }, Date.now());
     expect((await request(foreign, [readMark("notice-a")])).status).toBe(404);
     expect(f.db.calls.batch - before).toBe(1);
     expect(await f.db.prepare("SELECT count(*) AS receipts FROM operation_receipts").first()).toEqual({ receipts: 0 });
+  } finally { f.db.close(); }
+});
+
+test("event-key fan-out uses an indexed search and stays unique per recipient context", async () => {
+  const f = await fixture(true);
+  try {
+    const notice = f.db.prepare(`INSERT INTO notifications (id, context_id, event_key, kind, created_at)
+      VALUES (?, ?, 'event-a', 'invitation', 3)`);
+    await f.db.batch([notice.bind("other-recipient", "customer-context")]);
+    await expect(f.db.batch([notice.bind("duplicate-recipient", f.contextId)])).rejects.toThrow(/UNIQUE constraint failed/);
+    const fanOut = "SELECT n.context_id FROM notifications n WHERE n.event_key = ?";
+    const before = f.db.calls.query;
+    const plan = await f.db.prepare(`EXPLAIN QUERY PLAN ${fanOut}`).bind("event-a").all<{ detail: string }>();
+    expect(f.db.calls.query - before).toBe(1);
+    expect(plan.results.map(({ detail }) => detail).join("\n")).toMatch(/SEARCH n USING (?:COVERING )?INDEX .*event_key=\?/);
+    expect((await f.db.prepare(fanOut).bind("event-a").all<{ context_id: string }>()).results.map(({ context_id }) => context_id).sort())
+      .toEqual(["customer-context", "staff-context"]);
   } finally { f.db.close(); }
 });
 
@@ -232,8 +254,8 @@ test("guarded effects return new work keys, never wake work again on command rep
       input: { id: "notice-c" }, resultRef: "notice-c",
       eligible: { sql: "NOT EXISTS (SELECT 1 FROM notifications WHERE id = 'notice-c')" },
       writes: (guard) => ({
-        statements: [{ sql: `INSERT INTO notifications (id, context_id, event_key, kind, created_at)
-          SELECT 'notice-c', ?, 'event-c', 'test_update', ? WHERE ${guard.sql}`,
+        statements: [{ sql: `INSERT INTO notifications (id, context_id, event_key, kind, link_token, created_at)
+          SELECT 'notice-c', ?, 'event-c', 'invitation', 'notice-target', ? WHERE ${guard.sql}`,
           params: [f.contextId, now, ...guard.params ?? []] }],
         changes: { sql: "SELECT 'notification' kind, 'notice-c' resource_id, ? partition_key, 'upsert' op, ? at",
           params: [f.contextId, now] },

@@ -19,10 +19,12 @@ export const jobs = sqliteTable("jobs", {
   origin: text({ enum: JOB_ORIGINS }).notNull(),
   state: text({ enum: JOB_STATES }).notNull(),
   revision: integer().notNull().default(0),
+  closedAt: integer("closed_at"),
 }, (t) => [
   check("jobs_reference", sql`${t.reference} GLOB 'BB-[A-Z0-9]*' AND substr(${t.reference}, 4) NOT GLOB '*[^A-Z0-9]*'`),
   check("jobs_origin", sql`${t.origin} IN ('bookbuddy', 'provider')`),
   check("jobs_state", sql`${t.state} IN ('open', 'cancelled', 'closed')`),
+  check("jobs_closed_at", sql`${t.closedAt} IS NULL OR (typeof(${t.closedAt}) = 'integer' AND ${t.state} = 'closed')`),
   check("jobs_revision", sql`typeof(${t.revision}) = 'integer' AND ${t.revision} >= 0`),
   unique().on(t.id, t.businessId),
   unique().on(t.id, t.placeId),

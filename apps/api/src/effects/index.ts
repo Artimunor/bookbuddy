@@ -43,6 +43,7 @@ const claimResource = `CASE e.kind ${handlers.filter((h) => h.claimResource)
 const maxClaim = 32;
 const leaseMs = 60_000;
 const effectClock = "WITH clock(at) AS (VALUES (?))";
+const claimClock = `${effectClock}, case_steward_config(account_id) AS (VALUES (?))`;
 
 export async function runEffectBatch(env: Bindings, keys: readonly string[] | null, now = Date.now(),
   expoFetch?: ExpoFetch, translationFetch?: TranslationFetch, mailDelivery?: MailDelivery): Promise<void> {
@@ -53,15 +54,16 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
     ? "e.kind IN (" + knownKinds + ")"
     : "e.id IN (SELECT value FROM json_each(?)) AND e.kind IN (" + knownKinds + ")";
   const keyArgs = keys === null ? [] : [JSON.stringify(keys)];
+  const steward = env.CASE_STEWARD_ACCOUNT_ID ?? null;
   // Claim + input in one transactional batch. Bound each sweep; pending work
   // left by a missed wake stays in the ledger for the next scheduled pass.
   const claimResults = await db.batch([
     ...(keys === null ? [...completionSweepStatements(now), ...caseSweepStatements(now, env.CASE_STEWARD_ACCOUNT_ID)]
       .map(({ sql, params }) => db.prepare(sql).bind(...params ?? [])) : []),
-    db.prepare(`${effectClock} UPDATE effect_outbox SET state = 'skipped', resource_ref = ${scrub}
+    db.prepare(`${claimClock} UPDATE effect_outbox SET state = 'skipped', resource_ref = ${scrub}
       WHERE id IN (SELECT e.id FROM effect_outbox e WHERE e.state = 'pending' AND ${target}
         AND e.due_at <= ? AND (e.expires_at <= ? OR NOT (${eligible})) ORDER BY e.due_at, e.id LIMIT ${maxClaim})`)
-      .bind(now, ...keyArgs, now, now),
+      .bind(now, steward, ...keyArgs, now, now),
     db.prepare(`UPDATE effect_outbox SET state = 'unknown', resource_ref = ${scrub}
       WHERE id IN (SELECT e.id FROM effect_outbox e JOIN effect_claims c ON c.effect_id = e.id
         WHERE e.state = 'claimed' AND ${target} AND c.result_code IS NULL AND c.lease_until <= ?
@@ -72,10 +74,10 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
         SELECT id FROM effect_outbox WHERE state = 'unknown' AND kind IN (${knownKinds})
       )`).bind(now),
     recoverTranslations(db, target, keyArgs, 2 * maxClaim),
-    db.prepare(`${effectClock} INSERT INTO effect_claims (effect_id, attempt, claim_id, fence, claimed_at, lease_until)
+    db.prepare(`${claimClock} INSERT INTO effect_claims (effect_id, attempt, claim_id, fence, claimed_at, lease_until)
       SELECT e.id, 1, ?, 1, ?, min(e.expires_at, ?) FROM effect_outbox e
       WHERE e.state = 'pending' AND ${target} AND e.due_at <= ? AND e.expires_at > ? AND (${eligible})
-      ORDER BY e.due_at, e.id LIMIT ${maxClaim}`).bind(now, claim, now, now + leaseMs, ...keyArgs, now, now),
+      ORDER BY e.due_at, e.id LIMIT ${maxClaim}`).bind(now, steward, claim, now, now + leaseMs, ...keyArgs, now, now),
     db.prepare(`UPDATE effect_outbox SET state = 'claimed'
       WHERE state = 'pending' AND id IN (SELECT effect_id FROM effect_claims WHERE claim_id = ?)`).bind(claim),
     db.prepare(`${effectClock} SELECT e.id, e.kind, ${claimResource} AS resource_ref FROM effect_claims c JOIN effect_outbox e ON e.id = c.effect_id

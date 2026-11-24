@@ -48,7 +48,10 @@ export const linkTargets = sqliteTable("link_targets", {
   resourceId: text("resource_id").notNull(),
   requiredScope: text("required_scope").notNull(),
   expiresAt: integer("expires_at").notNull(),
-}, (t) => [index("link_targets_resource").on(t.kind, t.resourceId, t.requiredScope, t.expiresAt)]);
+}, (t) => [
+  index("link_targets_resource").on(t.kind, t.resourceId, t.requiredScope, t.expiresAt),
+  index("link_targets_scope_expiry").on(t.requiredScope, t.expiresAt, t.token),
+]);
 
 export const notifications = sqliteTable("notifications", {
   id: text().notNull().primaryKey(),
@@ -59,7 +62,7 @@ export const notifications = sqliteTable("notifications", {
   createdAt: integer("created_at").notNull(),
   readAt: integer("read_at"),
 }, (t) => [
-  unique().on(t.contextId, t.eventKey),
+  unique().on(t.eventKey, t.contextId),
   index("notifications_context_created").on(t.contextId, t.createdAt, t.id),
   index("notifications_context_id").on(t.contextId, t.id),
   index("notifications_link_token").on(t.linkToken),

@@ -12,6 +12,7 @@ import { openRequestScope } from "../../db/scope";
 import { at, displayName, scopedStatement } from "../access/policy";
 import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
+import { mediaLinkAvailable } from "../media/deadlines";
 import { foreman, scheduleAccess, targetId } from "../schedule/policy";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import { attendanceEventValue, correctionValue, departAssignment, estimateValue, readWorkerFieldShift, readyPhotoSql,
@@ -80,7 +81,7 @@ function readVisitLog(session: SessionAccess, now: number, { params, query }: Lo
     ${customerOnly ? published : `json_object('kind', 'customer_update', 'update', json(${published}))`} AS value
     FROM log_scope l JOIN customer_updates u ON u.visit_id = l.visit_id AND u.recorded_at <= ${at}
     WHERE u.kind <> 'photo' OR EXISTS (SELECT 1 FROM update_attachments link WHERE link.update_id = u.id)`;
-  const photoReady = readyPhotoSql("media");
+  const photoReady = `${readyPhotoSql("media")} AND ${mediaLinkAvailable("l.job_id", "media.id", "progress")}`;
   const privateRows = `
     SELECT e.actual_at AS at, 'attendance' AS source, e.id, json_object('kind', 'attendance', 'at', e.actual_at,
       'actorName', ${displayName("actor")}, 'customerUpdateId', (SELECT id FROM on_site_origin WHERE event_id = e.id),
@@ -117,7 +118,8 @@ function readVisitLog(session: SessionAccess, now: number, { params, query }: Lo
 
   return scopedStatement(access, `, mark(shift_id, stamp_at, source, stamp_id, prefix) AS (VALUES (?, ?, ?, ?, ?)),
     log_scope AS MATERIALIZED (
-      SELECT scope.*, v.id AS visit_id, v.state AS visit_state, j.state AS job_state, j.place_state, j.site_zone, b.public_name AS provider_name
+      SELECT scope.*, j.id AS job_id, v.id AS visit_id, v.state AS visit_state, j.state AS job_state, j.place_state, j.site_zone,
+        b.public_name AS provider_name
       FROM live_scope scope CROSS JOIN schedule_job j JOIN visits v ON v.id = ${targetId} AND v.job_id = j.id
       JOIN businesses b ON b.id = j.business_id CROSS JOIN mark
       WHERE ${foreman("scope")} AND j.place_state <> 'restricted' AND (mark.shift_id IS NULL OR EXISTS (

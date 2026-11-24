@@ -104,6 +104,8 @@ export const readingArtifacts = sqliteTable("reading_artifacts", {
   check("reading_artifacts_text", sql`length(trim(${t.translatedText})) > 0`),
   check("reading_artifacts_reviewed_at", sql`typeof(${t.reviewedAt}) = 'integer'`),
   check("reading_artifacts_scope", sql`(${t.quoteVersionId} IS NULL) <> (${t.changeVersionId} IS NULL)`),
+  unique().on(t.id, t.quoteVersionId),
+  unique().on(t.id, t.changeVersionId),
   index("reading_artifacts_quote").on(t.quoteVersionId, t.targetLocale, t.reviewedAt, t.id).where(sql`${t.quoteVersionId} IS NOT NULL`),
   index("reading_artifacts_change").on(t.changeVersionId, t.targetLocale, t.reviewedAt, t.id).where(sql`${t.changeVersionId} IS NOT NULL`),
   index("reading_artifacts_reviewer").on(t.reviewedByContextId),

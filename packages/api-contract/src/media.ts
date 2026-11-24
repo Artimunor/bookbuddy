@@ -5,7 +5,8 @@ import { defineRoute } from "./route";
 export const mediaLimits = {
   batch: 8,
   photoBytes: 5 * 1024 * 1024,
-  voiceBytes: 2 * 1024 * 1024,
+  // 90 s at the app recorder's 64 kb/s is 720 kB; allow 80 kB of encoder/container overhead.
+  voiceBytes: 800_000,
   voiceDurationMs: 90_000,
   pendingBytes: 100 * 1024 * 1024,
   parts: 20, // Up to 100 MiB with non-final R2 parts of at least 5 MiB.

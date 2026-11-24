@@ -104,11 +104,12 @@ async function fixture() {
     return id;
   }
 
-  async function photo(id: string, kind: "quote" | "change", job = "job", context = "foreman-staff") {
+  async function evidence(id: string, kind: "quote" | "change", job = "job", context = "foreman-staff", voice = false) {
     await db.batch([
       db.prepare("INSERT INTO media_stages VALUES (?, ?, ?, ?, ?, ?)").bind(`${id}-stage`, context, kind, job, start - 1, start + day),
-      db.prepare(`INSERT INTO attachments(id, stage_id, object_key, mime, bytes, state, retention_class, etag)
-        VALUES (?, ?, ?, 'image/jpeg', 100, 'ready', 'unlinked', 'etag')`).bind(id, `${id}-stage`, `fixture/${id}`),
+      db.prepare(`INSERT INTO attachments(id, stage_id, object_key, mime, bytes, duration_ms, state, retention_class, etag)
+        VALUES (?, ?, ?, ?, 100, ?, 'ready', 'unlinked', 'etag')`)
+        .bind(id, `${id}-stage`, `fixture/${id}`, voice ? "audio/mp4" : "image/jpeg", voice ? 1_000 : null),
     ]);
   }
 
@@ -124,7 +125,7 @@ async function fixture() {
 
   const quote = (id: string) => `/quote-versions/${id}`;
   const change = (id: string) => `/change-versions/${id}`;
-  return { db, wakes, request, switchApprover, quote, change, photo, reading,
+  return { db, wakes, request, switchApprover, quote, change, photo: evidence, reading,
     draft: (id: string, attachments: string[] = []) => request("/jobs/job/quote-versions", "foreman", `create-${id}`, {
       id, termsVersionId: "terms-v1", originalLocale: "es", scope: "Cambiar los rodillos", exclusions: "No incluye el vidrio",
       evidence: attachments.map((attachmentId) => ({ attachmentId })),
@@ -145,6 +146,32 @@ async function fixture() {
 
 const missing = { status: 404, body: { error: { code: "NOT_FOUND" } } };
 const conflict = { status: 409, body: { error: { code: "CONFLICT" } } };
+
+test("the final quote and change drafts enforce five staged photos and one voice across all stages", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(start);
+  const f = await fixture();
+  try {
+    await f.db.prepare(`INSERT INTO business_grants(id,business_id,membership_id,capability,issuer_id,valid_from)
+      VALUES ('direct','business','foreman-member','publish_commercial','admin',1)`).run();
+    for (const kind of ["quote", "change"] as const) {
+      const photos = Array.from({ length: 6 }, (_, i) => `${kind}-photo-${i}`);
+      const voices = [`${kind}-voice-a`, `${kind}-voice-b`];
+      for (const id of photos) await f.photo(id, kind);
+      for (const id of voices) await f.photo(id, kind, "job", "foreman-staff", true);
+      const draft = kind === "quote" ? f.draft : f.changeDraft;
+      expect(await draft(`${kind}-too-many-photos`, photos)).toMatchObject(conflict);
+      expect(await draft(`${kind}-too-many-voices`, voices)).toMatchObject(conflict);
+      const valid = [...photos.slice(0, 5), voices[0]!];
+      expect(await draft(kind === "quote" ? "q1" : "ch1", valid)).toMatchObject({
+        status: 200, body: { data: { evidence: expect.arrayContaining(valid.map((attachmentId) => ({ attachmentId }))) } },
+      });
+      if (kind === "quote") {
+        expect((await f.request(`${f.quote("q1")}/issue`, "foreman", "direct-issue", terms)).status).toBe(200);
+        expect((await f.approve("q1")).status).toBe(200);
+      }
+    }
+  } finally { clock.mockRestore(); f.db.close(); }
+});
 
 test("quote review, publication and exact approval respect live roles, privacy and immutable snapshots", async () => {
   const clock = spyOn(Date, "now").mockReturnValue(start);
@@ -199,12 +226,16 @@ test("quote review, publication and exact approval respect live roles, privacy a
     expect(await f.approve("q1", "reviewer")).toMatchObject(conflict);
     const grantId = await f.switchApprover("customer");
     expect(await f.request(`${f.quote("q1")}/approve`, "customer", "stale-terms", { termsHash: "another" })).toMatchObject(conflict);
+    await expect(f.db.prepare(`INSERT INTO approvals (id, quote_version_id, account_id, grant_id, terms_hash, reading_artifact_ref, decision, at)
+      VALUES ('invalid-pin', 'q1', 'customer', ?, ?, 'missing-aid', 'approve', ?)`).bind(grantId, terms.termsHash, start).run())
+      .rejects.toThrow(/FOREIGN KEY constraint failed/);
     const approve = () => f.request(`${f.quote("q1")}/approve`, "customer", "approve-q1", { ...terms, readingArtifactRef: "quote-aid" });
     const approved = resultSchema(approveQuoteVersionRoute.output).parse((await approve()).body);
     expect(approved).toMatchObject({ data: { state: "approved", actions: { approve: false, decline: false },
       decision: { decision: "approve", actorDisplayName: "customer", termsHash: terms.termsHash, at: start } } });
     expect(await f.db.prepare("SELECT grant_id, quote_version_id, terms_hash, reading_artifact_ref FROM approvals").first())
       .toEqual({ grant_id: grantId, quote_version_id: "q1", terms_hash: terms.termsHash, reading_artifact_ref: "quote-aid" });
+    await expect(f.db.prepare("DELETE FROM reading_artifacts WHERE id = 'quote-aid'").run()).rejects.toThrow(/FOREIGN KEY constraint failed/);
     expect(resultSchema(listQuoteVersionsRoute.output).parse((await f.request("/jobs/job/quotes?cursor=1~q1", "foreman")).body))
       .toMatchObject({ data: { versions: [], currentApprovedVersionId: "q1" } });
     await expect(f.db.prepare("UPDATE quote_versions SET scope = 'different' WHERE id = 'q1'").run()).rejects.toThrow("immutable");
@@ -281,6 +312,12 @@ test("change review and approval retain the approved quote and do not move the b
     await f.reading("wrong-version-aid", "change", "ch1", "Different scope.");
     expect(await f.request(`${f.change("ch2")}/approve`, "customer", "wrong-artifact", { ...terms, readingArtifactRef: "wrong-version-aid" }))
       .toMatchObject(conflict);
+    const decision = f.db.prepare(`INSERT INTO approvals
+      (id, change_version_id, account_id, grant_id, terms_hash, reading_artifact_ref, decision, at)
+      VALUES ('invalid-pin', 'ch2', 'customer', 'approve-original', ?, ?, 'approve', ?)`);
+    for (const artifact of ["wrong-version-aid", "missing-aid"]) {
+      await expect(decision.bind(terms.termsHash, artifact, start).run()).rejects.toThrow(/FOREIGN KEY constraint failed/);
+    }
     await f.reading("change-aid", "change", "ch2", "Replace the track.");
     expect(await f.request("/jobs/job/changes/ch2", "customer")).toMatchObject({
       body: { data: { readingAid: { status: "ready", ref: "change-aid", text: "Replace the track.", timing: null, affectedItems: null } } },
@@ -289,6 +326,12 @@ test("change review and approval retain the approved quote and do not move the b
     expect(resultSchema(approveChangeVersionRoute.output).parse(approved.body)).toMatchObject({
       data: { state: "approved", approvedBase: { id: "q1", totalMinor: 24000 }, evidence: [{ attachmentId: "change-photo" }] },
     });
+    await expect(f.db.prepare("DELETE FROM reading_artifacts WHERE id = 'change-aid'").run()).rejects.toThrow(/FOREIGN KEY constraint failed/);
+    await expect(f.db.prepare(`INSERT OR REPLACE INTO reading_artifacts
+      (id, change_version_id, target_locale, translated_text, reviewed_by_context_id, reviewed_at)
+      VALUES ('change-aid', 'ch2', 'en', 'Altered aid', 'reviewer-staff', ?)`).bind(start).run()).rejects.toThrow(/immutable/);
+    expect(await f.db.prepare("SELECT translated_text FROM reading_artifacts WHERE id = 'change-aid'").first("translated_text"))
+      .toBe("Replace the track.");
     expect(await f.db.prepare("SELECT state, starts_at FROM visit_windows WHERE id = 'window'").first()).toEqual({ state: "confirmed", starts_at: bookedStart });
     expect(await f.request("/jobs/job/changes", "customer")).toMatchObject({ body: { data: { versions: [{ id: "ch2", state: "approved" }] } } });
     expect(await f.changeDraft("ch3")).toMatchObject(conflict);

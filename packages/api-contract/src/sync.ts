@@ -11,6 +11,7 @@ import { syncPageSchema, syncRequestSchema } from "./sync-envelope";
 // Workers validate decoded claims after verifying the signature. Wire cursors stay opaque to callers.
 const cursorClaims = z.object({
   version: z.literal(1), accountId: accountIdSchema, context: scopeHeaderSchema, epoch: revisionSchema, expiresAt: revisionSchema,
+  nextExpiry: revisionSchema.nullable(),
 });
 export const syncCursorClaimsSchema = z.discriminatedUnion("phase", [
   cursorClaims.extend({ phase: z.literal("delta"), seq: revisionSchema, through: revisionSchema.optional() }),

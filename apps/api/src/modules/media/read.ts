@@ -2,6 +2,7 @@ import { mediaFileSchema } from "@bookbuddy/api-contract";
 import type { MediaReadGrant, RouteResponse, createMediaReadGrantsRoute } from "@bookbuddy/api-contract";
 import type { Bindings } from "../../bindings";
 import type { RequestScope } from "../../db/scope";
+import { at } from "../access/policy";
 import { createR2Presigner } from "../../providers/r2-presign";
 import type { SessionAccess } from "../auth/session";
 import { mediaActor, readLinks, readyAttachmentSql } from "./policy";
@@ -11,7 +12,9 @@ import { readLifetime } from "./transfer";
 import type { MediaFailure } from "./transfer";
 
 type ReadInput = RouteResponse<typeof createMediaReadGrantsRoute.input>["body"];
-type ReadRow = Pick<AttachmentRow, "id" | "object_key" | "mime" | "bytes" | "duration_ms" | "session_expires_at"> & { delete_after: number | null };
+type ReadRow = Pick<AttachmentRow, "id" | "object_key" | "mime" | "bytes" | "duration_ms" | "session_expires_at"> & {
+  delete_after: number | null; authorized_through: number;
+};
 
 export async function readMedia(ctx: RequestScope, session: SessionAccess, env: Bindings,
   { scope, attachmentIds }: ReadInput): Promise<MediaReadGrant[] | MediaFailure> {
@@ -22,10 +25,12 @@ export async function readMedia(ctx: RequestScope, session: SessionAccess, env: 
   const db = ctx.binding;
   const [auth, records] = await db.batch<{ signed_in: number } | ReadRow>([
     statement(db, { sql: `${session.sql} SELECT EXISTS (SELECT 1 FROM acting_session) AS signed_in`, params: session.params }),
-    statement(db, { sql: `${access.sql}, input(parent, ids) AS (VALUES (?, ?))
-      SELECT a.id, a.object_key, a.mime, a.bytes, a.duration_ms, a.delete_after, scope.session_expires_at
-      FROM media_actor scope CROSS JOIN input i CROSS JOIN json_each(i.ids) x JOIN attachments a ON a.id = x.value
-      WHERE ${readyAttachmentSql("a")} AND a.id IN (${readLinks(caller, "i.parent")})`,
+    statement(db, { sql: `${access.sql}, input(parent, ids) AS (VALUES (?, ?)),
+      linked AS MATERIALIZED (${readLinks(caller, "(SELECT parent FROM input)")})
+      SELECT a.id, a.object_key, a.mime, a.bytes, a.duration_ms, a.delete_after, scope.session_expires_at, l.authorized_through
+      FROM input i CROSS JOIN json_each(i.ids) x JOIN linked l ON l.attachment_id = x.value
+      JOIN attachments a ON a.id = l.attachment_id CROSS JOIN media_actor scope
+      WHERE ${readyAttachmentSql("a")} AND l.authorized_through > ${at}`,
     params: [...access.params, parentScopeId, JSON.stringify(attachmentIds)] }),
   ]);
   const authorization = auth?.results[0];
@@ -36,7 +41,8 @@ export async function readMedia(ctx: RequestScope, session: SessionAccess, env: 
   return Promise.all(attachmentIds.map(async (attachmentId): Promise<MediaReadGrant> => {
     const row = rows.get(attachmentId);
     if (!row) return { state: "unavailable", attachmentId };
-    const expiresAt = Math.floor(Math.min(ctx.now + readLifetime, row.session_expires_at, row.delete_after ?? Infinity) / 1_000) * 1_000;
+    const deadline = Math.min(ctx.now + readLifetime, row.session_expires_at, row.delete_after ?? Infinity, row.authorized_through);
+    const expiresAt = Math.floor(deadline / 1_000) * 1_000;
     if (expiresAt <= ctx.now) return { state: "unavailable", attachmentId };
     const parsed = mediaFileSchema.safeParse(row.duration_ms === null ? { kind: "photo", mime: row.mime, bytes: row.bytes }
       : { kind: "voice", mime: row.mime, bytes: row.bytes, durationMs: row.duration_ms });

@@ -6,6 +6,7 @@ import { accessClock, at, displayName, scopedStatement } from "../access/policy"
 import type { SessionAccess } from "../auth/session";
 import { currentMembership } from "../jobs/projections";
 import { createLinkTarget, linkTokenFor } from "../links";
+import { mediaLinkAvailable } from "../media/deadlines";
 import { placeCapability } from "../places/policy";
 import { confirmedWindow, currentNoCrewStamp, customer, foreman, jobOpen } from "../schedule/policy";
 import { coverAllowsShortage } from "../staffing/cover";
@@ -49,7 +50,9 @@ export function customerStampSql(stamp: string, providerName: string): string {
         WHEN 'paused' THEN json_set(value, '$.nextUpdateAt', ${stamp}.next_update_at)
         WHEN 'cover_arranging' THEN json_set(value, '$.nextUpdateAt', ${stamp}.next_update_at)
         WHEN 'photo' THEN (SELECT json_set(stamp_base.value, '$.photo',
-          json_object('attachmentId', media.id, 'availability', CASE WHEN ${readyPhotoSql("media")} THEN 'available' ELSE 'unavailable' END),
+          json_object('attachmentId', media.id, 'availability', CASE WHEN ${readyPhotoSql("media")}
+            AND ${mediaLinkAvailable(`(SELECT job_id FROM visits WHERE id = ${stamp}.visit_id)`, "media.id", "ordinary")}
+            THEN 'available' ELSE 'unavailable' END),
           '$.caption', json(CASE WHEN ${stamp}.caption IS NOT NULL THEN json_object('original',
             json_object('language', ${stamp}.caption_language, 'text', ${stamp}.caption), 'reading', NULL) END))
           FROM update_attachments linked JOIN attachments media ON media.id = linked.attachment_id
@@ -270,7 +273,8 @@ export function publishUpdate(ctx: RequestScope, session: SessionAccess, { param
   const band = "band" in payload ? payload.band : undefined;
   const nextUpdateAt = pause ? payload.nextUpdateAt ?? null : null;
   const photoSource = photo?.progressEventId !== undefined
-    ? `stage.caller = 'progress' AND EXISTS (SELECT 1 FROM shift_evidence link JOIN shifts sh ON sh.id = link.shift_id
+    ? `stage.caller = 'progress' AND ${mediaLinkAvailable("j.id", "media.id", "progress")}
+      AND EXISTS (SELECT 1 FROM shift_evidence link JOIN shifts sh ON sh.id = link.shift_id
       JOIN visit_activity_events e ON e.id = link.activity_event_id WHERE link.attachment_id = media.id AND e.id = ?
       AND e.visit_id = v.id AND sh.visit_id = v.id AND e.kind = 'progress_photo' AND e.at <= ${at})`
     : `stage.caller = 'update' AND stage.parent_scope_id = v.id AND stage.context_id = scope.context_id AND stage.expires_at > ${at}`;

@@ -110,6 +110,8 @@ export async function grantMedia(ctx: RequestScope, session: SessionAccess, env:
 function verified(row: AttachmentRow, object: R2Object): MediaResult {
   const metadata = object.httpMetadata;
   const ready = object.key === row.object_key && object.size === row.bytes && object.etag && metadata?.contentType === row.mime
+    // R2 attests byte count, not the coded stream. MIME and duration remain unverified without a trusted decoder.
+    && (row.duration_ms === null || object.size <= mediaLimits.voiceBytes)
     && metadata.cacheControl === PRIVATE_CACHE_CONTROL && !metadata.contentEncoding && !metadata.contentDisposition;
   return { id: row.id, upload_generation: row.upload_generation, ...(ready ? { state: "ready", etag: object.etag } : { state: "rejected" }) };
 }

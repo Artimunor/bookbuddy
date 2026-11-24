@@ -5,6 +5,7 @@ import {
 import { sql } from "drizzle-orm";
 import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { businesses, placeGrants } from "./access";
+import { readingArtifacts } from "./conversations";
 import { accounts } from "./identity";
 import { jobs } from "./jobs";
 
@@ -204,6 +205,8 @@ export const approvals = sqliteTable("approvals", {
   check("approvals_decision", sql`${t.decision} IN ('approve', 'decline')`),
   check("approvals_at", sql`typeof(${t.at}) = 'integer'`),
   check("approvals_version", sql`(${t.quoteVersionId} IS NULL) <> (${t.changeVersionId} IS NULL)`),
+  foreignKey({ columns: [t.readingArtifactRef, t.quoteVersionId], foreignColumns: [readingArtifacts.id, readingArtifacts.quoteVersionId] }).onDelete("restrict"),
+  foreignKey({ columns: [t.readingArtifactRef, t.changeVersionId], foreignColumns: [readingArtifacts.id, readingArtifacts.changeVersionId] }).onDelete("restrict"),
   uniqueIndex("approvals_quote").on(t.quoteVersionId).where(sql`${t.quoteVersionId} IS NOT NULL`),
   uniqueIndex("approvals_change").on(t.changeVersionId).where(sql`${t.changeVersionId} IS NOT NULL`),
   index("approvals_grant").on(t.grantId),

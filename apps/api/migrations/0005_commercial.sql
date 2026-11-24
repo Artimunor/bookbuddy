@@ -158,7 +158,9 @@ CREATE TABLE approvals (
   reading_artifact_ref TEXT,
   decision TEXT NOT NULL CHECK (decision IN ('approve', 'decline')),
   at INTEGER NOT NULL CHECK (typeof(at) = 'integer'),
-  CONSTRAINT approvals_version CHECK ((quote_version_id IS NULL) <> (change_version_id IS NULL))
+  CONSTRAINT approvals_version CHECK ((quote_version_id IS NULL) <> (change_version_id IS NULL)),
+  FOREIGN KEY (reading_artifact_ref, quote_version_id) REFERENCES reading_artifacts (id, quote_version_id) ON DELETE RESTRICT,
+  FOREIGN KEY (reading_artifact_ref, change_version_id) REFERENCES reading_artifacts (id, change_version_id) ON DELETE RESTRICT
 );
 CREATE UNIQUE INDEX approvals_quote ON approvals (quote_version_id) WHERE quote_version_id IS NOT NULL;
 CREATE UNIQUE INDEX approvals_change ON approvals (change_version_id) WHERE change_version_id IS NOT NULL;
@@ -284,7 +286,7 @@ WHEN EXISTS (SELECT 1 FROM change_versions WHERE id = OLD.version_id AND state <
 BEGIN SELECT RAISE(ABORT, 'change lines are immutable'); END;
 
 -- Insert the exact decision, then advance its version in the same guarded batch.
--- Session, business-role and any reading-artifact scope remain command predicates.
+-- The artifact FK pins the aid to this version; the command also checks the viewer's reading locale.
 CREATE TRIGGER approvals_exact_quote BEFORE INSERT ON approvals
 WHEN NEW.quote_version_id IS NOT NULL AND NOT EXISTS (
   SELECT 1 FROM quote_versions AS v

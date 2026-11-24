@@ -60,11 +60,13 @@ export function createVersion(ctx: RequestScope, session: SessionAccess, job: st
   const amounts = itemTotals(items);
   if (!Number.isSafeInteger(amounts.gross)) return null;
   const attachmentIds = evidence.length ? JSON.stringify(evidence.map(({ attachmentId }) => attachmentId)) : null;
-  const mediaEligible = attachmentIds === null ? "" : ` AND (
+  const mediaEligible = attachmentIds === null ? "" : ` AND EXISTS (
     SELECT count(*) FROM json_each(?) selected JOIN attachments a ON a.id = selected.value
     JOIN media_stages stage ON stage.id = a.stage_id
     WHERE ${stagedAttachmentSql("a", "stage", kind, "scope.context_id", "j.id")}
-  ) = ?`;
+    HAVING count(*) = ? AND count(*) FILTER (WHERE a.duration_ms IS NULL) <= 5
+      AND count(*) FILTER (WHERE a.duration_ms IS NOT NULL) <= 1
+  )`;
   const access = commercialAccess(session, ctx.now, job);
   const preconditions = `SELECT 1 FROM commercial_job j WHERE ${jobOpen} AND ${revisionGuard}
     AND j.site_zone IS NOT NULL AND j.named_approver_id IS NOT NULL

@@ -39,7 +39,7 @@ test("conversation positions and translation targets are unique and corrections 
     db.prepare("INSERT INTO chat_messages VALUES ('first', 'thread', 'reader'), ('second', 'thread', 'reader')"),
     entry("first", "first", 1, 1, null), translate(1, "en"),
   ]);
-  await expect(entry("second", "second", 1, 1, null).run()).rejects.toThrow(/chat_entries.thread_id, chat_entries.position/);
+  await expect(entry("second", "second", 1, 1, null).run()).rejects.toThrow(/append-only/);
   await expect(translate(1, "en").run()).rejects.toThrow(/message_translations.root_id, message_translations.revision, message_translations.target_locale/);
   const ready = db.prepare(`UPDATE message_translations SET state = 'ready', translated_text = 'Hello', provider = 'test',
     model = ?, produced_at = 12 WHERE root_id = 'first' AND revision = 1 AND target_locale = 'en'`);
@@ -47,6 +47,14 @@ test("conversation positions and translation targets are unique and corrections 
   await db.batch([ready.bind("test-nmt"), entry("corrected", "first", 2, 2, "first"), translate(2, "en"), translate(1, "de")]);
   await expect(entry("wrong-root", "second", 2, 3, "first").run()).rejects.toThrow(/previous revision of this message/);
   await expect(db.prepare("UPDATE chat_entries SET original_text = 'changed' WHERE id = 'first'").run()).rejects.toThrow(/append-only/);
+  for (const [id, root, position] of [["first", "second", 3], ["new-id", "first", 3], ["new-id", "second", 1]] as const) {
+    await expect(db.prepare(`INSERT OR REPLACE INTO chat_entries
+      (id, root_id, thread_id, revision, position, original_text, received_at)
+      VALUES (?, ?, 'thread', 1, ?, 'replacement', 11)`).bind(id, root, position).run()).rejects.toThrow(/append-only/);
+  }
+  expect(await db.prepare("SELECT original_text FROM chat_entries WHERE id = 'first'").first("original_text")).toBe("Hola");
+  expect(await db.prepare("SELECT translated_text FROM message_translations WHERE root_id = 'first' AND revision = 1 AND target_locale = 'en'")
+    .first("translated_text")).toBe("Hello");
 }));
 
 test("evidence links require an item or event from the stated parent and do not modify settled bytes", () => withJob(async (db) => {
