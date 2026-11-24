@@ -50,13 +50,7 @@ function post<Input extends { body: { operationId: string } }>(route: CommandRou
   });
 }
 
-post(submitRequestRoute, (ctx, access, { body }) => {
-  // Text only until migration 0011 provides attachment/stage authority. Never
-  // silently drop an attachment: readiness and linking must share this batch.
-  const { originalText, originalVoiceAttachmentId, photoAttachmentIds } = body.payload;
-  if (originalText === undefined || originalVoiceAttachmentId !== undefined || photoAttachmentIds?.length) return { code: "VALIDATION_FAILED" };
-  return planRequest(ctx, access, body);
-});
+post(submitRequestRoute, (ctx, access, { body }) => planRequest(ctx, access, body));
 post(offerJobHandoffRoute, (ctx, access, { params, body }) => planHandoffOffer(ctx, access, params.j, body));
 post(acceptJobHandoffRoute, (ctx, access, { params, body }) => planHandoffDecision(ctx, access, params.j, params.h, body, "accepted"));
 post(declineJobHandoffRoute, (ctx, access, { params, body }) => planHandoffDecision(ctx, access, params.j, params.h, body, "declined"));

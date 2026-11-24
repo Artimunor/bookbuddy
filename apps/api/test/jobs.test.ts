@@ -82,12 +82,16 @@ test("requests reject blank supplied text and undeclared safe arrival details", 
   }
 });
 
-test("photo-only input is not a description and a sent receipt is not a booking", () => {
+test("request input bounds attachment IDs and a sent receipt is not a booking", () => {
   const request = { placeId: "place", arrivalArrangement: "to_be_arranged" };
-  expect(submitRequestPayloadSchema.safeParse({ ...request, photoAttachmentIds: ["photo"] }).success).toBe(false);
+  expect(submitRequestPayloadSchema.safeParse(request).success).toBe(false);
   expect(submitRequestPayloadSchema.safeParse({ ...request, originalText: "\n\t" }).success).toBe(false);
-  // The wire accepts a voice reference; only the later media-backed command can prove readiness.
-  expect(submitRequestPayloadSchema.safeParse({ ...request, originalVoiceAttachmentId: "voice" }).success).toBe(true);
+  // The wire cannot tell a photo from a voice note; the guarded command checks MIME and readiness.
+  expect(submitRequestPayloadSchema.safeParse({ ...request, originalText: "", attachmentIds: ["attachment"] }).success).toBe(true);
+  expect(submitRequestPayloadSchema.safeParse({ ...request, originalText: "Door sticks", attachmentIds: ["photo", "photo"] }).success).toBe(false);
+  const ids = Array.from({ length: 11 }, (_, i) => `photo-${i}`);
+  expect(submitRequestPayloadSchema.safeParse({ ...request, attachmentIds: ids.slice(0, 10) }).success).toBe(true);
+  expect(submitRequestPayloadSchema.safeParse({ ...request, attachmentIds: ids }).success).toBe(false);
   const receipt = { jobId: "job", reference: "BB-1", siteZone: "Etc/UTC", submittedAt: 50 };
   expect(requestReceiptSchema.safeParse({ ...receipt, journey: { step: "requested", cancelled: false, complete: false } }).success).toBe(true);
   expect(requestReceiptSchema.safeParse({ ...receipt, journey: { step: "booked", cancelled: false, complete: false } }).success).toBe(false);

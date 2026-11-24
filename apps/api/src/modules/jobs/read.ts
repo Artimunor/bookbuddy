@@ -4,6 +4,7 @@ import type { CommandStatement } from "../../db/commit";
 import { at, currentCheck, displayName, eligibilityStatus, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import { routedReviewer } from "../commercial/policy";
+import { readyAttachmentSql } from "../media/policy";
 import { placeCapability } from "../places/policy";
 import { workerHomeOffers } from "../schedule/shifts";
 import {
@@ -100,6 +101,9 @@ function jobPacket(mode: ReadMode, linked = false): string {
     'writeQuote', j.write_quote,
     'openChange', s.role = 'foreman' AND EXISTS (SELECT 1 FROM change_versions ch
       WHERE ch.job_id = j.id AND ch.state = 'issued' AND ch.issued_at <= ${at} AND ch.expires_at > ${at})
+    ${mode === "whole" ? `, 'attachmentIds', json(CASE WHEN s.role = 'customer' THEN (
+      SELECT json_group_array(attachment_id) FROM (
+        SELECT attachment_id FROM request_attachments WHERE job_id = j.id ORDER BY attachment_id)) END)` : ""}
     ${detail ? `, 'today', json(${todayVisits(linked)}),
       'review', json(CASE WHEN s.role = 'provider_admin' AND j.state = 'open' THEN (
         SELECT json_object('kind', candidate.kind, 'versionId', candidate.version_id, 'version', candidate.no,
@@ -120,7 +124,11 @@ function intakePacket(detail: boolean): string {
     'revision', j.revision, 'town', area.name, 'customerName', ${displayName("customer")}, 'handoff', ${handoffJson("h", at)}
     ${detail ? `, 'request', json(CASE WHEN r.job_id IS NOT NULL THEN json_object(
       'submitted', json_object('at', r.submitted_at, 'by', ${displayName("customer")}),
-      'originalText', r.original_text, 'originalLanguage', r.original_language) END)` : ""})`;
+      'originalText', r.original_text, 'originalLanguage', r.original_language,
+      'attachments', json(${jsonRows(`json_object('attachmentId', a.id, 'durationMs', a.duration_ms,
+        'availability', CASE WHEN ${readyAttachmentSql("a")} THEN 'available' ELSE 'unavailable' END)`,
+      `FROM request_attachments link JOIN attachments a ON a.id = link.attachment_id
+        WHERE link.job_id = j.id ORDER BY link.attachment_id`)})) END)` : ""})`;
 }
 
 const jobRowFrom = `JOIN reader s ON 1 ${jobFrom}
@@ -130,14 +138,16 @@ const jobRowFrom = `JOIN reader s ON 1 ${jobFrom}
   LEFT JOIN visit_windows offered ON offered.id = j.proposal_id LEFT JOIN job_handoffs h ON h.id = j.handoff_id`;
 const intakeRowFrom = `JOIN job_handoffs h ON h.id = k.id JOIN jobs j ON j.id = h.job_id ${jobFrom}`;
 const historySql = `history_events(job_id, record_id, kind, stamp_at, actor_id) AS (
-  SELECT j.id, j.id, 'requested', r.submitted_at, j.requester_id FROM visible_jobs j JOIN requests r ON r.job_id = j.id
-  UNION ALL SELECT j.id, q.id, 'quote_issued', q.issued_at, q.publisher_id FROM visible_jobs j JOIN quote_versions q ON q.job_id = j.id
-  UNION ALL SELECT j.id, q.id, 'quote_approved', a.at, a.account_id FROM visible_jobs j
-    JOIN quote_versions q ON q.job_id = j.id JOIN approvals a ON a.quote_version_id = q.id AND a.decision = 'approve'
+  SELECT * FROM (
+    SELECT j.id, j.id, 'requested', r.submitted_at, j.requester_id FROM visible_jobs j JOIN requests r ON r.job_id = j.id
+    UNION ALL SELECT j.id, q.id, 'quote_issued', q.issued_at, q.publisher_id FROM visible_jobs j JOIN quote_versions q ON q.job_id = j.id
+    UNION ALL SELECT j.id, q.id, 'quote_approved', a.at, a.account_id FROM visible_jobs j
+      JOIN quote_versions q ON q.job_id = j.id JOIN approvals a ON a.quote_version_id = q.id AND a.decision = 'approve'
+    UNION ALL SELECT j.id, ch.id, 'change_issued', ch.issued_at, ch.publisher_id FROM visible_jobs j JOIN change_versions ch ON ch.job_id = j.id
+  )
   UNION ALL SELECT j.id, w.id, CASE WHEN w.replaces_window_id IS NULL THEN 'visit_booked' ELSE 'visit_revised' END,
     w.confirmed_at, w.confirmed_by FROM visible_jobs j JOIN visits v ON v.job_id = j.id JOIN visit_windows w ON w.visit_id = v.id
   UNION ALL SELECT j.id, v.id, 'cancelled', v.cancelled_at, v.cancelled_by FROM visible_jobs j JOIN visits v ON v.job_id = j.id
-  UNION ALL SELECT j.id, ch.id, 'change_issued', ch.issued_at, ch.publisher_id FROM visible_jobs j JOIN change_versions ch ON ch.job_id = j.id
 ), history AS (
   SELECT job_id, record_id, kind, stamp_at, actor_id, 0 AS rank, -stamp_at AS time, (kind || '-' || record_id) AS id
   FROM history_events WHERE stamp_at <= ${at}
@@ -318,11 +328,15 @@ interface Job extends Heading, JourneyRow {
   quote: (Published & { version: number; state: QuoteVersionState }) | null;
   change: (Published & { state: ChangeVersionState }) | null; proposal: Proposed | null;
   approver: string | null; writeQuote: number; openChange: number; today?: VisitRow[];
+  attachmentIds?: string[] | null;
   address?: string; arrival?: unknown; review?: unknown; canWithdrawHandoff?: number | null;
 }
 interface Intake extends Heading, JourneyRow {
   position: Position; town: string; customerName: string; handoff: Handoff; revision: number;
-  request?: { submitted: { at: number; by: string }; originalText: string | null; originalLanguage: string | null } | null;
+  request?: {
+    submitted: { at: number; by: string }; originalText: string | null; originalLanguage: string | null;
+    attachments: { attachmentId: string; durationMs: number | null; availability: "available" | "unavailable" }[];
+  } | null;
 }
 interface Moment { position: Position; kind: string; jobId: string; recordId: string; at: number; by: string | null }
 interface Overview {
@@ -476,8 +490,15 @@ export function projectJobs(rows: ReadRows, segment: Segment, now: number) {
 
 export function projectIntake(row: Intake | undefined) {
   if (!row) return null;
+  const request = row.request;
+  const voice = request?.attachments.find(({ durationMs }) => durationMs !== null);
   return { audience: "foreman", job: { ...incomingCard(row), view: "intake", revision: row.revision,
-    request: row.request ? { ...row.request, translation: null, photos: [], originalVoice: null } : null,
+    request: request ? {
+      submitted: request.submitted, originalText: request.originalText, originalLanguage: request.originalLanguage,
+      attachmentIds: request.attachments.map(({ attachmentId }) => attachmentId), translation: null,
+      photos: request.attachments.flatMap(({ attachmentId, durationMs, availability }) => durationMs === null ? [{ attachmentId, availability }] : []),
+      originalVoice: voice ? { ...voice, language: request.originalLanguage } : null,
+    } : null,
     reply: "available", chatThreadId: null } };
 }
 
@@ -495,6 +516,7 @@ export function projectJob(rows: ReadRows, view: View, now: number, exactVisit =
         nextStep: customerStep(job, now), crewNames: [] } } : null;
       const pagination = page(rows.history);
       return { audience, job: { ...customerCard(job, now), view, revision: job.revision, hasTodayView: !!today,
+        attachmentIds: job.attachmentIds ?? [],
         quote: quote && { versionId: quote.versionId, version: quote.version, state: quote.state, total: { minor: quote.minor, currency: "EUR" } },
         change: change && { versionId: change.versionId, state: change.state, delta: { minor: change.minor, currency: "EUR" } },
         foremanName: job.foreman?.displayName ?? null, chatThreadId: null, openCase: null, bill: null,

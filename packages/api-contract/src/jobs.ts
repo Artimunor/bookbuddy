@@ -180,9 +180,10 @@ const translation = z.discriminatedUnion("status", [
   z.object({ status: z.enum(["pending", "unavailable"]) }),
   z.object({ status: z.literal("ready"), language: localeTagSchema, text: displayText }),
 ]);
+const requestAttachmentIds = z.array(attachmentIdSchema).max(10);
 const intakeRequest = z.object({
   submitted: stamp, originalText: displayText.nullable(), originalLanguage: localeTagSchema.nullable(),
-  translation: translation.nullable(), photos: z.array(attachment).max(5), originalVoice: voicedRequest.nullable(),
+  attachmentIds: requestAttachmentIds, translation: translation.nullable(), photos: z.array(attachment).max(5), originalVoice: voicedRequest.nullable(),
 });
 const arrival = z.object({ arrangement: arrivalArrangement, contactName: displayText.nullable(), safeNote: displayText.nullable() });
 
@@ -191,6 +192,7 @@ export const jobDetailSchema = z.discriminatedUnion("audience", [
     customerCard.extend({
       view: z.literal("whole"), revision: revisionSchema, hasTodayView: z.boolean(), quote: quoteSummary.nullable(),
       foremanName: displayText.nullable(), chatThreadId: idSchemaFor<"chat_thread">().nullable(),
+      attachmentIds: requestAttachmentIds,
       change: z.object({ versionId: idSchemaFor<"change_version">(), state: z.enum(CHANGE_VERSION_STATES).extract(["issued", "approved", "rejected"]),
         delta: z.object({ minor: z.int(), currency: z.enum(CURRENCIES) }) }).nullable(),
       openCase: z.object({ caseId: idSchemaFor<"case">(), state: z.enum(PROBLEM_CASE_STATES).extract(["open", "awaiting_plan"]) }).nullable(),
@@ -227,15 +229,14 @@ export const jobDetailSchema = z.discriminatedUnion("audience", [
   ]) }),
 ]);
 
-const description = z.string().max(16_000).refine((text) => text.trim().length > 0);
 export const submitRequestPayloadSchema = z.strictObject({
   placeId: placeIdSchema, trade: z.string().trim().min(1).max(100).optional(),
-  originalText: description.optional(), originalLanguage: localeTagSchema.optional(),
-  originalVoiceAttachmentId: attachmentIdSchema.optional(), photoAttachmentIds: z.array(attachmentIdSchema).max(5).optional(),
+  originalText: z.string().max(16_000).optional(), originalLanguage: localeTagSchema.optional(),
+  attachmentIds: requestAttachmentIds.refine((ids) => new Set(ids).size === ids.length, "Each attachment ID must be distinct").optional(),
   arrivalArrangement, arrivalContactName: z.string().trim().min(1).max(100).optional(),
   safeNote: z.string().trim().min(1).max(500).optional(),
 }).superRefine((request, ctx) => {
-  if (request.originalText === undefined && request.originalVoiceAttachmentId === undefined) {
+  if (!request.originalText?.trim() && !request.attachmentIds?.length) {
     ctx.addIssue({ code: "custom", path: ["originalText"], message: "Text or original voice is required" });
   }
   if ((request.arrivalArrangement === "someone_else") !== (request.arrivalContactName !== undefined)) {
@@ -243,10 +244,6 @@ export const submitRequestPayloadSchema = z.strictObject({
   }
   if (request.arrivalArrangement === "nobody" && request.safeNote === undefined) {
     ctx.addIssue({ code: "custom", path: ["safeNote"], message: "A safe arrival note is required when nobody is on site" });
-  }
-  const photos = request.photoAttachmentIds;
-  if (photos && (new Set(photos).size !== photos.length || (request.originalVoiceAttachmentId && photos.includes(request.originalVoiceAttachmentId)))) {
-    ctx.addIssue({ code: "custom", path: ["photoAttachmentIds"], message: "Each retained attachment must have one role" });
   }
   // IDs describe intent only; the command checks ownership, MIME and readiness in the same write batch.
 });

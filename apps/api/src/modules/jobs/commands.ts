@@ -8,6 +8,7 @@ import { at, liveTerm, scopedStatement } from "../access/policy";
 import { loadDeliveryKey, mac, sealDelivery } from "../auth/crypto";
 import type { SessionAccess } from "../auth/session";
 import { createLinkedNotifications } from "../links/notifications";
+import { stagedAttachmentSql } from "../media/policy";
 
 export interface JobCommandResult {
   operation: OperationResult;
@@ -210,6 +211,15 @@ const sentJourney = JSON.stringify(projectJourney({
 
 export function planRequest(ctx: RequestScope, access: SessionAccess, input: SubmitRequest) {
   const { payload, expectedRevision, operationId } = input;
+  const originalText = payload.originalText?.trim() ? payload.originalText : null;
+  const attachmentCount = payload.attachmentIds?.length ?? 0;
+  const attachmentIds = attachmentCount ? JSON.stringify(payload.attachmentIds) : null;
+  const mediaEligible = attachmentIds === null ? (originalText === null ? "0" : "1") : `(
+    SELECT count(*) = ? AND count(*) - count(a.duration_ms) <= 5
+      AND count(a.duration_ms) ${originalText === null ? "= 1" : "<= 1"}
+    FROM json_each(?) ids JOIN attachments a ON a.id = ids.value JOIN media_stages stage ON stage.id = a.stage_id
+    WHERE ${stagedAttachmentSql("a", "stage", "request", "scope.context_id", "(SELECT id FROM target_place)")}
+  )`;
   const job = crypto.randomUUID(), handoff = crypto.randomUUID();
   const audience = { sql: offerRecipient, params: [handoff] };
   const requestAccess: SessionAccess = { sql: `${access.sql}, target_place AS MATERIALIZED (
@@ -228,7 +238,8 @@ export function planRequest(ctx: RequestScope, access: SessionAccess, input: Sub
     authorize: { sql: "EXISTS (SELECT 1 FROM target_place)" },
     eligible: { sql: `EXISTS (SELECT 1 FROM target_place WHERE revision = ?) AND EXISTS (SELECT 1 FROM target_business)
       AND NOT EXISTS (SELECT 1 FROM jobs WHERE requester_id = scope.account_id AND request_operation_id = ?)
-      AND (NOT EXISTS (SELECT 1 FROM recipient) OR EXISTS (SELECT 1 FROM deadline))`, params: [expectedRevision, operationId] },
+      AND (NOT EXISTS (SELECT 1 FROM recipient) OR EXISTS (SELECT 1 FROM deadline)) AND ${mediaEligible}`,
+      params: [expectedRevision, operationId, ...(attachmentIds === null ? [] : [attachmentCount, attachmentIds])] },
     writes: (guard) => {
       const notice = notification(requestAccess, guard, handoff, "job_handoff_offered", audience, ctx.now,
         { sql: "SELECT expires_at FROM job_handoffs WHERE id = ?", params: [handoff] });
@@ -238,8 +249,17 @@ export function planRequest(ctx: RequestScope, access: SessionAccess, input: Sub
           SELECT ?, ?, b.id, p.id, p.account_id, ?, 'bookbuddy', 'open', ? FROM target_place p CROSS JOIN target_business b WHERE ${guard.sql}`,
         job, `BB-${job.replaceAll("-", "").toUpperCase()}`, payload.trade ?? null, operationId, ...guard.params ?? []),
         { sql: `INSERT INTO requests (job_id, original_text, original_language, arrival_arrangement, arrival_contact_name, safe_note, submitted_at)
-          SELECT ?, ?, ?, ?, ?, ?, ? WHERE ${guard.sql}`, params: [job, payload.originalText!, payload.originalLanguage ?? null,
+          SELECT ?, ?, ?, ?, ?, ?, ? WHERE ${guard.sql}`, params: [job, originalText, payload.originalLanguage ?? null,
           payload.arrivalArrangement, payload.arrivalContactName ?? null, payload.safeNote ?? null, ctx.now, ...guard.params ?? []] },
+        ...(attachmentIds === null ? [] : [{
+          sql: `INSERT INTO request_attachments (job_id, attachment_id)
+            SELECT ?, value FROM json_each(?) WHERE ${guard.sql}`,
+          params: [job, attachmentIds, ...guard.params ?? []],
+        }, {
+          sql: `UPDATE attachments SET retention_class = 'ordinary', delete_after = NULL
+            WHERE id IN (SELECT value FROM json_each(?)) AND retention_class = 'unlinked' AND ${guard.sql}`,
+          params: [attachmentIds, ...guard.params ?? []],
+        }]),
         scopedStatement(offerAccess, `INSERT INTO job_handoffs (id, job_id, business_id, recipient_id, policy, offered_at, expires_at, state)
           SELECT ?, ?, business_id, membership_id, 'standard', ${at}, expires_at, 'offered' FROM recipient CROSS JOIN deadline WHERE ${guard.sql}`,
         handoff, job, ...guard.params ?? []),

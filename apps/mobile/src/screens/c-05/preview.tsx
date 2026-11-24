@@ -10,6 +10,7 @@ const detail = jobDetailSchema.parse({ audience: "customer", job: {
   nextVisit: null, finalAt: null, providerName: "Reformas Ruiz", nextStep: { kind: "review_quote", recordId: "quote-1", at: null, waitingOn: null }, live: false,
   revision: 1, hasTodayView: false, quote: { versionId: "quote-1", version: 1, total: { minor: 24000, currency: "EUR" }, state: "issued" },
   foremanName: "Mateo Ruiz", chatThreadId: "thread-1", change: null, openCase: null, bill: null,
+  attachmentIds: [],
   history: { items: [{ jobId: "job-1042", recordId: "quote-1", kind: "quote_issued", at: issued, by: "Mateo Ruiz" }, { jobId: "job-1042", recordId: "job-1042", kind: "requested", at: issued - 540000, by: "Claire Martin" }], page: { cursor: null, hasMore: false } },
 } });
 if (detail.audience !== "customer" || detail.job.view !== "whole") throw new Error("Invalid customer job fixture");

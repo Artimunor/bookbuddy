@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { offerJobHandoffRoute, openLinkRoute, operationIdHeader, resultSchema, submitRequestRoute, submitSupportRoute } from "@bookbuddy/api-contract";
+import { getJobRoute, offerJobHandoffRoute, openLinkRoute, operationIdHeader, resultSchema, submitRequestRoute, submitSupportRoute } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { runEffectBatch } from "../src/effects";
@@ -100,7 +100,6 @@ test("text request makes an unassigned job, durable intake offer and safe replay
     expect((await f.call("/requests", "other", body)).status).toBe(404);
     expect((await f.call("/requests", "customer", { ...body, expectedRevision: 1 })).body)
       .toMatchObject({ error: { code: "STALE_REVISION", current: { kind: "revision", revision: 0 } } });
-    expect((await f.call("/requests", "customer", { ...body, payload: { ...requestPayload, originalVoiceAttachmentId: "unverified" } }, 0)).status).toBe(422);
     const response = resultSchema(submitRequestRoute.output).parse((await f.call("/requests", "customer", body)).body);
     if (!response.ok) throw new Error(JSON.stringify(response));
     const { jobId } = response.data;
@@ -145,6 +144,99 @@ test("text request makes an unassigned job, durable intake offer and safe replay
     await f.db.prepare("DELETE FROM operation_receipts WHERE operation_id = 'submit'").run();
     expect((await f.call("/requests", "customer", body)).status).toBe(409);
     expect(await f.db.prepare("SELECT count(*) AS count FROM jobs").first("count")).toBe(1);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("request links staged media, accepts voice instead of text, and projects IDs to authorized readers", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(friday);
+  const f = await fixture();
+  try {
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO media_stages VALUES ('draft', 'customer-customer', 'request', 'place', 1, ?)`).bind(tuesday),
+      f.db.prepare(`INSERT INTO attachments (id, stage_id, object_key, mime, bytes, duration_ms, state, etag, retention_class)
+        VALUES ('voice', 'draft', 'private-voice-key', 'audio/mp4', 1024, 1200, 'ready', 'voice-etag', 'unlinked'),
+               ('photo', 'draft', 'private-photo-key', 'image/jpeg', 1024, NULL, 'ready', 'photo-etag', 'unlinked')`),
+    ]);
+    const body = { operationId: "request-with-voice", expectedRevision: 0, payload: {
+      ...requestPayload, originalText: " \n\t", originalLanguage: "en", attachmentIds: ["voice", "photo"],
+    } };
+    const response = resultSchema(submitRequestRoute.output).parse((await f.call("/requests", "customer", body)).body);
+    if (!response.ok) throw new Error(JSON.stringify(response));
+    const { jobId } = response.data;
+    expect(await f.db.prepare("SELECT original_text FROM requests WHERE job_id = ?").bind(jobId).first()).toEqual({ original_text: null });
+    expect((await f.db.prepare(`SELECT a.id, a.retention_class FROM request_attachments link
+      JOIN attachments a ON a.id = link.attachment_id WHERE link.job_id = ? ORDER BY a.id`).bind(jobId).all()).results)
+      .toEqual([{ id: "photo", retention_class: "ordinary" }, { id: "voice", retention_class: "ordinary" }]);
+
+    const customer = resultSchema(getJobRoute.output).parse((await f.call(`/jobs/${jobId}`, "customer")).body);
+    expect(customer).toMatchObject({ ok: true, data: { job: { attachmentIds: ["photo", "voice"] } } });
+    const intake = resultSchema(getJobRoute.output).parse((await f.call(`/jobs/${jobId}?view=intake`, "first")).body);
+    expect(intake).toMatchObject({ ok: true, data: { job: { request: {
+      originalText: null, attachmentIds: ["photo", "voice"],
+      photos: [{ attachmentId: "photo", availability: "available" }],
+      originalVoice: { attachmentId: "voice", availability: "available", durationMs: 1200, language: "en" },
+    } } } });
+    expect(JSON.stringify([customer, intake])).not.toMatch(/private-(voice|photo)-key|voice-etag|photo-etag/);
+    expect((await f.call(`/jobs/${jobId}`, "other")).status).toBe(404);
+    expect((await f.call(`/jobs/${jobId}?view=intake`, "second")).status).toBe(404);
+
+    // Receipt replay does not depend on the state of the already consumed draft.
+    await f.db.prepare("UPDATE media_stages SET expires_at = ? WHERE id = 'draft'").bind(friday).run();
+    expect((await f.call("/requests", "customer", body)).body).toMatchObject({ data: response.data });
+    expect(await f.db.prepare("SELECT count(*) AS count FROM request_attachments").first("count")).toBe(2);
+    expect(f.notices).toHaveLength(1);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("invalid request evidence rejects the entire command in one D1 batch", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(friday);
+  const f = await fixture();
+  try {
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO media_stages VALUES
+        ('draft', 'customer-customer', 'request', 'place', 1, ?),
+        ('foreign-draft', 'other-customer', 'request', 'place', 1, ?),
+        ('other-place-draft', 'customer-customer', 'request', 'other-place', 1, ?),
+        ('wrong-caller-draft', 'customer-customer', 'chat', 'place', 1, ?),
+        ('second-draft', 'customer-customer', 'request', 'place', 1, ?),
+        ('expired-draft', 'customer-customer', 'request', 'place', 1, ?)`).bind(tuesday, tuesday, tuesday, tuesday, tuesday, friday),
+      f.db.prepare(`INSERT INTO attachments (id, stage_id, object_key, mime, bytes, duration_ms, state, etag, retention_class)
+        VALUES ('photo', 'draft', 'key-photo', 'image/jpeg', 1024, NULL, 'ready', 'etag', 'unlinked'),
+               ('unready', 'draft', 'key-unready', 'audio/mp4', 1024, 1200, 'uploading', NULL, 'unlinked'),
+               ('foreign', 'foreign-draft', 'key-foreign', 'image/jpeg', 1024, NULL, 'ready', 'etag', 'unlinked'),
+               ('other-place', 'other-place-draft', 'key-other', 'image/jpeg', 1024, NULL, 'ready', 'etag', 'unlinked'),
+               ('wrong-caller', 'wrong-caller-draft', 'key-caller', 'image/jpeg', 1024, NULL, 'ready', 'etag', 'unlinked'),
+               ('expired', 'expired-draft', 'key-expired', 'image/jpeg', 1024, NULL, 'ready', 'etag', 'unlinked'),
+               ('first-voice', 'draft', 'key-first-voice', 'audio/mp4', 1024, 1200, 'ready', 'etag', 'unlinked'),
+               ('second-voice', 'second-draft', 'key-second-voice', 'audio/mp4', 1024, 1200, 'ready', 'etag', 'unlinked')`),
+      f.db.prepare(`INSERT INTO attachments (id, stage_id, object_key, mime, bytes, state, etag, retention_class)
+        SELECT value, 'second-draft', 'key-' || value, 'image/jpeg', 1024, 'ready', 'etag', 'unlinked'
+        FROM json_each('["extra-1","extra-2","extra-3","extra-4","extra-5"]')`),
+    ]);
+    for (const id of ["foreign", "unready", "other-place", "wrong-caller", "expired", "missing"]) {
+      expect(await f.call("/requests", "customer", { operationId: `with-${id}`, expectedRevision: 0,
+        payload: { ...requestPayload, attachmentIds: ["photo", id] } })).toMatchObject({
+        status: 409, body: { error: { code: "CONFLICT" } },
+      });
+    }
+    expect(await f.call("/requests", "customer", { operationId: "photo-only", expectedRevision: 0,
+      payload: { ...requestPayload, originalText: "", attachmentIds: ["photo"] } })).toMatchObject({
+      status: 409, body: { error: { code: "CONFLICT" } },
+    });
+    for (const [operationId, attachmentIds] of [
+      ["too-many-photos", ["photo", "extra-1", "extra-2", "extra-3", "extra-4", "extra-5"]],
+      ["too-many-voices", ["first-voice", "second-voice"]],
+    ] as const) {
+      expect(await f.call("/requests", "customer", { operationId, expectedRevision: 0,
+        payload: { ...requestPayload, attachmentIds } })).toMatchObject({ status: 409, body: { error: { code: "CONFLICT" } } });
+    }
+    expect(await f.db.prepare(`SELECT (SELECT count(*) FROM jobs) AS jobs,
+      (SELECT count(*) FROM requests) AS requests, (SELECT count(*) FROM request_attachments) AS links,
+      (SELECT count(*) FROM operation_receipts) AS receipts, (SELECT count(*) FROM job_handoffs) AS handoffs,
+      (SELECT count(*) FROM sync_changes) AS changes, (SELECT count(*) FROM effect_outbox) AS effects,
+      (SELECT retention_class FROM attachments WHERE id = 'photo') AS photo`).first())
+      .toEqual({ jobs: 0, requests: 0, links: 0, receipts: 0, handoffs: 0, changes: 0, effects: 0, photo: "unlinked" });
+    expect(f.notices).toHaveLength(0);
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
