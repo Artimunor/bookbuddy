@@ -7,13 +7,21 @@ CREATE TABLE completions (
   finished_at INTEGER NOT NULL CHECK (typeof(finished_at) = 'integer'),
   submitted_at INTEGER NOT NULL CHECK (typeof(submitted_at) = 'integer' AND submitted_at >= finished_at),
   bill_reference_hint TEXT,
+  bill_amount_minor INTEGER,
   state TEXT NOT NULL CHECK (state IN ('submitted', 'returned', 'superseded', 'signed_off')),
   FOREIGN KEY (base_quote_version_id, job_id) REFERENCES quote_versions (id, job_id),
   UNIQUE (id, job_id),
+  CONSTRAINT completions_bill CHECK (
+    (bill_reference_hint IS NULL AND bill_amount_minor IS NULL)
+    OR (bill_reference_hint IS NOT NULL AND length(trim(bill_reference_hint)) BETWEEN 1 AND 500
+      AND typeof(bill_amount_minor) = 'integer' AND bill_amount_minor BETWEEN 1 AND 9007199254740991)
+  ),
   UNIQUE (job_id, no)
 );
 CREATE UNIQUE INDEX completions_current ON completions (job_id) WHERE state <> 'superseded';
 CREATE INDEX completions_base_quote ON completions (base_quote_version_id, job_id);
+CREATE INDEX completions_pending_bill_reference ON completions (bill_reference_hint, job_id)
+  WHERE state = 'submitted' AND bill_reference_hint IS NOT NULL;
 
 CREATE TABLE completion_items (
   id TEXT PRIMARY KEY NOT NULL,
@@ -79,6 +87,7 @@ CREATE TRIGGER completions_lock BEFORE UPDATE ON completions
 WHEN NEW.id IS NOT OLD.id OR NEW.job_id IS NOT OLD.job_id OR NEW.base_quote_version_id IS NOT OLD.base_quote_version_id
   OR NEW.no IS NOT OLD.no OR NEW.submitter_id IS NOT OLD.submitter_id OR NEW.finished_at IS NOT OLD.finished_at
   OR NEW.submitted_at IS NOT OLD.submitted_at OR NEW.bill_reference_hint IS NOT OLD.bill_reference_hint
+  OR NEW.bill_amount_minor IS NOT OLD.bill_amount_minor
   OR (NEW.state <> OLD.state AND NOT (
     (OLD.state = 'submitted' AND NEW.state IN ('returned', 'superseded'))
     OR (OLD.state = 'returned' AND NEW.state = 'superseded')
@@ -160,8 +169,9 @@ CREATE TABLE bills (
   tax_minor INTEGER NOT NULL CHECK (typeof(tax_minor) = 'integer' AND tax_minor >= 0),
   total_minor INTEGER NOT NULL CHECK (typeof(total_minor) = 'integer' AND total_minor > 0 AND total_minor = net_minor + tax_minor),
   currency TEXT NOT NULL CHECK (currency = 'EUR'),
-  provider_document_ref TEXT NOT NULL CHECK (length(trim(provider_document_ref)) > 0),
-  payment_instructions TEXT NOT NULL CHECK (CASE WHEN json_valid(payment_instructions) THEN json_type(payment_instructions) = 'object' ELSE 0 END),
+  provider_document_ref TEXT CHECK (length(trim(provider_document_ref)) > 0),
+  payment_instructions TEXT CHECK (payment_instructions IS NULL
+    OR CASE WHEN json_valid(payment_instructions) THEN json_type(payment_instructions) = 'object' ELSE 0 END),
   line_items TEXT NOT NULL CHECK (CASE WHEN json_valid(line_items) THEN json_array_length(line_items) > 0 ELSE 0 END),
   issued_at INTEGER NOT NULL CHECK (typeof(issued_at) = 'integer'),
   due_at INTEGER NOT NULL CHECK (typeof(due_at) = 'integer' AND due_at >= issued_at),
@@ -186,7 +196,7 @@ WHEN NEW.state <> 'issued' OR EXISTS (
   SELECT 1 FROM bills AS b WHERE b.id = NEW.replaces_id AND b.job_id = NEW.job_id AND b.business_id = NEW.business_id
     AND b.state = 'replaced' AND b.version + 1 = NEW.version AND b.issued_at <= NEW.issued_at
     AND (b.number <> NEW.number OR b.net_minor <> NEW.net_minor OR b.tax_minor <> NEW.tax_minor OR b.due_at <> NEW.due_at
-      OR b.provider_document_ref <> NEW.provider_document_ref OR b.payment_instructions <> NEW.payment_instructions
+      OR b.provider_document_ref IS NOT NEW.provider_document_ref OR b.payment_instructions IS NOT NEW.payment_instructions
       OR b.line_items <> NEW.line_items)
 ))
 BEGIN SELECT RAISE(ABORT, 'bill requires a new issued version'); END;

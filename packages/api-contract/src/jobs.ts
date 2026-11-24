@@ -135,6 +135,10 @@ const providerBill = z.object({
     z.object({ status: z.literal("paid"), recorded: stamp, matched: money }),
   ]),
 });
+const unpaidBill = jobHeading.extend({
+  billId: idSchemaFor<"bill">(), number: displayText, total: money,
+  status: z.enum(["due", "checking"]), expectedPriorId: idSchemaFor<"paid_record">().nullable(), canRecordPaid: z.boolean(),
+});
 
 export const homeProjectionSchema = z.discriminatedUnion("audience", [
   z.object({
@@ -174,6 +178,7 @@ export const jobsPageSchema = z.discriminatedUnion("audience", [
   listPage.extend({
     audience: z.literal("provider_admin"), segment: providerSegment, businessName: displayText, siteZone,
     needsYouCount: count, activeCount: count, pastCount: count, items: z.array(providerJobCard),
+    unpaidBills: z.array(unpaidBill),
   }),
 ]);
 

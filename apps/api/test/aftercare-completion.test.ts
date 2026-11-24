@@ -1,5 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
-import { getJobCompletionRoute, getJobRatingEligibilityRoute, openLinkRoute, operationIdHeader, resultSchema } from "@bookbuddy/api-contract";
+import {
+  getJobBillRoute, getJobCompletionRoute, getJobRatingEligibilityRoute, getJobsRoute, openLinkRoute, operationIdHeader, resultSchema,
+} from "@bookbuddy/api-contract";
 import type { CompletionSubmissionInput } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
@@ -50,7 +52,8 @@ async function fixture() {
       VALUES (?, ?, ?, ?, 'device', 1, ?)`).bind(`${id}-session`, id, hash,
       id === "customer" || id === "guest" ? `${id}-customer` : `${id}-staff`, now + 100 * day)),
     db.prepare(`INSERT INTO business_grants (id, business_id, membership_id, capability, issuer_id, valid_from)
-      VALUES ('pay', 'business', 'admin-member', 'record_paid', 'admin', 1)`),
+      VALUES ('pay', 'business', 'admin-member', 'record_paid', 'admin', 1),
+        ('issue', 'business', 'admin-member', 'issue_bill', 'admin', 1)`),
     db.prepare(`INSERT INTO places (id, owner_id, alias, normalized_address, state)
       VALUES ('place', 'customer', 'Villa', 'Address', 'pending_verification')`),
     db.prepare("INSERT INTO place_people (place_id, account_id, verified_from, history_from) VALUES ('place', 'customer', 1, 1), ('place', 'guest', 1, 1)"),
@@ -58,6 +61,7 @@ async function fixture() {
       area_id = 'area', state = 'in_area' WHERE id = 'place'`),
     db.prepare(`INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, valid_from) VALUES
       ('approve', 'place', 'customer', 'approve', 'customer', 1), ('sign', 'place', 'customer', 'sign_off', 'customer', 1),
+      ('bill-view', 'place', 'customer', 'bill_view', 'customer', 1),
       ('guest-view', 'place', 'guest', 'view', 'customer', 1), ('guest-sign', 'place', 'guest', 'sign_off', 'customer', 1)`),
     db.prepare(`INSERT INTO jobs (id, reference, business_id, place_id, requester_id, accountable_foreman_membership_id, trade, origin, state)
       VALUES ('job', 'BB-123', 'business', 'place', 'customer', 'foreman-member', 'Door repair', 'bookbuddy', 'open')`),
@@ -107,7 +111,7 @@ async function fixture() {
       headers: { Authorization: `Bearer ${token}`, ...(operationId ? { [operationIdHeader]: operationId, "Content-Type": "application/json" } : {}) },
       body: operationId ? JSON.stringify({ operationId, expectedRevision, payload }) : undefined,
     }, env, execution);
-    const batched = !!operationId || path.startsWith("/links/") || path === "/jobs/job";
+    const batched = !!operationId || path.startsWith("/links/") || path === "/jobs/job" || path.startsWith("/jobs?");
     expect(db.calls.batch - batch).toBe(batched ? 1 : 0);
     expect(db.calls.query - query).toBe(batched ? 0 : 1);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
@@ -121,7 +125,7 @@ async function fixture() {
 }
 
 function submission(id: string, expectedCompletionId: string | null = null, photo = "photo"): CompletionSubmissionInput {
-  return { id, baseQuoteVersionId: "quote-v1", expectedCompletionId, billReferenceHint: "Invoice draft", items: [
+  return { id, baseQuoteVersionId: "quote-v1", expectedCompletionId, items: [
     { id: `${id}-1`, scope: { kind: "quote", quoteVersionId: "quote-v1", lineNo: 1 }, outcome: "done", originalLanguage: "es",
       resultNote: "Desliza y cierra", photos: [{ attachmentId: photo, caption: { language: "es", text: "Después" } }] },
     { id: `${id}-2`, scope: { kind: "quote", quoteVersionId: "quote-v1", lineNo: 2 }, outcome: "done", originalLanguage: "es",
@@ -152,8 +156,8 @@ test("publishes exactly the approved checklist with ready evidence and no invent
     expect(await f.db.prepare("SELECT count(*) AS n FROM completions").first("n")).toBe(0);
     expect(await f.db.prepare("SELECT count(*) AS n FROM operation_receipts").first("n")).toBe(0);
 
-    expect(await f.submit(submission("complete"))).toMatchObject({ status: 200, body: { data: {
-      submission: { id: "complete", state: "submitted", billReferenceHint: "Invoice draft", finishedAt },
+    expect(await f.submit({ ...submission("complete"), billReference: "Invoice draft", billAmountMinor: 25_200 })).toMatchObject({ status: 200, body: { data: {
+      submission: { id: "complete", state: "submitted", billReference: "Invoice draft", billAmountMinor: 25_200, finishedAt },
     } } });
     const projected = resultSchema(getJobCompletionRoute.output).parse((await f.request(completionPath, "customer")).body);
     expect(projected).toMatchObject({ data: { audience: "customer", actions: { signOff: true }, submission: { items: [
@@ -240,10 +244,19 @@ test("requires the current named online approver, immutable version and terms; r
     expect(await f.signOff("v2", "second-attempt")).toMatchObject(conflict);
     expect((await f.signOff("v2", "accepted")).status).toBe(200); // Transport replay, not a second sign-off.
     expect(await f.db.prepare("SELECT count(*) AS n FROM sign_offs").first("n")).toBe(1);
+    expect(await f.db.prepare("SELECT count(*) AS n FROM bills").first("n")).toBe(0);
     expect(await f.request("/jobs/job", "customer")).toMatchObject({ body: { data: { job: { journey: { step: "signed_off" } } } } });
     expect((await f.db.prepare(`SELECT DISTINCT partition_key FROM sync_changes WHERE kind = 'job' ORDER BY partition_key`).all()).results)
       .toEqual([{ partition_key: "customer-customer" }, { partition_key: "guest-customer" }]);
     expect(await f.db.prepare("SELECT count(*) AS n FROM effect_outbox WHERE state = 'pending'").first("n")).toBe(0);
+    const issue = await f.request("/jobs/job/bills", "admin", "manual-bill", { id: "manual", replacesId: null, number: "RR-43",
+      currency: "EUR", providerDocumentRef: "doc", paymentInstructions: { instructions: { language: "en", text: "Pay the provider" }, reference: "RR-43" },
+      lines: [
+        { originalLabel: "Puerta", originalLanguage: "es", netMinor: 12000, taxMinor: 2400 },
+        { originalLabel: "Pestillo", originalLanguage: "es", netMinor: 8000, taxMinor: 1600 },
+        { originalLabel: "Carril", originalLanguage: "es", netMinor: 1000, taxMinor: 200 },
+      ] });
+    expect(issue).toMatchObject({ status: 200, body: { data: { bill: { id: "manual", totalMinor: 25200 } } } });
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
@@ -317,10 +330,58 @@ test("sign-off closes an already matched job but never infers delivery from the 
         VALUES ('payment', 'invoice', 'admin', 'matched', 24000, 'transfer', ?)`).bind(now - 1),
     ]);
     expect(await f.request(eligibility, "customer")).toMatchObject({ body: { data: { status: "unavailable", reason: "not_eligible" } } });
-    expect((await f.submit(submission("prepaid"))).status).toBe(200);
+    expect((await f.submit({ ...submission("prepaid"), billReference: "RR-99", billAmountMinor: 25_200 })).status).toBe(200);
     expect(await f.db.prepare("SELECT state FROM jobs WHERE id = 'job'").first("state")).toBe("open");
     expect((await f.signOff("prepaid", "prepaid-signed")).status).toBe(200);
+    expect(await f.db.prepare("SELECT id, number FROM bills").first()).toEqual({ id: "invoice", number: "RR-42" });
     expect(await f.request("/jobs/job", "customer")).toMatchObject({ body: { data: { job: { state: "closed", journey: { step: "paid" } } } } });
     expect(await f.request(eligibility, "customer")).toMatchObject({ body: { data: { status: "eligible" } } });
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("sign-off atomically publishes one hinted invoice and only provider billing may reconcile it", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    const billReference = "RR-0412";
+    const billAmountMinor = 25_200;
+    await f.db.prepare(`INSERT INTO business_grants (id, business_id, membership_id, capability, issuer_id, valid_from)
+      VALUES ('foreman-pay-grant', 'business', 'foreman-member', 'record_paid', 'admin', 1)`).run();
+    const wrap = { ...submission("with-bill"), billReference, billAmountMinor };
+    expect(await f.submit({ ...wrap, billAmountMinor: 24_000 }, "mismatched-bill")).toMatchObject(conflict);
+    expect(await f.submit(wrap)).toMatchObject({ status: 200, body: { data: {
+      submission: { billReference, billAmountMinor }, actions: { canIssueBill: false },
+    } } });
+    expect(await f.request("/jobs/job/bill", "customer")).toMatchObject({ status: 200, body: { data: { bill: null } } });
+    expect(await f.db.prepare("SELECT count(*) FROM bills").first("count(*)")).toBe(0);
+
+    expect((await f.signOff(wrap.id, "confirm-bill")).status).toBe(200);
+    expect((await f.signOff(wrap.id, "confirm-bill")).status).toBe(200);
+    expect(await f.db.prepare("SELECT count(*) FROM bills").first("count(*)")).toBe(1);
+    const bill = resultSchema(getJobBillRoute.output).parse((await f.request("/jobs/job/bill", "customer")).body);
+    expect(bill).toMatchObject({ data: { job: { providerDisplayName: "Provider" }, bill: {
+      number: billReference, totalMinor: billAmountMinor, netMinor: 21_000, taxMinor: 4_200, issuedAt: now,
+      dueAt: now + 7 * day - hour, paymentInstructions: null, documentUrl: null, matchesApprovedScope: true,
+    } } });
+    const notice = await f.db.prepare("SELECT link_token FROM notifications WHERE kind = 'bill_issued'").all<{ link_token: string }>();
+    expect(notice.results).toHaveLength(1);
+    const link = await f.request(`/links/${notice.results[0]!.link_token}`, "customer");
+    expect(link).toMatchObject({ status: 200, body: { data: { kind: "bill", bill: { bill: { number: billReference } } } } });
+    expect(f.wakes).toHaveLength(2);
+
+    const queue = resultSchema(getJobsRoute.output).parse((await f.request("/jobs?segment=needs_you", "admin")).body);
+    expect(queue).toMatchObject({ data: { unpaidBills: [{
+      jobId: "job", number: billReference, expectedPriorId: null, canRecordPaid: true, total: { minor: billAmountMinor },
+    }] } });
+    if (!queue.ok || queue.data.audience !== "provider_admin") throw new Error("Missing provider bill queue");
+    const pending = queue.data.unpaidBills[0]!;
+    const path = `/bills/${pending.billId}/record-paid`;
+    const payment = { id: "verified-payment", expectedPriorId: pending.expectedPriorId, amountMinor: pending.total.minor, verifiedReference: "matched-transfer" };
+    expect(await f.request(path, "foreman", "foreman-pay", payment)).toMatchObject(missing);
+    expect(await f.request("/jobs?segment=active", "foreman")).toMatchObject({ status: 200, body: { data: { audience: "foreman" } } });
+    expect(await f.request(path, "admin", "admin-records-pay", payment)).toMatchObject({ status: 200, body: { data: {
+      bill: { outcome: { status: "paid" } },
+    } } });
+    expect(await f.request("/jobs?segment=needs_you", "admin")).toMatchObject({ status: 200, body: { data: { unpaidBills: [] } } });
   } finally { f.db.close(); clock.mockRestore(); }
 });

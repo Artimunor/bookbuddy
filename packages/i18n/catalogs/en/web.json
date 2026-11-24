@@ -99,6 +99,7 @@
   "web.portal.closeout.other": "Something else",
   "web.portal.closeout.paid": "Paid",
   "web.portal.closeout.payDirect": "Pay {provider} directly",
+  "web.portal.closeout.payUsingBill": "Pay using the details on the provider’s bill {reference}.",
   "web.portal.closeout.paymentRecord": "Payment record",
   "web.portal.closeout.pendingTranslation": "Translation pending",
   "web.portal.closeout.photoUnavailable": "Photo unavailable",

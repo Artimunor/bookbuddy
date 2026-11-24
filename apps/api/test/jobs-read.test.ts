@@ -375,8 +375,8 @@ test("foreman bill status follows the current invoice and attributed payment cor
   try {
     await approveMine(f.db);
     const total = { minor: 120, currency: "EUR" };
-    await f.db.prepare(`INSERT INTO completions(id,job_id,base_quote_version_id,no,submitter_id,finished_at,submitted_at,bill_reference_hint,state)
-      VALUES ('wrap','mine','mine-base',1,'foreman',?,?,'Private bill draft reference','submitted')`).bind(old + 6, old + 7).run();
+    await f.db.prepare(`INSERT INTO completions(id,job_id,base_quote_version_id,no,submitter_id,finished_at,submitted_at,bill_reference_hint,bill_amount_minor,state)
+      VALUES ('wrap','mine','mine-base',1,'foreman',?,?,'Private bill draft reference',120,'submitted')`).bind(old + 6, old + 7).run();
     expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: { bill: { state: "draft", total } } } });
     await f.db.batch([
       f.db.prepare(`INSERT INTO bills(id,job_id,business_id,number,version,net_minor,tax_minor,total_minor,currency,provider_document_ref,

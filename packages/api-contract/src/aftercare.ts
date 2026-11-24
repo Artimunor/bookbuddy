@@ -83,6 +83,7 @@ const completionVersion = z.strictObject({
   id: completionIdSchema, version: no, state: completionState, submitted: stamp, finishedAt: timestampSchema,
 });
 const completionSubmission = completionVersion.extend({ items: z.array(completionItem) });
+const completionWithBill = completionSubmission.extend({ billReference: shortText.nullable(), billAmountMinor: positiveMinor.nullable() });
 export const signOffReceiptSchema = stamp.extend({
   id: signOffIdSchema, completionId: completionIdSchema, completionVersion: no, quoteVersionId: quoteVersionIdSchema, termsHash,
 });
@@ -98,7 +99,7 @@ export const customerCompletionSchema = z.strictObject({
 export const foremanCompletionSchema = z.strictObject({
   audience: z.literal("foreman"), ...completionFields,
   approvedScope: approvedScope.extend({ netMinor: z.int().optional(), taxMinor: z.int().optional() }),
-  submission: completionSubmission.extend({ billReferenceHint: shortText.nullable() }).nullable(),
+  submission: completionWithBill.nullable(),
   work: z.strictObject({ finishedAt: timestampSchema, crewCheckedOutAt: timestampSchema.nullable() }).nullable(),
   correction: stamp.extend({ caseId: caseIdSchema, reason: authored }).nullable(),
   actions: z.strictObject({
@@ -270,8 +271,12 @@ const publishItem = z.discriminatedUnion("outcome", [
 ]);
 export const submitCompletionPayloadSchema = z.strictObject({
   id: completionIdSchema, baseQuoteVersionId: quoteVersionIdSchema, expectedCompletionId: completionIdSchema.nullable(),
-  items: z.array(publishItem).min(1).max(500), billReferenceHint: shortText.optional(),
-}).superRefine(({ items }, ctx) => {
+  items: z.array(publishItem).min(1).max(500), billReference: shortText.trim().optional(), billAmountMinor: positiveMinor.optional(),
+}).superRefine(({ items, billReference, billAmountMinor }, ctx) => {
+  if ((billReference === undefined) !== (billAmountMinor === undefined)) {
+    ctx.addIssue({ code: "custom", path: [billReference === undefined ? "billReference" : "billAmountMinor"],
+      message: "Provide the bill reference and amount together" });
+  }
   const ids = new Set<string>(), scopeKeys = new Set<string>(), photos = new Set<string>();
   let photoCount = 0;
   for (const item of items) {
@@ -290,7 +295,7 @@ export const submitCompletionPayloadSchema = z.strictObject({
 });
 // The batch derives finish time/actor, verifies each approved item and every selected ready attachment or agreed alternative.
 export const submitCompletionRoute = commandRoute("/jobs/:j/completions", jobParams, submitCompletionPayloadSchema,
-  foremanCompletionSchema.extend({ submission: completionSubmission.extend({ state: z.literal("submitted"), billReferenceHint: shortText.nullable() }) }));
+  foremanCompletionSchema.extend({ submission: completionWithBill.extend({ state: z.literal("submitted") }) }));
 export const signOffCompletionRoute = commandRoute("/completions/:id/sign-off", completionParams,
   z.strictObject({ id: signOffIdSchema, termsHash }), customerCompletionSchema.extend({
     signOff: signOffReceiptSchema,
@@ -304,7 +309,7 @@ export const returnCompletionRoute = defineRoute({
     body: commandInputSchema(z.strictObject({})).extend({ expectedRevision: revisionSchema }),
   }),
   output: foremanCompletionSchema.extend({
-    submission: completionSubmission.extend({ state: z.literal("returned"), billReferenceHint: shortText.nullable() }),
+    submission: completionWithBill.extend({ state: z.literal("returned") }),
   }),
 });
 

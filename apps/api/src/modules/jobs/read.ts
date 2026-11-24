@@ -3,6 +3,7 @@ import type { ChangeVersionState, QuoteVersionState } from "@bookbuddy/domain";
 import type { CommandStatement } from "../../db/commit";
 import { at, currentCheck, displayName, eligibilityStatus, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { paymentHead } from "../aftercare/invoice";
 import { routedReviewer } from "../commercial/policy";
 import { readyAttachmentSql } from "../media/policy";
 import { placeCapability } from "../places/policy";
@@ -127,13 +128,20 @@ const foremanBill = `coalesce(
       AND r.at <= ${at} AND NOT EXISTS (SELECT 1 FROM paid_records successor WHERE successor.prior_id = r.id AND successor.at <= ${at}))
     THEN 'paid_recorded' ELSE 'sent' END, 'total', json_object('minor', bill.total_minor, 'currency', bill.currency))
     FROM bills bill WHERE bill.job_id = j.id AND bill.state = 'issued' AND bill.issued_at <= ${at}),
-  (SELECT json_object('state', 'draft', 'total', json_object('minor', base.total_minor + coalesce((
-      SELECT sum(ch.delta_minor) FROM change_proposals cp JOIN change_versions ch ON ch.proposal_id = cp.id AND ch.state = 'approved'
-      JOIN approvals decision ON decision.change_version_id = ch.id AND decision.decision = 'approve' AND decision.at <= c.submitted_at
-      WHERE cp.base_quote_version_id = base.id AND cp.job_id = j.id), 0), 'currency', base.currency))
-    FROM completions c JOIN quote_versions base ON base.id = c.base_quote_version_id AND base.state = 'approved'
-    WHERE c.job_id = j.id AND c.state IN ('submitted', 'signed_off') AND c.bill_reference_hint IS NOT NULL AND c.submitted_at <= ${at}),
+  (SELECT json_object('state', 'draft', 'total', json_object('minor', c.bill_amount_minor, 'currency', 'EUR'))
+    FROM completions c WHERE c.job_id = j.id AND c.state = 'submitted' AND c.bill_reference_hint IS NOT NULL AND c.submitted_at <= ${at}),
   json_object('state', 'none', 'total', NULL))`;
+const providerInvoice = `(SELECT json_object('billId', bill.id, 'number', bill.number,
+    'total', json_object('minor', bill.total_minor, 'currency', bill.currency),
+    'outcome', json(CASE WHEN head.kind = 'matched' THEN json_object('status', 'paid', 'recorded', ${stamp("head.at", "head.actor_id")},
+      'matched', json_object('minor', head.amount_minor, 'currency', bill.currency))
+    ELSE json_object('status', CASE WHEN head.kind IS NULL OR head.kind = 'no_funds_received' THEN 'due' ELSE 'checking' END) END),
+    'expectedPriorId', head.id, 'canRecordPaid', json(CASE WHEN head.kind IS NOT 'matched'
+      AND ${businessCapability("s.membership_id", "record_paid", at)} THEN 'true' ELSE 'false' END))
+  FROM bills bill LEFT JOIN paid_records head ON head.id = (${paymentHead("bill")})
+  WHERE bill.job_id = j.id AND bill.state = 'issued' AND bill.issued_at <= ${at})`;
+const providerUnpaid = `EXISTS (SELECT 1 FROM bills bill LEFT JOIN paid_records head ON head.id = (${paymentHead("bill")})
+  WHERE bill.job_id = j.id AND bill.state = 'issued' AND bill.issued_at <= ${at} AND head.kind IS NOT 'matched')`;
 const todayVisits = (linked: boolean, whole: boolean) => {
   const visit = visitJson("v", "w");
   const staff = whole ? linked ? "s.role = 'foreman' AND (SELECT visit_id FROM input) IS NOT NULL" : "0" : "s.role = 'foreman'";
@@ -162,6 +170,7 @@ function jobPacket(mode: ReadMode, linked = false): string {
     'writeQuote', j.write_quote,
     'openChange', s.role = 'foreman' AND EXISTS (SELECT 1 FROM change_versions ch
       WHERE ch.job_id = j.id AND ch.state = 'issued' AND ch.issued_at <= ${at} AND ch.expires_at > ${at})
+    ${mode === "list" || mode === "whole" ? `, 'providerInvoice', json(CASE WHEN s.role = 'provider_admin' THEN ${providerInvoice} END)` : ""}
     ${mode === "whole" ? `, 'attachmentIds', json(CASE WHEN s.role = 'customer' THEN (
       SELECT json_group_array(attachment_id) FROM (
         SELECT attachment_id FROM request_attachments WHERE job_id = j.id ORDER BY attachment_id)) END),
@@ -341,7 +350,8 @@ function read(access: SessionAccess, mode: ReadMode, options: {
     job_order AS (
       SELECT j.*, w.starts_at AS visit_starts, h.expires_at AS reply_at, (${liveHandoff}) AS offered_live, ${stuckHandoff} AS handoff_stuck,
         j.state = 'open' AND j.audience = 'provider_admin'
-          AND (j.accountable_foreman_membership_id IS NULL OR (${liveHandoff}) OR ${stuckHandoff} OR j.review_due IS NOT NULL) AS needs_you,
+          AND (j.accountable_foreman_membership_id IS NULL OR (${liveHandoff}) OR ${stuckHandoff} OR j.review_due IS NOT NULL
+            ${mode === "list" ? `OR ${providerUnpaid}` : ""}) AS needs_you,
         CASE WHEN j.audience = 'customer' AND j.state = 'open' THEN min(
           coalesce(CASE WHEN q.state = 'issued' AND q.expires_at > ${at} AND ${canApprove("q")} THEN q.expires_at END, 9007199254740991),
           coalesce(CASE WHEN ch.state = 'issued' AND ch.expires_at > ${at} AND ${canApprove("ch")} THEN ch.expires_at END, 9007199254740991),
@@ -435,6 +445,11 @@ interface Handoff { handoffId: string; expiresAt: number }
 interface Stamp { at: number; by: string | null }
 interface ShiftSlots { shiftId: string; slotIds: string[] }
 interface StaffedVisit extends VisitRow { shifts?: ShiftSlots[]; assignableShift?: string | null }
+type InvoiceAmount = { minor: number; currency: "EUR" };
+interface ProviderInvoice {
+  billId: string; number: string; total: InvoiceAmount; expectedPriorId: string | null; canRecordPaid: boolean;
+  outcome: { status: "due" | "checking" } | { status: "paid"; recorded: Stamp; matched: InvoiceAmount };
+}
 interface Job extends Heading, JourneyRow {
   position: Position; revision: number; place: { placeId: string; alias: string }; providerName: string; customerName: string;
   next: VisitRow | null; finalAt: number | null; foreman: Member | null; handoff: Handoff | null;
@@ -447,6 +462,7 @@ interface Job extends Heading, JourneyRow {
   foremanQuote?: { versionId: string; state: QuoteVersionState } | null;
   foremanChange?: { versionId: string; state: ChangeVersionState } | null;
   foremanBill?: { state: "none" | "draft" | "sent" | "paid_recorded"; total: { minor: number; currency: "EUR" } | null };
+  providerInvoice?: ProviderInvoice | null;
   address?: string; arrival?: unknown; review?: unknown; canWithdrawHandoff?: number | null;
 }
 interface Intake extends Heading, JourneyRow {
@@ -611,6 +627,11 @@ export function projectJobs(rows: ReadRows, segment: Segment, now: number) {
     };
     case "provider_admin": return { audience, segment, businessName, siteZone, unreadCount, page: pagination,
       needsYouCount: counts.needsYou, activeCount: counts.active, pastCount: counts.past, items: jobs.map(providerCard),
+      unpaidBills: jobs.flatMap((job) => {
+        const bill = job.providerInvoice;
+        return bill && bill.outcome.status !== "paid" ? [{ ...heading(job), billId: bill.billId, number: bill.number,
+          total: bill.total, status: bill.outcome.status, expectedPriorId: bill.expectedPriorId, canRecordPaid: bill.canRecordPaid }] : [];
+      }),
     };
     case "worker": return { audience, segment, siteZone, unreadCount, page: pagination, items: [] };
   }
@@ -666,7 +687,7 @@ export function projectJob(rows: ReadRows, view: View, now: number, exactVisit =
       } };
     }
     case "provider_admin": return view === "today" ? today && { audience, job: { ...providerCard(job), view, live: providerLive(job, now) } }
-      : { audience, job: { ...providerCard(job), view, revision: job.revision, bill: null, commercialReview: job.review,
+      : { audience, job: { ...providerCard(job), view, revision: job.revision, bill: job.providerInvoice ?? null, commercialReview: job.review,
         canWithdrawHandoff: Boolean(job.canWithdrawHandoff), handoffPreview: null } };
     case "worker": return null; // No confirmed assignment can exist before staffing is installed.
   }

@@ -13,6 +13,7 @@ import { customer, foreman } from "../commercial/policy";
 import { readyPhotoSql } from "../field/attendance";
 import { businessCapability, currentMembership } from "../jobs/projections";
 import { createLinkedNotifications } from "../links/notifications";
+import { approvedInvoice, billReferenceReserved, billSignals, issuedBillNotice } from "./invoice";
 
 export const dayMs = 86_400_000;
 export const reminderKind = "sign_off_reminder";
@@ -160,6 +161,7 @@ export function completionValue(scope: string, version: string, receiptState?: "
         AND ${caseVisible} ORDER BY pc.opened_at DESC, pc.id))),
       'submission', json(CASE WHEN chosen.id IS NOT NULL THEN ${submitted} END)) AS value,
       chosen.bill_reference_hint AS hint,
+      chosen.bill_amount_minor AS invoice_amount,
       CASE WHEN NOT (${customerView}) THEN (SELECT json_object(
         'netMinor', base.net_minor + coalesce(sum(delta_net), 0),
         'taxMinor', base.tax_minor + coalesce(sum(delta_tax), 0)) FROM approved_lines) END AS invoice_basis,
@@ -177,7 +179,7 @@ export function completionValue(scope: string, version: string, receiptState?: "
     FROM base LEFT JOIN chosen ON 1 LEFT JOIN work_finish work ON NOT (${customerView})
     WHERE j.named_approver_id IS NOT NULL AND (${version} IS NULL OR chosen.id IS NOT NULL))
   SELECT CASE WHEN ${customerView} THEN json_set(value, '$.actions', json(actions))
-    ELSE json_set(value, '$.submission.billReferenceHint', hint, '$.actions', json(actions),
+    ELSE json_set(value, '$.submission.billReference', hint, '$.submission.billAmountMinor', invoice_amount, '$.actions', json(actions),
       '$.approvedScope', json_patch(value -> '$.approvedScope', invoice_basis),
       '$.work', json(work), '$.correction', json(correction)) END FROM section)`;
 }
@@ -248,17 +250,25 @@ const validPhotos = `SELECT i.id AS item_id, media.id AS attachment_id, p.value 
     )`;
 
 export function submitCompletion(ctx: RequestScope, session: SessionAccess, { params, body }: Submit) {
-  const { id, baseQuoteVersionId, expectedCompletionId, items, billReferenceHint } = body.payload;
+  const { id, baseQuoteVersionId, expectedCompletionId, items, billReference, billAmountMinor } = body.payload;
   const bodyAccess = resultAccess(aftercareAccess(session, ctx.now, params.j), id);
   const clock = withAftercareSiteClock(bodyAccess, ctx.now);
   const timed: SessionAccess = { sql: `${clock.sql}, completion_deadlines AS MATERIALIZED (SELECT
       ${calendarDeadline(at, AFTERCARE_TARGETS.signOffReminderCalendarDays)} AS reminder,
       ${calendarDeadline(at, AFTERCARE_TARGETS.signOffFollowUpCalendarDays)} AS follow_up FROM aftercare_job)`, params: clock.params };
-  const input = `, input_items AS MATERIALIZED (${foreachItem}), completion_input(base_id, prior_id) AS (VALUES (?, ?))`;
-  const inputParams = [JSON.stringify(items), baseQuoteVersionId, expectedCompletionId];
+  const input = `, input_items AS MATERIALIZED (${foreachItem}), completion_input(base_id, prior_id, bill_reference, bill_amount)
+    AS (VALUES (?, ?, ?, ?))`;
+  const inputParams = [JSON.stringify(items), baseQuoteVersionId, expectedCompletionId, billReference ?? null, billAmountMinor ?? null];
   const writesAccess: SessionAccess = { sql: bodyAccess.sql + input, params: [...bodyAccess.params, ...inputParams] };
   const access: SessionAccess = { sql: timed.sql + input, params: [...timed.params, ...inputParams] };
   const baseId = "(SELECT base_id FROM completion_input)";
+  const invoiceAssertion = billReference === undefined ? "" : `AND EXISTS (
+    SELECT 1 FROM (SELECT (${approvedInvoice(at)}) AS approved) CROSS JOIN completion_input input
+    WHERE approved ->> 'net' >= 0 AND approved ->> 'tax' >= 0
+      AND (approved ->> 'net') + (approved ->> 'tax') = input.bill_amount
+      AND (EXISTS (SELECT 1 FROM bills b WHERE b.job_id = j.id AND b.state = 'issued') OR (
+        NOT EXISTS (SELECT 1 FROM bills b WHERE b.business_id = j.business_id AND b.number = input.bill_reference AND b.version = 1)
+        AND NOT (${billReferenceReserved("input.bill_reference")}))))`;
   const eventKey = `${readyKind}:${id}`;
   const notificationExpiry = `${at} + ${7 * dayMs}`;
   return aftercareReceipt(ctx, bodyAccess, {
@@ -273,6 +283,7 @@ export function submitCompletion(ctx: RequestScope, session: SessionAccess, { pa
         AND EXISTS (SELECT 1 FROM quote_versions q JOIN approvals a ON a.quote_version_id = q.id AND a.decision = 'approve'
           AND a.at <= ${at} WHERE q.id = ${baseId} AND q.job_id = j.id AND q.state = 'approved')
         AND NOT EXISTS (SELECT 1 FROM completions WHERE id = ${resultId})
+        ${invoiceAssertion}
         AND (SELECT count(*) FROM input_items) = (SELECT count(*) FROM approved)
         AND NOT EXISTS (SELECT 1 FROM input_items i LEFT JOIN approved line ON ${sameLine("i", "line")}
           WHERE line.line_no IS NULL OR EXISTS (SELECT 1 FROM completion_items WHERE id = i.id)
@@ -292,10 +303,10 @@ export function submitCompletion(ctx: RequestScope, session: SessionAccess, { pa
       return {
         statements: [...(expectedCompletionId === null ? [] : [prior]),
           scopedStatement(writesAccess, `INSERT INTO completions (id, job_id, base_quote_version_id, no, submitter_id, finished_at,
-            submitted_at, bill_reference_hint, state) SELECT ${resultId}, j.id, ${baseId},
+            submitted_at, bill_reference_hint, bill_amount_minor, state) SELECT ${resultId}, j.id, input.base_id,
             1 + coalesce((SELECT max(no) FROM completions WHERE job_id = j.id), 0), scope.account_id,
-            ${finishedAt}, ${at}, ?, 'submitted'
-            FROM aftercare_job j CROSS JOIN aftercare_actor scope WHERE ${guard.sql}`, billReferenceHint ?? null, ...guard.params ?? []),
+            ${finishedAt}, ${at}, input.bill_reference, input.bill_amount, 'submitted'
+            FROM aftercare_job j CROSS JOIN aftercare_actor scope CROSS JOIN completion_input input WHERE ${guard.sql}`, ...guard.params ?? []),
           scopedStatement(writesAccess, `INSERT INTO completion_items (id, completion_id, quote_version_id, change_version_id, line_no,
             outcome, original_language, result_note, not_done_reason, evidence_alternative)
             SELECT id, ${resultId}, quote_version_id, change_version_id, line_no, outcome, language, result, reason, alternative
@@ -330,6 +341,10 @@ const disablePending = (access: SessionAccess, guard: CommandStatement) => scope
 
 export function signOffCompletion(ctx: RequestScope, session: SessionAccess, { params, body }: SignOff) {
   const access = resultAccess(aftercareAccess(session, ctx.now, params.id, true), params.id);
+  const billId = crypto.randomUUID();
+  const billingAccess: SessionAccess = { sql: `${access.sql}, sign_off_bill(id) AS (VALUES (?))`, params: [...access.params, billId] };
+  const clock = withAftercareSiteClock(billingAccess, ctx.now);
+  const candidate = "(SELECT id FROM sign_off_bill)";
   const { id, termsHash } = body.payload;
   return aftercareReceipt(ctx, access, {
     access, operationId: body.operationId, command: "completion.sign_off", input: [params.id, body], resultRef: id,
@@ -340,10 +355,21 @@ export function signOffCompletion(ctx: RequestScope, session: SessionAccess, { p
       AND ${exactScope("c")} AND NOT EXISTS (SELECT 1 FROM sign_offs WHERE job_id = j.id OR id = ?))`,
     params: [body.expectedRevision ?? null, body.expectedRevision ?? null, termsHash, id] },
     writes(guard) {
-      return { statements: [scopedStatement(access, `INSERT INTO sign_offs (id, job_id, completion_id, approver_id, grant_id, terms_hash, at)
+      const signals = billSignals(billingAccess, guard, candidate, issuedBillNotice, `bill-issue:${billId}`, true);
+      return { ...signals, statements: [scopedStatement(access, `INSERT INTO sign_offs (id, job_id, completion_id, approver_id, grant_id, terms_hash, at)
           SELECT ?, j.id, ${resultId}, scope.account_id, (${signOffGrant("scope.account_id")}), ?, ${at}
           FROM aftercare_job j CROSS JOIN aftercare_actor scope WHERE ${guard.sql}`, id, termsHash, ...guard.params ?? []),
-        updateRevision(access, guard, true), disablePending(access, guard)], changes: scopedStatement(access, jobChanges) };
+        scopedStatement(clock, `, bill_basis AS MATERIALIZED (
+          SELECT j.id AS job_id, j.business_id, c.bill_reference_hint AS number, c.bill_amount_minor AS total,
+            (${approvedInvoice("c.submitted_at")}) AS approved, ${calendarDeadline(at, AFTERCARE_TARGETS.billDueCalendarDays)} AS due
+          FROM aftercare_job j JOIN completions c ON c.id = ${resultId} AND c.state = 'signed_off'
+          WHERE ${guard.sql} AND c.bill_reference_hint IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM bills b WHERE b.job_id = j.id AND b.state = 'issued')
+        ) INSERT INTO bills (id, job_id, business_id, number, version, net_minor, tax_minor, total_minor, currency,
+          line_items, issued_at, due_at, state)
+          SELECT ${candidate}, job_id, business_id, number, 1, approved ->> 'net', approved ->> 'tax', total, 'EUR',
+            approved ->> 'lines', ${at}, due, 'issued' FROM bill_basis`, ...guard.params ?? []),
+        updateRevision(access, guard, true), disablePending(access, guard), ...signals.statements] };
     },
   }, completionValue("scope", resultId), body.expectedRevision);
 }

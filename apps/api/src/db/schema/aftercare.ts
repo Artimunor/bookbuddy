@@ -19,17 +19,23 @@ export const completions = sqliteTable("completions", {
   finishedAt: integer("finished_at").notNull(),
   submittedAt: integer("submitted_at").notNull(),
   billReferenceHint: text("bill_reference_hint"),
+  billAmountMinor: integer("bill_amount_minor"),
   state: text({ enum: COMPLETION_STATES }).notNull(),
 }, (t) => [
   check("completions_no", sql`typeof(${t.no}) = 'integer' AND ${t.no} > 0`),
   check("completions_finished", sql`typeof(${t.finishedAt}) = 'integer'`),
   check("completions_submitted", sql`typeof(${t.submittedAt}) = 'integer' AND ${t.submittedAt} >= ${t.finishedAt}`),
+  check("completions_bill", sql`(${t.billReferenceHint} IS NULL AND ${t.billAmountMinor} IS NULL)
+    OR (${t.billReferenceHint} IS NOT NULL AND length(trim(${t.billReferenceHint})) BETWEEN 1 AND 500
+      AND typeof(${t.billAmountMinor}) = 'integer' AND ${t.billAmountMinor} BETWEEN 1 AND 9007199254740991)`),
   check("completions_state", sql`${t.state} IN ('submitted', 'returned', 'superseded', 'signed_off')`),
   foreignKey({ columns: [t.baseQuoteVersionId, t.jobId], foreignColumns: [quoteVersions.id, quoteVersions.jobId] }),
   unique().on(t.id, t.jobId),
   unique().on(t.jobId, t.no),
   uniqueIndex("completions_current").on(t.jobId).where(sql`${t.state} <> 'superseded'`),
   index("completions_base_quote").on(t.baseQuoteVersionId, t.jobId),
+  index("completions_pending_bill_reference").on(t.billReferenceHint, t.jobId)
+    .where(sql`${t.state} = 'submitted' AND ${t.billReferenceHint} IS NOT NULL`),
 ]);
 
 export const completionItems = sqliteTable("completion_items", {
@@ -89,8 +95,8 @@ export const bills = sqliteTable("bills", {
   taxMinor: integer("tax_minor").notNull(),
   totalMinor: integer("total_minor").notNull(),
   currency: text({ enum: ["EUR"] }).notNull(),
-  providerDocumentRef: text("provider_document_ref").notNull(),
-  paymentInstructions: text("payment_instructions").notNull(),
+  providerDocumentRef: text("provider_document_ref"),
+  paymentInstructions: text("payment_instructions"),
   lineItems: text("line_items").notNull(),
   issuedAt: integer("issued_at").notNull(),
   dueAt: integer("due_at").notNull(),
@@ -103,7 +109,8 @@ export const bills = sqliteTable("bills", {
   check("bills_total", sql`typeof(${t.totalMinor}) = 'integer' AND ${t.totalMinor} > 0 AND ${t.totalMinor} = ${t.netMinor} + ${t.taxMinor}`),
   check("bills_currency", sql`${t.currency} = 'EUR'`),
   check("bills_document", sql`length(trim(${t.providerDocumentRef})) > 0`),
-  check("bills_instructions", sql`CASE WHEN json_valid(${t.paymentInstructions}) THEN json_type(${t.paymentInstructions}) = 'object' ELSE 0 END`),
+  check("bills_instructions", sql`${t.paymentInstructions} IS NULL
+    OR CASE WHEN json_valid(${t.paymentInstructions}) THEN json_type(${t.paymentInstructions}) = 'object' ELSE 0 END`),
   check("bills_line_items", sql`CASE WHEN json_valid(${t.lineItems}) THEN json_array_length(${t.lineItems}) > 0 ELSE 0 END`),
   check("bills_issued_at", sql`typeof(${t.issuedAt}) = 'integer'`),
   check("bills_due_at", sql`typeof(${t.dueAt}) = 'integer' AND ${t.dueAt} >= ${t.issuedAt}`),

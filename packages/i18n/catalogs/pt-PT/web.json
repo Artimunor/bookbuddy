@@ -99,6 +99,7 @@
   "web.portal.closeout.other": "Outro assunto",
   "web.portal.closeout.paid": "Pago",
   "web.portal.closeout.payDirect": "Pague diretamente a {provider}",
+  "web.portal.closeout.payUsingBill": "Pague com os dados indicados na fatura {reference} do prestador.",
   "web.portal.closeout.paymentRecord": "Registo de pagamento",
   "web.portal.closeout.pendingTranslation": "Tradução pendente",
   "web.portal.closeout.photoUnavailable": "Fotografia indisponível",

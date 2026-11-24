@@ -4,18 +4,16 @@ import type {
 } from "@bookbuddy/api-contract";
 import { AFTERCARE_TARGETS } from "@bookbuddy/domain";
 import type { CommandStatement } from "../../db/commit";
-import type { OperationSpec, OperationWrites } from "../../db/operations";
+import type { OperationSpec } from "../../db/operations";
 import type { RequestScope } from "../../db/scope";
 import { accessClock, at, liveTerm, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
-import { customer, foreman } from "../commercial/policy";
 import { currentMembership } from "../jobs/projections";
 import { registerLinkResolver } from "../links";
 import type { LinkResolver } from "../links";
-import { createLinkedNotifications } from "../links/notifications";
-import { placeCapability } from "../places/policy";
 import { mayReadCase, mayUseCasePacket } from "./cases";
-import { aftercareAccess, aftercareJobValue, aftercareReceipt, calendarDeadline, dayMs, jobSource, nameOf, withAftercareSiteClock } from "./completion";
+import { aftercareAccess, aftercareJobValue, aftercareReceipt, calendarDeadline, jobSource, nameOf, withAftercareSiteClock } from "./completion";
+import { approvedInvoice, billReferenceReserved, billSignals, customerBillReader, foremanBillReader, issuedBillNotice, paymentHead, providerBillReader } from "./invoice";
 
 type ReadBill = RouteResponse<typeof getJobBillRoute.input>;
 type IssueBill = RouteResponse<typeof issueBillRoute.input>;
@@ -25,15 +23,9 @@ type Defer = RouteResponse<typeof deferCollectionRoute.input>;
 type Release = RouteResponse<typeof releaseDeferralRoute.input>;
 type BillingCapability = "issue_bill" | "record_paid" | "billing_deferral";
 
-const provider = (s: string) => `(${s}.role = 'provider_admin' AND ${s}.business_id = j.business_id AND ${s}.membership_id IS NOT NULL)`;
-const billForeman = (s: string) => `(${foreman(s)} OR (${s}.role = 'foreman' AND ${s}.business_id = j.business_id
-  AND EXISTS (SELECT 1 FROM job_grants g WHERE g.job_id = j.id AND g.context_id = ${s}.context_id AND g.capability = 'backup' AND ${liveTerm("g")})
-  AND EXISTS (SELECT 1 FROM business_grants g WHERE g.business_id = j.business_id AND g.membership_id = ${s}.membership_id
-    AND g.capability = 'backup_foreman' AND ${liveTerm("g")})))`;
-const customerBill = (s: string) => `(${customer(s)} AND ${placeCapability("j.place_id", `${s}.account_id`, "bill_view")})`;
-const visible = (s: string) => `(${customerBill(s)} OR ${billForeman(s)} OR ${provider(s)})`;
+const visible = (s: string) => `(${customerBillReader(s)} OR ${foremanBillReader(s)} OR ${providerBillReader(s)})`;
 const namedGrant = (s: string, capability: BillingCapability) => `SELECT g.id FROM business_grants g
-  WHERE ${provider(s)} AND g.business_id = j.business_id AND g.membership_id = ${s}.membership_id
+  WHERE ${providerBillReader(s)} AND g.business_id = j.business_id AND g.membership_id = ${s}.membership_id
     AND g.capability = '${capability}' AND ${liveTerm("g")} ORDER BY g.valid_from DESC, g.id LIMIT 1`;
 const flag = (sql: string) => `json(CASE WHEN ${sql} THEN 'true' ELSE 'false' END)`;
 const rows = (sql: string) => `(SELECT json_group_array(json(value)) FROM (${sql}))`;
@@ -41,25 +33,6 @@ const revisionMatches = "((SELECT revision FROM bill_input) IS NULL OR j.revisio
 const billId = "(SELECT id FROM bill_input)";
 const openDeferral = (bill: string) => `SELECT d.id FROM bill_deferrals d
   WHERE d.bill_id = ${bill}.id AND d.released_at IS NULL`;
-const paymentHead = (bill: string) => `SELECT p.id FROM paid_records p WHERE p.bill_id = ${bill}.id
-  AND NOT EXISTS (SELECT 1 FROM paid_records successor WHERE successor.prior_id = p.id)`;
-
-// Each version's invoice lines are derived from exactly one approved base and its approved deltas,
-// not from the API caller's prices or a later draft. The supplied document must agree with these lines.
-const approvedInvoice = (cutoff: string) => `SELECT json_object('lines', json_group_array(json_object(
-    'originalLabel', original_label, 'originalLanguage', original_locale, 'netMinor', net_minor, 'taxMinor', tax_minor)
-    ORDER BY rank, approved_at, version_id, line_no), 'net', sum(net_minor), 'tax', sum(tax_minor))
-  FROM (
-    SELECT 0 AS rank, a.at AS approved_at, q.id AS version_id, i.line_no, i.original_label, q.original_locale, i.net_minor, i.tax_minor
-    FROM quote_versions q JOIN approvals a ON a.quote_version_id = q.id AND a.decision = 'approve' AND a.at <= ${cutoff}
-    JOIN quote_items i ON i.version_id = q.id WHERE q.job_id = j.id AND q.state = 'approved'
-    UNION ALL
-    SELECT 1, a.at, v.id, i.line_no, i.original_label, v.original_locale, i.net_minor, i.tax_minor
-    FROM change_proposals cp JOIN quote_versions q ON q.id = cp.base_quote_version_id AND q.state = 'approved'
-    JOIN change_versions v ON v.proposal_id = cp.id AND v.job_id = cp.job_id AND v.state = 'approved'
-    JOIN approvals a ON a.change_version_id = v.id AND a.decision = 'approve' AND a.at <= ${cutoff}
-    JOIN change_items i ON i.version_id = v.id WHERE cp.job_id = j.id
-  ) approved`;
 
 const signOff = `(SELECT json_object('id', s.id, 'completionId', c.id, 'completionVersion', c.no,
   'quoteVersionId', c.base_quote_version_id, 'termsHash', s.terms_hash, 'at', s.at, 'actorDisplayName', ${nameOf("s.approver_id")})
@@ -145,46 +118,17 @@ export function readBill(session: SessionAccess, now: number, { params, query }:
 }
 
 const notices = {
-  issue: "bill_issued", matched: "bill_paid", corrected: "bill_checking", checking: "bill_checking",
+  issue: issuedBillNotice, matched: "bill_paid", corrected: "bill_checking", checking: "bill_checking",
   no_funds_received: "bill_due", defer: "bill_collection_deferred", release: "bill_collection_released",
 } as const;
 const billLink: LinkResolver = {
   targetKind: "bill",
   project(resource, s) {
     return `(SELECT json_object('kind', 'bill', 'bill', json(${billValue(s, resource)}))
-      FROM (${jobSource(`j.id = (SELECT job_id FROM bills WHERE id = ${resource})`)}) j WHERE ${customerBill(s)})`;
+      FROM (${jobSource(`j.id = (SELECT job_id FROM bills WHERE id = ${resource})`)}) j WHERE ${customerBillReader(s)})`;
   },
 };
 for (const kind of new Set(Object.values(notices))) registerLinkResolver(kind, billLink);
-
-const targets = `SELECT c.id, c.id AS context_id, c.role, c.account_id, c.business_id, NULL AS membership_id
-  FROM aftercare_job j JOIN place_people pp ON pp.place_id = j.place_id AND pp.ends_at IS NULL
-  JOIN account_contexts c ON c.account_id = pp.account_id AND c.role = 'customer'
-  JOIN accounts a ON a.id = c.account_id AND a.state = 'active'
-  UNION ALL
-  SELECT c.id, c.id, c.role, c.account_id, c.business_id, m.id
-  FROM aftercare_job j JOIN businesses b ON b.id = j.business_id AND b.state = 'approved'
-  JOIN memberships m ON m.business_id = b.id AND m.state = 'active'
-  JOIN membership_roles role ON role.membership_id = m.id AND role.revoked_at IS NULL AND role.granted_at <= ${at}
-  JOIN account_contexts c ON c.role_grant_id = role.id AND c.account_id = m.account_id AND c.business_id = b.id AND c.role = role.role
-  JOIN accounts a ON a.id = c.account_id AND a.state = 'active' WHERE c.role IN ('provider_admin', 'foreman')`;
-const notificationLifetime = `${at} + ${7 * dayMs}`;
-function billSignals(access: SessionAccess, guard: CommandStatement, kind: string, event: string): OperationWrites {
-  const destinations = scopedStatement(access, `SELECT ? AS kind, ${billId} AS resource_id, target.id AS required_scope,
-    ${notificationLifetime} AS expires_at, ${at} AS created_at FROM aftercare_job j
-    JOIN account_contexts target ON target.role = 'customer' AND target.account_id IN (j.requester_id, j.named_approver_id)
-    JOIN accounts a ON a.id = target.account_id AND a.state = 'active' WHERE ${customerBill("target")}`, kind);
-  return {
-    statements: createLinkedNotifications(destinations, guard, event, kind),
-    changes: scopedStatement(access, `, targets AS MATERIALIZED (${targets})
-      SELECT 'job' AS kind, j.id AS resource_id, target.id AS partition_key, 'upsert' AS op, ${at} AS at
-      FROM aftercare_job j CROSS JOIN targets target WHERE ${visible("target")}
-      UNION ALL SELECT 'notification', n.id, n.context_id, 'upsert', ${at} FROM notifications n WHERE n.event_key = ?`, event),
-    effects: scopedStatement(access, `SELECT lower(hex(randomblob(16))) AS id, 'notification_push' AS kind,
-      'notification_push:' || n.id AS dedupe_key, n.id AS resource_ref, ${at} AS due_at, ${notificationLifetime} AS expires_at
-      FROM notifications n WHERE n.event_key = ? AND n.link_token IS NOT NULL`, event),
-  };
-}
 
 function billAccess(session: SessionAccess, now: number, id: string, revision: number | undefined, jobId?: string): SessionAccess {
   const base = jobId === undefined ? accessClock(session, now) : aftercareAccess(session, now, jobId);
@@ -227,11 +171,12 @@ export function issueBill(ctx: RequestScope, session: SessionAccess, { params, b
         AND i.approved ->> 'lines' = ? AND i.approved ->> 'net' >= 0 AND i.approved ->> 'tax' >= 0
         AND (i.approved ->> 'net') + (i.approved ->> 'tax') > 0 AND NOT EXISTS (
           SELECT 1 FROM bills b WHERE b.id = ${billId} OR (b.business_id = j.business_id AND b.number = i.number AND b.version = i.version))
+        AND (i.version <> 1 OR NOT (${billReferenceReserved("i.number")}))
         AND (prev.id IS NULL OR (prev.issued_at <= ${at} AND ${due("p")} AND NOT EXISTS (${openDeferral("prev")})
-          AND (i.number <> prev.number OR i.document_ref <> prev.provider_document_ref OR i.instructions <> prev.payment_instructions
+          AND (i.number <> prev.number OR i.document_ref IS NOT prev.provider_document_ref OR i.instructions IS NOT prev.payment_instructions
             OR i.due <> prev.due_at OR i.approved ->> 'lines' <> prev.line_items))))`, params: [asserted] },
     writes(guard) {
-      const signals = billSignals(base, guard, notices.issue, `bill-issue:${id}`);
+      const signals = billSignals(base, guard, billId, notices.issue, `bill-issue:${id}`);
       return { ...signals, statements: [
         ...(replacesId === null ? [] : [{ sql: `UPDATE bills SET state = 'replaced' WHERE id = ? AND ${guard.sql}`, params: [replacesId, ...guard.params ?? []] }]),
         scopedStatement(inputs, `INSERT INTO bills (id, job_id, business_id, number, version, replaces_id, net_minor, tax_minor,
@@ -260,7 +205,7 @@ export function changeBillPayment(ctx: RequestScope, session: SessionAccess, { p
       ${kind === "matched" ? "AND b.total_minor = ?" : ""} AND NOT EXISTS (SELECT 1 FROM paid_records WHERE id = ?))`,
     params: [expectedPriorId, ...(kind === "matched" ? [amountMinor] : []), id] },
     writes(guard) {
-      const signals = billSignals(access, guard, notices[kind], `bill-payment:${id}`);
+      const signals = billSignals(access, guard, billId, notices[kind], `bill-payment:${id}`);
       return { ...signals, statements: [scopedStatement(access, `INSERT INTO paid_records
         (id, bill_id, actor_id, kind, prior_id, amount_minor, verified_reference, reason, at)
         SELECT ?, ${billId}, scope.account_id, '${kind}', ?, ?, ?, ?, ${at} FROM aftercare_actor scope WHERE ${guard.sql}`,
@@ -283,7 +228,7 @@ export function deferCollection(ctx: RequestScope, session: SessionAccess, { par
         FROM json_each(?) selected LEFT JOIN json_each(b.line_items) item ON item.key = selected.value - 1
         HAVING count(item.key) = count(*))))`, params: [caseId, expectedPriorId, reviewAt, id, amountMinor, lineNos] },
     writes(guard) {
-      const signals = billSignals(access, guard, notices.defer, `bill-deferral:${id}`);
+      const signals = billSignals(access, guard, billId, notices.defer, `bill-deferral:${id}`);
       return { ...signals, statements: [scopedStatement(access, `INSERT INTO bill_deferrals
         (id, job_id, bill_id, case_id, actor_id, grant_id, amount_minor, basis, affected_line_nos, at, review_at)
         SELECT ?, j.id, ${billId}, ?, scope.account_id, (${namedGrant("scope", "billing_deferral")}), ?, ?, ?, ${at}, ?
@@ -301,7 +246,7 @@ export function releaseDeferral(ctx: RequestScope, session: SessionAccess, { par
     eligible: { sql: `EXISTS (SELECT 1 FROM aftercare_job j JOIN bill_deferrals d ON d.bill_id = ${billId}
       WHERE ${revisionMatches} AND d.id = ? AND d.released_at IS NULL AND d.at <= ${at})`, params: [deferralId] },
     writes(guard) {
-      const signals = billSignals(access, guard, notices.release, `bill-deferral-released:${deferralId}`);
+      const signals = billSignals(access, guard, billId, notices.release, `bill-deferral-released:${deferralId}`);
       return { ...signals, statements: [scopedStatement(access, `UPDATE bill_deferrals SET disposition = ?, released_at = ${at},
         released_by = (SELECT account_id FROM aftercare_actor), release_grant_id = (SELECT (${namedGrant("scope", "billing_deferral")})
           FROM aftercare_job j CROSS JOIN aftercare_actor scope)

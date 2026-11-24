@@ -8,6 +8,8 @@ const tue = (time: string) => timestamp(`24T${time}:00`);
 const q = sql;
 
 export function constructionSql(until: Checkpoint): string {
+  // This checkpoint illustrates the independent sign-off path with no bill reference.
+  const billDraft = until === "signed-off" ? "NULL,NULL" : "'RR-0412',24000";
   const parts: string[][] = [
     [`INSERT INTO jobs (id,reference,business_id,place_id,requester_id,accountable_foreman_membership_id,trade,origin,state) VALUES (${q(ids.job)},'BB-1042',${q(ids.business)},${q(ids.villa)},${q(ids.claire)},${q(`${ids.mateo}-member`)},'carpentry','bookbuddy','open');`,
       `INSERT INTO requests (job_id,original_text,original_language,arrival_arrangement,submitted_at) VALUES (${q(ids.job)},'The terrace door needs repair.','en','requester',${mon("08:05")});`,
@@ -57,10 +59,13 @@ export function constructionSql(until: Checkpoint): string {
     [`INSERT INTO customer_updates (id,visit_id,actor_id,kind,recorded_at) VALUES ('seed-finished',${q(ids.visit)},${q(ids.mateo)},'finished',${tue("10:12")});`,
       `INSERT INTO visit_activity_events (id,visit_id,actor_id,kind,at,customer_update_id) VALUES ('seed-work-finished',${q(ids.visit)},${q(ids.mateo)},'work_finished',${tue("10:12")},'seed-finished');`],
     [`INSERT INTO attendance_events (id,assignment_id,actor_id,kind,source,actual_at,captured_at,received_at,review_state) VALUES ('seed-departure','seed-assignment-diego',${q(ids.diego)},'departure','self',${tue("10:14")},${tue("10:14")},${tue("10:14")},'accepted');`],
-    [`INSERT INTO completions (id,job_id,base_quote_version_id,no,submitter_id,finished_at,submitted_at,bill_reference_hint,state) VALUES ('seed-completion',${q(ids.job)},${q(ids.version)},1,${q(ids.mateo)},${tue("10:12")},${tue("10:15")},'RR-0412','submitted');`,
+    [`INSERT INTO completions (id,job_id,base_quote_version_id,no,submitter_id,finished_at,submitted_at,bill_reference_hint,bill_amount_minor,state) VALUES ('seed-completion',${q(ids.job)},${q(ids.version)},1,${q(ids.mateo)},${tue("10:12")},${tue("10:15")},${billDraft},'submitted');`,
       `INSERT INTO completion_items (id,completion_id,quote_version_id,line_no,outcome,original_language,result_note,evidence_alternative) VALUES ('seed-completion-labour','seed-completion',${q(ids.version)},1,'done','es','Ajuste terminado','Inspección presencial'),('seed-completion-rollers','seed-completion',${q(ids.version)},2,'done','es','Rodillos sustituidos','Inspección presencial');`],
     [`INSERT INTO sign_offs (id,job_id,completion_id,approver_id,grant_id,terms_hash,at) VALUES ('seed-signoff',${q(ids.job)},'seed-completion',${q(ids.claire)},${q(`${ids.villa}-sign_off`)},'seed-terms-v1-hash',${tue("10:40")});`],
-    [`INSERT INTO bills (id,job_id,business_id,number,version,net_minor,tax_minor,total_minor,currency,provider_document_ref,payment_instructions,line_items,issued_at,due_at,state) VALUES ('seed-bill',${q(ids.job)},${q(ids.business)},'RR-0412',1,24000,0,24000,'EUR','seed-bill-document','{"method":"contact_provider"}','[{"label":"Mano de obra","amount":16000},{"label":"Rodillos","amount":8000}]',${tue("10:42")},${Date.parse("2026-12-08T09:42:00Z")},'issued');`],
+    [`INSERT INTO bills (id,job_id,business_id,number,version,net_minor,tax_minor,total_minor,currency,line_items,issued_at,due_at,state)
+      VALUES ('seed-bill',${q(ids.job)},${q(ids.business)},'RR-0412',1,24000,0,24000,'EUR',
+        '[{"originalLabel":"Mano de obra","originalLanguage":"es","netMinor":16000,"taxMinor":0},{"originalLabel":"Rodillos","originalLanguage":"es","netMinor":8000,"taxMinor":0}]',
+        ${tue("10:40")},${Date.parse("2026-12-01T09:40:00Z")},'issued');`],
     [`INSERT INTO paid_records (id,bill_id,actor_id,kind,amount_minor,verified_reference,at) VALUES ('seed-paid','seed-bill',${q(ids.mateo)},'matched',24000,'demo-receipt',${timestamp("25T09:05:00")});`],
   ];
   return parts.slice(0, checkpoints.indexOf(until) + 1).flat().join("\n");
