@@ -70,6 +70,12 @@ export function createLiveSubscription(
         queueHint();
       }
     };
+    connected.onerror = () => {
+      if (socket !== connected || ready) return;
+      // An upgrade denial may surface as an error before an abnormal close.
+      disconnect();
+      if (canReceive()) callbacks().onUnavailable?.();
+    };
     connected.onclose = ({ code }) => {
       if (socket !== connected) return;
       socket = null;
@@ -92,6 +98,7 @@ export function createLiveSubscription(
     socket = null;
     connected.onmessage = null;
     connected.onclose = null;
+    connected.onerror = null;
     connected.close();
   }
 
