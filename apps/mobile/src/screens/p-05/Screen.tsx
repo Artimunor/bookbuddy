@@ -112,19 +112,24 @@ export default function ProviderMemberSheet() {
       ...removed.map(role => t("mobile.provider.roleRemoved", { role: labels.role(role) })),
     ];
     if (backupChanged) effects.push(draft.backupForeman ? t("mobile.provider.backupEnabled") : t("mobile.provider.backupDisabled"));
+    const reviewedRoleGrantIds = member.roles.map(({ grantId }) => grantId);
     confirmAction(router, {
       title: label, actionLabel: label, actionLabelKey: "mobile.provider.saveRoles",
       item: `${data.business.publicName} · ${member.displayName}`, actor, role: t("mobile.provider.admin"),
-      effects, destructive: removed.length > 0, offline, onReview: () => { void remote.refresh(); },
+      effects, destructive: removed.length > 0, offline, onReview: () => { setMemberDraft(null); setEditFailed(false); },
       onConfirm: async () => {
         if (liveMember.current !== member) return "invalidated";
         const result = await patch.run({
           params: { b: businessId, m: member.id },
-          body: { payload: { ...(rolesChanged ? { roles: draft.roles } : {}), ...(backupChanged ? { backupForeman: draft.backupForeman } : {}) } },
+          body: { payload: {
+            reviewedRoleGrantIds, reviewedBackupForeman: member.backupForeman,
+            ...(rolesChanged ? { roles: draft.roles } : {}), ...(backupChanged ? { backupForeman: draft.backupForeman } : {}),
+          } },
         });
         if (result.ok) { setCompleted(true); setEditFailed(false); void remote.refresh(); return "confirmed"; }
         if ("delivery" in result.error && result.error.delivery === "unknown" || result.error.code === "INTERNAL_ERROR") return "uncertain";
         setEditFailed(true);
+        void remote.refresh();
         return "invalidated";
       },
     });

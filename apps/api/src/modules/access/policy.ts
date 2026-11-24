@@ -135,6 +135,9 @@ export function memberEligibility(member: string): string {
     ORDER BY ${checkPriority("status")}, cutoff ASC NULLS LAST, id LIMIT 1), 'pending')`;
 }
 
+export const hasBackupForeman = (membershipId: string) => `EXISTS (SELECT 1 FROM business_grants bg
+  WHERE bg.membership_id = ${membershipId} AND bg.capability = 'backup_foreman' AND ${liveTerm("bg")})`;
+
 export function otherAdmin(member: string): string {
   return `EXISTS (SELECT 1 FROM memberships peer
     JOIN accounts a ON a.id = peer.account_id AND a.state = 'active'

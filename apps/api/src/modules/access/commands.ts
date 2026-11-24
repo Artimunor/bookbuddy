@@ -11,7 +11,7 @@ import { businessMemberProjection } from "./businesses";
 import { invitationOpeningSql, managedInvitationAt } from "./invitations";
 import { invitationMailEffectSql, prepareInvitationLink, sealInviteEmail } from "./mail";
 import type { InvitationMailKeys } from "./mail";
-import { accountableForeman, at, canReplaceInvite, freePlaceSlots, intendedRecipient, inviteRole, managesBusiness,
+import { accountableForeman, at, canReplaceInvite, freePlaceSlots, hasBackupForeman, intendedRecipient, inviteRole, managesBusiness,
   liveTerm, mayGrantInvite, mayManageInvite, otherAdmin, providerDeliveryRetryAt, reissueAt, revokedRoleProjection, scopedStatement } from "./policy";
 
 export interface AccessCommandResult {
@@ -227,11 +227,12 @@ export function decideInvitation(ctx: RequestScope, access: SessionAccess, id: s
       WHERE ${inviteViaReceipt} AND i.recipient_id = scope.account_id AND i.state = 'declined'`);
 }
 
-function withMemberRoleEdits(base: SessionAccess, business: string, member: string, roles: string | null, backup: boolean | null): SessionAccess {
+function withMemberRoleEdits(base: SessionAccess, business: string, member: string, roles: string | null, backup: boolean | null,
+  reviewed: string, reviewedBackup: boolean): SessionAccess {
   return { sql: `${base.sql}, edited_member AS MATERIALIZED (
     SELECT m.* FROM memberships m JOIN accounts a ON a.id = m.account_id AND a.state = 'active'
     WHERE m.business_id = ? AND m.id = ?
-  ), edits(roles, backup) AS (VALUES (?, ?)),
+  ), edits(roles, backup, reviewed, reviewed_backup) AS (VALUES (?, ?, ?, ?)),
   requested_roles AS MATERIALIZED (SELECT value AS role FROM edits CROSS JOIN json_each(edits.roles)),
   current_roles AS MATERIALIZED (
     SELECT g.id, g.role, g.granted_at FROM edited_member m JOIN membership_roles g ON g.membership_id = m.id WHERE g.revoked_at IS NULL
@@ -247,10 +248,14 @@ function withMemberRoleEdits(base: SessionAccess, business: string, member: stri
       AS enabled FROM edits) e CROSS JOIN edited_member m WHERE e.enabled IS NOT NULL AND e.enabled <> EXISTS (
         SELECT 1 FROM business_grants bg WHERE bg.membership_id = m.id AND bg.capability = 'backup_foreman'
           AND ((${liveTerm("bg")} AND e.enabled = 1) OR (bg.revoked_at IS NULL AND e.enabled = 0)))
-  )`, params: [...base.params, business, member, roles, backup] };
+  )`, params: [...base.params, business, member, roles, backup, reviewed, reviewedBackup] };
 }
 
 const memberEditChanged = `EXISTS (SELECT 1 FROM added_roles) OR EXISTS (SELECT 1 FROM removed_roles) OR EXISTS (SELECT 1 FROM backup_edit)`;
+// Compare the exact unrevoked grant set shown by the roster, not just role names.
+const memberEditReviewed = `(SELECT count(*) FROM current_roles) = json_array_length((SELECT reviewed FROM edits))
+  AND NOT EXISTS (SELECT 1 FROM current_roles WHERE id NOT IN (SELECT value FROM edits CROSS JOIN json_each(edits.reviewed)))
+  AND (SELECT ${hasBackupForeman("m.id")} FROM edited_member m) = (SELECT reviewed_backup FROM edits)`;
 const memberEditAllowed = `EXISTS (SELECT 1 FROM edited_member m WHERE m.state = 'active'
   AND NOT EXISTS (SELECT 1 FROM added_roles WHERE role = 'provider_admin')
   AND (m.account_id <> scope.account_id OR (NOT EXISTS (SELECT 1 FROM added_roles)
@@ -286,14 +291,17 @@ export function patchBusinessMemberRoles(ctx: RequestScope, base: SessionAccess,
   input: WireCommand<BusinessMemberRolesPatch>) {
   const roles = input.payload.roles ? JSON.stringify([...input.payload.roles].sort()) : null;
   const backup = input.payload.backupForeman ?? null;
-  const access = withMemberRoleEdits(base, business, member, roles, backup);
+  const reviewed = JSON.stringify([...input.payload.reviewedRoleGrantIds].sort());
+  const { reviewedBackupForeman } = input.payload;
+  const access = withMemberRoleEdits(base, business, member, roles, backup, reviewed, reviewedBackupForeman);
   const roleKey = input.payload.roles?.length ? crypto.randomUUID() : null;
   const backupKey = backup === true ? crypto.randomUUID() : null;
   return commandPlan(ctx, {
-    access, operationId: input.operationId, command: "access.patch_member_roles", input: [business, member, roles, backup, input.expectedRevision ?? null],
+    access, operationId: input.operationId, command: "access.patch_member_roles",
+    input: [business, member, roles, backup, reviewed, reviewedBackupForeman, input.expectedRevision ?? null],
     resultRef: member, authorize: { sql: `EXISTS (SELECT 1 FROM edited_member m WHERE ${issuerMember("m.business_id")})` },
-    eligible: { sql: `${memberEditAllowed} AND (${memberEditChanged})` },
-    unchanged: { sql: `${memberEditAllowed} AND NOT (${memberEditChanged})` },
+    eligible: { sql: `${memberEditReviewed} AND ${memberEditAllowed} AND (${memberEditChanged})` },
+    unchanged: { sql: `${memberEditReviewed} AND ${memberEditAllowed} AND NOT (${memberEditChanged})` },
     writes: (guard) => ({ statements: [
       bumpVisibilityEpoch(guard, scopedStatement(access, `SELECT c.id AS context_id FROM edited_member m
         JOIN account_contexts c ON c.business_id = m.business_id AND c.account_id = m.account_id

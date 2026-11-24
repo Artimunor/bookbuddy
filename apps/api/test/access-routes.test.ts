@@ -279,7 +279,8 @@ test("member role edits require the live admin capability and preserve the last 
   const f = await fixture();
   try {
     const path = "/businesses/business/members/admin-member/roles";
-    const patch = (credential: string, operation: string) => f.request(path, credential, operation, { roles: [] }, "PATCH");
+    const patch = (credential: string, operation: string) => f.request(path, credential, operation,
+      { reviewedRoleGrantIds: ["admin-role"], reviewedBackupForeman: false, roles: [] }, "PATCH");
     expect(await patch(f.outsider, "customer-denied")).toMatchObject({ status: 404, body: { error: missing } });
     expect((await patch(f.admin, "last-admin-denied")).status).toBe(409);
     expect(await f.db.prepare("SELECT revoked_at FROM membership_roles WHERE id = 'admin-role'").first("revoked_at")).toBeNull();
@@ -307,32 +308,76 @@ test("verified foreman edits apply role and backup changes in one batch without 
     ]);
     const path = "/businesses/business/members/crew-member/roles";
     const patch = (op: string, payload: unknown) => f.request(path, f.admin, op, payload, "PATCH");
-    const promote = { roles: ["foreman", "worker"], backupForeman: true };
+    const reviewedWorker = { reviewedRoleGrantIds: ["crew-role"], reviewedBackupForeman: false };
+    const promote = { ...reviewedWorker, roles: ["foreman", "worker"], backupForeman: true };
     expect((await patch("unverified", promote)).status).toBe(409);
-    expect((await patch("new-admin-denied", { roles: ["provider_admin", "worker"] })).status).toBe(409);
+    expect((await patch("new-admin-denied", { ...reviewedWorker, roles: ["provider_admin", "worker"] })).status).toBe(409);
     await f.db.prepare(`INSERT INTO authority_verifications (id, business_id, subject_account_id, kind, verified_by, verified_at)
       VALUES ('foreman-proof', 'business', 'crew', 'membership', 'ops', 1)`).run();
     const promoted = resultSchema(patchBusinessMemberRolesRoute.output).parse((await patch("promote", promote)).body);
     expect(promoted).toMatchObject({ data: { member: { backupForeman: true, roles: [{ role: "foreman" }, { role: "worker", grantId: "crew-role" }] } } });
-    if (!promoted.ok) throw new Error(promoted.error.code);
+    if (!promoted.ok || !promoted.data.member) throw new Error("Expected promoted member");
+    const reviewedRoleGrantIds = promoted.data.member.roles.map(({ grantId }) => grantId);
+    const reviewedWithBackup = { reviewedRoleGrantIds, reviewedBackupForeman: true };
     expect((await patch("promote", { ...promote, roles: ["worker", "foreman"] })).body).toMatchObject({ data: promoted.data });
     const epoch = (role: string) => f.db.prepare(`SELECT visibility_epoch FROM sync_scope_state s JOIN account_contexts c ON c.id = s.context_id
       WHERE c.account_id = 'crew' AND c.business_id = 'business' AND c.role = ?`).bind(role).first("visibility_epoch");
     expect([await epoch("worker"), await epoch("foreman")]).toEqual([4, 1]);
-    const backupOff = resultSchema(patchBusinessMemberRolesRoute.output).parse((await patch("backup-off", { backupForeman: false })).body);
+    expect((await patch("backup-stale", { reviewedRoleGrantIds, reviewedBackupForeman: false, backupForeman: true })).status).toBe(409);
+    const backupOff = resultSchema(patchBusinessMemberRolesRoute.output).parse((await patch("backup-off",
+      { ...reviewedWithBackup, backupForeman: false })).body);
     expect(backupOff).toMatchObject({ data: { member: { backupForeman: false, roles: [{ role: "foreman" }, { role: "worker" }] } } });
     expect([await epoch("worker"), await epoch("foreman")]).toEqual([4, 2]);
-    expect((await patch("backup-on", { backupForeman: true })).status).toBe(200);
+    expect((await patch("backup-on", { reviewedRoleGrantIds, reviewedBackupForeman: false, backupForeman: true })).status).toBe(200);
     await f.db.prepare(`INSERT INTO jobs (id, reference, business_id, place_id, requester_id, accountable_foreman_membership_id, origin, state)
       VALUES ('open-job', 'BB-100', 'business', 'place', 'outsider', 'crew-member', 'bookbuddy', 'open')`).run();
-    expect((await patch("job-denied", { roles: ["worker"] })).status).toBe(409);
+    expect((await patch("job-denied", { ...reviewedWithBackup, roles: ["worker"] })).status).toBe(409);
     expect([await epoch("worker"), await epoch("foreman")]).toEqual([4, 3]);
     await f.db.prepare("UPDATE jobs SET state = 'closed' WHERE id = 'open-job'").run();
-    expect(resultSchema(patchBusinessMemberRolesRoute.output).parse((await patch("drop-foreman", { roles: ["worker"] })).body))
+    expect(resultSchema(patchBusinessMemberRolesRoute.output).parse((await patch("drop-foreman", { ...reviewedWithBackup, roles: ["worker"] })).body))
       .toMatchObject({ data: { member: { backupForeman: false, roles: [{ role: "worker", grantId: "crew-role" }] } } });
     expect([await epoch("worker"), await epoch("foreman")]).toEqual([4, 4]);
     expect(await f.db.prepare("SELECT count(*) AS n FROM operation_receipts WHERE operation_id IN ('unverified', 'new-admin-denied', 'job-denied')")
       .first("n")).toBe(0);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("a role revoked by another admin after review cannot be restored by a stale edit", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(start);
+  const f = await fixture();
+  try {
+    const peer = await f.account("peer");
+    await f.account("crew");
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO memberships VALUES ('peer-member', 'business', 'peer', 'active'),
+        ('crew-member', 'business', 'crew', 'active')`),
+      f.db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at) VALUES
+        ('peer-role', 'peer-member', 'business', 'peer', 'provider_admin', 1),
+        ('worker-role', 'crew-member', 'business', 'crew', 'worker', 1),
+        ('foreman-role', 'crew-member', 'business', 'crew', 'foreman', 1)`),
+      f.db.prepare("INSERT INTO account_contexts VALUES ('peer-admin', 'peer', 'provider_admin', 'business', 'peer-role')"),
+      f.db.prepare("UPDATE sessions SET active_context_id = 'peer-admin' WHERE id = 'peer-session'"),
+      f.db.prepare(`INSERT INTO business_grants (id, business_id, membership_id, capability, issuer_id, valid_from)
+        VALUES ('peer-capability', 'business', 'peer-member', 'membership_admin', 'admin', 1)`),
+    ]);
+    const roster = resultSchema(getBusinessPeopleRoute.output).parse((await f.request("/businesses/business/people", f.admin)).body);
+    if (!roster.ok || roster.data.audience !== "provider_admin" || roster.data.view !== "active") throw new Error("Expected roster");
+    const member = roster.data.members.find(({ id }) => id === "crew-member");
+    if (!member) throw new Error("Expected member for review");
+    const reviewed = { reviewedRoleGrantIds: member.roles.map(({ grantId }) => grantId), reviewedBackupForeman: member.backupForeman };
+    expect(await f.request("/members/crew-member/revoke", peer, "revoke-worker", { roleGrantId: "worker-role" }))
+      .toMatchObject({ status: 200, body: { data: { member: { roles: [{ grantId: "foreman-role" }] } } } });
+    const before = await f.db.prepare("SELECT total_changes() AS writes").first("writes");
+    const path = "/businesses/business/members/crew-member/roles";
+    expect(await f.request(path, f.admin, "stale-remove-foreman", { ...reviewed, roles: ["worker"] }, "PATCH"))
+      .toMatchObject({ status: 409, body: { error: { code: "CONFLICT" } } });
+    expect(await f.request(path, f.admin, "stale-noop", { ...reviewed, roles: ["foreman"] }, "PATCH")).toMatchObject({ status: 409 });
+    expect(await f.db.prepare("SELECT total_changes() AS writes").first("writes")).toBe(before);
+    expect((await f.db.prepare(`SELECT id, revoked_at FROM membership_roles WHERE membership_id = 'crew-member' ORDER BY id`).all()).results)
+      .toEqual([{ id: "foreman-role", revoked_at: null }, { id: "worker-role", revoked_at: start }]);
+    expect(await f.request(path, f.admin, "fresh-remove-foreman", {
+      reviewedRoleGrantIds: ["foreman-role"], reviewedBackupForeman: false, roles: [],
+    }, "PATCH")).toMatchObject({ status: 200, body: { data: { member: null } } });
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
@@ -361,8 +406,9 @@ test.each(["single", "bulk"] as const)("%s foreman removal retires backup author
       f.db.prepare(`INSERT INTO job_grants (job_id, context_id, capability, valid_from, valid_until)
         VALUES ('job', 'crew-foreman', 'backup', 1, ?)`).bind(start + 60_000),
     ]);
-    const edit = (op: string, roles: string[]) => f.request("/businesses/business/members/crew-member/roles", f.admin, op, { roles }, "PATCH");
-    const removed = mode === "bulk" ? await edit("drop", ["worker"])
+    const edit = (op: string, roles: string[], reviewedRoleGrantIds: string[], reviewedBackupForeman: boolean) =>
+      f.request("/businesses/business/members/crew-member/roles", f.admin, op, { roles, reviewedRoleGrantIds, reviewedBackupForeman }, "PATCH");
+    const removed = mode === "bulk" ? await edit("drop", ["worker"], ["worker-role", "foreman-role"], true)
       : await f.request("/members/crew-member/revoke", f.admin, "drop", { roleGrantId: "foreman-role" });
     expect(removed).toMatchObject({ status: 200, body: { data: { member: { backupForeman: false, roles: [{ role: "worker" }] } } } });
     expect(await f.db.prepare("SELECT revoked_at FROM business_grants WHERE id = 'backup-capability'").first("revoked_at")).toBe(start);
@@ -370,7 +416,7 @@ test.each(["single", "bulk"] as const)("%s foreman removal retires backup author
       .first("revoked_at")).toBe(start);
 
     clock.mockReturnValue(start + 1);
-    expect(await edit("restore-role", ["worker", "foreman"])).toMatchObject({
+    expect(await edit("restore-role", ["worker", "foreman"], ["worker-role"], false)).toMatchObject({
       status: 200, body: { data: { member: { backupForeman: false, roles: [{ role: "foreman" }, { role: "worker" }] } } },
     });
     expect(await f.db.prepare("SELECT id FROM account_contexts WHERE account_id = 'crew' AND role = 'foreman'").first("id")).toBe("crew-foreman");

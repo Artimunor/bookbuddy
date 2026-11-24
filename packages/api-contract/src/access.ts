@@ -243,6 +243,8 @@ export const inviteBusinessMemberRoute = defineRoute({
 });
 
 const businessMemberRolesPatch = z.strictObject({
+  reviewedRoleGrantIds: z.array(roleGrantIdSchema).max(MEMBERSHIP_ROLES.length).refine((ids) => new Set(ids).size === ids.length),
+  reviewedBackupForeman: z.boolean(),
   // Supplying roles replaces the set. Protected admin grants can be retained, not created.
   roles: z.array(membershipRole).max(MEMBERSHIP_ROLES.length).refine((roles) => new Set(roles).size === roles.length).optional(),
   backupForeman: z.boolean().optional(),
