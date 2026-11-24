@@ -2,6 +2,7 @@ import type { ErrorCode, ErrorEnvelope } from "@bookbuddy/api-contract";
 import { Hono } from "hono";
 import type { ApiEnv } from "./bindings";
 import { API_BASE_PATH, PRIVATE_CACHE_CONTROL } from "./config";
+import { authRoutes } from "./modules/auth/routes";
 import { transportRoutes } from "./modules/sync/routes";
 
 function failure(requestId: string, code: ErrorCode): ErrorEnvelope {
@@ -19,6 +20,7 @@ export function createApp() {
     await next();
   });
 
+  app.route(API_BASE_PATH, authRoutes);
   app.route(API_BASE_PATH, transportRoutes);
 
   // Mount feature routers here via app.basePath(API_BASE_PATH).route("/", routes).
