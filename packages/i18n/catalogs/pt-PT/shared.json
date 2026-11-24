@@ -1,0 +1,12 @@
+{
+  "shared.action.back": "Voltar",
+  "shared.action.cancel": "Cancelar",
+  "shared.action.close": "Fechar",
+  "shared.action.continue": "Continuar",
+  "shared.action.retry": "Tentar novamente",
+  "shared.action.save": "Guardar",
+  "shared.app.name": "BookBuddy",
+  "shared.status.lastConfirmed": "Última confirmação: {time}",
+  "shared.status.offline": "Sem ligação",
+  "shared.status.pendingChanges": "{count, plural, one {# alteração pendente} other {# alterações pendentes}}"
+}

@@ -2,8 +2,16 @@
   "name": "@bookbuddy/i18n",
   "private": true,
   "type": "module",
+  "scripts": {
+    "merge": "bun scripts/build.ts merge"
+  },
   "exports": {
     ".": "./src/index.ts",
+    "./dev": "./src/dev.ts",
+    "./mobile": "./src/mobile.ts",
+    "./push": "./src/push.ts",
+    "./shared": "./src/shared.ts",
+    "./web": "./src/web.ts",
     "./locales": "./src/locales.ts"
   },
   "dependencies": {

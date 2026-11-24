@@ -1,0 +1,12 @@
+{
+  "shared.action.back": "Standard navigation control that returns to the previous screen.",
+  "shared.action.cancel": "Cancel the current action without saving it.",
+  "shared.action.close": "Dismiss a dialog, sheet or notice.",
+  "shared.action.continue": "Advance to the next step in a flow.",
+  "shared.action.retry": "Repeat the operation that just failed.",
+  "shared.action.save": "Apply the current changes.",
+  "shared.app.name": "Product name; keep the brand spelling unchanged.",
+  "shared.status.lastConfirmed": "Offline or stale status. {time} is the already formatted time of the last successful confirmation.",
+  "shared.status.offline": "Short connectivity status when the app is offline.",
+  "shared.status.pendingChanges": "Number of local changes waiting to sync. {count} is a non-negative integer."
+}
