@@ -71,8 +71,8 @@ test("enforces unique contexts, same-scope grants, one current approver and plac
     const issuedAt = 3;
     const expiresAt = invitationExpiresAt(issuedAt);
     const invite = DB.prepare(`INSERT INTO invitations (id, token_hash, recipient_key, recipient_email_ciphertext, place_id,
-      inviter_id, grant_snapshot, issued_at, expires_at, pending_slot, state)
-      VALUES (?, ?, ?, 'ciphertext', 'place', 'owner', '{"kind":"place_view"}', ?, ?, ?, 'pending')`);
+      address_revision, inviter_id, grant_snapshot, issued_at, expires_at, pending_slot, state)
+      VALUES (?, ?, ?, 'ciphertext', 'place', 0, 'owner', '{"kind":"place_view"}', ?, ?, ?, 'pending')`);
     const intoSlot = (id: string, recipientKey: string, slot: number) => invite.bind(id, `${id}-hash`, recipientKey, issuedAt, expiresAt, slot);
     await intoSlot("invite-1", "recipient-1", 1).run();
     await expect(intoSlot("duplicate-recipient", "recipient-1", 2).run())
@@ -81,7 +81,52 @@ test("enforces unique contexts, same-scope grants, one current approver and plac
     await expect(intoSlot("sixth", "recipient-6", 6).run()).rejects.toThrow(/invitations_slot/i);
     await expect(intoSlot("taken-slot", "recipient-6", 5).run())
       .rejects.toThrow(/unique constraint failed: invitations\.place_id, invitations\.pending_slot/i);
+
+    const move = DB.prepare("UPDATE places SET normalized_address = 'New address', address_revision = 1 WHERE id = 'place'");
+    await expect(DB.prepare("UPDATE places SET normalized_address = 'New address' WHERE id = 'place'").run())
+      .rejects.toThrow(/next address revision/i);
+    await expect(move.run()).rejects.toThrow(/foreign key/i);
+    await DB.batch([
+      DB.prepare(`INSERT INTO authority_verifications (id, place_id, address_revision, subject_account_id, kind, verified_by, verified_at)
+        VALUES ('old-proof', 'place', 0, 'successor', 'place_approver', 'owner', 2)`),
+      DB.prepare("UPDATE place_grants SET revoked_at = 3 WHERE id = 'approve-other'"),
+      move,
+    ]);
+    await expect(approveGrant.bind("wrong-revision", "successor", 3).run()).rejects.toThrow(/foreign key/i);
+    await expect(DB.prepare(`INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, valid_from, address_revision, approval_verification_id)
+      VALUES ('wrong-proof', 'place', 'successor', 'approve', 'owner', 3, 1, 'old-proof')`).run()).rejects.toThrow(/foreign key/i);
   } finally {
     DB.close();
   }
+});
+
+test("authorization deadlines reject noninteger storage classes and still allow intended null terms", async () => {
+  const db = await accessDatabase();
+  try {
+    await db.batch([
+      db.prepare("INSERT INTO accounts (id, email_normalized, verified_at, state) VALUES ('owner', 'owner@example.test', 1, 'active')"),
+      db.prepare("INSERT INTO operating_areas VALUES ('area', 'Area', 'Etc/UTC', '[0]')"),
+      db.prepare("INSERT INTO businesses (id, legal_name, public_name, verified_work_contact, catchment_id, state) VALUES ('biz', 'Biz', 'Biz', 'work@example.test', 'area', 'approved')"),
+      db.prepare("INSERT INTO memberships VALUES ('member', 'biz', 'owner', 'active')"),
+      db.prepare("INSERT INTO sessions (id, account_id, secret_hash, device_id, issued_at, expires_at) VALUES ('session', 'owner', 'hash', 'device', 1, 3)"),
+      db.prepare("INSERT INTO places (id, owner_id, alias, normalized_address, state) VALUES ('place', 'owner', 'Home', 'Address', 'pending_verification')"),
+      db.prepare("INSERT INTO place_people (place_id, account_id, verified_from, history_from) VALUES ('place', 'owner', 1, 1)"),
+      db.prepare("INSERT INTO business_grants (id, business_id, membership_id, capability, issuer_id, valid_from) VALUES ('biz-grant', 'biz', 'member', 'membership_admin', 'owner', 1)"),
+      db.prepare("INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, valid_from) VALUES ('place-grant', 'place', 'owner', 'view', 'owner', 1)"),
+      db.prepare("INSERT INTO eligibility_checks (id, business_id, trade, work_language, scope, state, checked_by, checked_at, review_by) VALUES ('check', 'biz', 'carpentry', 'en', 'fixture', 'approved', 'owner', 1, 3)"),
+      db.prepare("INSERT INTO otp_lockouts (bucket_kind, bucket_key, until) VALUES ('email', 'key', 3)"),
+    ]);
+    for (const [update, constraint] of [
+      ["UPDATE sessions SET expires_at = ? WHERE id = 'session'", "sessions_term"],
+      ["UPDATE business_grants SET valid_until = ? WHERE id = 'biz-grant'", "business_grants_term"],
+      ["UPDATE place_grants SET valid_until = ? WHERE id = 'place-grant'", "place_grants_term"],
+      ["UPDATE eligibility_checks SET valid_until = ? WHERE id = 'check'", "eligibility_checks_review"],
+      ["UPDATE eligibility_checks SET review_by = ? WHERE id = 'check'", "eligibility_checks_review"],
+      ["UPDATE otp_lockouts SET until = ? WHERE bucket_key = 'key'", "otp_lockouts_until"],
+    ] as const) {
+      const statement = db.prepare(update);
+      for (const invalid of ["unspecified", 2.5]) await expect(statement.bind(invalid).run()).rejects.toThrow(constraint);
+      await statement.bind(3).run();
+    }
+  } finally { db.close(); }
 });

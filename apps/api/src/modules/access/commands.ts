@@ -11,8 +11,8 @@ import { businessMemberProjection } from "./businesses";
 import { invitationOpeningSql, managedInvitationAt } from "./invitations";
 import { invitationMailEffectSql, prepareInvitationLink, sealInviteEmail } from "./mail";
 import type { InvitationMailKeys } from "./mail";
-import { accountableForeman, at, canReplaceInvite, freePlaceSlots, intendedRecipient, inviteKind, inviteRole, managesBusiness,
-  liveTerm, mayGrantInvite, mayManageInvite, otherAdmin, reissueAt, revokedRoleProjection, scopedStatement } from "./policy";
+import { accountableForeman, at, canReplaceInvite, freePlaceSlots, intendedRecipient, inviteRole, managesBusiness,
+  liveTerm, mayGrantInvite, mayManageInvite, otherAdmin, providerDeliveryRetryAt, reissueAt, revokedRoleProjection, scopedStatement } from "./policy";
 
 export interface AccessCommandResult {
   operation: OperationResult;
@@ -26,7 +26,7 @@ async function commandPlan(ctx: RequestScope, spec: OperationSpec, projection: s
   const operation = await planOperation(ctx, spec);
   const authorization = spec.authorize ?? { sql: "1" };
   const result = scopedStatement(spec.access as SessionAccess, `SELECT (SELECT value FROM (${projection})) AS value,
-    ${retryAt ? `(${retryAt.sql})` : "NULL"} AS retry_at
+    ${retryAt ? `CASE WHEN r.result_ref IS NULL THEN (${retryAt.sql}) END` : "NULL"} AS retry_at
     FROM live_scope scope LEFT JOIN operation_receipts r ON r.account_id = scope.account_id
       AND r.context_id = scope.context_id AND r.operation_id = ? AND r.command = ? WHERE (${authorization.sql})`,
   ...retryAt?.params ?? [], spec.operationId, spec.command, ...authorization.params ?? []);
@@ -63,20 +63,24 @@ export async function issueBusinessInvitation(ctx: RequestScope, base: SessionAc
   const [link, encrypted] = await Promise.all([prepareInvitationLink(keys.encryption, keys.origin, id), sealInviteEmail(keys.encryption, recipientKey, email)]);
   const access = { sql: `${base.sql}, intended AS (SELECT id FROM accounts WHERE email_normalized = ? AND state = 'active'),
     independent_check AS (SELECT v.id FROM authority_verifications v JOIN intended a ON a.id = v.subject_account_id
-      WHERE v.business_id = ? AND v.kind = 'membership' AND v.verified_at <= ${at} ORDER BY v.verified_at DESC, v.id LIMIT 1)`,
-    params: [...base.params, email, business] };
+      WHERE v.business_id = ? AND v.kind = 'membership' AND v.verified_at <= ${at} ORDER BY v.verified_at DESC, v.id LIMIT 1),
+    recipient_delivery AS MATERIALIZED (SELECT ${providerDeliveryRetryAt("target.business_id", "target.recipient_key")} AS retry_at
+      FROM (SELECT ? AS business_id, ? AS recipient_key) target)`,
+    params: [...base.params, email, business, business, recipientKey] };
+  const eligible = `NOT EXISTS (SELECT 1 FROM invitations WHERE id = ?)
+    AND NOT EXISTS (SELECT 1 FROM invitations i WHERE i.business_id = scope.business_id
+      AND i.recipient_key = ? AND i.state IN ('pending', 'expired')
+      AND NOT EXISTS (SELECT 1 FROM invitations next WHERE next.supersedes_id = i.id))
+    AND NOT EXISTS (SELECT 1 FROM accounts a WHERE a.id = scope.account_id AND a.email_normalized = ?)
+    AND (? = 'worker' OR EXISTS (SELECT 1 FROM independent_check))
+    AND NOT EXISTS (SELECT 1 FROM memberships m JOIN intended a ON a.id = m.account_id
+      WHERE m.business_id = scope.business_id AND (m.state = 'suspended' OR EXISTS (
+        SELECT 1 FROM membership_roles g WHERE g.membership_id = m.id AND g.role = ? AND g.revoked_at IS NULL)))`;
+  const eligibleParams = [id, recipientKey, email, role, role];
   return commandPlan(ctx, {
     access, operationId: input.operationId, command: "access.invite_business", input: [business, input.expectedRevision ?? null, recipientKey, role], resultRef: id,
     authorize: { sql: issuerMember("?"), params: [business] },
-    eligible: { sql: `NOT EXISTS (SELECT 1 FROM invitations i WHERE i.id = ? OR (
-        i.business_id = scope.business_id AND i.recipient_key = ? AND i.state IN ('pending', 'expired')
-        AND NOT EXISTS (SELECT 1 FROM invitations next WHERE next.supersedes_id = i.id)))
-      AND NOT EXISTS (SELECT 1 FROM accounts a WHERE a.id = scope.account_id AND a.email_normalized = ?)
-      AND (? = 'worker' OR EXISTS (SELECT 1 FROM independent_check))
-      AND NOT EXISTS (SELECT 1 FROM memberships m JOIN intended a ON a.id = m.account_id
-        WHERE m.business_id = scope.business_id AND (m.state = 'suspended' OR EXISTS (
-          SELECT 1 FROM membership_roles g WHERE g.membership_id = m.id AND g.role = ? AND g.revoked_at IS NULL)))`,
-      params: [id, recipientKey, email, role, role] },
+    eligible: { sql: `${eligible} AND (SELECT retry_at FROM recipient_delivery) <= ${at}`, params: eligibleParams },
     writes: (guard) => ({ statements: [
       scopedStatement(access, `INSERT INTO invitations (id, token_hash, recipient_key, recipient_email_ciphertext, business_id,
         inviter_id, grant_snapshot, verification_id, issued_at, expires_at, recipient_id, state)
@@ -85,7 +89,7 @@ export async function issueBusinessInvitation(ctx: RequestScope, base: SessionAc
         FROM live_scope scope WHERE ${guard.sql}`, id, link.tokenHash, recipientKey, encrypted, role, role, invitationExpiresAt(ctx.now), ...guard.params ?? []),
       auditInvite(access, guard, id, "invitation_issued"),
     ], effects: invitationMailEffectSql(link) }),
-  }, managedInvitationAt("r.result_ref"));
+  }, managedInvitationAt("r.result_ref"), { sql: `SELECT retry_at FROM recipient_delivery WHERE ${eligible}`, params: eligibleParams });
 }
 
 type InviteDecision = WireCommand<Record<string, never>>;
@@ -108,8 +112,8 @@ export async function reissueInvitation(ctx: RequestScope, access: SessionAccess
             (i.business_id = invitations.business_id AND i.recipient_key = invitations.recipient_key)))))`,
       ...guard.params ?? [], old, old),
       scopedStatement(access, `INSERT INTO invitations (id, token_hash, recipient_key, recipient_email_ciphertext, business_id,
-        place_id, inviter_id, grant_snapshot, verification_id, issued_at, expires_at, recipient_id, supersedes_id, pending_slot, state)
-        SELECT ?, ?, i.recipient_key, i.recipient_email_ciphertext, i.business_id, i.place_id, scope.account_id,
+        place_id, address_revision, inviter_id, grant_snapshot, verification_id, issued_at, expires_at, recipient_id, supersedes_id, pending_slot, state)
+        SELECT ?, ?, i.recipient_key, i.recipient_email_ciphertext, i.business_id, i.place_id, i.address_revision, scope.account_id,
           i.grant_snapshot, i.verification_id, ${at}, ?, i.recipient_id, i.id,
           CASE WHEN i.place_id IS NOT NULL THEN (${freePlaceSlots("i")} ORDER BY slot LIMIT 1) END, 'pending'
         FROM invitations i CROSS JOIN live_scope scope WHERE i.id = ? AND ${guard.sql}`,
@@ -168,21 +172,25 @@ function acceptPlace(access: SessionAccess, guard: CommandStatement, id: string)
   return [
     scopedStatement(access, `INSERT INTO place_people (place_id, account_id, verified_from, history_from)
       SELECT i.place_id, i.recipient_id, ${at}, ${at} FROM invitations i WHERE ${match}
-      ON CONFLICT (place_id, account_id) DO UPDATE SET verified_from = excluded.verified_from, history_from = excluded.history_from,
-        ends_at = NULL WHERE place_people.ends_at IS NOT NULL`, ...args),
-    scopedStatement(access, `UPDATE place_grants SET revoked_at = ${at} WHERE revoked_at IS NULL AND valid_from <= ${at}
-      AND (place_id, account_id) IN (SELECT i.place_id, i.recipient_id FROM invitations i WHERE ${match})
-      AND capability = 'view' AND valid_until <= ${at}`, ...args),
-    scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, valid_from)
-      SELECT ?, i.place_id, i.recipient_id, 'view', i.inviter_id, i.verification_id, ${at} FROM invitations i WHERE ${match}
+      ON CONFLICT (place_id, account_id) DO UPDATE SET
+        verified_from = CASE WHEN place_people.ends_at IS NULL THEN place_people.verified_from ELSE excluded.verified_from END,
+        history_from = max(place_people.history_from, excluded.history_from), ends_at = NULL
+      WHERE place_people.ends_at IS NOT NULL OR NOT EXISTS (
+        SELECT 1 FROM place_grants g WHERE g.place_id = excluded.place_id AND g.account_id = excluded.account_id
+          AND g.capability = 'view' AND ${liveTerm("g")})`, ...args),
+    scopedStatement(access, `UPDATE place_grants AS g SET revoked_at = max(g.valid_from, ${at}) WHERE g.revoked_at IS NULL
+      AND (g.place_id, g.account_id) IN (SELECT i.place_id, i.recipient_id FROM invitations i WHERE ${match})
+      AND g.capability = 'view' AND NOT (${liveTerm("g")})`, ...args),
+    scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, address_revision, valid_from)
+      SELECT ?, i.place_id, i.recipient_id, 'view', i.inviter_id, i.verification_id, i.address_revision, ${at} FROM invitations i WHERE ${match}
       ON CONFLICT (place_id, account_id, capability) WHERE revoked_at IS NULL DO NOTHING`, crypto.randomUUID(), ...args),
     scopedStatement(access, `UPDATE place_grants SET revoked_at = max(valid_from, ${at}) WHERE revoked_at IS NULL
       AND (place_id, account_id) IN (${predecessor})`, ...args),
-    scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, valid_from)
-      SELECT ?, i.place_id, i.recipient_id, 'approve', i.inviter_id, i.verification_id, ${at}
+    scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, address_revision, valid_from)
+      SELECT ?, i.place_id, i.recipient_id, 'approve', i.inviter_id, i.verification_id, i.address_revision, ${at}
       FROM invitations i JOIN places p ON p.id = i.place_id AND p.named_approver_id = i.inviter_id WHERE ${match} AND ${transfer}`, crypto.randomUUID(), ...args),
-    scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, valid_from)
-      SELECT lower(hex(randomblob(16))), i.place_id, i.recipient_id, cap.value, i.inviter_id, i.verification_id, ${at}
+    scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, address_revision, valid_from)
+      SELECT lower(hex(randomblob(16))), i.place_id, i.recipient_id, cap.value, i.inviter_id, i.verification_id, i.address_revision, ${at}
       FROM invitations i CROSS JOIN json_each('["message","request","book"]') cap WHERE ${match} AND ${transfer}
       ON CONFLICT (place_id, account_id, capability) WHERE revoked_at IS NULL DO NOTHING`, ...args),
     scopedStatement(access, `UPDATE places SET (owner_id, named_approver_id, revision) = (SELECT i.recipient_id,
@@ -255,6 +263,25 @@ const memberEditAllowed = `EXISTS (SELECT 1 FROM edited_member m WHERE m.state =
     AND (EXISTS (SELECT 1 FROM added_roles WHERE role = 'foreman')
       OR EXISTS (SELECT 1 FROM current_roles WHERE role = 'foreman' AND granted_at <= ${at})))))`;
 
+// Run before editing or reusing a foreman context. Dropping the role or its
+// backup capability also retires old job appointments attached to that context.
+function revokeRoleDependencies(access: SessionAccess, guard: CommandStatement, member: string, revokeAll: string,
+  backupEdit?: { changed: string; disabled: string }, keepForeman = false): CommandStatement[] {
+  const removedForeman = "EXISTS (SELECT 1 FROM removed_roles WHERE role = 'foreman')";
+  return [
+    ...keepForeman ? [] : [scopedStatement(access, `UPDATE job_grants SET revoked_at = max(valid_from, ${at})
+      WHERE capability = 'backup' AND revoked_at IS NULL AND (${removedForeman}${backupEdit ? ` OR ${backupEdit.disabled}` : ""})
+        AND context_id IN (SELECT c.id FROM memberships m JOIN account_contexts c
+          ON c.account_id = m.account_id AND c.business_id = m.business_id AND c.role = 'foreman' WHERE m.id = ?)
+        AND ${guard.sql}`, member, ...guard.params ?? [])],
+    scopedStatement(access, `UPDATE business_grants SET revoked_at = max(valid_from, ${at})
+      WHERE membership_id = ? AND revoked_at IS NULL AND ${guard.sql}
+        AND ((${revokeAll}) OR (capability = 'membership_admin' AND EXISTS (SELECT 1 FROM removed_roles WHERE role = 'provider_admin'))
+          OR (capability = 'backup_foreman' AND (${removedForeman}${backupEdit ? ` OR ${backupEdit.changed}` : ""})))`,
+    member, ...guard.params ?? []),
+  ];
+}
+
 export function patchBusinessMemberRoles(ctx: RequestScope, base: SessionAccess, business: string, member: string,
   input: WireCommand<BusinessMemberRolesPatch>) {
   const roles = input.payload.roles ? JSON.stringify([...input.payload.roles].sort()) : null;
@@ -280,11 +307,9 @@ export function patchBusinessMemberRoles(ctx: RequestScope, base: SessionAccess,
         INSERT INTO access_audit (id, business_id, actor_id, subject_account_id, verification_id, kind, at)
         SELECT lower(hex(randomblob(16))), m.business_id, scope.account_id, m.account_id, e.verification_id, e.kind, ${at}
         FROM edited_member m CROSS JOIN live_scope scope CROSS JOIN events e WHERE ${guard.sql}`, ...guard.params ?? []),
-      scopedStatement(access, `UPDATE business_grants AS g SET revoked_at = max(g.valid_from, ${at})
-        WHERE g.membership_id = (SELECT id FROM edited_member) AND g.revoked_at IS NULL AND ${guard.sql}
-          AND (json_array_length((SELECT roles FROM edits)) = 0
-            OR (g.capability = 'membership_admin' AND EXISTS (SELECT 1 FROM removed_roles WHERE role = 'provider_admin'))
-            OR (g.capability = 'backup_foreman' AND EXISTS (SELECT 1 FROM backup_edit)))`, ...guard.params ?? []),
+      ...revokeRoleDependencies(access, guard, member, "json_array_length((SELECT roles FROM edits)) = 0", {
+        changed: "EXISTS (SELECT 1 FROM backup_edit)", disabled: "EXISTS (SELECT 1 FROM backup_edit WHERE enabled = 0)",
+      }, roles === null && backup !== false),
       ...backupKey === null ? [] : [scopedStatement(access, `INSERT INTO business_grants
         (id, business_id, membership_id, capability, issuer_id, valid_from)
         SELECT ?, m.business_id, m.id, 'backup_foreman', scope.account_id, ${at}
@@ -325,6 +350,8 @@ export function patchBusinessMemberRoles(ctx: RequestScope, base: SessionAccess,
 const revokeTarget = `FROM membership_roles g JOIN memberships m ON m.id = g.membership_id WHERE m.id = ? AND g.id = ?`;
 export function revokeBusinessRole(ctx: RequestScope, access: SessionAccess, member: string, input: WireCommand<{ roleGrantId: string }>) {
   const grant = input.payload.roleGrantId;
+  const cleanup = { sql: `${access.sql}, removed_roles AS (SELECT role ${revokeTarget})`,
+    params: [...access.params, member, grant] };
   return commandPlan(ctx, {
     access, operationId: input.operationId, command: "access.revoke_role", input: [member, grant, input.expectedRevision ?? null], resultRef: grant,
     authorize: { sql: `EXISTS (SELECT 1 ${revokeTarget} AND ${issuerMember("m.business_id")})`, params: [member, grant] },
@@ -336,10 +363,8 @@ export function revokeBusinessRole(ctx: RequestScope, access: SessionAccess, mem
         WHERE id = ? AND ${guard.sql}`, grant, ...guard.params ?? []),
       scopedStatement(access, `UPDATE memberships SET state = 'revoked' WHERE id = ? AND ${guard.sql}
         AND NOT EXISTS (SELECT 1 FROM membership_roles g WHERE g.membership_id = memberships.id AND g.revoked_at IS NULL)`, member, ...guard.params ?? []),
-      scopedStatement(access, `UPDATE business_grants SET revoked_at = max(valid_from, ${at}) WHERE membership_id = ? AND revoked_at IS NULL
-        AND ${guard.sql} AND (EXISTS (SELECT 1 FROM memberships m WHERE m.id = business_grants.membership_id AND m.state = 'revoked')
-          OR (capability = 'membership_admin' AND EXISTS (SELECT 1 FROM membership_roles g WHERE g.id = ? AND g.role = 'provider_admin')))`,
-      member, ...guard.params ?? [], grant),
+      ...revokeRoleDependencies(cleanup, guard, member,
+        "EXISTS (SELECT 1 FROM memberships m WHERE m.id = business_grants.membership_id AND m.state = 'revoked')"),
       bumpVisibilityEpoch(guard, { sql: "SELECT id AS context_id FROM account_contexts WHERE role_grant_id = ?", params: [grant] }),
       scopedStatement(access, `INSERT INTO access_audit (id, business_id, actor_id, subject_account_id, kind, at)
         SELECT ?, g.business_id, g.revoked_by, g.account_id, 'role_revoked', ${at} FROM membership_roles g WHERE g.id = ? AND ${guard.sql}`, crypto.randomUUID(), grant, ...guard.params ?? []),

@@ -160,6 +160,37 @@ test("expired invitation cannot be accepted and provider reissue enforces both r
   } finally { f.db.close(); date.mockRestore(); }
 });
 
+test("provider delivery cooldown and rolling limit survive withdrawal and fresh invitation IDs", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(start);
+  const f = await fixture();
+  try {
+    const email = "worker@example.test", day = INVITATION_POLICY.providerReissueCooldownMs;
+    const initial = await f.issue(email);
+    const withdraw = (id: string, op: string) => f.request(`/invitations/${id}/withdraw`, f.admin, op);
+    const issue = (op: string) => f.request("/businesses/business/invitations", f.admin, op, { email, role: "worker" });
+    expect((await withdraw(initial.id, "withdraw-original")).status).toBe(200);
+    expect(await issue("fresh")).toMatchObject({ status: 429, body: { error: { code: "RATE_LIMITED", retryAt: start + day } } });
+    expect(f.wakes).toHaveLength(1);
+
+    date.mockReturnValue(start + day);
+    const fresh = await f.issue(email, "fresh");
+    expect(fresh.id).not.toBe(initial.id);
+    date.mockReturnValue(start + 2 * day);
+    const reissued = resultSchema(reissueInvitationRoute.output).parse(
+      (await f.request(`/invitations/${fresh.id}/reissue`, f.admin, "repeat")).body);
+    if (!reissued.ok) throw new Error(reissued.error.code);
+    expect((await withdraw(reissued.data.id, "withdraw-repeat")).status).toBe(200);
+    date.mockReturnValue(start + 3 * day);
+    const retryAt = fresh.issuedAt + INVITATION_POLICY.reissueWindowMs;
+    expect(await issue("next")).toMatchObject({ status: 429, body: { error: { code: "RATE_LIMITED", retryAt } } });
+    expect(f.wakes).toHaveLength(3);
+    expect(await f.issue("another@example.test", "another")).toMatchObject({ issuedAt: start + 3 * day });
+    date.mockReturnValue(retryAt);
+    expect(await f.issue(email, "next")).toMatchObject({ issuedAt: retryAt });
+    expect(f.wakes).toHaveLength(5);
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
 test("foreman reads only crew eligibility and a cold scoped link can offer that live context", async () => {
   const date = spyOn(Date, "now").mockReturnValue(start);
   const f = await fixture();
@@ -207,8 +238,8 @@ test("verified place recipient gains a view grant without inheriting history or 
     const recipient = await mailboxKey(f.key, "viewer@example.test");
     const sealed = await sealInviteEmail((await loadDeliveryKey(deliverySecret))!, recipient, "viewer@example.test");
     await f.db.prepare(`INSERT INTO invitations(id, token_hash, recipient_key, recipient_email_ciphertext, place_id, inviter_id,
-      grant_snapshot, issued_at, expires_at, pending_slot, state)
-      VALUES ('place-invite','hash',?,?,'place','admin','{"kind":"place_view"}',?,?,1,'pending')`)
+      address_revision, grant_snapshot, issued_at, expires_at, pending_slot, state)
+      VALUES ('place-invite','hash',?,?,'place','admin',0,'{"kind":"place_view"}',?,?,1,'pending')`)
       .bind(recipient, sealed, start, start + INVITATION_POLICY.validityMs).run();
     const response = await f.request("/invitations/place-invite/accept", viewer, "view-accept");
     expect(resultSchema(acceptInvitationRoute.output).parse(response.body)).toMatchObject({ data: { currentAccess: {
@@ -277,5 +308,46 @@ test("verified foreman edits apply role and backup changes in one batch without 
     expect([await epoch("worker"), await epoch("foreman")]).toEqual([4, 4]);
     expect(await f.db.prepare("SELECT count(*) AS n FROM operation_receipts WHERE operation_id IN ('unverified', 'new-admin-denied', 'job-denied')")
       .first("n")).toBe(0);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test.each(["single", "bulk"] as const)("%s foreman removal retires backup authority before the context can be reused", async (mode) => {
+  const clock = spyOn(Date, "now").mockReturnValue(start);
+  const f = await fixture();
+  try {
+    await f.account("crew");
+    await f.db.batch([
+      f.db.prepare("INSERT INTO memberships VALUES ('crew-member', 'business', 'crew', 'active')"),
+      f.db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at) VALUES
+        ('worker-role', 'crew-member', 'business', 'crew', 'worker', 1),
+        ('foreman-role', 'crew-member', 'business', 'crew', 'foreman', 1)`),
+      f.db.prepare(`INSERT INTO account_contexts VALUES
+        ('crew-worker', 'crew', 'worker', 'business', 'worker-role'),
+        ('crew-foreman', 'crew', 'foreman', 'business', 'foreman-role')`),
+      f.db.prepare(`INSERT INTO business_grants (id, business_id, membership_id, capability, issuer_id, valid_from)
+        VALUES ('backup-capability', 'business', 'crew-member', 'backup_foreman', 'admin', 1)`),
+      f.db.prepare(`INSERT INTO authority_verifications (id, business_id, subject_account_id, kind, verified_by, verified_at)
+        VALUES ('foreman-proof', 'business', 'crew', 'membership', 'outsider', 1)`),
+      f.db.prepare(`INSERT INTO places (id, owner_id, alias, normalized_address, state)
+        VALUES ('place', 'outsider', 'Place', 'Fixture address', 'pending_verification')`),
+      f.db.prepare("INSERT INTO place_people (place_id, account_id, verified_from, history_from) VALUES ('place', 'outsider', 1, 1)"),
+      f.db.prepare(`INSERT INTO jobs (id, reference, business_id, place_id, requester_id, origin, state)
+        VALUES ('job', 'BB-100', 'business', 'place', 'outsider', 'bookbuddy', 'open')`),
+      f.db.prepare(`INSERT INTO job_grants (job_id, context_id, capability, valid_from, valid_until)
+        VALUES ('job', 'crew-foreman', 'backup', 1, ?)`).bind(start + 60_000),
+    ]);
+    const edit = (op: string, roles: string[]) => f.request("/businesses/business/members/crew-member/roles", f.admin, op, { roles }, "PATCH");
+    const removed = mode === "bulk" ? await edit("drop", ["worker"])
+      : await f.request("/members/crew-member/revoke", f.admin, "drop", { roleGrantId: "foreman-role" });
+    expect(removed).toMatchObject({ status: 200, body: { data: { member: { backupForeman: false, roles: [{ role: "worker" }] } } } });
+    expect(await f.db.prepare("SELECT revoked_at FROM business_grants WHERE id = 'backup-capability'").first("revoked_at")).toBe(start);
+    expect(await f.db.prepare("SELECT revoked_at FROM job_grants WHERE job_id = 'job' AND context_id = 'crew-foreman'")
+      .first("revoked_at")).toBe(start);
+
+    clock.mockReturnValue(start + 1);
+    expect(await edit("restore-role", ["worker", "foreman"])).toMatchObject({
+      status: 200, body: { data: { member: { backupForeman: false, roles: [{ role: "foreman" }, { role: "worker" }] } } },
+    });
+    expect(await f.db.prepare("SELECT id FROM account_contexts WHERE account_id = 'crew' AND role = 'foreman'").first("id")).toBe("crew-foreman");
   } finally { f.db.close(); clock.mockRestore(); }
 });

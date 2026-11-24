@@ -35,7 +35,8 @@ CREATE TABLE sessions (
   issued_at INTEGER NOT NULL,
   expires_at INTEGER NOT NULL,
   revoked_at INTEGER,
-  CONSTRAINT sessions_term CHECK (expires_at > issued_at AND (revoked_at IS NULL OR revoked_at >= issued_at)),
+  CONSTRAINT sessions_term CHECK (typeof(expires_at) = 'integer' AND expires_at > issued_at
+    AND (revoked_at IS NULL OR revoked_at >= issued_at)),
   FOREIGN KEY (active_context_id, account_id) REFERENCES account_contexts (id, account_id)
 );
 CREATE INDEX sessions_account_active ON sessions (account_id, expires_at, id) WHERE revoked_at IS NULL;
@@ -53,7 +54,7 @@ CREATE TABLE otp_attempts (
   state TEXT NOT NULL,
   verified_request_id TEXT,
   CONSTRAINT otp_attempts_state CHECK (state IN ('pending', 'consumed', 'invalidated', 'expired')),
-  CONSTRAINT otp_attempts_lifetime CHECK (expires_at = issued_at + 600000),
+  CONSTRAINT otp_attempts_lifetime CHECK (typeof(expires_at) = 'integer' AND expires_at = issued_at + 600000),
   CONSTRAINT otp_attempts_generation CHECK (generation > 0),
   CONSTRAINT otp_attempts_consumed CHECK ((state = 'consumed') = (verified_request_id IS NOT NULL))
 );
@@ -75,7 +76,7 @@ CREATE INDEX otp_events_time ON otp_events (at, id);
 CREATE TABLE otp_lockouts (
   bucket_kind TEXT NOT NULL,
   bucket_key TEXT NOT NULL,
-  until INTEGER NOT NULL,
+  until INTEGER NOT NULL CONSTRAINT otp_lockouts_until CHECK (typeof(until) = 'integer'),
   PRIMARY KEY (bucket_kind, bucket_key),
   CONSTRAINT otp_lockouts_bucket CHECK (bucket_kind IN ('email', 'device', 'source'))
 );

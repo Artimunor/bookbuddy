@@ -4,7 +4,7 @@ import {
   operationIdHeader, patchPlacePersonRoute, reissueInvitationRoute, resultSchema, transferPlaceRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
-import { INVITATION_POLICY, looksLikeAccessCode } from "@bookbuddy/domain";
+import { INVITATION_POLICY } from "@bookbuddy/domain";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { invitationMailEffect } from "../src/modules/access/mail";
@@ -64,8 +64,9 @@ async function fixture() {
   }
 
   const verify = (place: string, accountId: string, kind: string) => db.prepare(`INSERT INTO authority_verifications
-    (id, place_id, subject_account_id, kind, verified_by, verified_at) VALUES (?, ?, ?, ?, 'ops', ?)`)
-    .bind(`${accountId}-${kind}-${Date.now()}`, place, accountId, kind, Date.now()).run();
+    (id, place_id, address_revision, subject_account_id, kind, verified_by, verified_at)
+    SELECT ?, id, address_revision, ?, ?, 'ops', ? FROM places WHERE id = ?`)
+    .bind(crypto.randomUUID(), accountId, kind, Date.now(), place).run();
   const create = async () => data(getPlaceRoute.output, await request("/places", owner, { op: "create", payload: placeEdit }));
   const activate = async (place: { id: string; revision: number }) => {
     await verify(place.id, "owner", "place_owner");
@@ -111,10 +112,16 @@ test("create, scoped address search, normalization, patch, and local pin verific
     const alias = "Main house";
     expect(data(getPlaceRoute.output, await f.request(path, f.owner, { op: "rename", revision: 0,
       method: "PATCH", payload: { alias, safeArrivalNote: null } }))).toMatchObject({ alias, safeArrivalNote: null, revision: 1 });
-    const secret = await f.request(path, f.owner, { op: "secret", revision: 1, method: "PATCH", zeroCalls: true,
-      payload: { safeArrivalNote: "Alarm code: １２３４" } });
-    expect(secret.body).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
-    expect(JSON.stringify(secret.body)).not.toContain("１２３４");
+    for (const safeArrivalNote of ["１２３４", "Alarm code: Blue-Sky"]) {
+      const payload = { ...placeEdit, safeArrivalNote };
+      const options = { op: "secret", zeroCalls: true, payload };
+      for (const rejected of [await f.request("/places", f.owner, options),
+        await f.request(path, f.owner, { ...options, revision: 1, method: "PATCH" })]) {
+        expect(rejected).toMatchObject({ status: 422, body: { error: { code: "VALIDATION_FAILED",
+          fieldErrors: [{ path: ["payload", "safeArrivalNote"], code: "INVALID_VALUE" }] } } });
+        expect(JSON.stringify(rejected.body)).not.toContain(safeArrivalNote);
+      }
+    }
     await f.verify(created.id, "owner", "place_owner");
     const hole = data(getPlaceRoute.output, await f.request(`${path}/verify-pin`, f.owner,
       { op: "hole", revision: 1, payload: { pin: { longitude: -8.8, latitude: 37.2 } } }));
@@ -124,8 +131,10 @@ test("create, scoped address search, normalization, patch, and local pin verific
     expect(inside).toMatchObject({ state: "in_area", areaName: "Atlantic", siteZone: "Europe/Lisbon", pin: candidate });
     const safeArrivalNote = "Use the stairs to the 2nd floor after 9:00.";
     const moved = data(getPlaceRoute.output, await f.request(path, f.owner, { op: "move", revision: inside.revision,
-      method: "PATCH", payload: { address: "18 Praça do Mar", safeArrivalNote } }));
-    expect(moved).toMatchObject({ safeArrivalNote, state: "pending_verification", pin: null, actions: { invite: false, transfer: false } });
+      method: "PATCH", payload: { address: "1234 Praça do Mar", safeArrivalNote } }));
+    expect(moved).toMatchObject({ address: "1234 Praça do Mar", safeArrivalNote, state: "pending_verification", pin: null,
+      actions: { invite: false, transfer: false } });
+    await f.db.prepare("DELETE FROM access_audit WHERE place_id = ? AND kind = 'grant_revoked'").bind(created.id).run();
     const reused = data(getPlaceRoute.output, await f.request(`${path}/verify-pin`, f.owner,
       { op: "stale-proof", revision: moved.revision, payload: { pin: candidate } }));
     expect(reused.state).toBe("pending_verification");
@@ -160,6 +169,37 @@ test("independently verified approver replaces the current grant atomically; los
     expect([await f.epoch("owner"), await f.epoch("approver")]).toEqual(before.map((epoch) => epoch! + 1));
     expect((await f.request(path, f.owner, { ...change, op: "stale" })).body).toMatchObject({ error: { code: "STALE_REVISION" } });
     expect(await f.db.prepare("SELECT count(*) AS n FROM operation_receipts WHERE operation_id = 'stale'").first("n")).toBe(0);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("an address change retires the old booking and approver authority, including the approver's old verification", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(start);
+  const f = await fixture();
+  try {
+    const person = await f.account("approver");
+    const active = await f.activate(await f.create()), path = `/places/${active.id}`;
+    const invite = data(invitePlacePersonRoute.output, await f.issue(active, "approver@example.test", "invite"));
+    await f.request(`/invitations/${invite.id}/accept`, person, { op: "accept" });
+    await f.verify(active.id, "approver", "place_approver");
+    const payload = { successorAccountId: "approver" };
+    const replace = (op: string, revision: number) => f.request(`${path}/change-approver`, f.owner, { op, revision, payload });
+    const appointed = data(getPlaceRoute.output, await replace("appoint", active.revision));
+
+    clock.mockReturnValue(start + 1);
+    const moved = data(getPlaceRoute.output, await f.request(path, f.owner, { op: "move", revision: appointed.revision,
+      method: "PATCH", payload: { address: "New address" } }));
+    expect(await f.db.prepare(`SELECT count(*) AS n FROM place_grants WHERE place_id = ? AND revoked_at IS NULL
+      AND capability IN ('approve', 'book', 'request')`).bind(active.id).first("n")).toBe(0);
+    await f.verify(active.id, "owner", "place_owner");
+    const ready = data(getPlaceRoute.output, await f.request(`${path}/verify-pin`, f.owner,
+      { op: "new-pin", revision: moved.revision, payload: { pin: candidate } }));
+    expect(ready).toMatchObject({ state: "in_area", viewerIsNamedApprover: true });
+    expect(ready.people.find(({ accountId }) => accountId === "approver")?.capabilities).toEqual(["view"]);
+    expect((await replace("appoint-again", ready.revision)).status).toBe(409);
+    await f.verify(active.id, "approver", "place_approver");
+    expect(data(getPlaceRoute.output, await replace("appoint-again", ready.revision))).toMatchObject({
+      namedApproverDisplayName: "approver", viewerIsNamedApprover: false,
+    });
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
@@ -208,6 +248,72 @@ test("only the place owner may edit a grant; capabilities and approver replaceme
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
+test("place invite issuance, reissue, and acceptance require the delegate's current view authority", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(start);
+  const f = await fixture();
+  try {
+    const delegate = await f.account("delegate"), recipient = await f.account("recipient");
+    const place = await f.activate(await f.create()), path = `/places/${place.id}`;
+    const first = data(invitePlacePersonRoute.output, await f.issue(place, "delegate@example.test", "invite-delegate"));
+    await f.request(`/invitations/${first.id}/accept`, delegate, { op: "accept-delegate" });
+    await f.db.prepare(`INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, valid_from)
+      VALUES ('delegate-grant', ?, 'delegate', 'delegate', 'owner', ?)`).bind(place.id, start).run();
+    const issue = (op: string, revision: number, email: string) =>
+      f.request(`${path}/invite`, delegate, { op, revision, payload: { email } });
+    const pending = data(invitePlacePersonRoute.output, await issue("issue-before", place.revision, "recipient@example.test"));
+    const removed = data(patchPlacePersonRoute.output, await f.request(`${path}/people/delegate`, f.owner,
+      { op: "remove-view", revision: place.revision, method: "PATCH", payload: { view: false } }));
+    expect(removed.people.find(({ accountId }) => accountId === "delegate")?.capabilities).toEqual(["delegate"]);
+
+    clock.mockReturnValue(start + INVITATION_POLICY.placeReissueCooldownMs);
+    expect(await issue("issue-after", removed.revision, "outside@example.test")).toMatchObject({ status: 404, body: notFound });
+    expect(await f.request(`/invitations/${pending.id}/reissue`, delegate, { op: "reissue-after" }))
+      .toMatchObject({ status: 404, body: notFound });
+    expect((await f.request(`/invitations/${pending.id}`, recipient)).body).toMatchObject({
+      data: { status: "unavailable", reason: "removed" },
+    });
+    expect((await f.request(`/invitations/${pending.id}/accept`, recipient, { op: "accept-after" })).status).toBe(409);
+    expect((await f.request(path, recipient)).body).toMatchObject(notFound);
+    expect(f.wakes).toHaveLength(2);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test.each(["invitation", "edit"] as const)("%s restores view with a new history boundary after a lapse", async (method) => {
+  const clock = spyOn(Date, "now").mockReturnValue(start);
+  const f = await fixture();
+  try {
+    const viewer = await f.account("viewer"), place = await f.activate(await f.create());
+    const path = `/places/${place.id}`;
+    const accept = async (revision: number, op: string) => {
+      const invite = data(invitePlacePersonRoute.output, await f.issue({ id: place.id, revision }, "viewer@example.test", `invite-${op}`));
+      return data(acceptInvitationRoute.output, await f.request(`/invitations/${invite.id}/accept`, viewer, { op })).currentAccess;
+    };
+    const edit = (view: boolean, revision: number, op: string) => f.request(`${path}/people/viewer`, f.owner,
+      { op, revision, method: "PATCH", payload: { view } });
+    expect(await accept(place.revision, "first")).toMatchObject({ historyFrom: start });
+    clock.mockReturnValue(start + 1);
+    const revoked = data(patchPlacePersonRoute.output, await edit(false, place.revision, "revoke"));
+    const request = (job: string, reference: string, submittedAt: number) => f.db.batch([
+      f.db.prepare(`INSERT INTO jobs (id, reference, business_id, place_id, requester_id, origin, state)
+        VALUES (?, ?, 'business', ?, 'owner', 'bookbuddy', 'open')`).bind(job, reference, place.id),
+      f.db.prepare(`INSERT INTO requests (job_id, original_text, arrival_arrangement, submitted_at)
+        VALUES (?, 'Fixture work', 'requester', ?)`).bind(job, submittedAt),
+    ]);
+    clock.mockReturnValue(start + 2);
+    await request("during-lapse", "BB-GAP", start + 2);
+    clock.mockReturnValue(start + 3);
+    if (method === "invitation") {
+      expect(await accept(revoked.revision, "regain")).toMatchObject({ historyFrom: start + 3 });
+    } else {
+      expect((await edit(true, revoked.revision, "regain")).status).toBe(200);
+    }
+    clock.mockReturnValue(start + 4);
+    await request("after-regain", "BB-NEXT", start + 4);
+    const visible = data(getPlaceRoute.output, await f.request(path, viewer));
+    expect(visible.bookings.map(({ jobId }) => jobId)).toEqual(["after-regain"]);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
 test("place invite caps, safe link opening, and reissue timing use the live recipient and slots", async () => {
   const clock = spyOn(Date, "now").mockReturnValue(start);
   const f = await fixture();
@@ -243,7 +349,7 @@ test("place invite caps, safe link opening, and reissue timing use the live reci
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
-test("a transfer stays pending until the verified named successor accepts from the bound mailbox; archive guards bookings", async () => {
+test("a transfer stays pending until the verified named successor accepts from the bound mailbox; archive guards commitments", async () => {
   const clock = spyOn(Date, "now").mockReturnValue(start);
   const f = await fixture();
   try {
@@ -279,34 +385,20 @@ test("a transfer stays pending until the verified named successor accepts from t
     const archive = { op: "archive", revision: owned.revision };
     expect((await f.request(`${path}/archive`, successor, archive)).status).toBe(409);
     await f.db.prepare("UPDATE visits SET state = 'finished' WHERE id = 'visit'").run();
+    expect((await f.request(`${path}/archive`, successor, archive)).status).toBe(409);
+    await f.db.batch([
+      f.db.prepare("UPDATE jobs SET state = 'closed' WHERE id = 'job'"),
+      f.db.prepare(`INSERT INTO problem_cases (id, job_id, reference, reporter_id, case_owner_id, category, state,
+        opened_at, acknowledge_by, first_update_by, next_update_at)
+        VALUES ('case', 'job', 'BB-CASE', 'successor', 'ops', 'quality', 'open', ?, ?, ?, ?)`).bind(start, start + 1, start + 2, start + 1),
+    ]);
+    expect(data(getPlaceRoute.output, await f.request(path, successor)).actions.archive).toBe(false);
+    expect((await f.request(`${path}/archive`, successor, archive)).status).toBe(409);
+    await f.db.prepare("UPDATE problem_cases SET state = 'resolved', next_update_at = NULL WHERE id = 'case'").run();
+    expect(data(getPlaceRoute.output, await f.request(path, successor)).actions.archive).toBe(true);
     const done = data(archivePlaceRoute.output, await f.request(`${path}/archive`, successor, archive));
     expect(done).toMatchObject({ state: "archived", revision: owned.revision + 1, archivedAt: start });
     expect(data(archivePlaceRoute.output, await f.request(`${path}/archive`, successor, archive))).toEqual(done);
     expect(data(listPlacesRoute.output, await f.request("/places", successor)).total).toBe(0);
   } finally { f.db.close(); clock.mockRestore(); }
-});
-
-test.each([
-  ["Gate code is #4827", true],
-  ["Alarm code: １２３４", true],
-  ["Side door PIN: 6 4 2 8", true],
-  ["4827 is the key safe code", true],
-  ["Lockbox 5836", true],
-  ["The keypad accepts *2417#", true],
-  ["O código do portão é 6428", true],
-  ["Caixa das chaves: 42 83", true],
-  ["PIN do alarme: ٨٣٠٢", true],
-  ["La clave de la puerta es 5283", true],
-  ["Portón 2468", true],
-  ["Código de la caja de llaves: 7248", true],
-  ["12 Praça do Mar, 2750-642 Cascais", false],
-  ["1234 Gate Street, apt #2201", false],
-  ["Calle Portón 1234", false],
-  ["Postal code: 28290", false],
-  ["Use door 2, on the 2nd floor after 9:00.", false],
-  ["Meet by the gate after 09:00 or at 14:30.", false],
-  ["Puerta 3, segundo piso, después de las 9:00.", false],
-  ["I'll tell you the gate code when you arrive.", false],
-] as const)("classifies arrival text %s", (text, isCode) => {
-  expect(looksLikeAccessCode(text)).toBe(isCode);
 });

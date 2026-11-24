@@ -120,6 +120,7 @@ export const places = sqliteTable("places", {
   namedApproverId: text("named_approver_id"),
   alias: text().notNull(),
   normalizedAddress: text("normalized_address").notNull(),
+  addressRevision: integer("address_revision").notNull().default(0),
   pin: text({ mode: "json" }).$type<PlacePin>(),
   siteZone: text("site_zone"),
   areaId: text("area_id"),
@@ -129,6 +130,7 @@ export const places = sqliteTable("places", {
 }, (t) => [
   check("places_state", sql`${t.state} IN ('pending_verification', 'in_area', 'out_of_area', 'restricted', 'archived')`),
   check("places_revision", sql`${t.revision} >= 0`),
+  check("places_address_revision", sql`typeof(${t.addressRevision}) = 'integer' AND ${t.addressRevision} >= 0`),
   check("places_verified", sql`(${t.state} NOT IN ('in_area', 'out_of_area')
     OR (${t.pin} IS NOT NULL AND ${t.siteZone} IS NOT NULL AND ${t.namedApproverId} IS NOT NULL))
     AND (${t.state} <> 'in_area' OR ${t.areaId} IS NOT NULL) AND (${t.areaId} IS NULL OR ${t.siteZone} IS NOT NULL)`),
@@ -138,6 +140,7 @@ export const places = sqliteTable("places", {
     AND json_type(${t.pin}, '$.longitude') IN ('integer', 'real') AND json_extract(${t.pin}, '$.longitude') BETWEEN -180 AND 180,
     0
   ) ELSE 0 END`),
+  unique().on(t.id, t.addressRevision),
   foreignKey({ columns: [t.areaId, t.siteZone], foreignColumns: [operatingAreas.id, operatingAreas.siteZone] }),
   foreignKey({ columns: [t.id, t.namedApproverId], foreignColumns: [placePeople.placeId, placePeople.currentAccountId] }),
   index("places_owner_state").on(t.ownerId, t.state, t.id),
@@ -162,6 +165,7 @@ export const authorityVerifications = sqliteTable("authority_verifications", {
   id: text().notNull().primaryKey(),
   businessId: text("business_id").references(() => businesses.id),
   placeId: text("place_id").references(() => places.id),
+  addressRevision: integer("address_revision"),
   subjectAccountId: text("subject_account_id").references(() => accounts.id),
   kind: text().notNull(),
   verifiedBy: text("verified_by").notNull().references(() => accounts.id),
@@ -169,11 +173,15 @@ export const authorityVerifications = sqliteTable("authority_verifications", {
 }, (t) => [
   check("authority_verifications_scope", sql`(${t.businessId} IS NOT NULL AND ${t.placeId} IS NULL AND ${t.kind} IN ('business', 'membership', 'business_grant'))
     OR (${t.businessId} IS NULL AND ${t.placeId} IS NOT NULL AND ${t.kind} IN ('place_pin', 'place_owner', 'place_approver', 'place_transfer', 'place_grant'))`),
+  check("authority_verifications_address_revision", sql`(${t.placeId} IS NULL AND ${t.addressRevision} IS NULL)
+    OR (${t.placeId} IS NOT NULL AND typeof(${t.addressRevision}) = 'integer' AND ${t.addressRevision} >= 0)`),
   check("authority_verifications_independent", sql`${t.subjectAccountId} IS NULL OR ${t.subjectAccountId} <> ${t.verifiedBy}`),
   unique().on(t.id, t.businessId),
   unique().on(t.id, t.placeId),
+  unique().on(t.id, t.placeId, t.addressRevision),
   index("authority_verifications_business_subject").on(t.businessId, t.subjectAccountId, t.kind, t.verifiedAt, t.id).where(sql`${t.businessId} IS NOT NULL`),
-  index("authority_verifications_place_subject").on(t.placeId, t.subjectAccountId, t.kind, t.verifiedAt, t.id).where(sql`${t.placeId} IS NOT NULL`),
+  index("authority_verifications_place_subject").on(t.placeId, t.subjectAccountId, t.kind, t.addressRevision, t.verifiedAt, t.id)
+    .where(sql`${t.placeId} IS NOT NULL`),
 ]);
 
 export const businessGrants = sqliteTable("business_grants", {
@@ -189,7 +197,8 @@ export const businessGrants = sqliteTable("business_grants", {
 }, (t) => [
   check("business_grants_capability", sql`${t.capability} IN ('handoff', 'backup_foreman', 'review_commercial', 'publish_commercial',
     'issue_bill', 'record_paid', 'billing_deferral', 'membership_admin', 'schedule_correction', 'feedback_lead')`),
-  check("business_grants_term", sql`(${t.validUntil} IS NULL OR ${t.validUntil} > ${t.validFrom}) AND (${t.revokedAt} IS NULL OR ${t.revokedAt} >= ${t.validFrom})`),
+  check("business_grants_term", sql`(${t.validUntil} IS NULL OR (typeof(${t.validUntil}) = 'integer' AND ${t.validUntil} > ${t.validFrom}))
+    AND (${t.revokedAt} IS NULL OR ${t.revokedAt} >= ${t.validFrom})`),
   foreignKey({ columns: [t.businessId, t.membershipId], foreignColumns: [memberships.businessId, memberships.id] }),
   foreignKey({ columns: [t.approvalVerificationId, t.businessId], foreignColumns: [authorityVerifications.id, authorityVerifications.businessId] }),
   uniqueIndex("business_grants_current").on(t.membershipId, t.capability).where(sql`${t.revokedAt} IS NULL`),
@@ -204,14 +213,21 @@ export const placeGrants = sqliteTable("place_grants", {
   capability: text({ enum: PLACE_CAPABILITIES }).notNull(),
   issuerId: text("issuer_id").notNull().references(() => accounts.id),
   approvalVerificationId: text("approval_verification_id"),
+  addressRevision: integer("address_revision").notNull().default(0),
   validFrom: integer("valid_from").notNull(),
   validUntil: integer("valid_until"),
   revokedAt: integer("revoked_at"),
+  currentAddressRevision: integer("current_address_revision").generatedAlwaysAs(sql`
+    CASE WHEN revoked_at IS NULL AND capability IN ('approve', 'book', 'request') THEN address_revision END`, { mode: "virtual" }),
 }, (t) => [
   check("place_grants_capability", sql`${t.capability} IN ('view', 'message', 'request', 'book', 'approve', 'sign_off', 'bill_view', 'delegate')`),
-  check("place_grants_term", sql`(${t.validUntil} IS NULL OR ${t.validUntil} > ${t.validFrom}) AND (${t.revokedAt} IS NULL OR ${t.revokedAt} >= ${t.validFrom})`),
+  check("place_grants_term", sql`(${t.validUntil} IS NULL OR (typeof(${t.validUntil}) = 'integer' AND ${t.validUntil} > ${t.validFrom}))
+    AND (${t.revokedAt} IS NULL OR ${t.revokedAt} >= ${t.validFrom})`),
+  check("place_grants_address_revision", sql`typeof(${t.addressRevision}) = 'integer' AND ${t.addressRevision} >= 0`),
   foreignKey({ columns: [t.placeId, t.accountId], foreignColumns: [placePeople.placeId, placePeople.accountId] }),
-  foreignKey({ columns: [t.approvalVerificationId, t.placeId], foreignColumns: [authorityVerifications.id, authorityVerifications.placeId] }),
+  foreignKey({ columns: [t.placeId, t.currentAddressRevision], foreignColumns: [places.id, places.addressRevision] }),
+  foreignKey({ columns: [t.approvalVerificationId, t.placeId, t.addressRevision],
+    foreignColumns: [authorityVerifications.id, authorityVerifications.placeId, authorityVerifications.addressRevision] }),
   uniqueIndex("place_grants_current").on(t.placeId, t.accountId, t.capability).where(sql`${t.revokedAt} IS NULL`),
   uniqueIndex("place_grants_current_approver").on(t.placeId).where(sql`${t.capability} = 'approve' AND ${t.revokedAt} IS NULL`),
   index("place_grants_grantee").on(t.accountId, t.placeId, t.id).where(sql`${t.revokedAt} IS NULL`),
@@ -236,8 +252,8 @@ export const eligibilityChecks = sqliteTable("eligibility_checks", {
   check("eligibility_checks_review", sql`(${t.checkedAt} IS NULL) = (${t.checkedBy} IS NULL)
     AND (${t.state} = 'pending' OR ${t.checkedAt} IS NOT NULL)
     AND (${t.state} <> 'approved' OR ${t.validUntil} IS NOT NULL OR ${t.reviewBy} IS NOT NULL)
-    AND (${t.validUntil} IS NULL OR (${t.checkedAt} IS NOT NULL AND ${t.validUntil} > ${t.checkedAt}))
-    AND (${t.reviewBy} IS NULL OR ${t.checkedAt} IS NULL OR ${t.reviewBy} > ${t.checkedAt})`),
+    AND (${t.validUntil} IS NULL OR (typeof(${t.validUntil}) = 'integer' AND ${t.checkedAt} IS NOT NULL AND ${t.validUntil} > ${t.checkedAt}))
+    AND (${t.reviewBy} IS NULL OR (typeof(${t.reviewBy}) = 'integer' AND (${t.checkedAt} IS NULL OR ${t.reviewBy} > ${t.checkedAt})))`),
   foreignKey({ columns: [t.businessId, t.membershipId], foreignColumns: [memberships.businessId, memberships.id] }),
   index("eligibility_checks_subject").on(t.businessId, t.membershipId, t.trade, t.workLanguage, t.checkedAt, t.id),
   index("eligibility_checks_expiry").on(t.validUntil, t.id).where(sql`${t.state} = 'approved' AND ${t.validUntil} IS NOT NULL`),
@@ -288,6 +304,7 @@ export const invitations = sqliteTable("invitations", {
   recipientEmailCiphertext: text("recipient_email_ciphertext"),
   businessId: text("business_id").references(() => businesses.id),
   placeId: text("place_id").references(() => places.id),
+  addressRevision: integer("address_revision"),
   inviterId: text("inviter_id").notNull().references(() => accounts.id),
   grantSnapshot: text("grant_snapshot", { mode: "json" }).$type<GrantSnapshot>().notNull(),
   verificationId: text("verification_id"),
@@ -301,7 +318,9 @@ export const invitations = sqliteTable("invitations", {
 }, (t) => [
   check("invitations_state", sql`${t.state} IN ('pending', 'accepted', 'declined', 'withdrawn', 'expired')`),
   check("invitations_scope", sql`(${t.businessId} IS NULL) <> (${t.placeId} IS NULL)`),
-  check("invitations_lifetime", sql`${t.expiresAt} = ${t.issuedAt} + 172800000`),
+  check("invitations_address_revision", sql`(${t.placeId} IS NULL AND ${t.addressRevision} IS NULL)
+    OR (${t.placeId} IS NOT NULL AND typeof(${t.addressRevision}) = 'integer' AND ${t.addressRevision} >= 0)`),
+  check("invitations_lifetime", sql`typeof(${t.expiresAt}) = 'integer' AND ${t.expiresAt} = ${t.issuedAt} + 172800000`),
   check("invitations_resolution", sql`(${t.state} = 'pending') = (${t.endedAt} IS NULL)
     AND (${t.endedAt} IS NULL OR ${t.endedAt} >= ${t.issuedAt})
     AND (${t.state} <> 'pending' OR ${t.recipientEmailCiphertext} IS NOT NULL)
@@ -319,13 +338,14 @@ export const invitations = sqliteTable("invitations", {
   unique().on(t.businessId, t.recipientKey, t.id),
   unique().on(t.placeId, t.recipientKey, t.id),
   foreignKey({ columns: [t.verificationId, t.businessId], foreignColumns: [authorityVerifications.id, authorityVerifications.businessId] }),
-  foreignKey({ columns: [t.verificationId, t.placeId], foreignColumns: [authorityVerifications.id, authorityVerifications.placeId] }),
+  foreignKey({ columns: [t.verificationId, t.placeId, t.addressRevision],
+    foreignColumns: [authorityVerifications.id, authorityVerifications.placeId, authorityVerifications.addressRevision] }),
   foreignKey({ columns: [t.businessId, t.recipientKey, t.supersedesId], foreignColumns: [t.businessId, t.recipientKey, t.id] }),
   foreignKey({ columns: [t.placeId, t.recipientKey, t.supersedesId], foreignColumns: [t.placeId, t.recipientKey, t.id] }),
   uniqueIndex("invitations_business_pending_recipient").on(t.businessId, t.recipientKey).where(sql`${t.state} = 'pending' AND ${t.businessId} IS NOT NULL`),
   uniqueIndex("invitations_place_pending_recipient").on(t.placeId, t.recipientKey).where(sql`${t.state} = 'pending' AND ${t.placeId} IS NOT NULL`),
   uniqueIndex("invitations_place_pending_slot").on(t.placeId, t.pendingSlot).where(sql`${t.state} = 'pending' AND ${t.placeId} IS NOT NULL`),
-  index("invitations_business_reissue").on(t.businessId, t.recipientKey, t.issuedAt, t.id).where(sql`${t.supersedesId} IS NOT NULL AND ${t.businessId} IS NOT NULL`),
+  index("invitations_business_delivery").on(t.businessId, t.recipientKey, t.issuedAt, t.id).where(sql`${t.businessId} IS NOT NULL`),
   index("invitations_place_reissue").on(t.placeId, t.recipientKey, t.issuedAt, t.id).where(sql`${t.supersedesId} IS NOT NULL AND ${t.placeId} IS NOT NULL`),
   index("invitations_business_state").on(t.businessId, t.state, t.issuedAt, t.id).where(sql`${t.businessId} IS NOT NULL`),
   index("invitations_place_state").on(t.placeId, t.state, t.issuedAt, t.id).where(sql`${t.placeId} IS NOT NULL`),

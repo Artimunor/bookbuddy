@@ -13,8 +13,17 @@ const labelledPin = new RegExp(String.raw`${label}${separator}${pin}|(?:^|[^\p{L
 const shortLabel = new RegExp(String.raw`(?:^|[\n;])\s*${codeWord}\s*[:=#]\s*${pin}|\b${accessPoint}\s*[:=#]\s*\p{Nd}{3,8}${endOfNumber}|(?:^|[\n;])\s*${accessPoint}\s+\p{Nd}{4,8}\s*[.!]?(?=$|[\n;])`, "iu");
 const keypadSequence = /(?:^|[^\p{L}\p{N}])(?:\*\p{Nd}{2,8}#?|\p{Nd}{3,8}#)(?![\p{L}\p{N}])|^\s*#\p{Nd}{3,8}\s*$/u;
 
-/** Detects likely entry credentials, not bare numbers in an address, time, or note. */
-export function looksLikeAccessCode(text: string): boolean {
+const declarationLabel = String.raw`(?:${label}|\b(?:code|codigo|clave|alarm|alarme|alarma)\b)`;
+const statementStart = String.raw`(?:^|[\n;,.]|\b(?:use|enter|type|digite|introduza|introduce|utilize|usa)\s+)`;
+// A label at the start of an instruction, or an explicit assignment anywhere,
+// signals a supplied value. A passing reference to the handoff code does not.
+const labelledValue = new RegExp(String.raw`${declarationLabel}(?:\s*[:=–—-]\s*\S|\s+(?:is|e|es)\b\s+\S|\s*[*#]\S*)|${statementStart}\s*(?:(?:the|o|a|el|la)\s+)?${declarationLabel}[^\S\r\n]+\S`, "iu");
+const digitRun = /(?:^|[^\p{L}\p{N}])\p{Nd}{4,}(?![\p{L}\p{N}])/u;
+const barePin = /^\s*(?:\p{Nd}[\s-]?){2,}\p{Nd}\s*[.!]?\s*$/u;
+
+/** Arrival notes are stricter than an alias or address, which can contain street and postal numbers. */
+export function looksLikeAccessCode(text: string, field: "arrival" | "place-identity" = "arrival"): boolean {
   const plain = text.normalize("NFKD").replace(/[\p{M}\p{Cf}]/gu, "");
-  return labelledPin.test(plain) || shortLabel.test(plain) || keypadSequence.test(plain);
+  return labelledPin.test(plain) || shortLabel.test(plain) || keypadSequence.test(plain)
+    || (field === "arrival" && (digitRun.test(plain) || barePin.test(plain) || labelledValue.test(plain)));
 }

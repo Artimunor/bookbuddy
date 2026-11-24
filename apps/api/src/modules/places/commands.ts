@@ -7,14 +7,14 @@ import type { RequestScope } from "../../db/scope";
 import { managedInvitationAt } from "../access/invitations";
 import { invitationMailEffectSql, prepareInvitationLink, sealInviteEmail } from "../access/mail";
 import type { InvitationMailKeys } from "../access/mail";
-import { addressResetPrefix, afterAddressReset, at, freePlaceSlots, inviteKind, liveTerm, scopedStatement } from "../access/policy";
+import { at, freePlaceSlots, inviteKind, liveTerm, scopedStatement } from "../access/policy";
 import { mac, mailboxKey, randomToken } from "../auth/crypto";
 import { hashSessionCredential } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { withPinArea } from "./area";
 import { sealTransferLocator, transferNotice } from "./invitation";
 import {
-  activePlace, bookedPlace, currentPerson, normalizedAddress, ownerVerification,
+  activePlace, bookedPlace, currentPerson, normalizedAddress, openPlaceCommitments, ownerVerification,
   placeCapability, placeChanges, placeContextIds, placeManager, verifiedOwner,
 } from "./policy";
 import { placeDetailsAt } from "./read";
@@ -122,9 +122,9 @@ export function patchPlace(ctx: RequestScope, base: SessionAccess, place: string
         scopedStatement(access, `INSERT INTO access_audit (id, place_id, actor_id, subject_account_id, kind, at)
           SELECT ?, p.id, p.actor_id, p.owner_id, 'grant_revoked', ${at} FROM selected_place p
           WHERE p.normalized_address <> ? AND ${guard.sql}`,
-        `${addressResetPrefix}${crypto.randomUUID()}`, address, ...guard.params ?? []),
+        crypto.randomUUID(), address, ...guard.params ?? []),
         scopedStatement(access, `UPDATE place_grants SET revoked_at = max(valid_from, ${at})
-          WHERE place_id IN (${changedAddress}) AND capability IN ('book', 'request') AND revoked_at IS NULL AND ${guard.sql}`,
+          WHERE place_id IN (${changedAddress}) AND capability IN ('approve', 'book', 'request') AND revoked_at IS NULL AND ${guard.sql}`,
         address, ...guard.params ?? []),
         scopedStatement(access, `UPDATE invitations SET state = CASE WHEN expires_at <= ${at} THEN 'expired' ELSE 'withdrawn' END,
           ended_at = ${at} WHERE place_id IN (${changedAddress}) AND state = 'pending' AND ${guard.sql}`, address, ...guard.params ?? []),
@@ -133,8 +133,10 @@ export function patchPlace(ctx: RequestScope, base: SessionAccess, place: string
         params: [...audience.params ?? [], ...access.params, address] }),
       ],
       scopedStatement(access, `, edits(alias, address, has_note, note) AS (VALUES (?, ?, ?, ?))
-        UPDATE places AS p SET (alias, normalized_address, safe_arrival_note, pin, area_id, site_zone, state, revision) = (
+        UPDATE places AS p SET (alias, normalized_address, address_revision, named_approver_id, safe_arrival_note, pin, area_id, site_zone, state, revision) = (
           SELECT coalesce(e.alias, p.alias), coalesce(e.address, p.normalized_address),
+            CASE WHEN e.address IS NOT NULL AND e.address <> p.normalized_address THEN p.address_revision + 1 ELSE p.address_revision END,
+            CASE WHEN e.address IS NOT NULL AND e.address <> p.normalized_address THEN p.owner_id ELSE p.named_approver_id END,
             CASE WHEN e.has_note THEN e.note ELSE p.safe_arrival_note END,
             CASE WHEN e.address IS NULL OR e.address = p.normalized_address THEN p.pin END,
             CASE WHEN e.address IS NULL OR e.address = p.normalized_address THEN p.area_id END,
@@ -166,8 +168,8 @@ export function verifyPlacePin(ctx: RequestScope, base: SessionAccess, place: st
       scopedStatement(access, `UPDATE places SET pin = ?, area_id = (SELECT id FROM pin_area), site_zone = (SELECT site_zone FROM pin_area),
         state = CASE WHEN ${activate} THEN 'in_area' ELSE 'pending_verification' END, revision = revision + 1
         WHERE id = ${selected} AND ${guard.sql}`, JSON.stringify(pin), ...guard.params ?? []),
-      scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, valid_from)
-        SELECT lower(hex(randomblob(16))), p.id, p.owner_id, capability, p.actor_id, (${ownerVerification("p", "p")}), ${at}
+      scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, address_revision, valid_from)
+        SELECT lower(hex(randomblob(16))), p.id, p.owner_id, capability, p.actor_id, (${ownerVerification("p", "p")}), p.address_revision, ${at}
         FROM selected_place p CROSS JOIN (SELECT value AS capability FROM json_each(?)) cap
         WHERE p.state = 'in_area' AND ${guard.sql}
           AND (capability <> 'approve' OR p.named_approver_id = p.owner_id)
@@ -183,6 +185,7 @@ function withApproverReplacement(base: SessionAccess, successor: string | null):
     SELECT v.id, a.id AS account_id FROM selected_place p JOIN place_people person ON person.place_id = p.id
     JOIN accounts a ON a.id = person.account_id AND a.state = 'active'
     JOIN authority_verifications v ON v.place_id = p.id AND v.subject_account_id = a.id AND v.kind = 'place_approver'
+      AND v.address_revision = p.address_revision
     WHERE a.id = ? AND p.named_approver_id IS NOT a.id AND ${currentPerson("person")}
       AND v.verified_at BETWEEN person.verified_from AND ${at} AND v.verified_by <> p.owner_id
       AND ${placeCapability("p.id", "a.id", "view")}
@@ -200,8 +203,8 @@ function replaceApproverGrants(access: SessionAccess, guard: CommandStatement): 
   return [
     scopedStatement(access, `UPDATE place_grants SET revoked_at = max(valid_from, ${at}) WHERE place_id = ${selected}
       AND capability = 'approve' AND revoked_at IS NULL AND ${replacing.sql}`, ...guard.params ?? []),
-    scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, valid_from)
-      SELECT ?, p.id, v.account_id, 'approve', p.actor_id, v.id, ${at}
+    scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, address_revision, valid_from)
+      SELECT ?, p.id, v.account_id, 'approve', p.actor_id, v.id, p.address_revision, ${at}
       FROM selected_place p CROSS JOIN approver_replacement v WHERE ${guard.sql}`, crypto.randomUUID(), ...guard.params ?? []),
     audit(access, replacing, "approver_changed", replacementAccount, "(SELECT id FROM approver_replacement)"),
   ];
@@ -270,8 +273,12 @@ export function patchPlacePerson(ctx: RequestScope, base: SessionAccess, place: 
         scopedStatement(access, `UPDATE place_grants SET revoked_at = max(valid_from, ${at})
           WHERE place_id = ${selected} AND account_id = ${editedPerson} AND revoked_at IS NULL
             AND capability IN (SELECT capability FROM changed_capabilities) AND ${guard.sql}`, ...guard.params ?? []),
-        scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, valid_from)
-          SELECT lower(hex(randomblob(16))), e.place_id, e.account_id, e.capability, p.actor_id, ${at}
+        ...view === true ? [scopedStatement(access, `UPDATE place_people SET history_from = max(history_from, ${at})
+          WHERE place_id = ${selected} AND account_id = ${editedPerson} AND ${guard.sql}
+            AND account_id <> (SELECT owner_id FROM selected_place)
+            AND EXISTS (SELECT 1 FROM changed_capabilities WHERE capability = 'view' AND enabled = 1)`, ...guard.params ?? [])] : [],
+        scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, address_revision, valid_from)
+          SELECT lower(hex(randomblob(16))), e.place_id, e.account_id, e.capability, p.actor_id, p.address_revision, ${at}
           FROM selected_place p CROSS JOIN changed_capabilities e WHERE e.enabled = 1 AND ${guard.sql}`, ...guard.params ?? []),
       ],
       ...(successor === null ? [] : replaceApproverGrants(access, guard)),
@@ -286,8 +293,7 @@ export function archivePlace(ctx: RequestScope, base: SessionAccess, place: stri
   return preparePlaceOperation(ctx, {
     access, operationId: input.operationId, command: "places.archive", input: [place, input.expectedRevision], resultRef: place,
     revision: input.expectedRevision, authorize: ownerOnly,
-    // A booked visit is a commitment; an open request alone is not a booking.
-    eligible: byRevision(input.expectedRevision, `p.state <> 'archived' AND ${ownerVerified} AND ${notBooked}`),
+    eligible: byRevision(input.expectedRevision, `p.state <> 'archived' AND ${ownerVerified} AND NOT ${openPlaceCommitments("p.id")}`),
     projection: `SELECT json_object('id', p.id, 'revision', p.revision, 'state', p.state, 'archivedAt', r.committed_at)
       FROM selected_place p WHERE p.id = r.result_ref AND p.state = 'archived'`,
     writes: (guard) => ({ statements: [
@@ -321,7 +327,7 @@ export async function issuePlaceInvitation(ctx: RequestScope, base: SessionAcces
       ${transfer ? "(SELECT email_key FROM recipient)" : "?"} AS recipient_key), transfer_verification AS MATERIALIZED (
       SELECT v.id FROM authority_verifications v JOIN selected_place p ON p.id = v.place_id
       JOIN recipient a ON a.id = v.subject_account_id WHERE v.kind = 'place_transfer' AND v.verified_by <> p.owner_id
-        AND ${afterAddressReset("p.id", "v.verified_at")}
+        AND v.address_revision = p.address_revision
         AND v.verified_at BETWEEN max(a.verified_at, p.verified_from, coalesce((SELECT max(audit.at) FROM access_audit audit
           WHERE audit.place_id = p.id AND audit.kind = 'owner_transferred'), 0)) AND ${at}
       ORDER BY v.verified_at DESC, v.id LIMIT 1)`,
@@ -340,7 +346,7 @@ export async function issuePlaceInvitation(ctx: RequestScope, base: SessionAcces
       AND NOT EXISTS (SELECT 1 FROM invitations i CROSS JOIN target WHERE i.place_id = target.place_id
         AND (i.recipient_key = target.recipient_key OR i.recipient_id = (SELECT id FROM recipient))
         AND ((i.state = 'pending' AND i.expires_at > ${at}) OR (${inviteKind("i")} = ? AND i.state <> 'accepted'
-          AND ${afterAddressReset("p.id", "i.issued_at")}
+          AND i.address_revision = p.address_revision
           AND i.issued_at > ${at} - ${INVITATION_POLICY.reissueWindowMs})))
       AND EXISTS (SELECT 1 FROM target WHERE (${availableSlot}) IS NOT NULL)
       AND ${transfer ? `${ownerVerified} AND EXISTS (SELECT 1 FROM transfer_verification)` : `NOT EXISTS (
@@ -352,9 +358,9 @@ export async function issuePlaceInvitation(ctx: RequestScope, base: SessionAcces
       scopedStatement(access, `UPDATE invitations SET state = 'expired', ended_at = ${at}
         WHERE place_id = ${selected} AND state = 'pending' AND expires_at <= ${at} AND ${guard.sql}`, ...guard.params ?? []),
       scopedStatement(access, `INSERT INTO invitations (id, token_hash, recipient_key, recipient_email_ciphertext, place_id, inviter_id,
-        grant_snapshot, verification_id, issued_at, expires_at, recipient_id, pending_slot, state)
+        grant_snapshot, verification_id, address_revision, issued_at, expires_at, recipient_id, pending_slot, state)
         SELECT ?, ?, target.recipient_key, ?, p.id, p.actor_id, json_object('kind', ?),
-          ${transfer ? "(SELECT id FROM transfer_verification)" : "NULL"}, ${at}, ?, (SELECT id FROM recipient), (${availableSlot}), 'pending'
+          ${transfer ? "(SELECT id FROM transfer_verification)" : "NULL"}, p.address_revision, ${at}, ?, (SELECT id FROM recipient), (${availableSlot}), 'pending'
         FROM selected_place p CROSS JOIN target WHERE ${guard.sql}`, id, tokenHash, sealedRecipient, kind, invitationExpiresAt(ctx.now), ...guard.params ?? []),
       audit(access, guard, "invitation_issued", "(SELECT id FROM recipient)", transfer ? "(SELECT id FROM transfer_verification)" : "NULL"),
       ...(transferToken ? transferNotice(access, guard, id, transferToken) : []),

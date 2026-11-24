@@ -45,7 +45,8 @@ export const sessions = sqliteTable("sessions", {
   expiresAt: integer("expires_at").notNull(),
   revokedAt: integer("revoked_at"),
 }, (t) => [
-  check("sessions_term", sql`${t.expiresAt} > ${t.issuedAt} AND (${t.revokedAt} IS NULL OR ${t.revokedAt} >= ${t.issuedAt})`),
+  check("sessions_term", sql`typeof(${t.expiresAt}) = 'integer' AND ${t.expiresAt} > ${t.issuedAt}
+    AND (${t.revokedAt} IS NULL OR ${t.revokedAt} >= ${t.issuedAt})`),
   foreignKey({ columns: [t.activeContextId, t.accountId], foreignColumns: [accountContexts.id, accountContexts.accountId] }),
   index("sessions_account_active").on(t.accountId, t.expiresAt, t.id).where(sql`${t.revokedAt} IS NULL`),
   index("sessions_active_context").on(t.activeContextId, t.accountId).where(sql`${t.activeContextId} IS NOT NULL`),
@@ -63,7 +64,7 @@ export const otpAttempts = sqliteTable("otp_attempts", {
   verifiedRequestId: text("verified_request_id"),
 }, (t) => [
   check("otp_attempts_state", sql`${t.state} IN ('pending', 'consumed', 'invalidated', 'expired')`),
-  check("otp_attempts_lifetime", sql`${t.expiresAt} = ${t.issuedAt} + 600000`),
+  check("otp_attempts_lifetime", sql`typeof(${t.expiresAt}) = 'integer' AND ${t.expiresAt} = ${t.issuedAt} + 600000`),
   check("otp_attempts_generation", sql`${t.generation} > 0`),
   check("otp_attempts_consumed", sql`(${t.state} = 'consumed') = (${t.verifiedRequestId} IS NOT NULL)`),
   index("otp_attempts_email_state").on(t.emailKey, t.state, t.issuedAt, t.id),
@@ -90,6 +91,7 @@ export const otpLockouts = sqliteTable("otp_lockouts", {
 }, (t) => [
   primaryKey({ columns: [t.bucketKind, t.bucketKey] }),
   check("otp_lockouts_bucket", sql`${t.bucketKind} IN ('email', 'device', 'source')`),
+  check("otp_lockouts_until", sql`typeof(${t.until}) = 'integer'`),
   index("otp_lockouts_due").on(t.until, t.bucketKind, t.bucketKey),
 ]);
 

@@ -79,7 +79,7 @@ function command<Input extends { body: { operationId: string } }>(route: Command
       const fields = text(input.data);
       for (const key of entryFields) {
         const value = fields[key];
-        if (value && looksLikeAccessCode(value)) {
+        if (value && looksLikeAccessCode(value, key === "safeArrivalNote" ? "arrival" : "place-identity")) {
           return transportFailure(c, { code: "VALIDATION_FAILED", fieldErrors: [{ path: ["payload", key], code: "INVALID_VALUE" }] });
         }
       }

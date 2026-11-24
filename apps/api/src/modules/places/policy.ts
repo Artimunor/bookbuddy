@@ -1,5 +1,5 @@
 import type { CommandStatement } from "../../db/commit";
-import { afterAddressReset, at, liveTerm } from "../access/policy";
+import { at, delegatesPlaceView, liveTerm } from "../access/policy";
 
 export const activePlace = (p: string) => `${p}.state IN ('in_area', 'out_of_area')`;
 export const placeOwner = (p: string, actor: string) => `${p}.owner_id = ${actor}`;
@@ -17,13 +17,13 @@ export const placeReadable = (p: string, person: string, scope: string, clock = 
   AND ${currentPerson(person, clock)} AND ${placeViewer(p, `${scope}.account_id`, clock)}`;
 
 export const placeManager = (p: string, actor: string) =>
-  `(${placeOwner(p, actor)} OR ${placeCapability(`${p}.id`, actor, "delegate")})`;
+  `(${placeOwner(p, actor)} OR ${delegatesPlaceView(`${p}.id`, actor)})`;
 
 // Address changes pause authority for the old address until operations verifies
 // the new one. The customer route cannot produce an independent record.
 export const ownerVerification = (p: string, person: string) => `SELECT v.id FROM authority_verifications v
   WHERE v.place_id = ${p}.id AND v.subject_account_id = ${p}.owner_id AND v.verified_at <= ${at}
-    AND ${afterAddressReset(`${p}.id`, "v.verified_at")} AND (
+    AND v.address_revision = ${p}.address_revision AND (
       (v.kind = 'place_owner' AND v.verified_at >= ${person}.verified_from)
       OR (v.kind = 'place_transfer' AND EXISTS (
         SELECT 1 FROM invitations i WHERE i.verification_id = v.id AND i.place_id = ${p}.id AND i.inviter_id <> v.verified_by
@@ -34,6 +34,13 @@ export const verifiedOwner = (p: string, person: string) => `EXISTS (${ownerVeri
 
 export const bookedPlace = (place: string) => `EXISTS (SELECT 1 FROM jobs j JOIN visits v ON v.job_id = j.id
   WHERE j.place_id = ${place} AND j.state = 'open' AND v.state = 'booked')`;
+
+export const openPlaceCommitments = (place: string) => `(EXISTS (
+  SELECT 1 FROM jobs j WHERE j.place_id = ${place} AND j.state = 'open'
+) OR EXISTS (
+  SELECT 1 FROM jobs j JOIN problem_cases pc ON pc.job_id = j.id
+  WHERE j.place_id = ${place} AND pc.state IN ('open', 'awaiting_plan')
+))`;
 
 export const placeContextIds = (place: string, now: number): CommandStatement => ({
   sql: `SELECT c.id AS context_id FROM places p JOIN place_people pp ON pp.place_id = p.id

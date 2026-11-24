@@ -16,6 +16,7 @@ const currentBusiness = `SELECT json_object('kind', 'business', 'context', json_
     'scope', json_object('contextId', c.id, 'role', c.role, 'businessId', c.business_id), 'businessName', b.public_name),
     'workEligibility', ${memberEligibility("m")}, 'supportReference', NULL)
   FROM memberships m JOIN membership_roles g ON g.membership_id = m.id AND g.role = ${inviteRole("i")} AND g.revoked_at IS NULL
+    AND g.granted_at <= ${at}
   JOIN account_contexts c ON c.role_grant_id = g.id
   WHERE b.state = 'approved' AND m.business_id = b.id AND m.account_id = i.recipient_id AND m.state = 'active'`;
 

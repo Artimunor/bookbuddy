@@ -5,7 +5,7 @@ import { at, displayName, inviteKind, liveTerm, scopedStatement } from "../acces
 import type { SessionAccess } from "../auth/session";
 import type { SyncProjectionReader } from "../sync/registry";
 import {
-  activePlace, bookedPlace, currentPerson, placeCapability, placeManager, placeOwner, placeReadable, verifiedOwner,
+  activePlace, bookedPlace, currentPerson, openPlaceCommitments, placeCapability, placeManager, placeOwner, placeReadable, verifiedOwner,
 } from "./policy";
 import { currentTransferMailbox } from "./invitation";
 
@@ -128,7 +128,7 @@ export function placeDetailsAt(place: string) {
       'invite', ${yes(`${active} AND ${manager}`)},
       'changeApprover', ${yes(`${active} AND ${owner} AND ${verified}`)},
       'transfer', ${yes(`${active} AND ${owner} AND ${verified}`)},
-      'archive', ${yes(`${owner} AND ${verified} AND property.state <> 'archived' AND NOT (${booked})`)})),
+      'archive', ${yes(`${owner} AND ${verified} AND property.state <> 'archived' AND NOT ${openPlaceCommitments("property.id")}`)})),
       (${bookingCounts})) AS value
     FROM place_people person JOIN places property ON property.id = person.place_id
     LEFT JOIN operating_areas area ON area.id = property.area_id

@@ -102,6 +102,7 @@ CREATE TABLE places (
   named_approver_id TEXT,
   alias TEXT NOT NULL,
   normalized_address TEXT NOT NULL,
+  address_revision INTEGER NOT NULL DEFAULT 0,
   pin TEXT,
   site_zone TEXT,
   area_id TEXT,
@@ -110,6 +111,7 @@ CREATE TABLE places (
   state TEXT NOT NULL,
   CONSTRAINT places_state CHECK (state IN ('pending_verification', 'in_area', 'out_of_area', 'restricted', 'archived')),
   CONSTRAINT places_revision CHECK (revision >= 0),
+  CONSTRAINT places_address_revision CHECK (typeof(address_revision) = 'integer' AND address_revision >= 0),
   CONSTRAINT places_verified CHECK (
     (state NOT IN ('in_area', 'out_of_area') OR (pin IS NOT NULL AND site_zone IS NOT NULL AND named_approver_id IS NOT NULL))
     AND (state <> 'in_area' OR area_id IS NOT NULL)
@@ -123,11 +125,17 @@ CREATE TABLE places (
       0
     ) ELSE 0 END
   ),
+  UNIQUE (id, address_revision),
   FOREIGN KEY (area_id, site_zone) REFERENCES operating_areas (id, site_zone),
   FOREIGN KEY (id, named_approver_id) REFERENCES place_people (place_id, current_account_id)
 );
 CREATE INDEX places_owner_state ON places (owner_id, state, id);
 CREATE INDEX places_area_state ON places (area_id, state, id);
+
+CREATE TRIGGER places_address_revision_change
+BEFORE UPDATE OF normalized_address, address_revision ON places
+WHEN NEW.address_revision <> OLD.address_revision + (NEW.normalized_address <> OLD.normalized_address)
+BEGIN SELECT RAISE(ABORT, 'address change requires the next address revision'); END;
 
 CREATE TABLE place_people (
   place_id TEXT NOT NULL REFERENCES places (id),
@@ -146,6 +154,7 @@ CREATE TABLE authority_verifications (
   id TEXT PRIMARY KEY NOT NULL,
   business_id TEXT REFERENCES businesses (id),
   place_id TEXT REFERENCES places (id),
+  address_revision INTEGER,
   subject_account_id TEXT REFERENCES accounts (id),
   kind TEXT NOT NULL,
   verified_by TEXT NOT NULL REFERENCES accounts (id),
@@ -154,12 +163,17 @@ CREATE TABLE authority_verifications (
     (business_id IS NOT NULL AND place_id IS NULL AND kind IN ('business', 'membership', 'business_grant'))
     OR (business_id IS NULL AND place_id IS NOT NULL AND kind IN ('place_pin', 'place_owner', 'place_approver', 'place_transfer', 'place_grant'))
   ),
+  CONSTRAINT authority_verifications_address_revision CHECK (
+    (place_id IS NULL AND address_revision IS NULL)
+    OR (place_id IS NOT NULL AND typeof(address_revision) = 'integer' AND address_revision >= 0)
+  ),
   CONSTRAINT authority_verifications_independent CHECK (subject_account_id IS NULL OR subject_account_id <> verified_by),
   UNIQUE (id, business_id),
-  UNIQUE (id, place_id)
+  UNIQUE (id, place_id),
+  UNIQUE (id, place_id, address_revision)
 );
 CREATE INDEX authority_verifications_business_subject ON authority_verifications (business_id, subject_account_id, kind, verified_at, id) WHERE business_id IS NOT NULL;
-CREATE INDEX authority_verifications_place_subject ON authority_verifications (place_id, subject_account_id, kind, verified_at, id) WHERE place_id IS NOT NULL;
+CREATE INDEX authority_verifications_place_subject ON authority_verifications (place_id, subject_account_id, kind, address_revision, verified_at, id) WHERE place_id IS NOT NULL;
 
 CREATE TABLE business_grants (
   id TEXT PRIMARY KEY NOT NULL,
@@ -175,7 +189,10 @@ CREATE TABLE business_grants (
     'handoff', 'backup_foreman', 'review_commercial', 'publish_commercial', 'issue_bill',
     'record_paid', 'billing_deferral', 'membership_admin', 'schedule_correction', 'feedback_lead'
   )),
-  CONSTRAINT business_grants_term CHECK ((valid_until IS NULL OR valid_until > valid_from) AND (revoked_at IS NULL OR revoked_at >= valid_from)),
+  CONSTRAINT business_grants_term CHECK (
+    (valid_until IS NULL OR (typeof(valid_until) = 'integer' AND valid_until > valid_from))
+    AND (revoked_at IS NULL OR revoked_at >= valid_from)
+  ),
   FOREIGN KEY (business_id, membership_id) REFERENCES memberships (business_id, id),
   FOREIGN KEY (approval_verification_id, business_id) REFERENCES authority_verifications (id, business_id)
 );
@@ -190,13 +207,23 @@ CREATE TABLE place_grants (
   capability TEXT NOT NULL,
   issuer_id TEXT NOT NULL REFERENCES accounts (id),
   approval_verification_id TEXT,
+  address_revision INTEGER NOT NULL DEFAULT 0,
   valid_from INTEGER NOT NULL,
   valid_until INTEGER,
   revoked_at INTEGER,
+  -- Historical grants keep their issuing address revision; live protected grants must match the place.
+  current_address_revision INTEGER GENERATED ALWAYS AS (
+    CASE WHEN revoked_at IS NULL AND capability IN ('approve', 'book', 'request') THEN address_revision END
+  ) VIRTUAL,
   CONSTRAINT place_grants_capability CHECK (capability IN ('view', 'message', 'request', 'book', 'approve', 'sign_off', 'bill_view', 'delegate')),
-  CONSTRAINT place_grants_term CHECK ((valid_until IS NULL OR valid_until > valid_from) AND (revoked_at IS NULL OR revoked_at >= valid_from)),
+  CONSTRAINT place_grants_term CHECK (
+    (valid_until IS NULL OR (typeof(valid_until) = 'integer' AND valid_until > valid_from))
+    AND (revoked_at IS NULL OR revoked_at >= valid_from)
+  ),
+  CONSTRAINT place_grants_address_revision CHECK (typeof(address_revision) = 'integer' AND address_revision >= 0),
   FOREIGN KEY (place_id, account_id) REFERENCES place_people (place_id, account_id),
-  FOREIGN KEY (approval_verification_id, place_id) REFERENCES authority_verifications (id, place_id)
+  FOREIGN KEY (place_id, current_address_revision) REFERENCES places (id, address_revision),
+  FOREIGN KEY (approval_verification_id, place_id, address_revision) REFERENCES authority_verifications (id, place_id, address_revision)
 );
 CREATE UNIQUE INDEX place_grants_current ON place_grants (place_id, account_id, capability) WHERE revoked_at IS NULL;
 -- Approval commands also require the exact current places.named_approver_id.
@@ -222,8 +249,8 @@ CREATE TABLE eligibility_checks (
     (checked_at IS NULL) = (checked_by IS NULL)
     AND (state = 'pending' OR checked_at IS NOT NULL)
     AND (state <> 'approved' OR valid_until IS NOT NULL OR review_by IS NOT NULL)
-    AND (valid_until IS NULL OR (checked_at IS NOT NULL AND valid_until > checked_at))
-    AND (review_by IS NULL OR checked_at IS NULL OR review_by > checked_at)
+    AND (valid_until IS NULL OR (typeof(valid_until) = 'integer' AND checked_at IS NOT NULL AND valid_until > checked_at))
+    AND (review_by IS NULL OR (typeof(review_by) = 'integer' AND (checked_at IS NULL OR review_by > checked_at)))
   ),
   FOREIGN KEY (business_id, membership_id) REFERENCES memberships (business_id, id)
 );
@@ -274,6 +301,7 @@ CREATE TABLE invitations (
   recipient_email_ciphertext TEXT,
   business_id TEXT REFERENCES businesses (id),
   place_id TEXT REFERENCES places (id),
+  address_revision INTEGER,
   inviter_id TEXT NOT NULL REFERENCES accounts (id),
   grant_snapshot TEXT NOT NULL,
   verification_id TEXT,
@@ -286,7 +314,11 @@ CREATE TABLE invitations (
   state TEXT NOT NULL,
   CONSTRAINT invitations_state CHECK (state IN ('pending', 'accepted', 'declined', 'withdrawn', 'expired')),
   CONSTRAINT invitations_scope CHECK ((business_id IS NULL) <> (place_id IS NULL)),
-  CONSTRAINT invitations_lifetime CHECK (expires_at = issued_at + 172800000),
+  CONSTRAINT invitations_address_revision CHECK (
+    (place_id IS NULL AND address_revision IS NULL)
+    OR (place_id IS NOT NULL AND typeof(address_revision) = 'integer' AND address_revision >= 0)
+  ),
+  CONSTRAINT invitations_lifetime CHECK (typeof(expires_at) = 'integer' AND expires_at = issued_at + 172800000),
   CONSTRAINT invitations_resolution CHECK (
     (state = 'pending') = (ended_at IS NULL)
     AND (ended_at IS NULL OR ended_at >= issued_at)
@@ -310,7 +342,7 @@ CREATE TABLE invitations (
   UNIQUE (business_id, recipient_key, id),
   UNIQUE (place_id, recipient_key, id),
   FOREIGN KEY (verification_id, business_id) REFERENCES authority_verifications (id, business_id),
-  FOREIGN KEY (verification_id, place_id) REFERENCES authority_verifications (id, place_id),
+  FOREIGN KEY (verification_id, place_id, address_revision) REFERENCES authority_verifications (id, place_id, address_revision),
   FOREIGN KEY (business_id, recipient_key, supersedes_id) REFERENCES invitations (business_id, recipient_key, id),
   FOREIGN KEY (place_id, recipient_key, supersedes_id) REFERENCES invitations (place_id, recipient_key, id)
 );
@@ -318,7 +350,7 @@ CREATE TABLE invitations (
 CREATE UNIQUE INDEX invitations_business_pending_recipient ON invitations (business_id, recipient_key) WHERE state = 'pending' AND business_id IS NOT NULL;
 CREATE UNIQUE INDEX invitations_place_pending_recipient ON invitations (place_id, recipient_key) WHERE state = 'pending' AND place_id IS NOT NULL;
 CREATE UNIQUE INDEX invitations_place_pending_slot ON invitations (place_id, pending_slot) WHERE state = 'pending' AND place_id IS NOT NULL;
-CREATE INDEX invitations_business_reissue ON invitations (business_id, recipient_key, issued_at, id) WHERE supersedes_id IS NOT NULL AND business_id IS NOT NULL;
+CREATE INDEX invitations_business_delivery ON invitations (business_id, recipient_key, issued_at, id) WHERE business_id IS NOT NULL;
 CREATE INDEX invitations_place_reissue ON invitations (place_id, recipient_key, issued_at, id) WHERE supersedes_id IS NOT NULL AND place_id IS NOT NULL;
 CREATE INDEX invitations_business_state ON invitations (business_id, state, issued_at, id) WHERE business_id IS NOT NULL;
 CREATE INDEX invitations_place_state ON invitations (place_id, state, issued_at, id) WHERE place_id IS NOT NULL;
