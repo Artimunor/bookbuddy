@@ -1,0 +1,9 @@
+# Local development only; replace secrets before use outside an isolated local environment.
+OTP_HMAC_KEY=local-only-otp-hmac-key-change-this-value
+EFFECTS_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+SYNC_CURSOR_HMAC_KEY=local-only-sync-cursor-key-change-this-value
+OTP_MAIL_DEV=true
+OTP_DEV_LOG_CODE=true
+OTP_DEV_TEST_CODE=123456
+# Set in the shell when running the seed script; it is not a Worker binding.
+# SEED_EMAIL_DOMAIN=bookbuddy.test
