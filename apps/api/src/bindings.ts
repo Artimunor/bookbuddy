@@ -6,6 +6,7 @@ export interface Bindings {
   EVIDENCE: R2Bucket;
   LIVE: DurableObjectNamespace<LiveTopic>;
   EFFECTS: Queue<EffectsWake>;
+  SYNC_CURSOR_HMAC_KEY?: string;
 }
 
 export type ApiEnv = {

@@ -2,5 +2,7 @@ export * from "./common";
 export * from "./links";
 export * from "./route";
 export * from "./sync-envelope";
+export * from "./sync";
+export * from "./notifications";
 export * from "./access";
 export * from "./places";
