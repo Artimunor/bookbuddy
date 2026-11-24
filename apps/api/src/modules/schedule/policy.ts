@@ -62,11 +62,15 @@ export const workerContext = (scope: string, clock = at) => `(${scope}.role = 'w
 export const confirmedWindow = (visit: string, alias = "booked") => `LEFT JOIN visit_windows ${alias}
   ON ${alias}.visit_id = ${visit}.id AND ${alias}.state = 'confirmed' AND ${alias}.confirmed_at <= ${at}`;
 
+// Receipt proves the stamp exists; an accepted future arrival is visible only when it occurs.
+export const publishedCustomerUpdate = (stamp: string) =>
+  `${stamp}.recorded_at <= ${at} AND (${stamp}.occurred_at IS NULL OR ${stamp}.occurred_at <= ${at})`;
+
 // A shortage belongs to the booking it was published for. A newer public
 // service update can resolve it; internal staffing and proposals cannot.
 export const currentNoCrewStamp = (visitId: string, booked: string) => `(SELECT
   CASE WHEN u.kind = 'no_crew_available' THEN u.id END FROM customer_updates u
-  WHERE u.visit_id = ${visitId} AND u.recorded_at BETWEEN ${booked}.confirmed_at AND ${at}
+  WHERE u.visit_id = ${visitId} AND u.recorded_at >= ${booked}.confirmed_at AND ${publishedCustomerUpdate("u")}
     AND (u.booked_window_id IS NULL OR u.booked_window_id = ${booked}.id)
     AND u.kind IN ('no_crew_available', 'crew_confirmed', 'crew_updated', 'cover_arranging',
       'on_the_way', 'arrival_revised', 'arrival_withdrawn', 'on_site', 'working', 'paused', 'finished')

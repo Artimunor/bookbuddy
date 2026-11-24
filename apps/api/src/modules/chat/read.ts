@@ -7,6 +7,7 @@ import { customerStampSql } from "../field/live";
 import { activeHold, currentSafetyVersion, effectiveAttendance } from "../field/safety";
 import { currentMembership } from "../jobs/projections";
 import { mediaLinkAvailable } from "../media/deadlines";
+import { publishedCustomerUpdate } from "../schedule/policy";
 import type { SyncProjectionReader } from "../sync/registry";
 import { chatMediaAvailable, chatThreadKind, mediaKind, readingLocales, receiptFields, savedReadPosition } from "./commands";
 import { chatParticipants, chatScope, chatTargets, entryVisible, exactThread, inboxThreadScope } from "./policy";
@@ -105,11 +106,11 @@ export function readThread(session: SessionAccess, now: number, threadId: string
 const stampFloor = `max(t.visible_since, coalesce((SELECT received_at + 1 FROM chat_entries e
   WHERE e.thread_id = t.id AND e.position < t.visible_from ORDER BY e.position DESC LIMIT 1), t.visible_since))`;
 const jobStamps = items(`SELECT json_object('visitId', v.id, 'update', json(${customerStampSql("cu", "b.public_name")}),
-  'isCurrent', ${bool(`NOT EXISTS (SELECT 1 FROM customer_updates next WHERE next.visit_id = v.id AND next.recorded_at <= ${at}
+  'isCurrent', ${bool(`NOT EXISTS (SELECT 1 FROM customer_updates next WHERE next.visit_id = v.id AND ${publishedCustomerUpdate("next")}
     AND (next.recorded_at, next.rowid) > (cu.recorded_at, cu.rowid) AND (next.corrects_id = cu.id
       OR (cu.kind IN ('on_the_way', 'arrival_revised', 'arrival_withdrawn') AND next.kind IN ('on_site', 'arrival_revised', 'arrival_withdrawn', 'cover_arranging', 'on_the_way'))))`)}) AS value
   FROM visits v JOIN customer_updates cu ON cu.visit_id = v.id JOIN businesses b ON b.id = t.business_id
-  WHERE v.job_id = t.job_id AND cu.recorded_at BETWEEN ${stampFloor} AND ${at}
+  WHERE v.job_id = t.job_id AND cu.recorded_at >= ${stampFloor} AND ${publishedCustomerUpdate("cu")}
     AND (cu.kind <> 'photo' OR EXISTS (SELECT 1 FROM update_attachments ua WHERE ua.update_id = cu.id))
   ORDER BY cu.recorded_at DESC, cu.id DESC LIMIT ${entryPageSize}`);
 

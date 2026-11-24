@@ -124,7 +124,7 @@ export function patchPlace(ctx: RequestScope, base: SessionAccess, place: string
           WHERE p.normalized_address <> ? AND ${guard.sql}`,
         crypto.randomUUID(), address, ...guard.params ?? []),
         scopedStatement(access, `UPDATE place_grants SET revoked_at = max(valid_from, ${at})
-          WHERE place_id IN (${changedAddress}) AND capability IN ('approve', 'book', 'request') AND revoked_at IS NULL AND ${guard.sql}`,
+          WHERE place_id IN (${changedAddress}) AND capability IN ('approve', 'book', 'request', 'sign_off') AND revoked_at IS NULL AND ${guard.sql}`,
         address, ...guard.params ?? []),
         scopedStatement(access, `UPDATE invitations SET state = CASE WHEN expires_at <= ${at} THEN 'expired' ELSE 'withdrawn' END,
           ended_at = ${at} WHERE place_id IN (${changedAddress}) AND state = 'pending' AND ${guard.sql}`, address, ...guard.params ?? []),

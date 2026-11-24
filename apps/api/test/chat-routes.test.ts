@@ -271,6 +271,23 @@ test("sync shares append identity, authority and durable effects without exposin
   } finally { f.db.close(); }
 });
 
+test("chat keeps ordinary numbers in originals but rejects labelled credentials", async () => {
+  const f = await fixture();
+  try {
+    const { jobThread } = await f.threads();
+    const note = "The frame was installed in 2024.";
+    const sent = data(appendThreadEntriesRoute.output, await f.request(entries(jobThread), "foreman", { operations: [
+      entry("year", note), entry("private-credential", "Gate code: Cedar-Blue"),
+    ] }));
+    expect(sent.outcomes).toMatchObject([
+      { status: "committed", receipt: { id: "year" } },
+      { status: "rejected", error: { code: "VALIDATION_FAILED" } },
+    ]);
+    expect(data(getThreadEntriesRoute.output, await f.request(entries(jobThread), "customer")).entries)
+      .toMatchObject([{ id: "year", originalText: note }]);
+  } finally { f.db.close(); }
+});
+
 test("only a definitely uncharged attempt can retry; an expired or ambiguous claim is never resent", async () => {
   const f = await fixture();
   try {
@@ -377,8 +394,8 @@ test("chat append atomically creates recipient-scoped notices, reuses links, and
     const { crew } = await f.threads();
     const origin = "https://bookbuddy.test";
     f.env.PUBLIC_APP_ORIGIN = origin;
-    await f.db.prepare(`INSERT INTO push_installations (id, account_id, token, token_epoch, platform, state, updated_at)
-      VALUES ('worker-device','worker','ExpoPushToken[chat-worker]',1,'ios','active',?)`).bind(Date.now()).run();
+    await f.db.prepare(`INSERT INTO push_installations (id, account_id, device_id, session_id, token, token_epoch, platform, state, updated_at)
+      VALUES ('worker-device','worker','device','worker-session','ExpoPushToken[chat-worker]',1,'ios','active',?)`).bind(Date.now()).run();
     const text = "A peça chegou";
     const first = entry("crew-alert", text, "pt-PT");
     const second = entry("crew-update", "A peça está pronta", "pt-PT");
@@ -414,7 +431,7 @@ test("chat append atomically creates recipient-scoped notices, reuses links, and
   } finally { f.db.close(); }
 });
 
-test("session chat opens lazily for the exact booking, fences flags and hosts, and sends scoped links", async () => {
+test("booking creates the inbox thread before detail opens; chat fences flags, hosts and links", async () => {
   const f = await fixture();
   try {
     const now = Date.now();
@@ -450,27 +467,33 @@ test("session chat opens lazily for the exact booking, fences flags and hosts, a
     expect(threadId).toMatch(/^session-[a-f0-9]{32}$/);
     expect(otherThread).not.toBe(threadId);
     expect(await f.request(entries(threadId), "viewer")).toMatchObject({ status: 404, body: noAccess });
+    expect(await f.db.prepare("SELECT count(*) AS total FROM chat_threads WHERE audience='session'").first("total")).toBe(2);
+    const initialSync = data(syncRoute.output, await f.request("/sync", "foreman", {
+      contextId: "foreman-ctx", cursor: null, operations: [],
+    }));
+    expect(initialSync.upserts).toContainEqual(expect.objectContaining({ kind: "chat_thread", resourceId: threadId }));
     await f.db.prepare("UPDATE feature_flags SET enabled=0 WHERE key='sessions' AND scope_key='chat-business'").run();
     expect(await f.request(entries(threadId), "customer")).toMatchObject({ status: 404, body: noAccess });
-    expect(await f.db.prepare("SELECT count(*) AS total FROM chat_threads WHERE audience='session'").first("total")).toBe(0);
+    const hidden = data(syncRoute.output, await f.request("/sync", "foreman", {
+      contextId: "foreman-ctx", cursor: initialSync.cursor, operations: [],
+    }));
+    expect(hidden).toMatchObject({ mode: "reset", removals: [{ kind: "scope", resourceId: "foreman-ctx" }] });
+    expect(hidden.upserts).not.toContainEqual(expect.objectContaining({ kind: "chat_thread", resourceId: threadId }));
     await f.db.prepare("UPDATE feature_flags SET enabled=1 WHERE key='sessions'").run();
 
-    const initial = data(getThreadEntriesRoute.output, await f.request(entries(threadId), "customer"));
-    expect(initial).toMatchObject({ audience: "session", entries: [], stamps: [], thread: { id: threadId, canSend: true,
-      session: { id: "customer-booking", title: "Mat Pilates", siteZone: "Europe/Madrid" } } });
-    expect(initial.thread?.members.find((member) => member.isContact)?.displayName).toBe("Mateo Ruiz");
-    expect(await f.db.prepare("SELECT job_id, session_booking_id FROM chat_threads WHERE id=?").bind(threadId).first())
-      .toEqual({ job_id: null, session_booking_id: "customer-booking" });
-    const providerView = data(getThreadRoute.output, await f.request(details(threadId), "admin"));
-    expect(providerView.members.map(({ role }) => role).sort()).toEqual(["customer", "foreman", "provider_admin", "worker"]);
-    expect(JSON.stringify(providerView)).not.toMatch(/Vera Lou|Exact studio address/);
+    expect(data(listThreadsRoute.output, await f.request("/threads", "foreman")).threads)
+      .toContainEqual(expect.objectContaining({ id: threadId, audience: "session" }));
     const sent = data(appendThreadEntriesRoute.output, await f.request(entries(threadId), "worker",
       { operations: [entry("session-entry", "We have a mat ready for you")] }));
     expect(sent.outcomes).toMatchObject([{ status: "committed", receipt: { id: "session-entry", position: 1 } }]);
     const opened = data(getThreadEntriesRoute.output, await f.request(entries(threadId), "customer"));
+    expect(opened).toMatchObject({ audience: "session", stamps: [], thread: { id: threadId, canSend: true,
+      session: { id: "customer-booking", title: "Mat Pilates", siteZone: "Europe/Madrid" } } });
     expect(opened.entries[0]).toMatchObject({ originalText: "We have a mat ready for you", preferredTranslation: { state: "pending" } });
-    expect(data(listThreadsRoute.output, await f.request("/threads", "foreman")).threads)
-      .toContainEqual(expect.objectContaining({ id: threadId, audience: "session" }));
+    expect(opened.thread?.members.find((member) => member.isContact)?.displayName).toBe("Mateo Ruiz");
+    const providerView = data(getThreadRoute.output, await f.request(details(threadId), "admin"));
+    expect(providerView.members.map(({ role }) => role).sort()).toEqual(["customer", "foreman", "provider_admin", "worker"]);
+    expect(JSON.stringify(providerView)).not.toMatch(/Vera Lou|Exact studio address/);
     const token = await f.db.prepare("SELECT link_token FROM notifications WHERE context_id='customer-ctx' AND event_key='chat_message:session-entry'")
       .first<string>("link_token");
     expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "customer"))).toEqual({ kind: "thread", threadId, audience: "session" });

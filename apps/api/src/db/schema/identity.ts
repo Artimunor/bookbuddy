@@ -1,6 +1,6 @@
 import { ACCOUNT_STATES, OTP_ATTEMPT_STATES, THEMES } from "@bookbuddy/domain";
 import { sql } from "drizzle-orm";
-import { check, foreignKey, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { accountContexts } from "./access";
 
 const otpBucketKinds = ["email", "device", "source"] as const;
@@ -49,6 +49,7 @@ export const sessions = sqliteTable("sessions", {
   check("sessions_term", sql`typeof(${t.expiresAt}) = 'integer' AND ${t.expiresAt} > ${t.issuedAt}
     AND (${t.revokedAt} IS NULL OR ${t.revokedAt} >= ${t.issuedAt})`),
   foreignKey({ columns: [t.activeContextId, t.accountId], foreignColumns: [accountContexts.id, accountContexts.accountId] }),
+  unique().on(t.id, t.accountId, t.deviceId),
   index("sessions_account_active").on(t.accountId, t.expiresAt, t.id).where(sql`${t.revokedAt} IS NULL`),
   index("sessions_active_context").on(t.activeContextId, t.accountId).where(sql`${t.activeContextId} IS NOT NULL`),
 ]);

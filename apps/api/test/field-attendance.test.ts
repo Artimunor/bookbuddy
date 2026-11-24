@@ -1,6 +1,6 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
-  departAssignmentRoute, getVisitLogRoute, getWorkerFieldShiftRoute, operationIdHeader, recordAssignmentProgressRoute, recordAttendanceRoute,
+  departAssignmentRoute, getVisitLiveRoute, getVisitLogRoute, getWorkerFieldShiftRoute, operationIdHeader, recordAssignmentProgressRoute, recordAttendanceRoute,
   requestAttendanceCorrectionRoute, resultSchema, syncLimits, syncProgressPhotoLimit, syncRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
@@ -204,6 +204,28 @@ test("future arrival does not publish on site; a delayed valid capture still can
     const departure = await data(await f.command("attendance", "future-capture-op", clockAhead), recordAttendanceRoute.output);
     expect(departure.event).toMatchObject({ reviewState: "needs_review", reasonCode: "out_of_window" });
   } finally { f.db.close(); }
+});
+
+test("a tolerated future arrival becomes customer-visible at its occurrence, without a second write", async () => {
+  const receiptAt = Date.now();
+  const clock = spyOn(Date, "now").mockReturnValue(receiptAt);
+  const f = await fieldFixture();
+  try {
+    const actualAt = receiptAt + minute;
+    const recorded = await data(await f.command("attendance", "tolerated-op", capture("tolerated-arrival", "arrival", actualAt)),
+      recordAttendanceRoute.output);
+    expect(recorded.event).toMatchObject({ actualAt, receivedAt: receiptAt, reviewState: "accepted" });
+    expect(f.hints).not.toContain("customer-visit:visit");
+    const visit = () => f.request("customer", "/visits/visit/live", "GET").then((response) => data(response, getVisitLiveRoute.output));
+    const preview = () => f.request("foreman", "/visits/visit/log?view=customer", "GET").then((response) => data(response, getVisitLogRoute.output));
+    clock.mockReturnValue(actualAt - 1);
+    expect(await visit()).toMatchObject({ live: { status: null }, moments: [] });
+    expect(await preview()).toMatchObject({ stamps: [] });
+    clock.mockReturnValue(actualAt);
+    expect(await visit()).toMatchObject({ live: { status: "on_site", since: actualAt },
+      moments: [{ kind: "on_site", occurredAt: actualAt, recordedAt: receiptAt }] });
+    expect(await preview()).toMatchObject({ stamps: [{ kind: "on_site", occurredAt: actualAt }] });
+  } finally { f.db.close(); clock.mockRestore(); }
 });
 
 test("sync applies attendance and snapshots in one batch and replays the same receipt without writes", async () => {

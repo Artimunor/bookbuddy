@@ -12,6 +12,7 @@ import { syncPageSchema, syncRequestSchema } from "./sync-envelope";
 const cursorClaims = z.object({
   version: z.literal(1), accountId: accountIdSchema, context: scopeHeaderSchema, epoch: revisionSchema, expiresAt: revisionSchema,
   nextExpiry: revisionSchema.nullable(),
+  sessionsEpoch: revisionSchema.optional(),
 });
 export const syncCursorClaimsSchema = z.discriminatedUnion("phase", [
   cursorClaims.extend({ phase: z.literal("delta"), seq: revisionSchema, through: revisionSchema.optional() }),

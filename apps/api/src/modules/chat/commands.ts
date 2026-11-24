@@ -60,7 +60,7 @@ export async function planChatAppend(ctx: Clock, session: SessionAccess, threadI
   const attachments = [...(payload.attachmentIds ?? [])].sort();
   const linked = JSON.stringify(attachments);
   const original = originalText ?? null;
-  const validText = original === null || (!unsupportedMessageControls.test(original) && !looksLikeAccessCode(original));
+  const validText = original === null || (!unsupportedMessageControls.test(original) && !looksLikeAccessCode(original, "label-only"));
   const translate = validText && original !== null && translationText(original) !== null && pairs.length > 0;
   const scoped = chatScope(session, ctx.now, exactThread(threadId));
   const access: SessionAccess = { sql: `${scoped.sql}, append_input(id, corrects_id, original_text, source_language, attachments) AS (

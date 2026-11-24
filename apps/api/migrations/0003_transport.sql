@@ -31,7 +31,8 @@ CREATE INDEX sync_changes_partition_seq ON sync_changes(partition_key, seq);
 
 CREATE TABLE sync_retention (
   id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
-  floor_seq INTEGER NOT NULL CHECK (floor_seq >= 0)
+  floor_seq INTEGER NOT NULL CHECK (floor_seq >= 0),
+  sessions_epoch INTEGER NOT NULL DEFAULT 0 CHECK (typeof(sessions_epoch) = 'integer' AND sessions_epoch >= 0)
 );
 INSERT INTO sync_retention (id, floor_seq) VALUES (1, 0);
 
@@ -62,16 +63,18 @@ CREATE INDEX notifications_link_token ON notifications(link_token);
 CREATE TABLE push_installations (
   id TEXT NOT NULL PRIMARY KEY,
   account_id TEXT NOT NULL REFERENCES accounts(id),
-  device_id TEXT,
+  device_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
   token TEXT NOT NULL,
   token_epoch INTEGER NOT NULL CHECK (token_epoch > 0),
   platform TEXT NOT NULL CHECK (platform IN ('ios', 'android')),
   state TEXT NOT NULL CHECK (state IN ('active', 'disabled', 'revoked')),
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL,
+  FOREIGN KEY (session_id, account_id, device_id) REFERENCES sessions (id, account_id, device_id)
 );
 CREATE UNIQUE INDEX push_installations_active_token ON push_installations(token) WHERE state = 'active';
 CREATE INDEX push_installations_account_active ON push_installations(account_id, state, id);
-CREATE INDEX push_installations_device_revocable ON push_installations(account_id, device_id) WHERE state <> 'revoked';
+CREATE INDEX push_installations_session ON push_installations(session_id);
 
 CREATE TABLE effect_outbox (
   id TEXT NOT NULL PRIMARY KEY,
@@ -123,3 +126,18 @@ CREATE TABLE feature_flags (
   config_version INTEGER NOT NULL,
   PRIMARY KEY (key, scope_key)
 );
+
+-- The flags and cursor barrier share a transaction. Count inserts even for
+-- disabled rows: SQLite can replace a formerly enabled row without firing DELETE.
+CREATE TRIGGER session_flags_sync_insert AFTER INSERT ON feature_flags
+WHEN NEW.key = 'sessions'
+BEGIN UPDATE sync_retention SET sessions_epoch = sessions_epoch + 1 WHERE id = 1; END;
+
+CREATE TRIGGER session_flags_sync_update AFTER UPDATE OF key, scope_key, enabled ON feature_flags
+WHEN (OLD.key = 'sessions' OR NEW.key = 'sessions')
+  AND (OLD.key IS NOT NEW.key OR OLD.scope_key IS NOT NEW.scope_key OR OLD.enabled IS NOT NEW.enabled)
+BEGIN UPDATE sync_retention SET sessions_epoch = sessions_epoch + 1 WHERE id = 1; END;
+
+CREATE TRIGGER session_flags_sync_delete AFTER DELETE ON feature_flags
+WHEN OLD.key = 'sessions' AND OLD.enabled = 1
+BEGIN UPDATE sync_retention SET sessions_epoch = sessions_epoch + 1 WHERE id = 1; END;

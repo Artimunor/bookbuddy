@@ -81,15 +81,16 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
   }
   const clock = accessClock(access, now);
   const prefix = `${clock.sql},
-      cursor_input(phase, epoch, seq, through_seq, anchor, after_kind, after_id, next_expiry) AS (VALUES (?, ?, ?, ?, ?, ?, ?, ?)),
+      cursor_input(phase, epoch, seq, through_seq, anchor, after_kind, after_id, next_expiry, sessions_epoch) AS (VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)),
       state AS MATERIALIZED (
         SELECT s.account_id, l.context_id, l.role, l.business_id,
-          COALESCE(e.visibility_epoch, 0) AS epoch, r.floor_seq,
+          COALESCE(e.visibility_epoch, 0) AS epoch, r.floor_seq, r.sessions_epoch,
           max(r.floor_seq, COALESCE((SELECT seq FROM sync_changes WHERE partition_key = l.context_id ORDER BY seq DESC LIMIT 1), 0)) AS high,
           i.phase, i.seq, i.through_seq, i.anchor, i.after_kind, i.after_id,
           CASE
             WHEN l.context_id IS NULL THEN 'revoked'
             WHEN i.epoch IS NOT NULL AND i.epoch <> COALESCE(e.visibility_epoch, 0) THEN 'reset'
+            WHEN i.phase NOT IN ('initial', 'expired') AND i.sessions_epoch IS NOT r.sessions_epoch THEN 'reset'
             WHEN i.next_expiry <= ${at} THEN 'reset'
             WHEN i.phase = 'delta' AND i.seq >= r.floor_seq THEN 'delta'
             ELSE 'snapshot'
@@ -99,7 +100,7 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
         JOIN sync_retention r ON r.id = 1 CROSS JOIN cursor_input i
       ),
       bounds AS MATERIALIZED (
-        SELECT account_id, context_id, role, business_id, epoch, mode, seq, high,
+        SELECT account_id, context_id, role, business_id, epoch, sessions_epoch, mode, seq, high,
           COALESCE(through_seq, high) AS delta_through,
           CASE WHEN mode = 'snapshot' AND phase = 'snapshot' AND anchor >= floor_seq THEN anchor ELSE high END AS snapshot_anchor,
           CASE WHEN mode = 'snapshot' AND phase = 'snapshot' AND anchor >= floor_seq THEN after_kind ELSE '' END AS after_kind,
@@ -134,7 +135,7 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
   const expirySql = `, expiry_scope AS MATERIALIZED (
       SELECT s.*, ${currentMembership("s", at)} AS membership_id FROM live_scope s
     ), expiry AS MATERIALIZED (${nextGrantExpiry})`;
-  const pageRows = `SELECT b.account_id, b.context_id, b.role, b.business_id, b.epoch, b.mode, b.barrier, b.high,
+  const pageRows = `SELECT b.account_id, b.context_id, b.role, b.business_id, b.epoch, b.sessions_epoch, b.mode, b.barrier, b.high,
         (SELECT * FROM expiry) AS next_expiry,
         b.delta_through, b.snapshot_anchor, (SELECT MAX(seq) FROM delta_page) AS delta_last,
         CASE WHEN b.mode = 'delta' THEN (SELECT count(*) FROM delta_scan) > ${pageLimit}
@@ -145,7 +146,7 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
       ORDER BY k.seq, k.kind, k.resource_id`;
   const commonParams = [...clock.params, expired ? "expired" : cursor?.phase ?? "initial", cursor?.epoch ?? null,
     delta?.seq ?? null, delta?.through ?? null, snapshot?.anchor ?? null, snapshot?.kind ?? null, snapshot?.id ?? null,
-    cursor?.nextExpiry ?? null, ...snapshotParams];
+    cursor?.nextExpiry ?? null, cursor?.sessionsEpoch ?? null, ...snapshotParams];
 
   // A large projection does not justify another D1 request. Keep the same
   // scoped page derivation in each necessary shard; all shards read the same
@@ -185,6 +186,7 @@ interface FeedRow {
   role: string | null;
   business_id: string | null;
   epoch: number;
+  sessions_epoch: number;
   next_expiry: number | null;
   mode: SyncPage["mode"] | "revoked";
   barrier: number;
@@ -200,7 +202,7 @@ interface FeedRow {
 }
 
 export type FeedPage = Pick<SyncPage, "mode" | "context" | "upserts" | "removals" | "hasMore"> & {
-  accountId: SyncCursor["accountId"]; epoch: number; nextExpiry: number | null; position: CursorPosition;
+  accountId: SyncCursor["accountId"]; epoch: number; sessionsEpoch: number; nextExpiry: number | null; position: CursorPosition;
 };
 
 interface ProjectedRow { kind: string; resource_id: string; value: string | null }
@@ -214,7 +216,7 @@ export function decodeFeed(results: readonly D1Result[], cursor: SyncCursor | nu
   if (first.mode === "revoked") {
     // Only an authenticated former recipient with a signed context may purge a revoked scope.
     if (!cursor) return "NOT_FOUND";
-    return { mode: "reset", accountId, context: cursor.context, epoch: cursor.epoch, nextExpiry: null,
+    return { mode: "reset", accountId, context: cursor.context, epoch: cursor.epoch, sessionsEpoch: first.sessions_epoch, nextExpiry: null,
       upserts: [], removals: [{ kind: "scope", resourceId: cursor.context.contextId }], position: { phase: "revoked" }, hasMore: false };
   }
   const context: ScopeHeader = scopeHeaderSchema.parse({ contextId: first.context_id, businessId: first.business_id, role: first.role });
@@ -246,5 +248,6 @@ export function decodeFeed(results: readonly D1Result[], cursor: SyncCursor | nu
     : hasMoreInWindow && lastKey
       ? { phase: "snapshot", anchor: first.snapshot_anchor, ...lastKey }
       : { phase: "delta", seq: first.snapshot_anchor };
-  return { mode: first.mode, context, accountId, epoch: first.epoch, nextExpiry: first.next_expiry, removals, upserts, position, hasMore };
+  return { mode: first.mode, context, accountId, epoch: first.epoch, sessionsEpoch: first.sessions_epoch,
+    nextExpiry: first.next_expiry, removals, upserts, position, hasMore };
 }

@@ -47,3 +47,12 @@ test.each([
   expect(looksLikeAccessCode(address, "place-identity")).toBe(false);
   expect(looksLikeAccessCode(address)).toBe(true);
 });
+
+test.each([
+  ["The frame was installed in 2024.", false],
+  ["Gate 43 is damaged.", false],
+  ["Gate code is 4827", true],
+  ["Alarm code: Blue-Sky", true],
+])("prose requires a credential label: %s", (text, secret) => {
+  expect(looksLikeAccessCode(text, "label-only")).toBe(secret);
+});

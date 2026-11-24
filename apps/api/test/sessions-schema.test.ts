@@ -110,7 +110,7 @@ test("booking consumes only the exact held listing version and keeps the origina
   expect(db.calls).toMatchObject({ batch, query: query + 1 });
 }));
 
-test("session chat reserves one stable address; the thread has one real booking parent", () => withSchedule(async (db) => {
+test("booking provisions its stable chat address with one real booking parent", () => withSchedule(async (db) => {
   await writeOnce(db, hold(db, "hold", "booker", 100, 200), book(db, 110));
   const id = await db.prepare("SELECT thread_id FROM session_bookings WHERE id = 'booking'").first<string>("thread_id");
   expect(id).toMatch(/^session-[a-f0-9]{32}$/);
@@ -122,8 +122,8 @@ test("session chat reserves one stable address; the thread has one real booking 
     VALUES ('wrong-kind', 'booking', 'job', 'open')`))).rejects.toThrow(/chat_threads_parent/);
   await expect(writeOnce(db, db.prepare(`INSERT INTO chat_threads (id, session_booking_id, audience, write_state)
     VALUES ('missing', 'missing-booking', 'session', 'open')`))).rejects.toThrow(/FOREIGN KEY/);
-  await writeOnce(db, db.prepare(`INSERT INTO chat_threads (id, session_booking_id, audience, write_state)
-    VALUES (?, 'booking', 'session', 'open')`).bind(id));
+  expect(await db.prepare("SELECT id, write_state FROM chat_threads WHERE session_booking_id = 'booking'").first())
+    .toEqual({ id, write_state: "open" });
   await expect(writeOnce(db, db.prepare(`INSERT INTO chat_threads (id, session_booking_id, audience, write_state)
     VALUES ('second', 'booking', 'session', 'open')`))).rejects.toThrow(/chat_threads.session_booking_id/);
 }));

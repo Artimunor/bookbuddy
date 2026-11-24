@@ -167,7 +167,7 @@ async function planAttendance(ctx: Clock, session: SessionAccess, assignmentId: 
     }),
   });
   // Worst case: six statements per attendance operation, leaving one feed statement at eight ops.
-  return { plan: withTopics(plan, publishes ? 2 : null), access };
+  return { plan: withTopics(plan, publishes && capture.actualAt <= ctx.now ? 2 : null), access };
 }
 
 export const attendanceSyncOperation = syncOperation("attendance", async ({ access, now }, { operationId, payload }) => {

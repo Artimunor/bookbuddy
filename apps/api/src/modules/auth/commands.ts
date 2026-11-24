@@ -70,10 +70,10 @@ export async function endSession(ctx: RequestScope, access: SessionAccess): Prom
   return commitCommand(ctx, prepareCommand(ctx, {
     statements: [
       {
-        // Registration is device-bound. A revoked row can't receive pushes;
-        // the next successful opt-in, not sign-out, advances its token epoch.
+        // Revoke only the signing-out session's registration. A fresh opt-in,
+        // not sign-out, advances the token epoch and can change the owner.
         sql: `${access.sql} UPDATE push_installations SET state = 'revoked', updated_at = max(updated_at, ?)
-          WHERE state <> 'revoked' AND (account_id, device_id) = (SELECT account_id, device_id FROM acting_session)`,
+          WHERE state <> 'revoked' AND session_id = (SELECT session_id FROM acting_session)`,
         params: [...access.params, ctx.now],
       },
       {

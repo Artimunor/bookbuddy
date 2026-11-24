@@ -2,7 +2,7 @@ import { EFFECT_STATES, PUSH_INSTALLATION_STATES, PUSH_PLATFORMS, PUSH_TICKET_ST
 import { sql } from "drizzle-orm";
 import { blob, check, foreignKey, index, integer, primaryKey, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { accountContexts } from "./access";
-import { accounts } from "./identity";
+import { accounts, sessions } from "./identity";
 
 export const operationReceipts = sqliteTable("operation_receipts", {
   accountId: text("account_id").notNull().references(() => accounts.id),
@@ -40,7 +40,12 @@ export const syncChanges = sqliteTable("sync_changes", {
 export const syncRetention = sqliteTable("sync_retention", {
   id: integer().notNull().primaryKey(),
   floorSeq: integer("floor_seq").notNull(),
-}, (t) => [check("sync_retention_singleton", sql`${t.id} = 1`), check("sync_retention_floor", sql`${t.floorSeq} >= 0`)]);
+  sessionsEpoch: integer("sessions_epoch").notNull().default(0),
+}, (t) => [
+  check("sync_retention_singleton", sql`${t.id} = 1`),
+  check("sync_retention_floor", sql`${t.floorSeq} >= 0`),
+  check("sync_retention_sessions_epoch", sql`typeof(${t.sessionsEpoch}) = 'integer' AND ${t.sessionsEpoch} >= 0`),
+]);
 
 export const linkTargets = sqliteTable("link_targets", {
   token: text().notNull().primaryKey(),
@@ -71,7 +76,8 @@ export const notifications = sqliteTable("notifications", {
 export const pushInstallations = sqliteTable("push_installations", {
   id: text().notNull().primaryKey(),
   accountId: text("account_id").notNull().references(() => accounts.id),
-  deviceId: text("device_id"),
+  deviceId: text("device_id").notNull(),
+  sessionId: text("session_id").notNull(),
   token: text().notNull(),
   tokenEpoch: integer("token_epoch").notNull(),
   platform: text({ enum: PUSH_PLATFORMS }).notNull(),
@@ -83,7 +89,8 @@ export const pushInstallations = sqliteTable("push_installations", {
   check("push_installations_state", sql`${t.state} IN ('active', 'disabled', 'revoked')`),
   uniqueIndex("push_installations_active_token").on(t.token).where(sql`${t.state} = 'active'`),
   index("push_installations_account_active").on(t.accountId, t.state, t.id),
-  index("push_installations_device_revocable").on(t.accountId, t.deviceId).where(sql`${t.state} <> 'revoked'`),
+  index("push_installations_session").on(t.sessionId),
+  foreignKey({ columns: [t.sessionId, t.accountId, t.deviceId], foreignColumns: [sessions.id, sessions.accountId, sessions.deviceId] }),
 ]);
 
 export const effectOutbox = sqliteTable("effect_outbox", {

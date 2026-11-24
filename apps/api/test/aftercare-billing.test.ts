@@ -25,7 +25,7 @@ const invoice = (id: string, replacesId: string | null = null) => ({ id, replace
   providerDocumentRef: `document-${id}`, paymentInstructions: instructions, lines });
 const report = { id: "bill-case", reportEventId: "opening-event", category: "bill", billId: "bill-v1",
   affectedItem: { kind: "quote", quoteVersionId: "approved-quote", lineNo: 1 },
-  description: { language: "en", text: "Private report about this line" }, evidence: ["report-photo"], expectedProviderAudience: "provider_billing" };
+  description: { language: "en", text: "Private report about this line from 2024" }, evidence: ["report-photo"], expectedProviderAudience: "provider_billing" };
 
 async function fixture() {
   const db = await createTestD1();
@@ -229,7 +229,7 @@ test("case evidence, due reminders and minimum provider packet obey the live aud
     const beforePacket = projection(getProblemCaseRoute.output, await f.request(casePath, "billing"));
     expect(beforePacket).toMatchObject({ audience: "provider_billing", packets: [], replies: [], canRespond: false });
     expect(JSON.stringify(beforePacket)).not.toContain(report.description.text);
-    const reply = { id: "reply", kind: "substantive_update", content: { language: "en", text: "Provider reply" }, evidence: [] };
+    const reply = { id: "reply", kind: "substantive_update", content: { language: "en", text: "Provider reply about the 2024 invoice" }, evidence: [] };
     expect((await f.request(eventsPath, "billing", "premature", reply)).status).toBe(409);
     const packet = { id: "packet", kind: "provider_packet", content: { language: "en", text: "Review invoice line one" }, evidence: [] };
     await f.request(eventsPath, "steward", "share", packet);

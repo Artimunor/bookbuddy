@@ -72,9 +72,9 @@ export function createTransportRoutes({ operations = [], projections = [] }: {
       }
     }
     scheduleOperationSignals(c, results);
-    const { accountId, epoch, nextExpiry, position, ...content } = page;
+    const { accountId, epoch, sessionsEpoch, nextExpiry, position, ...content } = page;
     const response: SyncPage = { ...content, outcomes,
-      cursor: await codec.issue({ accountId, epoch, nextExpiry, context: page.context }, position, ctx.now) };
+      cursor: await codec.issue({ accountId, epoch, sessionsEpoch, nextExpiry, context: page.context }, position, ctx.now) };
     return transportSuccess(c, response, ctx.now);
   });
   return routes;

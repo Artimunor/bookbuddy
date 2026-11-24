@@ -77,14 +77,18 @@ const crewAttendance = `FROM shifts sh JOIN shift_slots slot ON slot.shift_id = 
 const checkout = `(SELECT CASE WHEN sum(kind = 'arrival') = sum(kind = 'departure') THEN max(actual_at) FILTER (WHERE kind = 'departure') END
   FROM (SELECT e.kind, e.actual_at ${crewAttendance}))`;
 
-// The same account may use both contexts. A foreman cannot issue directly, but
-// a same-business billing issuer can authorize this exact hint at submission.
-const billingGrant = (scope: string) => `SELECT g.id FROM business_grants g
-  JOIN account_contexts c ON c.role = 'provider_admin' AND c.account_id = ${scope}.account_id AND c.business_id = g.business_id
-  JOIN membership_roles r ON r.id = c.role_grant_id AND r.role = c.role AND r.membership_id = g.membership_id
+// A foreman cannot issue directly. The same account may authorize the hint
+// through its provider-admin role; sign-off must still honor that exact grant.
+const billingGrantFor = (account: string, match: string) => `SELECT g.id FROM business_grants g
+  JOIN memberships m ON m.id = g.membership_id AND m.business_id = g.business_id AND m.account_id = ${account} AND m.state = 'active'
+  JOIN businesses b ON b.id = g.business_id AND b.state = 'approved'
+  JOIN accounts a ON a.id = m.account_id AND a.state = 'active'
+  JOIN account_contexts admin ON admin.role = 'provider_admin' AND admin.account_id = a.id AND admin.business_id = g.business_id
+  JOIN membership_roles r ON r.id = admin.role_grant_id AND r.role = admin.role AND r.membership_id = m.id
     AND r.revoked_at IS NULL AND r.granted_at <= ${at}
-  WHERE g.business_id = j.business_id AND g.membership_id = ${scope}.membership_id AND g.capability = 'issue_bill'
-    AND ${liveTerm("g")} ORDER BY g.valid_from DESC, g.id LIMIT 1`;
+  WHERE g.business_id = j.business_id AND g.capability = 'issue_bill' AND ${match} AND ${liveTerm("g")}
+  ORDER BY g.valid_from DESC, g.id LIMIT 1`;
+const billingGrant = (scope: string) => billingGrantFor(`${scope}.account_id`, `g.membership_id = ${scope}.membership_id`);
 
 const returnedOrEmpty = `NOT EXISTS (SELECT 1 FROM completions WHERE job_id = j.id AND state IN ('submitted', 'signed_off'))`;
 export const awaitingSignOff = (completion: string) => `${completion}.state = 'submitted' AND ${completion}.submitted_at <= ${at}
@@ -371,7 +375,7 @@ export function signOffCompletion(ctx: RequestScope, session: SessionAccess, { p
           SELECT j.id AS job_id, j.business_id, c.bill_reference_hint AS number, c.bill_amount_minor AS total,
             (${approvedInvoice("c.submitted_at")}) AS approved, ${calendarDeadline(at, AFTERCARE_TARGETS.billDueCalendarDays)} AS due
           FROM aftercare_job j JOIN completions c ON c.id = ${resultId} AND c.state = 'signed_off'
-          WHERE ${guard.sql} AND c.bill_hint_grant_id IS NOT NULL
+          WHERE ${guard.sql} AND EXISTS (${billingGrantFor("c.bill_hint_by", "g.id = c.bill_hint_grant_id")})
             AND NOT EXISTS (SELECT 1 FROM bills b WHERE (b.job_id = j.id AND b.state = 'issued')
               OR (b.business_id = j.business_id AND b.number = c.bill_reference_hint AND b.version = 1))
         ) INSERT INTO bills (id, job_id, business_id, number, version, net_minor, tax_minor, total_minor, currency,

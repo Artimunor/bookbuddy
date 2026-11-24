@@ -80,5 +80,6 @@ post(confirmNoFundsRoute, (ctx, session, input) => changeBillPayment(ctx, sessio
 post(deferCollectionRoute, deferCollection);
 post(releaseDeferralRoute, releaseDeferral);
 post(submitProblemCaseRoute, submitProblemCase,
-  ({ body }) => !looksLikeAccessCode(body.payload.description.text));
-post(appendCaseEventRoute, appendCaseEvent, ({ body }) => !body.payload.content || !looksLikeAccessCode(body.payload.content.text));
+  ({ body }) => !looksLikeAccessCode(body.payload.description.text, "label-only"));
+post(appendCaseEventRoute, appendCaseEvent, ({ body }) =>
+  !body.payload.content || !looksLikeAccessCode(body.payload.content.text, "label-only"));

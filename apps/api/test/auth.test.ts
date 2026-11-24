@@ -6,7 +6,7 @@ import type { Bindings } from "../src/bindings";
 import { runEffectBatch } from "../src/effects/index";
 import { loadDeliveryKey, loadOtpKey, mailboxKey, randomToken } from "../src/modules/auth/crypto";
 import { otpEmailEffect } from "../src/modules/auth/mail-effect";
-import { sessionCookieName } from "../src/modules/auth/session";
+import { hashSessionCredential, sessionCookieName } from "../src/modules/auth/session";
 import { createTestD1 } from "./d1";
 import type { TestD1 } from "./d1";
 
@@ -227,11 +227,14 @@ test("settings validate viewer zones and revisions; sign-out revokes the bearer 
   }, { ...headers, "X-Operation-Id": "register-push" }));
   await db.batch([
     db.prepare(`INSERT INTO accounts (id, email_normalized, verified_at, state) VALUES ('other-account', 'other@example.test', ?, 'active')`).bind(now),
-    db.prepare(`INSERT INTO push_installations (id, account_id, device_id, token, token_epoch, platform, state, updated_at)
-      SELECT 'other-account', 'other-account', device_id, 'ExpoPushToken[other_account]', 1, 'ios', 'active', ?
-      FROM sessions WHERE id = ?`).bind(now, session.session.sessionId),
-    db.prepare(`INSERT INTO push_installations (id, account_id, device_id, token, token_epoch, platform, state, updated_at)
-      VALUES ('other-device', ?, 'other-device', 'ExpoPushToken[other_device]', 1, 'ios', 'active', ?)`).bind(session.session.account.id, now),
+    db.prepare(`INSERT INTO sessions (id, account_id, secret_hash, device_id, issued_at, expires_at)
+      SELECT 'other-account-session', 'other-account', 'other-account-hash', device_id, issued_at, expires_at FROM sessions WHERE id = ?
+      UNION ALL SELECT 'other-device-session', account_id, 'other-device-hash', 'other-device', issued_at, expires_at FROM sessions WHERE id = ?`)
+      .bind(session.session.sessionId, session.session.sessionId),
+    db.prepare(`INSERT INTO push_installations (id, account_id, device_id, session_id, token, token_epoch, platform, state, updated_at)
+      SELECT CASE id WHEN 'other-account-session' THEN 'other-account' ELSE 'other-device' END,
+        account_id, device_id, id, 'ExpoPushToken[' || id || ']', 1, 'ios', 'active', ?
+      FROM sessions WHERE id IN ('other-account-session', 'other-device-session')`).bind(now),
   ]);
   const endBefore = db.calls.batch;
   expect(await data(await req("/session/end", "POST", undefined, headers))).toEqual({ ended: true });
@@ -314,7 +317,7 @@ test("context switching uses current grant authority and cannot replay a revoked
 });
 
 test("web verification uses an HttpOnly cookie and cookie writes require the same origin", async () => {
-  const { req, code } = await fixture();
+  const { env, req, code } = await fixture();
   const web = { ...person, transport: "web" as const };
   await error(await req(start, "POST", web, { Origin: "https://untrusted.test" }), 401);
   await error(await req(start, "POST", person, { Origin: origin }), 401);
@@ -333,10 +336,29 @@ test("web verification uses an HttpOnly cookie and cookie writes require the sam
   await error(await req("/session/end", "POST", undefined, { ...headers, Origin: "https://untrusted.test" }), 401);
   expect((await error(await req("/session/end", "POST", undefined, { Cookie, Origin: origin }), 409)).current)
     .toEqual({ kind: "session_changed" });
-  const ended = await req("/session/end", "POST", undefined, headers);
-  expect(ended.headers.get("Set-Cookie")).toContain("Max-Age=0");
+  const closing = Promise.withResolvers<void>(), finishClose = Promise.withResolvers<void>();
+  env.LIVE = { getByName: () => ({
+    async closeSession() { closing.resolve(); await finishClose.promise; },
+  }) } as unknown as Bindings["LIVE"];
+  const signOut = req("/session/end", "POST", undefined, headers);
+  let replacementCookie: string;
+  try {
+    await closing.promise;
+    const replacement = { ...web, email: "next@example.test" };
+    const { attemptId: nextAttempt } = await data<EmailAttempt>(await req(start, "POST", replacement, { Origin: origin }));
+    const login = await req(emailPath(nextAttempt, "verify"), "POST", verify(await code(), "next-login", replacement), { Origin: origin });
+    replacementCookie = login.headers.get("Set-Cookie")!.split(";", 1)[0]!;
+    await data(login);
+  } finally {
+    finishClose.resolve();
+  }
+  const ended = await signOut;
+  expect(ended.headers.get("Set-Cookie")).toBeNull();
   await data(ended);
-  await error(await req("/session", "GET", undefined, { Cookie }), 401);
+  const revoked = await req("/session", "GET", undefined, { Cookie });
+  expect(revoked.headers.get("Set-Cookie")).toBeNull();
+  await error(revoked, 401);
+  await data(await req("/session", "GET", undefined, { Cookie: replacementCookie }));
 });
 
 test("a place command requires the rendering session and context; receipts expose only an opted-in readable reference", async () => {
@@ -470,19 +492,25 @@ test("native revocation proof cannot authenticate, expires independently and ack
   expect(await db.prepare("SELECT count(*) AS count FROM account_security_events WHERE kind = 'session_revoked'").first()).toEqual({ count: 1 });
 });
 
-test("native revocation proof does not deactivate a replacement session's push", async () => {
+test.each([false, true])("delayed native revocation preserves replacement push only after fresh opt-in (%s)", async (optIn) => {
   const { db, req, code } = await fixture();
   const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
   const { credential, session } = await data<Verified>(await req(emailPath(attemptId, "verify"), "POST", verify(await code())));
-  await data(await req("/push/installations/installation", "PUT", {
-    operationId: "push", expectedRevision: 0, payload: { token: "ExpoPushToken[this_device]", platform: "ios" },
-  }, { ...auth(credential!), "X-Operation-Id": "push" }));
+  const register = (token: string, operationId: string, expectedRevision: number) => req("/push/installations/installation", "PUT", {
+    operationId, expectedRevision, payload: { token: "ExpoPushToken[this_device]", platform: "ios" },
+  }, { ...auth(token), "X-Operation-Id": operationId });
+  await data(await register(credential!, "original-opt-in", 0));
   now++;
-  await db.prepare(`INSERT INTO sessions (id, account_id, secret_hash, device_id, issued_at, expires_at)
-    SELECT 'replacement', account_id, 'replacement-hash', device_id, ?, expires_at FROM sessions WHERE id = ?`)
-    .bind(now, session.sessionId).run();
+  const replacement = randomToken();
+  await db.prepare(`INSERT INTO sessions (id, account_id, secret_hash, active_context_id, device_id, issued_at, expires_at)
+    SELECT 'replacement', account_id, ?, active_context_id, device_id, ?, expires_at FROM sessions WHERE id = ?`)
+    .bind(await hashSessionCredential(replacement), now, session.sessionId).run();
+  expect(await data(await register(replacement, "original-opt-in", 0))).toMatchObject({ status: "replayed", tokenEpoch: 1 });
+  if (optIn) expect(await data(await register(replacement, "fresh-opt-in", 1))).toMatchObject({ status: "committed", tokenEpoch: 2 });
   expect(await data(await req("/session/revoke", "POST", { sessionId: session.sessionId, proof: session.revocationProof })))
     .toEqual({ ended: true });
-  expect(await db.prepare("SELECT state FROM push_installations").first()).toEqual({ state: "active" });
+  expect(await db.prepare("SELECT state, session_id, token_epoch FROM push_installations").first())
+    .toEqual(optIn ? { state: "active", session_id: "replacement", token_epoch: 2 }
+      : { state: "revoked", session_id: session.sessionId, token_epoch: 1 });
   await error(await req("/session", "GET", undefined, auth(credential!)), 401);
 });

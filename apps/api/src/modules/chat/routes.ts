@@ -19,7 +19,7 @@ import {
   appendReceipts, planChatAppend, planChatReadMark, planTranslationReport, planTranslationRetry, readMarkResult, withChatValue,
 } from "./commands";
 import type { CommandValue } from "./commands";
-import { chatScope, ensureChatMember, ensureInboxThreads, inboxThreadScope, sessionThreadProvision } from "./policy";
+import { chatScope, ensureChatMember, ensureInboxThreads, inboxThreadScope } from "./policy";
 import { entryCursor, inboxCursor, readThread, readThreadEntries, readThreadList } from "./read";
 import { isSessionThread } from "./session";
 
@@ -59,11 +59,7 @@ function get<Input extends { params: { id: string } }>(route: Definition<Input>,
     if (!session) return transportFailure(c, "UNAUTHENTICATED");
     const statement = plan(session, ctx.now, input.data, enabledTranslationPairs(c.env));
     if (!statement) return transportFailure(c, "VALIDATION_FAILED");
-    const query = ctx.binding.prepare(statement.sql).bind(...statement.params ?? []);
-    const provision = sessionThreadProvision(session, ctx.now, input.data.params.id);
-    const row = provision ? (await ctx.binding.batch<ValueRow>([
-      ctx.binding.prepare(provision.sql).bind(...provision.params ?? []), query,
-    ]))[1]?.results[0] : await query.first<ValueRow>();
+    const row = await ctx.binding.prepare(statement.sql).bind(...statement.params ?? []).first<ValueRow>();
     if (!row) return transportFailure(c, "UNAUTHENTICATED");
     if (row.value === null) return transportFailure(c, "NOT_FOUND");
     return transportSuccess(c, route.output.parse(JSON.parse(row.value)), ctx.now);

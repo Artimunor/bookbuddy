@@ -194,12 +194,16 @@ test("push claims once, localizes opaque-only notices and batches Expo tickets a
         ('wrong-scope','recipient-customer','Wrong context event','bill_issued','other-link',?)`).bind(now, now, now, now, now),
       db.prepare(`INSERT INTO effect_outbox SELECT 'effect-' || id, 'notification_push', event_key, id, ?, 'pending', ? FROM notifications`)
         .bind(now, expiry),
-      db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
-        SELECT 'i-' || value, 'recipient', 'ExpoPushToken[i-' || value || ']', 1,
-        'ios', CASE WHEN value=100 THEN 'revoked' ELSE 'active' END, ? FROM json_each(?)`)
-        .bind(now, JSON.stringify(Array.from({ length: 101 }, (_, i) => i))),
-      db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
-        VALUES ('i-other','other','ExpoPushToken[i-other]',1,'android','active',?)`).bind(now),
+      db.prepare(`INSERT INTO sessions (id,account_id,secret_hash,device_id,issued_at,expires_at)
+        SELECT 'push-' || value, 'recipient', 'test-hash-' || value, 'device-' || value, 1, ? FROM json_each(?)`)
+        .bind(expiry, JSON.stringify(Array.from({ length: 101 }, (_, i) => i))),
+      db.prepare(`INSERT INTO push_installations (id,account_id,device_id,session_id,token,token_epoch,platform,state,updated_at)
+        SELECT 'i-' || substr(id, 6), account_id, device_id, id, 'ExpoPushToken[i-' || substr(id, 6) || ']', 1,
+        'ios', CASE WHEN id='push-100' THEN 'revoked' ELSE 'active' END, ? FROM sessions WHERE account_id='recipient'`).bind(now),
+      db.prepare(`INSERT INTO sessions (id,account_id,secret_hash,device_id,issued_at,expires_at)
+        VALUES ('other-push','other','other-test-hash','device',1,?)`).bind(expiry),
+      db.prepare(`INSERT INTO push_installations (id,account_id,device_id,session_id,token,token_epoch,platform,state,updated_at)
+        VALUES ('i-other','other','device','other-push','ExpoPushToken[i-other]',1,'android','active',?)`).bind(now),
     ]);
     const sends: ExpoMessage[][] = [];
     const claimCounts: number[] = [];
@@ -274,8 +278,10 @@ test("an ambiguous Expo send is not retried by a duplicate wake or due sweep", a
       db.prepare("INSERT INTO link_targets VALUES ('dest','bill_issued','bill','recipient-customer',?)").bind(now + minute),
       db.prepare("INSERT INTO notifications VALUES ('n','recipient-customer','event','bill_issued','dest',?,NULL)").bind(now),
       db.prepare("INSERT INTO effect_outbox VALUES ('effect','notification_push','event','n',?,'pending',?)").bind(now, now + minute),
-      db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
-        VALUES ('phone','recipient','ExpoPushToken[phone]',1,'ios','active',?)`).bind(now),
+      db.prepare(`INSERT INTO sessions (id,account_id,secret_hash,device_id,issued_at,expires_at)
+        VALUES ('push-session','recipient','test-hash','device',1,?)`).bind(now + minute),
+      db.prepare(`INSERT INTO push_installations (id,account_id,device_id,session_id,token,token_epoch,platform,state,updated_at)
+        VALUES ('phone','recipient','device','push-session','ExpoPushToken[phone]',1,'ios','active',?)`).bind(now),
     ]);
     let calls = 0;
     const ambiguous: ExpoFetch = async () => { calls++; throw new Error("connection ended after request"); };
@@ -304,8 +310,8 @@ test("bill grant expiry suppresses queued push, online inbox and cached notice; 
         ('unknown','recipient-customer','mystery','unrecognized_event','bill-link',?,NULL)`).bind(now, now),
       db.prepare(`INSERT INTO effect_outbox SELECT 'effect-' || id, 'notification_push', event_key, id, ?, 'pending', ? FROM notifications`)
         .bind(now, tokenExpiry),
-      db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
-        VALUES ('phone','recipient','ExpoPushToken[phone]',1,'ios','active',?)`).bind(now),
+      db.prepare(`INSERT INTO push_installations (id,account_id,device_id,session_id,token,token_epoch,platform,state,updated_at)
+        VALUES ('phone','recipient','device','session','ExpoPushToken[phone]',1,'ios','active',?)`).bind(now),
     ]);
     async function read(path: string, body?: unknown) {
       const before = { ...db.calls };

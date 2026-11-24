@@ -4,7 +4,7 @@ import { accessClock, at, liveTerm } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import { currentMembership } from "../jobs/projections";
 import { currentPerson } from "../places/policy";
-import { ensureSessionThread, isSessionThread, sessionChatGrants, sessionChatTargets } from "./session";
+import { sessionChatGrants, sessionChatTargets } from "./session";
 
 const audiences = "(SELECT 'job' AS audience UNION ALL SELECT 'crew')";
 const actorContext = "c.id = (SELECT context_id FROM live_scope)";
@@ -23,7 +23,7 @@ export function chatTargets(filter: string): string {
     SELECT t.id, t.job_id, t.session_booking_id, t.audience, t.write_state, t.last_position, ${jobFields}
       FROM chat_threads t JOIN jobs j ON j.id = t.job_id
     UNION ALL
-    ${sessionChatTargets(false)}
+    ${sessionChatTargets()}
   ) t WHERE ${filter}`;
 }
 
@@ -80,10 +80,6 @@ export const entryVisible = (thread: string, entry: string) =>
 
 export const exactThread = (id: string): CommandStatement => ({ sql: "t.id = ?", params: [id] });
 
-export function sessionThreadProvision(access: SessionAccess, now: number, id: string): CommandStatement | null {
-  return isSessionThread(id) ? ensureSessionThread(access, now, id, staff) : null;
-}
-
 function insertThreads(select: string): string {
   return `INSERT INTO chat_threads (id, job_id, audience, write_state)
     SELECT lower(hex(randomblob(16))), job_id, audience, 'open' FROM (${select}) WHERE 1
@@ -138,7 +134,7 @@ function inboxPageScope(access: SessionAccess, now: number, after: readonly [str
           OR (s.role = 'worker' AND EXISTS (SELECT 1 FROM session_host_assignments host
             WHERE host.slot_id = slot.id AND host.membership_id = s.membership_id AND host.state = 'confirmed'
               AND host.confirmed_at <= ${at})))
-    ), session_targets AS MATERIALIZED (${sessionChatTargets(false, "inbox_bookings")}),
+    ), session_targets AS MATERIALIZED (${sessionChatTargets("inbox_bookings")}),
     inbox_keys AS (
       SELECT t.id, keys.job_id AS parent_id, keys.audience FROM job_inbox_keys keys
       LEFT JOIN chat_threads t ON t.job_id = keys.job_id AND t.audience = keys.audience

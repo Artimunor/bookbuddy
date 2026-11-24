@@ -156,7 +156,7 @@ CREATE INDEX session_holds_slot_deadline ON session_holds (slot_id, expires_at, 
 CREATE TABLE session_bookings (
   id TEXT PRIMARY KEY NOT NULL,
   reference TEXT NOT NULL UNIQUE,
-  -- Reserve the opaque chat address when the booking is made; the thread row is lazy.
+  -- The booking and its opaque chat thread are created in the same statement.
   thread_id TEXT NOT NULL UNIQUE DEFAULT ('session-' || lower(hex(randomblob(16)))),
   booker_id TEXT NOT NULL REFERENCES accounts (id),
   listing_id TEXT NOT NULL,
@@ -252,8 +252,15 @@ WHEN NEW.state <> 'booked' OR NEW.slot_id <> NEW.original_slot_id
       AND hold.state = 'held' AND NEW.booked_at >= hold.held_at AND NEW.booked_at < hold.expires_at AND slot.state = 'published'
 )
 BEGIN SELECT RAISE(ABORT, 'booking requires the exact active hold and terms'); END;
-CREATE TRIGGER session_bookings_consume_hold AFTER INSERT ON session_bookings
-BEGIN UPDATE session_holds SET state = 'consumed', resolved_at = NEW.booked_at WHERE id = NEW.original_hold_id; END;
+CREATE TRIGGER session_bookings_initialize AFTER INSERT ON session_bookings
+BEGIN
+  SELECT RAISE(ABORT, 'booking thread address is in use') WHERE EXISTS (
+    SELECT 1 FROM chat_threads WHERE id = NEW.thread_id OR session_booking_id = NEW.id
+  );
+  INSERT INTO chat_threads (id, session_booking_id, audience, write_state)
+    VALUES (NEW.thread_id, NEW.id, 'session', 'open');
+  UPDATE session_holds SET state = 'consumed', resolved_at = NEW.booked_at WHERE id = NEW.original_hold_id;
+END;
 -- A move or an accepted proposal may update the current snapshot, never the original acceptance.
 CREATE TRIGGER session_bookings_keep_original BEFORE UPDATE ON session_bookings
 WHEN NEW.id IS NOT OLD.id OR NEW.reference IS NOT OLD.reference OR NEW.booker_id IS NOT OLD.booker_id OR NEW.thread_id IS NOT OLD.thread_id

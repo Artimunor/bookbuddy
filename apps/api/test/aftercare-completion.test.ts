@@ -416,7 +416,7 @@ test("sign-off retains an unauthorized hint for the provider and never upgrades 
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
-test("sign-off materializes one invoice only for an attributed live same-business issuer at submission", async () => {
+test("sign-off materializes one invoice only while the attributed same-business issuer is live", async () => {
   const clock = spyOn(Date, "now").mockReturnValue(now);
   const f = await fixture();
   try {
@@ -442,5 +442,37 @@ test("sign-off materializes one invoice only for an attributed live same-busines
       status: 200, body: { data: { kind: "bill", bill: { bill: { number: billReference } } } },
     });
     expect(f.wakes).toHaveLength(2);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test.each(["expired", "replaced", "issuer role revoked"] as const)("sign-off keeps the bill hint when its issuing authority is %s", async (change) => {
+  const clock = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await grantForemanIssuance(f.db, now);
+    const cutoff = now + 1, billReference = "RR-0414";
+    if (change === "expired") {
+      await f.db.prepare("UPDATE business_grants SET valid_until = ? WHERE id = 'foreman-issue'").bind(cutoff).run();
+    }
+    expect((await f.submit({ ...submission("issuer-wrap"), billReference, billAmountMinor: 25_200 })).status).toBe(200);
+    expect(await f.db.prepare("SELECT bill_hint_grant_id FROM completions").first("bill_hint_grant_id")).toBe("foreman-issue");
+    if (change === "replaced") {
+      await f.db.batch([
+        f.db.prepare("UPDATE business_grants SET revoked_at = ? WHERE id = 'foreman-issue'").bind(cutoff),
+        f.db.prepare(`INSERT INTO business_grants (id, business_id, membership_id, capability, issuer_id, valid_from)
+          VALUES ('replacement-issue', 'business', 'foreman-member', 'issue_bill', 'admin', ?)`).bind(cutoff),
+      ]);
+    } else if (change === "issuer role revoked") {
+      await f.db.prepare("UPDATE membership_roles SET revoked_at = ?, revoked_by = 'admin' WHERE id = 'foreman-admin-role'").bind(cutoff).run();
+    }
+    clock.mockReturnValue(cutoff);
+    expect(await f.signOff("issuer-wrap", "customer-sign-off")).toMatchObject({
+      status: 200, body: { data: { submission: { state: "signed_off" } } },
+    });
+    expect(await f.request("/jobs/job/bill", "customer")).toMatchObject({ status: 200, body: { data: { bill: null } } });
+    expect(await f.request("/jobs/job", "admin")).toMatchObject({ status: 200, body: { data: { job: {
+      readyBill: { number: billReference },
+    } } } });
+    expect(await f.db.prepare("SELECT count(*) FROM notifications WHERE kind = 'bill_issued'").first("count(*)")).toBe(0);
   } finally { f.db.close(); clock.mockRestore(); }
 });

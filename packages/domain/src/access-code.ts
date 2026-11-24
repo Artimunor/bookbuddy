@@ -15,15 +15,19 @@ const keypadSequence = /(?:^|[^\p{L}\p{N}])(?:\*\p{Nd}{2,8}#?|\p{Nd}{3,8}#)(?![\
 
 const declarationLabel = String.raw`(?:${label}|\b(?:code|codigo|clave|alarm|alarme|alarma)\b)`;
 const statementStart = String.raw`(?:^|[\n;,.]|\b(?:use|enter|type|digite|introduza|introduce|utilize|usa)\s+)`;
+const valueAssignment = String.raw`(?:\s*[:=–—-]\s*\S|\s+(?:is|e|es)\b\s+\S|\s*[*#]\S*)`;
 // A label at the start of an instruction, or an explicit assignment anywhere,
 // signals a supplied value. A passing reference to the handoff code does not.
-const labelledValue = new RegExp(String.raw`${declarationLabel}(?:\s*[:=–—-]\s*\S|\s+(?:is|e|es)\b\s+\S|\s*[*#]\S*)|${statementStart}\s*(?:(?:the|o|a|el|la)\s+)?${declarationLabel}[^\S\r\n]+\S`, "iu");
+const labelledValue = new RegExp(String.raw`${declarationLabel}${valueAssignment}|${statementStart}\s*(?:(?:the|o|a|el|la)\s+)?${declarationLabel}[^\S\r\n]+\S`, "iu");
+const explicitValue = new RegExp(String.raw`${label}${valueAssignment}`, "iu");
 const digitRun = /(?:^|[^\p{L}\p{N}])\p{Nd}{4,}(?![\p{L}\p{N}])/u;
 const barePin = /^\s*(?:\p{Nd}[\s-]?){2,}\p{Nd}\s*[.!]?\s*$/u;
 
-/** Arrival notes are stricter than an alias or address, which can contain street and postal numbers. */
-export function looksLikeAccessCode(text: string, field: "arrival" | "place-identity" = "arrival"): boolean {
+/** Only arrival notes reject unlabelled numbers; prose requires a credential label. */
+export function looksLikeAccessCode(text: string, field: "arrival" | "place-identity" | "label-only" = "arrival"): boolean {
   const plain = text.normalize("NFKD").replace(/[\p{M}\p{Cf}]/gu, "");
-  return labelledPin.test(plain) || shortLabel.test(plain) || keypadSequence.test(plain)
+  if (labelledPin.test(plain)) return true;
+  if (field === "label-only") return explicitValue.test(plain);
+  return shortLabel.test(plain) || keypadSequence.test(plain)
     || (field === "arrival" && (digitRun.test(plain) || barePin.test(plain) || labelledValue.test(plain)));
 }

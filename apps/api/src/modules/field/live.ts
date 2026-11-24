@@ -8,7 +8,7 @@ import { currentMembership } from "../jobs/projections";
 import { createLinkTarget, linkTokenFor } from "../links";
 import { mediaLinkAvailable } from "../media/deadlines";
 import { placeCapability } from "../places/policy";
-import { confirmedWindow, currentNoCrewStamp, customer, foreman, jobOpen } from "../schedule/policy";
+import { confirmedWindow, currentNoCrewStamp, customer, foreman, jobOpen, publishedCustomerUpdate } from "../schedule/policy";
 import { coverAllowsShortage } from "../staffing/cover";
 import { readyPhotoSql, workerFieldChangeRows } from "./attendance";
 import {
@@ -62,7 +62,7 @@ export function customerStampSql(stamp: string, providerName: string): string {
 const travelKinds = "'on_the_way', 'arrival_revised', 'arrival_withdrawn', 'cover_arranging', 'no_crew_available'";
 const latestStamp = (kinds: string) => `(SELECT cu.id FROM customer_updates cu WHERE cu.visit_id = v.id AND cu.kind IN (${kinds})
   AND (cu.booked_window_id IS NULL OR cu.booked_window_id = booked.id)
-  AND cu.recorded_at <= ${at} ORDER BY cu.recorded_at DESC, cu.rowid DESC LIMIT 1)`;
+  AND ${publishedCustomerUpdate("cu")} ORDER BY cu.recorded_at DESC, cu.rowid DESC LIMIT 1)`;
 const beforeOnSite = `NOT EXISTS (SELECT 1 FROM customer_updates cu WHERE cu.visit_id = v.id
   AND cu.kind IN ('on_site', 'working', 'finished') AND cu.recorded_at <= ${at}) AND NOT (${onSite})`;
 const travelCurrent = (idSql: string) => `EXISTS (SELECT 1 FROM customer_updates prior
@@ -112,7 +112,7 @@ FROM basis LEFT JOIN customer_updates source ON source.id = basis.source_id LEFT
 function customerVisitSql(cursorAt: string, cursorId: string): string {
   return `(WITH visit_page AS MATERIALIZED (
     SELECT cu.id, cu.recorded_at AS at, ${customerStampSql("cu", "j.provider_name")} AS value FROM customer_updates cu
-    WHERE cu.visit_id = v.id AND cu.recorded_at <= ${at} AND (cu.kind <> 'photo' OR EXISTS (
+    WHERE cu.visit_id = v.id AND ${publishedCustomerUpdate("cu")} AND (cu.kind <> 'photo' OR EXISTS (
       SELECT 1 FROM update_attachments linked WHERE linked.update_id = cu.id))
       AND (${cursorAt} IS NULL OR (cu.recorded_at, cu.id) < (${cursorAt}, ${cursorId}))
     ORDER BY cu.recorded_at DESC, cu.id DESC LIMIT ${pageSize + 1}

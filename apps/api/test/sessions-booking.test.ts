@@ -9,10 +9,12 @@ import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { randomToken } from "../src/modules/auth/crypto";
 import { hashSessionCredential } from "../src/modules/auth/session";
+import { createCursorCodec } from "../src/modules/sync/cursor";
 import { createTestD1 } from "./d1";
 import type { TestD1 } from "./d1";
 
 const origin = "https://bookbuddy.test";
+const cursorSecret = "a-test-only-sync-cursor-key-for-sessions";
 const now = Date.parse("2026-11-23T09:41:00Z");
 const minute = 60_000;
 const morning = Date.parse("2026-11-28T09:00:00Z");
@@ -50,7 +52,7 @@ function slot(db: TestD1, id: string, start: number, versionId: string, capacity
 async function fixture(): Promise<Fixture> {
   const db = await createTestD1();
   const app = createApp().onError((error) => { throw error; });
-  const env = { DB: db, SYNC_CURSOR_HMAC_KEY: "a-test-only-sync-cursor-key-for-sessions" } as Bindings;
+  const env = { DB: db, SYNC_CURSOR_HMAC_KEY: cursorSecret } as Bindings;
   const execution = { waitUntil() {}, passThroughOnException() {} };
   const credentials = await Promise.all(actors.map(async (actor) => {
     const token = randomToken();
@@ -293,6 +295,36 @@ test("booker sync and private links expose confirmed substitutes; moving and can
   clock.now = afternoon + duration;
   expect(data(getSessionBookingRoute, await f.call("booker", "/session-bookings/booking")).canGiveFeedback).toBe(false);
   status(await f.call("booker", "/session-bookings/booking/feedback", command("cancelled-feedback", { stars: 5 })), 409, "CONFLICT");
+}));
+
+test("flag-only shutdown resets clean deltas, paged snapshots and old cursors in the same batch", () => withSessions(async (f, clock) => {
+  await bookMorning(f);
+  const sync = async (cursor: string | null) => data(syncRoute, await f.call("booker", "/sync", {
+    contextId: "booker-context", operations: [], cursor,
+  }));
+  const initial = await sync(null);
+  expect(initial.upserts).toContainEqual(expect.objectContaining({ kind: "session_booking", resourceId: "booking" }));
+  const codec = await createCursorCodec(cursorSecret), claims = await codec.read(initial.cursor);
+  if (claims?.phase !== "delta") throw new Error("Expected a completed snapshot");
+  const { accountId, context, epoch, nextExpiry, sessionsEpoch, seq } = claims;
+  const partial = await codec.issue({ accountId, context, epoch, nextExpiry, sessionsEpoch },
+    { phase: "snapshot", anchor: seq, kind: "session_booking", id: "booking" }, clock.now);
+  const priorFormat = await codec.issue({ accountId, context, epoch, nextExpiry }, { phase: "delta", seq }, clock.now);
+
+  await f.db.batch([
+    f.db.prepare("INSERT INTO feature_flags VALUES ('unrelated', 'area', 1, 1)"),
+    f.db.prepare("UPDATE feature_flags SET enabled = 1, config_version = 2 WHERE key = 'sessions' AND scope_key = 'area:pilates'"),
+  ]);
+  expect(await sync(initial.cursor)).toMatchObject({ mode: "delta", upserts: [], removals: [] });
+  expect(await sync(priorFormat)).toMatchObject({ mode: "reset", removals: [{ kind: "scope", resourceId: "booker-context" }] });
+
+  await f.db.prepare("INSERT OR REPLACE INTO feature_flags VALUES ('sessions', 'area:pilates', 0, 2)").run();
+  for (const cursor of [initial.cursor, partial]) {
+    const hidden = await sync(cursor);
+    expect(hidden).toMatchObject({ mode: "reset", removals: [{ kind: "scope", resourceId: "booker-context" }] });
+    expect(hidden.upserts).not.toContainEqual(expect.objectContaining({ kind: "session_booking" }));
+    expect(await sync(hidden.cursor)).toMatchObject({ mode: "delta", upserts: [], removals: [] });
+  }
 }));
 
 test("feedback unlocks at scheduled end without attendance, is recorded once, and is private to the provider", () => withSessions(async (f, clock) => {

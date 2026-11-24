@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test";
 import { operationIdHeader, parseLiveFrame } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
@@ -15,7 +15,7 @@ mock.module("cloudflare:workers", () => ({
   },
 }));
 // Load the Workers-only class after its Bun module replacement is registered.
-const { LiveTopic } = await import("../src/realtime/live-topic");
+const { LiveTopic, liveSocketCap } = await import("../src/realtime/live-topic");
 
 class TestSocket {
   readyState = WebSocket.OPEN;
@@ -63,19 +63,31 @@ async function fixture() {
   const wakes: Promise<unknown>[] = [];
   const calls = { upgrade: 0, publish: 0, fanout: 0, queue: 0 };
   const closedSessions: string[] = [];
-  const objects = new Map<string, { topic: InstanceType<typeof LiveTopic>; sockets: TestSocket[] }>();
+  const objects = new Map<string, {
+    topic: InstanceType<typeof LiveTopic>; sockets: TestSocket[]; state: DurableObjectState;
+    alarm: { at: number | null; reads: number; sets: number; deletes: number };
+  }>();
   const env = {
     DB: db,
     LIVE: { getByName(name: string) {
       let object = objects.get(name);
       if (!object) {
         const sockets: TestSocket[] = [];
+        const alarm = { at: null as number | null, reads: 0, sets: 0, deletes: 0 };
         const state = {
           acceptWebSocket(socket: TestSocket, tags: readonly string[]) { socket.tags = tags; sockets.push(socket); },
-          getWebSockets(tag: string) { calls.fanout++; return sockets.filter((socket) => socket.tags.includes(tag)); },
+          getWebSockets(tag?: string) {
+            if (tag !== undefined) calls.fanout++;
+            return sockets.filter((socket) => socket.readyState === WebSocket.OPEN && (tag === undefined || socket.tags.includes(tag)));
+          },
+          storage: {
+            async getAlarm() { alarm.reads++; return alarm.at; },
+            async setAlarm(at: number) { alarm.sets++; alarm.at = at; },
+            async deleteAlarm() { alarm.deletes++; alarm.at = null; },
+          },
           blockConcurrencyWhile<T>(run: () => Promise<T>) { return run(); },
         } as unknown as DurableObjectState;
-        object = { topic: new LiveTopic(state, env), sockets };
+        object = { topic: new LiveTopic(state, env), sockets, state, alarm };
         objects.set(name, object);
       }
       const { topic } = object;
@@ -141,7 +153,7 @@ async function fixture() {
   } catch (error) { db.close(); throw error; }
 
   async function open(topic: string, person?: Person, mode: "bearer" | "cookie" | "untrusted" = "bearer",
-    expectedReads = 1, extra?: HeadersInit) {
+    expectedReads = 1, extra?: HeadersInit, expectedUpgrades = expectedReads) {
     const before = { ...db.calls };
     const previousCalls = { ...calls };
     const headers = new Headers(extra);
@@ -155,7 +167,7 @@ async function fixture() {
     expect(db.calls.query - before.query).toBe(expectedReads);
     expect(db.calls.prepare - before.prepare).toBe(expectedReads);
     expect(db.calls.batch).toBe(before.batch);
-    expect(calls.upgrade - previousCalls.upgrade).toBe(expectedReads);
+    expect(calls.upgrade - previousCalls.upgrade).toBe(expectedUpgrades);
     expect(calls.fanout).toBe(previousCalls.fanout);
     expect(calls.queue).toBe(previousCalls.queue);
     expect(calls.publish).toBe(previousCalls.publish);
@@ -172,7 +184,7 @@ async function fixture() {
     expect(db.calls.query).toBe(before.query);
     return response;
   }
-  return { db, calls, objects, wakes, open, command, closedSessions };
+  return { db, env, calls, objects, wakes, open, command, closedSessions };
 }
 
 test("live authenticates cookie and bearer, rejects unauthorized topics and never exposes a different scope", async () => {
@@ -310,4 +322,53 @@ test("committed session end closes all of that session's sockets but preserves a
     expect(otherTopic?.messages).toEqual(['{"kind":"ready"}']);
     expect((await f.open("thread:thread", "customer")).response.status).toBe(401);
   } finally { f.db.close(); }
+});
+
+test("the shared live socket cap rejects an excess upgrade before D1", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(Date.now());
+  const f = await fixture();
+  try {
+    for (let i = 0; i < liveSocketCap; i++) {
+      expect((await f.open("scope-inbox:customer-scope", "customer")).response.status).toBe(101);
+    }
+    const { alarm, sockets } = f.objects.values().next().value!;
+    expect(alarm).toMatchObject({ reads: 1, sets: 1, deletes: 0 });
+    const { response } = await f.open("scope-inbox:customer-scope", "customer", "bearer", 0, undefined, 1);
+    expect(response.status).toBe(503);
+    expect(sockets).toHaveLength(liveSocketCap);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("a hibernation alarm reaps idle sockets at their leases and stops when none remain", async () => {
+  const start = Date.now(), clock = spyOn(Date, "now").mockReturnValue(start);
+  const f = await fixture();
+  try {
+    const { socket: first } = await f.open("scope-inbox:customer-scope", "customer");
+    const object = f.objects.values().next().value!;
+    const firstLease = first!.attachment!.leaseUntil;
+    clock.mockReturnValue(start + 1_000);
+    const { socket: second } = await f.open("scope-inbox:customer-scope", "customer");
+    const secondLease = second!.attachment!.leaseUntil;
+    expect(object.alarm).toMatchObject({ at: firstLease, sets: 1 });
+
+    const before = { ...f.db.calls };
+    clock.mockReturnValue(firstLease);
+    object.alarm.at = null; // Runtime consumes the scheduled alarm on delivery.
+    object.topic = new LiveTopic(object.state, f.env);
+    await object.topic.alarm();
+    expect(first?.closeCodes).toEqual([1008]);
+    expect(second?.closeCodes).toEqual([]);
+    expect(object.alarm).toMatchObject({ at: secondLease, sets: 2, deletes: 0 });
+    clock.mockReturnValue(secondLease);
+    object.alarm.at = null;
+    await object.topic.alarm();
+    expect(second?.closeCodes).toEqual([1008]);
+    expect(object.alarm).toMatchObject({ at: null, sets: 2, deletes: 0 });
+    expect(f.db.calls).toEqual(before);
+
+    const { socket: last } = await f.open("scope-inbox:customer-scope", "customer");
+    last!.close(1000);
+    await object.topic.webSocketClose(last as unknown as WebSocket);
+    expect(object.alarm).toMatchObject({ at: null, sets: 3, deletes: 1 });
+  } finally { f.db.close(); clock.mockRestore(); }
 });

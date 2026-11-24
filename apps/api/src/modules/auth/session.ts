@@ -177,4 +177,3 @@ const cookieAttributes = "; Path=/; HttpOnly; Secure; SameSite=Lax";
 export function sessionCookie(credential: string, expiresAt: number, now: number): string {
   return `${sessionCookieName}=${credential}; Max-Age=${Math.max(0, Math.floor((expiresAt - now) / 1000))}${cookieAttributes}`;
 }
-export const clearSessionCookie = `${sessionCookieName}=; Max-Age=0${cookieAttributes}`;

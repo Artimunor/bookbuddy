@@ -213,7 +213,7 @@ CREATE TABLE place_grants (
   revoked_at INTEGER,
   -- Historical grants keep their issuing address revision; live protected grants must match the place.
   current_address_revision INTEGER GENERATED ALWAYS AS (
-    CASE WHEN revoked_at IS NULL AND capability IN ('approve', 'book', 'request') THEN address_revision END
+    CASE WHEN revoked_at IS NULL AND capability IN ('approve', 'book', 'request', 'sign_off') THEN address_revision END
   ) VIRTUAL,
   CONSTRAINT place_grants_capability CHECK (capability IN ('view', 'message', 'request', 'book', 'approve', 'sign_off', 'bill_view', 'delegate')),
   CONSTRAINT place_grants_term CHECK (

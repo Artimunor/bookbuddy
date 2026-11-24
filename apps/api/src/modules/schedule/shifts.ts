@@ -4,7 +4,7 @@ import type { CommandStatement } from "../../db/commit";
 import { accessClock, at, displayName, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import { currentMembership } from "../jobs/projections";
-import { foreman, jobOpen, scheduleAccess, targetId } from "./policy";
+import { foreman, jobOpen, publishedCustomerUpdate, scheduleAccess, targetId } from "./policy";
 
 const pageSize = 50;
 const array = (select: string) => `(SELECT json_group_array(json(value)) FROM (${select}))`;
@@ -95,7 +95,7 @@ export function readShift(session: SessionAccess, now: number, shift: string): C
   return scopedStatement(access, `SELECT (SELECT CASE WHEN ${foreman("scope")} THEN json_object('view', 'foreman',
     'shift', ${shiftJson("j.site_zone", "j.alias")}, 'slots', json(${slots}), 'holds', json(${rosterHolds}),
     'customerUpdate', json(coalesce((SELECT json_object('state', 'published', 'kind', cu.kind, 'publishedAt', cu.recorded_at)
-      FROM customer_updates cu WHERE cu.visit_id = v.id AND cu.recorded_at <= ${at} ORDER BY cu.recorded_at DESC, cu.id DESC LIMIT 1),
+      FROM customer_updates cu WHERE cu.visit_id = v.id AND ${publishedCustomerUpdate("cu")} ORDER BY cu.recorded_at DESC, cu.id DESC LIMIT 1),
       json_object('state', 'not_shared'))), 'crewThreadId', NULL,
     'nextAction', CASE WHEN ${jobOpen()} AND sh.state IN ('planned', 'active') AND v.state = 'booked' THEN CASE
       WHEN NOT (${missingSlot}) THEN 'share_update' WHEN sh.starts_at > ${at} THEN CASE WHEN EXISTS (

@@ -10,15 +10,12 @@ export async function revokeDeviceSession(ctx: RequestScope, input: RouteRequest
   return commitCommand(ctx, prepareCommand(ctx, {
     statements: [
       {
-        // A delayed sign-out must not deactivate a replacement session's registration.
-        sql: `WITH target AS MATERIALIZED (
-          SELECT id, account_id, device_id, issued_at FROM sessions
-          WHERE id = ? AND revocation_hash = ? AND revoked_at IS NULL
-        ) UPDATE push_installations SET state = 'revoked', updated_at = max(updated_at, ?)
-          WHERE state <> 'revoked' AND (account_id, device_id) = (SELECT account_id, device_id FROM target)
-            AND NOT EXISTS (SELECT 1 FROM target t JOIN sessions s ON s.account_id = t.account_id AND s.device_id = t.device_id
-              WHERE s.id <> t.id AND s.issued_at >= t.issued_at AND s.revoked_at IS NULL AND s.expires_at > ?)`,
-        params: [...match, ctx.now, ctx.now],
+        // A delayed proof cannot deactivate a fresh opt-in by another session.
+        sql: `UPDATE push_installations SET state = 'revoked', updated_at = max(updated_at, ?)
+          WHERE state <> 'revoked' AND session_id = (
+            SELECT id FROM sessions WHERE id = ? AND revocation_hash = ? AND revoked_at IS NULL
+          )`,
+        params: [ctx.now, ...match],
       },
       {
         sql: `UPDATE sessions SET revoked_at = max(issued_at, ?)

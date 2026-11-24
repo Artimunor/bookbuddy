@@ -218,7 +218,7 @@ export const placeGrants = sqliteTable("place_grants", {
   validUntil: integer("valid_until"),
   revokedAt: integer("revoked_at"),
   currentAddressRevision: integer("current_address_revision").generatedAlwaysAs(sql`
-    CASE WHEN revoked_at IS NULL AND capability IN ('approve', 'book', 'request') THEN address_revision END`, { mode: "virtual" }),
+    CASE WHEN revoked_at IS NULL AND capability IN ('approve', 'book', 'request', 'sign_off') THEN address_revision END`, { mode: "virtual" }),
 }, (t) => [
   check("place_grants_capability", sql`${t.capability} IN ('view', 'message', 'request', 'book', 'approve', 'sign_off', 'bill_view', 'delegate')`),
   check("place_grants_term", sql`(${t.validUntil} IS NULL OR (typeof(${t.validUntil}) = 'integer' AND ${t.validUntil} > ${t.validFrom}))

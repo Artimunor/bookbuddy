@@ -38,7 +38,8 @@ CREATE TABLE sessions (
   revoked_at INTEGER,
   CONSTRAINT sessions_term CHECK (typeof(expires_at) = 'integer' AND expires_at > issued_at
     AND (revoked_at IS NULL OR revoked_at >= issued_at)),
-  FOREIGN KEY (active_context_id, account_id) REFERENCES account_contexts (id, account_id)
+  FOREIGN KEY (active_context_id, account_id) REFERENCES account_contexts (id, account_id),
+  UNIQUE (id, account_id, device_id)
 );
 CREATE INDEX sessions_account_active ON sessions (account_id, expires_at, id) WHERE revoked_at IS NULL;
 CREATE INDEX sessions_active_context ON sessions (active_context_id, account_id) WHERE active_context_id IS NOT NULL;

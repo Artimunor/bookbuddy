@@ -131,8 +131,8 @@ test("text request makes an unassigned job, durable intake offer and safe replay
     expect(JSON.stringify(opened)).not.toContain("Private address");
     expect((await f.call(path, "second")).body).toMatchObject({ data: { kind: "unavailable", reason: "unavailable" } });
     expect(f.notices).toHaveLength(1);
-    await f.db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
-      VALUES ('phone','first','ExpoPushToken[phone]',1,'ios','active',?)`).bind(friday).run();
+    await f.db.prepare(`INSERT INTO push_installations (id,account_id,device_id,session_id,token,token_epoch,platform,state,updated_at)
+      VALUES ('phone','first','device','first-session','ExpoPushToken[phone]',1,'ios','active',?)`).bind(friday).run();
     const sent: unknown[] = [];
     await runEffectBatch({ DB: f.db, PUBLIC_APP_ORIGIN: origin } as Bindings, f.notices[0]!, friday, async (_url, request) => {
       sent.push(JSON.parse(request.body as string));

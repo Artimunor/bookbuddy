@@ -14,7 +14,7 @@ import { loadOtpKey } from "./crypto";
 import { getOtpStatus, sendOtp, verifyOtp } from "./otp";
 import type { SendResult } from "./otp";
 import { revokeDeviceSession } from "./revocation";
-import { clearSessionCookie, isTrustedOrigin, resolveSession, sessionCookie } from "./session";
+import { isTrustedOrigin, resolveSession, sessionCookie } from "./session";
 
 export const authRoutes = new Hono<ApiEnv>();
 const uiTags = new Set<string>(enabledLocales.map(({ tag }) => tag));
@@ -169,7 +169,8 @@ authRoutes.post(sessionEndRoute.path, async (c) => {
   if (!revoked) return fail(c, { code: "UNAUTHENTICATED" });
   // D1 has revoked access. If the transport is unavailable, short socket leases still expire.
   await closeRevokedSession(c.env.LIVE, revoked).catch(() => {});
-  if (!c.req.header("Authorization")) c.header("Set-Cookie", clearSessionCookie);
+  // A delayed response must not clear a newer login's shared cookie. Revocation
+  // is authoritative; the inert cookie expires or is replaced on the next login.
   return ok(c, { ended: true as const }, ctx.now);
 });
 

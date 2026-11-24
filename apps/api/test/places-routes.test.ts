@@ -129,6 +129,10 @@ test("create, scoped address search, normalization, patch, and local pin verific
     const inside = data(getPlaceRoute.output, await f.request(`${path}/verify-pin`, f.owner,
       { op: "inside", revision: hole.revision, payload: { pin: candidate } }));
     expect(inside).toMatchObject({ state: "in_area", areaName: "Atlantic", siteZone: "Europe/Lisbon", pin: candidate });
+    const signOff = (id: string, addressRevision: number) => f.db.prepare(`INSERT INTO place_grants
+      (id, place_id, account_id, capability, issuer_id, address_revision, valid_from)
+      VALUES (?, ?, 'owner', 'sign_off', 'owner', ?, ?)`).bind(id, created.id, addressRevision, Date.now()).run();
+    await signOff("original-sign-off", 0);
     const safeArrivalNote = "Use the stairs to the 2nd floor after 9:00.";
     const moved = data(getPlaceRoute.output, await f.request(path, f.owner, { op: "move", revision: inside.revision,
       method: "PATCH", payload: { address: "1234 Praça do Mar", safeArrivalNote } }));
@@ -142,6 +146,9 @@ test("create, scoped address search, normalization, patch, and local pin verific
     await f.verify(created.id, "owner", "place_owner");
     expect(data(getPlaceRoute.output, await f.request(`${path}/verify-pin`, f.owner,
       { op: "verified-move", revision: reused.revision, payload: { pin: candidate } })).state).toBe("in_area");
+    expect(await f.db.prepare("SELECT revoked_at FROM place_grants WHERE id = 'original-sign-off'").first("revoked_at")).toBe(start);
+    await expect(signOff("old-address-sign-off", 0)).rejects.toThrow();
+    await signOff("new-address-sign-off", 1);
     const sync = await f.request("/sync", f.owner, { op: "sync", payload: { contextId: "owner-context", cursor: null, operations: [] } });
     expect(sync.body).toMatchObject({ data: { upserts: [{ kind: "place", value: { id: created.id, alias, state: "in_area" } }] } });
     expect(JSON.stringify(sync.body)).not.toContain("Praça");

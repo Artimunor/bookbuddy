@@ -13,7 +13,7 @@ import { at, displayName, scopedStatement } from "../access/policy";
 import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { mediaLinkAvailable } from "../media/deadlines";
-import { foreman, scheduleAccess, targetId } from "../schedule/policy";
+import { foreman, publishedCustomerUpdate, scheduleAccess, targetId } from "../schedule/policy";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import { attendanceEventValue, correctionValue, departAssignment, estimateValue, readWorkerFieldShift, readyPhotoSql,
   recordAssignmentProgress, recordAttendance, requestAttendanceCorrection, workValue } from "./attendance";
@@ -79,7 +79,7 @@ function readVisitLog(session: SessionAccess, now: number, { params, query }: Lo
   const published = customerStampSql("u", "l.provider_name");
   const customerRows = `SELECT u.recorded_at AS at, 'customer_update' AS source, u.id,
     ${customerOnly ? published : `json_object('kind', 'customer_update', 'update', json(${published}))`} AS value
-    FROM log_scope l JOIN customer_updates u ON u.visit_id = l.visit_id AND u.recorded_at <= ${at}
+    FROM log_scope l JOIN customer_updates u ON u.visit_id = l.visit_id AND ${publishedCustomerUpdate("u")}
     WHERE u.kind <> 'photo' OR EXISTS (SELECT 1 FROM update_attachments link WHERE link.update_id = u.id)`;
   const photoReady = `${readyPhotoSql("media")} AND ${mediaLinkAvailable("l.job_id", "media.id", "progress")}`;
   const privateRows = `
