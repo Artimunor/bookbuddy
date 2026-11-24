@@ -154,6 +154,7 @@ test("only a definitive stale revision allows reviewed details to retry with the
   expect(prior).toEqual(metadata);
   expect(await attemptPendingOperation(async () => ({ ok: false, error: { code: "STALE_REVISION", delivery: "unknown" } }), updated, prior, placeId))
     .toEqual({ kind: "uncertain" });
+  expect(clearPendingOperation(key, metadata.operationId, { onlyIfStale: true })).toBe(false);
   expect(readPendingOperation(key)).toEqual(metadata);
 
   const rejectStale = async () => ({ ok: false as const, error: { code: "STALE_REVISION" } });
@@ -177,7 +178,35 @@ test("only a definitive stale revision allows reviewed details to retry with the
     throw new Error("Lost revised response");
   }, updated, reviewed)).toEqual({ kind: "uncertain" });
   expect(requests).toEqual([{ ...updated, operationId: original.operationId }]);
+  expect(clearPendingOperation(remounted, metadata.operationId, { onlyIfStale: true })).toBe(false);
+  expect(readPendingOperation(remounted)).toEqual(reviewed);
   expect(preparePendingRetry(remounted, metadata.operationId, metadata.placeId, 6)).toEqual(reviewed);
+});
+
+test("a customer can explicitly discard a definitive stale request and submit for a different place", async () => {
+  activatePendingOperations(identity);
+  const key = pendingOperationKey(identity, requestIntent)!;
+  const original = submitRequestRoute.input.parse({ body: {
+    operationId: "stale-request", expectedRevision: 4,
+    payload: { placeId: "inaccessible-place", originalText: "Private request", arrivalArrangement: "requester" },
+  } }).body;
+  const classify = await attemptPendingOperation(async () => ({ ok: false, error: { code: "STALE_REVISION" } }),
+    original, undefined, input => input.payload.placeId);
+  if (classify.kind !== "stale") throw new Error("Expected a definitive stale rejection");
+  expect(savePendingOperation(key, classify.operation)).toBe(true);
+  expect(preparePendingRetry(key, original.operationId, "different-place", 5)).toBeNull();
+  expect(clearPendingOperation(key, "different-operation", { onlyIfStale: true })).toBe(false);
+  expect(clearPendingOperation(key, original.operationId, { onlyIfStale: true })).toBe(true);
+  expect(readPendingOperation(key)).toBeNull();
+
+  const fresh = submitRequestRoute.input.parse({ body: { ...original,
+    operationId: "fresh-request", expectedRevision: 1, payload: { ...original.payload, placeId: "different-place" },
+  } }).body;
+  const result = await attemptPendingOperation(async input => {
+    expect(input).toEqual(fresh);
+    return { ok: true, data: { jobId: "new-job" } };
+  }, fresh, readPendingOperation(key) ?? undefined, input => input.payload.placeId);
+  expect(result).toMatchObject({ kind: "committed", data: { jobId: "new-job" } });
 });
 
 test.each([anonymousSupportScope, identity])("Help replays a lost response after reload in its original scope (%s)", async (scope) => {

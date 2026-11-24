@@ -16,6 +16,7 @@ export type PendingOperation<P> = {
   start: (input: P) => void;
   check: () => void;
   resend: (input: P) => void;
+  discardStale: () => boolean;
 };
 type Display<P> = {
   storage: StorageKey;
@@ -78,6 +79,16 @@ export function usePendingOperation<P extends PendingInput, R>(
     const previous = preparePendingRetry(storage, pending.operationId, recovery.placeId?.(input), input.expectedRevision);
     if (previous) void attempt(input, previous);
     else if (pending.reviewPlace) setDisplay({ storage, state: "failed" });
+  }
+
+  function discardStale() {
+    if (!storage || !pending?.reviewPlace || busy.current === storage || !viewIsCurrent()) return false;
+    if (!clearPendingOperation(storage, pending.operationId, { onlyIfStale: true })) {
+      setDisplay({ storage, state: "failed" });
+      return false;
+    }
+    setDisplay({ storage, state: "idle" });
+    return true;
   }
 
   async function attempt(input: P, previous?: StoredOperation) {
@@ -143,5 +154,5 @@ export function usePendingOperation<P extends PendingInput, R>(
     confirm: () => submit(changed.confirmedInput(), changed.operationId),
     dismiss: () => setDisplay({ storage, state: "unknown" }),
   } : null;
-  return { state, pending, canResend, replacement, start: submit, check: () => { void check(); }, resend };
+  return { state, pending, canResend, replacement, start: submit, check: () => { void check(); }, resend, discardStale };
 }

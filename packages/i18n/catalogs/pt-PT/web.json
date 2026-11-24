@@ -271,6 +271,7 @@
   "web.portal.ps.requestSendChanged": "Enviar como novo pedido?",
   "web.portal.ps.requestSendChangedDetail": "O seu pedido anterior foi registado com dados diferentes. Se enviar este pedido, será criado outro trabalho.",
   "web.portal.ps.requestSent": "Pedido enviado",
+  "web.portal.ps.requestStartNew": "Iniciar um novo pedido em vez disso",
   "web.portal.ps.review": "Rever pedido",
   "web.portal.ps.safeNote": "Notas de chegada seguras",
   "web.portal.ps.save": "Guardar",

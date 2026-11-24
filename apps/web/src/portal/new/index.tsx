@@ -75,6 +75,7 @@ export function RequestPlace() {
 }
 export function ReviewRequest() {
   const { draft,setDraft,command,receipt } = useOutletContext<Flow>(); const { t,locale,preferences,api } = usePortal();
+  const navigate = useNavigate();
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const refresh = useRef<AbortController | null>(null);
@@ -112,6 +113,11 @@ export function ReviewRequest() {
     if (command.canResend) command.resend(input);
     else command.start(input);
   }
+  function startNew() {
+    if (locked || refresh.current || !command.discardStale()) return;
+    setDraft(old => ({ ...old, place: null, arrangement: "requester", contact: "", note: "", media: [], mediaStage: crypto.randomUUID() }));
+    navigate(draft.text.trim() ? "/portal/new/place" : "/portal/new/describe", { replace: true });
+  }
   const viewerZone = preferences?.twoClock ? preferences.displayZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
   const detail = receipt && "siteZone" in receipt ? receipt : null;
   const receiptTime = detail ? formatPortalTime(detail.submittedAt, detail.siteZone, locale, viewerZone) : null;
@@ -136,7 +142,8 @@ export function ReviewRequest() {
       label: checking ? t("web.portal.work.checkAgain") : needsPlaceRefresh ? t("web.portal.ps.requestReviewPlace") : command.canResend ? t("web.portal.ps.requestSendAgain") : t("web.portal.ps.sendRequest"),
       pending:busy, disabled:busy || (!checking && !needsPlaceRefresh && !ready),
       onClick:checking ? command.check : needsPlaceRefresh ? () => void refreshPlace() : send,
-    }} secondary={command.canResend && !reviewPlace && !busy ? { label:t("web.portal.work.checkAgain"), onClick:command.check } : undefined} />
+    }} secondary={busy ? undefined : reviewPlace ? { label:t("web.portal.ps.requestStartNew"), onClick:startNew }
+      : command.canResend ? { label:t("web.portal.work.checkAgain"), onClick:command.check } : undefined} />
     <Dialog open={command.replacement !== null} onOpenChange={open=>{if(!open) command.replacement?.dismiss();}} title={t("web.portal.ps.requestSendChanged")} description={t("web.portal.ps.requestSendChangedDetail")} closeLabel={t("web.portal.work.close")}>
       <Button onClick={command.replacement?.confirm}>{t("web.portal.ps.confirm")}</Button>
     </Dialog>

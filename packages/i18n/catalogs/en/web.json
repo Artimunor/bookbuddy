@@ -271,6 +271,7 @@
   "web.portal.ps.requestSendChanged": "Send as a new request?",
   "web.portal.ps.requestSendChangedDetail": "Your earlier request was recorded with different details. Sending this request will create a separate job.",
   "web.portal.ps.requestSent": "Request sent",
+  "web.portal.ps.requestStartNew": "Start a new request instead",
   "web.portal.ps.review": "Review request",
   "web.portal.ps.safeNote": "Safe arrival notes",
   "web.portal.ps.save": "Save",

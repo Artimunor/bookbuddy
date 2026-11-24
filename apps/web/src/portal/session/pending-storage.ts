@@ -154,8 +154,9 @@ export function preparePendingRetry(key: StorageKey, operationId: string, placeI
   return savePendingOperation(key, reviewed) ? reviewed : null;
 }
 
-export function clearPendingOperation(key: StorageKey, operationId: string) {
-  if (readPendingOperation(key)?.operationId !== operationId) return false;
+export function clearPendingOperation(key: StorageKey, operationId: string, options?: { onlyIfStale: true }) {
+  const pending = readPendingOperation(key);
+  if (pending?.operationId !== operationId || (options?.onlyIfStale && !pending.reviewPlace)) return false;
   try { sessionStorage.removeItem(key.key); return true; }
   catch { return false; }
 }

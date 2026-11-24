@@ -2541,6 +2541,7 @@
   "web.portal.ps.requestSendChanged": "Confirmation title after the server found a different request for the original operation ID.",
   "web.portal.ps.requestSendChangedDetail": "Explains that confirming a changed request creates a separate job.",
   "web.portal.ps.requestSent": "Request receipt title",
+  "web.portal.ps.requestStartNew": "Request review action that discards a definitively rejected attempt and lets the customer choose a new place.",
   "web.portal.ps.review": "Request step three",
   "web.portal.ps.safeNote": "Non-secret arrival notes",
   "web.portal.ps.save": "Save changes",
