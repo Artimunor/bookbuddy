@@ -9,3 +9,4 @@ export * from "./places";
 export * from "./auth";
 export * from "./jobs";
 export * from "./commercial";
+export * from "./schedule";

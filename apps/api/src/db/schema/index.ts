@@ -3,3 +3,4 @@ export * from "./access";
 export * from "./transport";
 export * from "./jobs";
 export * from "./commercial";
+export * from "./schedule";
