@@ -1,6 +1,6 @@
 import { sync } from "@bookbuddy/api-client";
 import { accountIdSchema, authTokenPattern, sessionBootstrapSchema, sessionEndRoute } from "@bookbuddy/api-contract";
-import type { LocalePreferences, SessionBootstrap } from "@bookbuddy/api-contract";
+import type { SessionBootstrap } from "@bookbuddy/api-contract";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AppState } from "react-native";
@@ -8,7 +8,7 @@ import { useApiAccess } from "../api/provider";
 import { serialize } from "../repository/executor";
 import { RepositoryProvider } from "../repository/hooks";
 import { openMobileRepository, removeStagedFiles } from "../repository/open";
-import type { MobileRepository, ScopedRepository } from "../repository/repository";
+import type { DevicePreferences, MobileRepository, ScopedRepository } from "../repository/repository";
 import { SyncProvider } from "../sync/provider";
 import { SyncRunner } from "../sync/runner";
 import { sessionStorage } from "./storage";
@@ -21,7 +21,7 @@ interface SessionState {
   status: "loading" | "ready" | "storage_error";
   session: DeviceSession | null;
   bootstrap: SessionBootstrap | null;
-  preferences: LocalePreferences | null;
+  preferences: DevicePreferences | null;
 }
 export interface SessionAccess extends SessionState {
   acceptBootstrap: (bootstrap: SessionBootstrap, credential?: string) => Promise<void>;
@@ -50,7 +50,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const repo = useRef<MobileRepository | null>(null);
   const activeScope = useRef<ScopedRepository | null>(null);
   const current = useRef<Extract<StoredSession, { state: "active" }> | null>(null);
-  const currentPreferences = useRef<LocalePreferences | null>(null);
+  const currentPreferences = useRef<DevicePreferences | null>(null);
   const ending = useRef<DeviceSession["accountId"] | null>(null);
   const liveClient = useRef(client);
   useEffect(() => { liveClient.current = client; }, [client]);
@@ -68,7 +68,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setScope(null);
   }, [runner]);
 
-  const adopt = useCallback((record: typeof current.current, preferences: LocalePreferences | null, bootstrap: SessionBootstrap | null) => {
+  const adopt = useCallback((record: typeof current.current, preferences: DevicePreferences | null, bootstrap: SessionBootstrap | null) => {
     const next = record?.session ?? null;
     const contextId = next?.activeContext?.contextId;
     if (activeScope.current?.scope.accountId !== next?.accountId || activeScope.current?.scope.contextId !== contextId) {
@@ -139,13 +139,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!token || !authTokenPattern.test(token) || expiresAt <= Date.now()) throw new Error("A valid native session credential is required");
     const session = deviceSessionSchema.parse({ accountId: account.id, sessionId, setup, expiresAt, activeContext });
     const record: Extract<StoredSession, { state: "active" }> = { state: "active", credential: token, session };
-    const locale = { uiLocale: preferences.uiLocale, readingLocale: preferences.readingLocale };
-    if (locale.uiLocale !== currentPreferences.current?.uiLocale || locale.readingLocale !== currentPreferences.current?.readingLocale) {
-      await repo.current.saveLocalePreferences(account.id, locale);
+    const { revision: _revision, ...devicePreferences } = preferences;
+    const prior = currentPreferences.current;
+    if (prior?.uiLocale !== preferences.uiLocale || prior?.readingLocale !== preferences.readingLocale
+      || prior?.theme !== preferences.theme || prior?.fieldMode !== preferences.fieldMode || prior?.twoClock !== preferences.twoClock) {
+      await repo.current.saveLocalePreferences(account.id, devicePreferences);
     }
     const encoded = JSON.stringify(record);
     if (encoded !== JSON.stringify(previous)) await sessionStorage.save(encoded);
-    adopt(record, locale, bootstrap);
+    adopt(record, devicePreferences, bootstrap);
   }), [adopt, schedule]);
 
   const signOut = useCallback(() => schedule(async () => {

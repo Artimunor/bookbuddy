@@ -6,6 +6,7 @@ import { uuid } from "expo";
 import { useLocales } from "expo-localization";
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useApiAccess } from "../api/provider";
+import { useRepository } from "../repository/hooks";
 import { useSession } from "../session";
 import { localPreferenceStorage } from "./storage";
 
@@ -55,8 +56,9 @@ const LocaleContext = createContext<LocaleChoice | null>(null);
 type AccountPending = { key: string; value: Pending | null };
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const { client, setRequestLocale } = useApiAccess();
+  const { client, isOffline, requests, setRequestLocale } = useApiAccess();
   const { session, bootstrap, preferences, acceptBootstrap } = useSession();
+  const scope = useRepository();
   const device = useLocales();
   const tags = useMemo(() => device.map(({ languageTag }) => languageTag), [device]);
   const supported = useMemo(() => deviceMatches(tags), [tags]);
@@ -68,8 +70,8 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const rawSaved = preferences?.uiLocale ?? null;
   const revision = bootstrap?.preferences.revision ?? null;
   const storedPending = key && accountPending?.key === key ? accountPending.value : null;
-  const pending = storedPending && rawSaved === storedPending.prior && (rawSaved === null || resolveLocale([rawSaved]) !== storedPending.locale)
-    && (revision === null || storedPending.revision === null || revision === storedPending.revision) ? storedPending : null;
+  const pending = storedPending && rawSaved === storedPending.prior
+    && (rawSaved === null || resolveLocale([rawSaved]) !== storedPending.locale) ? storedPending : null;
   const locale = pending?.locale ?? (rawSaved !== null ? resolveLocale([rawSaved]) : local ?? deviceLocale);
 
   useEffect(() => {
@@ -112,11 +114,11 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
       };
       setAccountPending({ key, value: choice });
       await localPreferenceStorage.write(key, JSON.stringify(choice)).catch(() => undefined);
-      if (revision === null || !client) return;
+      if (revision === null || !client || !requests.active || scope?.isActive === false || isOffline()) return;
       const result = await createAuthClient(client).patchSettings({
         operationId: choice.operationId, expectedRevision: revision, payload: { uiLocale: next },
       });
-      if (!result.ok) return;
+      if (!result.ok || !requests.active || (scope && !scope.isActive)) return;
       await acceptBootstrap(result.data);
       setAccountPending((current) => current?.key === key ? { key, value: null } : current);
       await localPreferenceStorage.remove(key).catch(() => undefined);

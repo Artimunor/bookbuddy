@@ -1,10 +1,15 @@
-import { errorBodySchema, localePreferencesSchema, operationIdSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
-import type { ErrorBody, LocalePreferences, OperationId, SyncOp, SyncPage } from "@bookbuddy/api-contract";
+import { accountSettingsSchema, errorBodySchema, operationIdSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
+import type { ErrorBody, LocalePreferences, OperationId, SessionBootstrap, SyncOp, SyncPage } from "@bookbuddy/api-contract";
 import { cacheableValue, draftExpiresAfter, draftWarnAfter, snapshotWindow } from "./cache";
 import type { CachedProjections, ProjectionKind } from "./cache";
 import type { Executor, Rows } from "./executor";
 import { drafts, localSettings, outbox, pendingOnlineReceipts, projection, stagedMedia, syncState } from "./schema";
 import type { OutboxStatus } from "./schema";
+
+const devicePreferencesSchema = accountSettingsSchema.omit({ revision: true }).partial({
+  theme: true, fieldMode: true, twoClock: true,
+});
+export type DevicePreferences = LocalePreferences & Partial<Pick<SessionBootstrap["preferences"], "theme" | "fieldMode" | "twoClock">>;
 
 export type Scope = { accountId: string; contextId: string };
 export type DraftValue = null | boolean | number | string | DraftValue[] | { [key: string]: DraftValue };
@@ -43,15 +48,15 @@ export class MobileRepository {
     return new ScopedRepository(this.db, { ...scope }, this.newId, this.now);
   }
 
-  async getLocalePreferences(accountId: string): Promise<LocalePreferences | null> {
+  async getLocalePreferences(accountId: string): Promise<DevicePreferences | null> {
     const [row] = await this.db.read((db) => db.select(localSettings, { account_id: accountId, key: "locale" }));
-    return row ? localePreferencesSchema.parse(JSON.parse(row.value)) : null;
+    return row ? devicePreferencesSchema.parse(JSON.parse(row.value)) : null;
   }
 
-  async saveLocalePreferences(accountId: string, value: LocalePreferences) {
-    const { uiLocale, readingLocale } = localePreferencesSchema.parse(value);
+  async saveLocalePreferences(accountId: string, value: DevicePreferences) {
+    const preferences = devicePreferencesSchema.parse(value);
     await this.db.transaction((db) => db.put(localSettings, {
-      account_id: accountId, key: "locale", value: JSON.stringify({ uiLocale, readingLocale }),
+      account_id: accountId, key: "locale", value: JSON.stringify(preferences),
     }));
   }
 
