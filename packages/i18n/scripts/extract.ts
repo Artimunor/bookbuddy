@@ -16,6 +16,30 @@ function translationCall(node: ts.CallExpression): boolean {
     && target.argumentExpression.text === "t";
 }
 
+// These app prop names carry typed catalog keys. Only count values that are actual
+// catalog keys: unrelated props with the same spelling are not translation calls.
+const messageKeyProps = { actionLabelKey: true, titleKey: true, labelKey: true };
+
+function messageKeyValue(node: ts.Node): ts.Expression | undefined {
+  if (ts.isPropertyAssignment(node) && (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name))
+    && Object.hasOwn(messageKeyProps, node.name.text)) return node.initializer;
+  if (ts.isJsxAttribute(node) && ts.isIdentifier(node.name) && Object.hasOwn(messageKeyProps, node.name.text)) {
+    const value = node.initializer;
+    return value && (ts.isJsxExpression(value) ? value.expression : value);
+  }
+  return undefined;
+}
+
+function recordMessageKeyValue(value: ts.Expression, known: ReadonlySet<string>, used: Set<string>): void {
+  const key = unwrap(value);
+  if (ts.isStringLiteralLike(key)) {
+    if (known.has(key.text)) used.add(key.text);
+  } else if (ts.isConditionalExpression(key)) {
+    recordMessageKeyValue(key.whenTrue, known, used);
+    recordMessageKeyValue(key.whenFalse, known, used);
+  }
+}
+
 export async function extractKeys(apps: string, known: ReadonlySet<string>): Promise<{ errors: string[]; unused: string[] }> {
   const paths = ts.sys.readDirectory(apps, [".ts", ".tsx"], ["**/node_modules", "**/dist", "**/build", "**/coverage", "**/.*/**"], ["**/*"]).sort();
   const used = new Set<string>();
@@ -31,6 +55,8 @@ export async function extractKeys(apps: string, known: ReadonlySet<string>): Pro
         else if (!known.has(key.text)) errors.push(`${at}: unknown message key ${JSON.stringify(key.text)}`);
         else used.add(key.text);
       }
+      const value = messageKeyValue(node);
+      if (value) recordMessageKeyValue(value, known, used);
       ts.forEachChild(node, visit);
     }
     visit(source);
