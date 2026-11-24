@@ -246,7 +246,8 @@ test("booker sync and private links expose confirmed substitutes; moving and can
   ]);
   const replacement = { status: "confirmed", isSubstitute: true, host: { name: "Lucía", language: "en", confirmed: { byName: "Marina", at: clock.now } } };
   const synced = data(syncRoute, await f.call("booker", "/sync", { contextId: "booker-context", operations: [], cursor: initial.cursor }));
-  expect(synced.upserts).toContainEqual(expect.objectContaining({ kind: "session_booking", resourceId: "booking", value: expect.objectContaining({ host: expect.objectContaining(replacement) }) }));
+  expect(synced.upserts.find(({ kind, resourceId }) => kind === "session_booking" && resourceId === "booking")?.value)
+    .toMatchObject({ category: "pilates", host: replacement });
   const other = data(syncRoute, await f.call("other", "/sync", { contextId: "other-context", operations: [], cursor: null }));
   expect(other.upserts.filter(({ kind }) => kind === "session_booking")).toEqual([]);
   expect(data(openLinkRoute, await f.call("booker", "/links/token"))).toMatchObject({ kind: "session_booking", booking: { host: replacement } });

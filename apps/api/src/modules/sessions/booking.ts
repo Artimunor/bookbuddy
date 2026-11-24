@@ -1,4 +1,4 @@
-import { customerSessionBookingSchema, timestampSchema } from "@bookbuddy/api-contract";
+import { customerSessionBookingSchema, sessionCategorySchema, timestampSchema } from "@bookbuddy/api-contract";
 import type {
   bookSessionHoldRoute, cancelSessionBookingRoute, createSessionHoldRoute, listSessionsRoute, moveSessionBookingRoute,
   releaseSessionHoldRoute, respondToSessionChangeRoute, ErrorBody, OperationId, RouteRequest,
@@ -106,8 +106,9 @@ function proposalJson(now: string): string {
     ORDER BY offer.version DESC LIMIT 1)`;
 }
 
-function bookingJson(now: string): string {
-  return `json_object('id', b.id, 'reference', b.reference, 'listingId', b.listing_id, 'provider', ${provider("business")},
+function bookingJson(now: string, projection: "detail" | "sync"): string {
+  return `json_object('id', b.id, 'reference', b.reference, 'listingId', b.listing_id,
+    ${projection === "sync" ? "'category', l.category," : ""} 'provider', ${provider("business")},
     'revision', b.revision, 'state', b.state, 'bookerName', ${displayName("booker")}, 'bookedAt', b.booked_at,
     'original', json_object('slotId', b.original_slot_id, 'listingVersionId', b.original_listing_version_id, 'termsHash', b.original_terms_hash),
     'agreement', ${agreement("s", "v", "venue", "b.places")},
@@ -129,20 +130,23 @@ function bookingJson(now: string): string {
         AND NOT EXISTS (SELECT 1 FROM session_booking_feedback feedback WHERE feedback.booking_id = b.id)`)}) )`;
 }
 
-export function sessionBookingValue(id: string, scope: string, now = at): string {
-  return `(SELECT ${bookingJson(now)} FROM ${bookingTables()}
+function scopedBookingValue(id: string, scope: string, projection: string): string {
+  return `(SELECT ${projection} FROM ${bookingTables()}
     JOIN accounts booker ON booker.id = b.booker_id
     WHERE b.id = ${id} AND b.booker_id = ${scope}.account_id AND ${scope}.role = 'customer' AND ${enabledScope("venue", "l")})`;
 }
 
+export const sessionBookingValue = (id: string, scope: string): string => scopedBookingValue(id, scope, bookingJson(at, "detail"));
+
 export const sessionBookingSyncProjection: SyncProjectionReader = {
-  kind: sessionBookingKind, schema: customerSessionBookingSchema, roles: ["customer"],
+  kind: sessionBookingKind, schema: customerSessionBookingSchema.extend({ category: sessionCategorySchema }), roles: ["customer"],
   snapshotIds() {
     return { sql: `SELECT b.id AS resource_id FROM snapshot_scope scope CROSS JOIN ${bookingTables()}
       WHERE scope.role = 'customer' AND scope.account_id = b.booker_id AND b.id > scope.after_id AND ${enabledScope("venue", "l")}` };
   },
   project(now) {
-    return { sql: `SELECT k.resource_id, ${sessionBookingValue("k.resource_id", "scope", String(now))} AS value
+    const value = scopedBookingValue("k.resource_id", "scope", bookingJson(String(now), "sync"));
+    return { sql: `SELECT k.resource_id, ${value} AS value
       FROM projection_keys k CROSS JOIN live_scope scope WHERE k.kind = '${sessionBookingKind}' AND scope.role = 'customer'` };
   },
 };
