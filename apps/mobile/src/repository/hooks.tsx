@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import type { AttachmentId } from "../media/types";
 import { useSync } from "../sync/provider";
 import { retryOutboxOperation } from "../sync/runner";
 import type { SyncResult } from "../sync/runner";
@@ -7,7 +8,7 @@ import type { AttendanceStatus } from "./attendance";
 import { draftExpiresAfter, snapshotWindow } from "./cache";
 import type { CachedProjections, ProjectionKind } from "./cache";
 import type { RemoteCacheKind } from "./remote-cache";
-import type { Draft, DraftKey, DraftValue, NewOperation, OutboxEntry, PendingDraft, ProjectionQuery, RepositoryTopic, Scope, ScopedRepository } from "./repository";
+import type { Draft, DraftKey, DraftValue, NewOperation, OutboxEntry, PendingDraft, ProgressReceipt, ProjectionQuery, RepositoryTopic, Scope, ScopedRepository } from "./repository";
 
 const RepositoryContext = createContext<ScopedRepository | null>(null);
 const empty: readonly never[] = [];
@@ -95,7 +96,7 @@ export function useLastConfirmed(scope?: Scope): number | null {
   return useSnapshotVisible(result?.expiresAt) ? result?.confirmedAt ?? null : null;
 }
 
-export function useOutbox(): {
+export function useOutbox({ retryMedia }: { retryMedia?: (attachmentId: AttachmentId) => Promise<void> } = {}): {
   entries: readonly OutboxEntry[];
   enqueueOperation: (operation: NewOperation) => Promise<string>;
   remove: (operationId: string) => Promise<boolean>;
@@ -109,7 +110,7 @@ export function useOutbox(): {
     return repo.enqueueOperation(op);
   }, [repo]);
   const remove = useCallback((id: string) => repo?.removeUnsentOperation(id) ?? Promise.resolve(false), [repo]);
-  const retry = useCallback((id: string) => retryOutboxOperation(repo, id, refresh), [repo, refresh]);
+  const retry = useCallback((id: string) => retryOutboxOperation(repo, id, refresh, retryMedia), [repo, refresh, retryMedia]);
   return { entries, enqueueOperation, remove, retry };
 }
 
@@ -123,6 +124,11 @@ export function useAttendanceStatus(assignmentId: string | null | undefined): At
   return visible
     ? { arrival: result.arrival, departure: result.departure, lastConfirmedAt: result.lastConfirmedAt }
     : { ...result.local, lastConfirmedAt: null };
+}
+
+export function useProgressReceipts(assignmentId: string | null | undefined): readonly ProgressReceipt[] {
+  return useRead<readonly ProgressReceipt[]>("progress", useCallback((repo: ScopedRepository) => assignmentId
+    ? repo.listProgressReceipts(assignmentId) : Promise.resolve(empty), [assignmentId])) ?? empty;
 }
 
 export function usePendingDrafts(kind: string): readonly PendingDraft[];

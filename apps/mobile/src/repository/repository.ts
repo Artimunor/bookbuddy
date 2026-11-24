@@ -1,5 +1,5 @@
 import { accountSettingsSchema, errorBodySchema, mediaStageIdSchema, operationIdSchema, sessionBootstrapSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
-import type { ErrorBody, LocalePreferences, OperationId, SessionBootstrap, SyncOp, SyncPage } from "@bookbuddy/api-contract";
+import type { ErrorBody, LocalePreferences, OpOutcome, OperationId, ProgressPhotoOutcome, SessionBootstrap, SyncOp, SyncPage } from "@bookbuddy/api-contract";
 import { fitsDraft } from "../media/types";
 import type { AttachmentId, MediaTransfer, NewMediaTransfer, TransferProgress, TransferQuery } from "../media/types";
 import { attendanceProgress } from "./attendance";
@@ -10,8 +10,8 @@ import type { Executor, Rows } from "./executor";
 import { decodeTransfer, encodeTransfer } from "./media-transfers";
 import { cacheRemoteResponse, decodeRemoteSnapshot } from "./remote-cache";
 import type { CachedRead, RemoteCacheKind } from "./remote-cache";
-import { attendanceReceipts, drafts, localSettings, mediaTransfers, outbox, pendingOnlineReceipts, projection, stagedMedia, syncState } from "./schema";
-import type { OutboxStatus } from "./schema";
+import { attendanceReceipts, drafts, localSettings, mediaTransfers, outbox, pendingOnlineReceipts, progressReceipts, projection, stagedMedia, syncState } from "./schema";
+import type { OutboxStatus, ProgressReceiptState } from "./schema";
 
 const devicePreferencesSchema = accountSettingsSchema.omit({ revision: true }).partial({
   theme: true, fieldMode: true, twoClock: true,
@@ -28,7 +28,36 @@ export type PendingDraft = { draftId: string; updatedAt: number; summary?: strin
 export type ProjectionQuery = { afterId?: string; limit?: number };
 type WithOptionalId<Op> = Op extends SyncOp ? Omit<Op, "operationId"> & { operationId?: string } : never;
 export type NewOperation = WithOptionalId<SyncOp> | AttendanceCapture;
-export interface OutboxEntry { operation: SyncOp; status: OutboxStatus; createdAt: number; error: ErrorBody | null }
+export interface OutboxEntry { operation: SyncOp; status: OutboxStatus | "failed"; createdAt: number; error: ErrorBody | null }
+export type ProgressReceipt = {
+  operationId: string; activityIds: readonly string[]; state: ProgressReceiptState; confirmedAt: number;
+  photoOutcomes: readonly ProgressPhotoOutcome[];
+};
+type ProgressOperation = Extract<SyncOp, { kind: "attachment_link" }>;
+type ProgressMedia = Map<AttachmentId, Parameters<typeof decodeTransfer>[0]>;
+type OutboxRetry = { kind: "sync" } | { kind: "media"; attachmentIds: AttachmentId[] };
+
+function transferFor(media: ProgressMedia, assignmentId: string, attachmentId: AttachmentId) {
+  const row = media.get(attachmentId);
+  return row?.parent_scope_id === assignmentId ? row : undefined;
+}
+
+function progressReady({ payload: { assignmentId, photos } }: ProgressOperation, media: ProgressMedia) {
+  return photos.every(({ attachmentId }) => transferFor(media, assignmentId, attachmentId)?.state === "ready");
+}
+
+function progressReceipt(operation: ProgressOperation, outcome: OpOutcome): { photos: ProgressPhotoOutcome[]; state: ProgressReceiptState } {
+  const photos = outcome.photoOutcomes;
+  if (!photos) return { photos: [], state: outcome.status === "rejected" ? "rejected" : "sent" };
+  if (photos.length !== operation.payload.photos.length ||
+    photos.some(({ activityId }, index) => activityId !== operation.payload.photos[index]?.activityId)) {
+    throw new Error("Wrong progress photo outcomes");
+  }
+  const recorded = photos.some(({ status }) => status !== "rejected");
+  return { state: recorded ? "recorded" : "rejected", photos: photos.map((photo) => photo.status === "rejected"
+    ? { activityId: photo.activityId, status: "rejected", error: errorBodySchema.parse(photo.error) }
+    : { activityId: photo.activityId, status: photo.status, receivedAt: photo.receivedAt }) };
+}
 export interface StagedMedia {
   attachmentId: string;
   fileUri: string;
@@ -50,7 +79,7 @@ export interface SyncBatch {
   hasMoreOperations: boolean;
 }
 
-export type RepositoryTopic = "projection" | "drafts" | "outbox" | "media" | "receipts" | "attendance";
+export type RepositoryTopic = "projection" | "drafts" | "outbox" | "media" | "receipts" | "attendance" | "progress";
 interface RepositoryEvent { revision: number; listeners: Set<() => void> }
 
 export class MobileRepository {
@@ -99,6 +128,7 @@ export class MobileRepository {
       await db.remove(drafts, account);
       await db.remove(outbox, account);
       await db.remove(attendanceReceipts, account);
+      await db.remove(progressReceipts, account);
       await db.remove(stagedMedia, account);
       await db.remove(mediaTransfers, account);
       await db.remove(pendingOnlineReceipts, account);
@@ -112,6 +142,7 @@ export class ScopedRepository {
   private snapshotHidden = false;
   private visibility = 0;
   private readonly events = new Map<RepositoryTopic, RepositoryEvent>();
+  private readonly progressReadyListeners = new Set<(ids: ReadonlySet<AttachmentId>) => void>();
   private readonly partition: { account_id: string; context_id: string };
 
   constructor(private readonly db: Executor, readonly scope: Scope, private readonly newId: () => string, readonly now: () => number) {
@@ -141,10 +172,20 @@ export class ScopedRepository {
     return () => { listeners.delete(listener); };
   }
 
+  subscribeProgressReady(listener: (ids: ReadonlySet<AttachmentId>) => void) {
+    this.progressReadyListeners.add(listener);
+    return () => { this.progressReadyListeners.delete(listener); };
+  }
+
+  notifyProgressReady(ids: ReadonlySet<AttachmentId>) {
+    if (this.active) for (const listener of this.progressReadyListeners) listener(ids);
+  }
+
   revision(topic: RepositoryTopic) { return this.event(topic).revision; }
 
   close() {
     this.active = false;
+    this.progressReadyListeners.clear();
     this.notify(...this.events.keys());
   }
 
@@ -368,23 +409,81 @@ export class ScopedRepository {
     return removed;
   }
 
-  canRetryOperation(operationId: string): Promise<boolean> {
+  private async readProgressMedia(db: Pick<Rows, "select">, attachmentIds?: readonly AttachmentId[]): Promise<ProgressMedia> {
+    const rows = await db.select(mediaTransfers, { ...this.partition, caller: "progress",
+      ...(attachmentIds && { attachment_id: { op: "in", value: attachmentIds } }) });
+    return new Map(rows.map((row) => [row.attachment_id, row]));
+  }
+
+  getOutboxRetry(operationId: string): Promise<OutboxRetry | null> {
     return this.db.read(async (db) => {
-      if (!this.active) return false;
-      const count = await db.count(outbox, {
+      if (!this.active) return null;
+      const [row] = await db.select(outbox, {
         ...this.partition, operation_id: operationId, status: { op: "in", value: ["queued", "checking"] },
       });
-      return this.active && count > 0;
+      if (!row || !this.active) return null;
+      const operation = JSON.parse(row.value) as SyncOp;
+      if (operation.kind !== "attachment_link") return { kind: "sync" };
+      const { assignmentId, photos } = operation.payload;
+      const media = await this.readProgressMedia(db, photos.map(({ attachmentId }) => attachmentId));
+      if (!this.active) return null;
+      if (progressReady(operation, media)) return { kind: "sync" };
+      const attachmentIds: AttachmentId[] = [];
+      for (const { attachmentId } of photos) {
+        const transfer = transferFor(media, assignmentId, attachmentId);
+        if (transfer?.state === "failed" && transfer.selected && !decodeTransfer(transfer).terminal) attachmentIds.push(attachmentId);
+      }
+      return { kind: "media", attachmentIds };
+    });
+  }
+
+  hasReadyProgress(ids: ReadonlySet<AttachmentId>): Promise<boolean> {
+    return this.db.read(async (db) => {
+      if (!this.active || !ids.size) return false;
+      let media: ProgressMedia | undefined;
+      for (const row of await db.select(outbox, { ...this.partition, status: "queued" })) {
+        const op = JSON.parse(row.value) as SyncOp;
+        if (op.kind !== "attachment_link" || !op.payload.photos.some(({ attachmentId }) => ids.has(attachmentId))) continue;
+        media ??= await this.readProgressMedia(db);
+        if (progressReady(op, media)) return this.active;
+      }
+      return false;
     });
   }
 
   listOutbox(): Promise<OutboxEntry[]> {
     return this.db.read(async (db) => {
-      const rows = await db.select(outbox, this.partition, { order: ["created_at", "operation_id"] });
-      return this.active ? rows.map((row) => ({
-        operation: syncOperationSchema.parse(JSON.parse(row.value)), status: row.status, createdAt: row.created_at,
-        error: row.error === null ? null : errorBodySchema.parse(JSON.parse(row.error)),
-      })) : [];
+      if (!this.active) return [];
+      const entries: OutboxEntry[] = [];
+      let media: ProgressMedia | undefined;
+      for (const row of await db.select(outbox, this.partition, { order: ["created_at", "operation_id"] })) {
+        const operation = syncOperationSchema.parse(JSON.parse(row.value));
+        let status: OutboxEntry["status"] = row.status;
+        if (status === "queued" && operation.kind === "attachment_link") {
+          const transfers = media ??= await this.readProgressMedia(db);
+          const { assignmentId, photos } = operation.payload;
+          if (photos.some(({ attachmentId }) => {
+            const transfer = transferFor(transfers, assignmentId, attachmentId);
+            return !transfer || transfer.state === "failed";
+          })) status = "failed";
+        }
+        entries.push({ operation, status, createdAt: row.created_at,
+          error: row.error === null ? null : errorBodySchema.parse(JSON.parse(row.error)) });
+      }
+      return this.active ? entries : [];
+    });
+  }
+
+  listProgressReceipts(assignmentId: string): Promise<ProgressReceipt[]> {
+    return this.db.read(async (db) => {
+      if (!this.active) return [];
+      const rows = await db.select(progressReceipts, { ...this.partition, assignment_id: assignmentId },
+        { order: ["confirmed_at", "operation_id"] });
+      return this.active ? rows.map(({ operation_id, state, confirmed_at, photos }) => {
+        const photoOutcomes = JSON.parse(photos) as ProgressPhotoOutcome[];
+        const activityIds = photoOutcomes.flatMap((photo) => photo.status === "rejected" ? [] : [photo.activityId]);
+        return { operationId: operation_id, state, confirmedAt: confirmed_at, activityIds, photoOutcomes };
+      }) : [];
     });
   }
 
@@ -428,21 +527,30 @@ export class ScopedRepository {
       // A hidden snapshot was physically purged; only a fresh snapshot can fill it again.
       const cursor = state?.authorized_at == null ? null : state.cursor;
       const candidates = await db.select(outbox, { ...this.partition, status: { op: "in", value: ["queued", "checking"] } },
-        { order: ["created_at", "operation_id"], limit: syncLimits.operations + 1 });
+        { order: ["created_at", "operation_id"] });
       const operations: SyncOp[] = [];
       const newlyChecking: OperationId[] = [];
+      let media: ProgressMedia | undefined;
+      let hasMoreOperations = false;
       let bytes = (cursor?.length ?? 0) + this.scope.contextId.length + 100;
       for (const candidate of candidates) {
+        const op = syncOperationSchema.parse(JSON.parse(candidate.value));
+        if (op.kind === "attachment_link") {
+          media ??= await this.readProgressMedia(db);
+          if (!progressReady(op, media)) continue;
+        }
         // A UTF-16 code unit contributes at most three UTF-8 bytes to the already-encoded JSON.
         bytes += candidate.value.length * 3 + 1;
-        if (operations.length === syncLimits.operations || bytes > syncLimits.requestBytes) break;
-        const op = syncOperationSchema.parse(JSON.parse(candidate.value));
+        if (operations.length === syncLimits.operations || bytes > syncLimits.requestBytes) {
+          if (!operations.length) throw new Error("Queued operation exceeds the sync request budget");
+          hasMoreOperations = true;
+          break;
+        }
         operations.push(op);
         if (candidate.status === "queued") newlyChecking.push(op.operationId);
       }
-      if (candidates.length && !operations.length) throw new Error("Queued operation exceeds the sync request budget");
       if (newlyChecking.length) await db.update(outbox, { ...this.partition, operation_id: { op: "in", value: newlyChecking } }, { status: "checking" });
-      return { cursor, operations, newlyChecking, hasMoreOperations: candidates.length > operations.length };
+      return { cursor, operations, newlyChecking, hasMoreOperations };
     });
     if (batch.newlyChecking.length) this.notify("outbox", "attendance");
     return batch;
@@ -479,7 +587,7 @@ export class ScopedRepository {
     }
     // A signed revocation is an empty, terminal reset; do not renew visibility.
     const mayBeRevoked = barrier && page.mode === "reset" && page.upserts.length === 0 && !page.hasMore;
-    await this.write(async (db) => {
+    const progressChanged = await this.write(async (db) => {
       if (barrier) await db.remove(projection, this.partition);
       else for (const removal of page.removals) {
         await db.remove(projection, { ...this.partition, kind: removal.kind, id: removal.resourceId });
@@ -492,16 +600,24 @@ export class ScopedRepository {
         if (value) await db.put(projection, { ...key, value: JSON.stringify(value) });
         else await db.remove(projection, key);
       }
-      const acknowledged = page.outcomes.filter((outcome) => outcome.status !== "rejected").map(({ operationId }) => operationId);
-      const pending = acknowledged.length ? await db.select(outbox, {
-        ...this.partition, operation_id: { op: "in", value: acknowledged },
+      let progressChanged = false;
+      const pending = page.outcomes.length ? await db.select(outbox, {
+        ...this.partition, operation_id: { op: "in", value: page.outcomes.map(({ operationId }) => operationId) },
       }) : [];
-      const attendance = new Map(pending.flatMap((row) => {
-        const operation = JSON.parse(row.value) as SyncOp;
-        return operation.kind === "attendance" ? [[row.operation_id, { row, operation }] as const] : [];
-      }));
+      const byId = new Map(pending.map((row) => [row.operation_id, row]));
       for (const outcome of page.outcomes) {
         const key = { ...this.partition, operation_id: outcome.operationId };
+        const row = byId.get(outcome.operationId);
+        if (!row) continue; // A duplicate acknowledgement cannot replace a saved receipt.
+        byId.delete(outcome.operationId);
+        const operation = JSON.parse(row.value) as SyncOp;
+        if (operation.kind === "attachment_link") {
+          if (row.status === "rejected" || row.status === "conflict") continue;
+          const { photos, state } = progressReceipt(operation, outcome);
+          await db.put(progressReceipts, { ...key, assignment_id: operation.payload.assignmentId,
+            state, confirmed_at: confirmedAt, photos: JSON.stringify(photos) });
+          progressChanged = true;
+        }
         if (outcome.status !== "rejected") {
           const accepted = attendance.get(outcome.operationId);
           if (accepted) await db.put(attendanceReceipts, {
@@ -520,11 +636,13 @@ export class ScopedRepository {
         ...this.partition, cursor: page.cursor, confirmed_at: mayBeRevoked ? null : confirmedAt,
         authorized_at: mayBeRevoked ? null : this.now(),
       });
+      return progressChanged;
     });
     this.snapshotHidden = mayBeRevoked;
     const shiftChanged = barrier || page.upserts.some(({ kind }) => kind === "worker_field_shift") ||
       page.removals.some(({ kind }) => kind === "worker_field_shift");
     this.notify("projection", ...(page.outcomes.length ? ["outbox", "attendance"] as const : shiftChanged ? ["attendance"] as const : []));
+    if (progressChanged) this.notify("progress");
   }
 
   async saveStagedMedia(item: StagedMedia) {
@@ -590,23 +708,23 @@ export class ScopedRepository {
       const updated = { ...item, ...patch };
       const { state, selected, file_uri, value } = encodeTransfer(updated);
       await db.update(mediaTransfers, key, { state, selected, file_uri, value });
-      return updated;
+      return { updated, failedChanged: item.caller === "progress" && (item.state === "failed") !== (updated.state === "failed") };
     });
-    if (next) this.notify("media");
-    return next;
+    if (next) this.notify("media", ...(next.failedChanged ? ["outbox" as const] : []));
+    return next?.updated ?? null;
   }
 
   async removeMediaTransfer(attachmentId: AttachmentId, erase: (uri: string) => Promise<void>): Promise<boolean> {
     const removed = await this.write(async (db) => {
       const key = { ...this.partition, attachment_id: attachmentId };
       const [row] = await db.select(mediaTransfers, key);
-      if (!row || decodeTransfer(row).started) return false;
+      if (!row || decodeTransfer(row).started) return null;
       if (row.file_uri) await erase(row.file_uri);
       await db.remove(mediaTransfers, key);
-      return true;
+      return row.caller;
     });
-    if (removed) this.notify("media");
-    return removed;
+    if (removed) this.notify("media", ...(removed === "progress" ? ["outbox" as const] : []));
+    return removed !== null;
   }
 
   getOnlineReceipt(kind: string, resourceId: string): Promise<OnlineReceipt | null> {

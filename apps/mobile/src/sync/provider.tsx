@@ -3,6 +3,7 @@ import type { NetworkState } from "expo-network";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AppState } from "react-native";
+import type { AttachmentId } from "../media/types";
 import type { ScopedRepository } from "../repository/repository";
 import type { SyncResult, SyncRunner } from "./runner";
 
@@ -35,13 +36,29 @@ export function SyncProvider({ children, runner, repository }: { children: React
     let online: boolean | undefined;
     let resumedConnection = false;
     let live = true;
+    let progressReady = new Set<AttachmentId>();
+    const permitted = () => live && foreground && online !== false && repository.isActive;
+    const flushProgress = () => {
+      if (!runner || !permitted() || !progressReady.size) return;
+      const ids = progressReady;
+      progressReady = new Set();
+      void runner.refreshReadyProgress(repository, ids, permitted, refresh).then((handled) => {
+        if (handled || !live || !repository.isActive) return;
+        for (const id of ids) progressReady.add(id);
+        flushProgress();
+      }, () => {});
+    };
+    const progress = runner ? repository.subscribeProgressReady((ids) => {
+      for (const id of ids) progressReady.add(id);
+      flushProgress();
+    }) : null;
     const expire = () => { void repository.expireDrafts().catch(() => undefined); };
     const initial = () => { if (live && foreground && online !== false && runner) void refresh(); };
     const onNetwork = (state: NetworkState) => {
       const previous = online;
       online = state.isConnected !== false && state.isInternetReachable !== false;
       if (previous === false && online) {
-        if (foreground) initial();
+        if (foreground) { initial(); flushProgress(); }
         else resumedConnection = true;
       }
     };
@@ -53,6 +70,7 @@ export function SyncProvider({ children, runner, repository }: { children: React
       const latest = lastConfirmed.current;
       if (resumedConnection || latest?.repository !== repository || Date.now() - latest.at >= foregroundStaleAfter) initial();
       resumedConnection = false;
+      flushProgress();
     });
     expire();
     const network = runner ? addNetworkStateListener(onNetwork) : null;
@@ -64,6 +82,7 @@ export function SyncProvider({ children, runner, repository }: { children: React
       live = false;
       app.remove();
       network?.remove();
+      progress?.();
     };
   }, [repository, runner, refresh]);
 

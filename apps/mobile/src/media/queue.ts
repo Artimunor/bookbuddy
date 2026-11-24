@@ -23,7 +23,7 @@ export type TransferFiles = {
   erase: (uri: string) => Promise<void>;
   put: (uri: string, request: SignedPut) => Promise<PutReceipt>;
 };
-type TransferStore = Pick<ScopedRepository, "isActive" | "listMediaTransfers" | "updateMediaTransfer" | "removeMediaTransfer">;
+type TransferStore = Pick<ScopedRepository, "isActive" | "listMediaTransfers" | "updateMediaTransfer" | "removeMediaTransfer" | "notifyProgressReady">;
 type Grant = { generation: number; value: MediaUploadGrant };
 const isRejected = (state: AttachmentState) => state === "rejected" || state === "expired";
 const serverDenied = (code: string) => code === "UNAUTHENTICATED" || code === "NOT_FOUND" || code === "CONFLICT" || code === "VALIDATION_FAILED" || code === "INVALID_INPUT";
@@ -39,6 +39,7 @@ export class MediaQueue {
   private readonly grants = new Map<AttachmentId, Grant>();
   private running: Promise<void> | null = null;
   private requested = false;
+  private readyProgress: Set<AttachmentId> | null = null;
 
   constructor(
     private readonly store: TransferStore,
@@ -61,7 +62,12 @@ export class MediaQueue {
   kick(): Promise<void> {
     if (!this.canRun) return Promise.resolve();
     this.requested = true;
-    if (!this.running) this.running = this.drain().finally(() => { this.running = null; });
+    if (!this.running) this.running = this.drain().finally(() => {
+      this.running = null;
+      const ready = this.readyProgress;
+      this.readyProgress = null;
+      if (ready) this.store.notifyProgressReady(ready);
+    });
     return this.running;
   }
 
@@ -109,7 +115,9 @@ export class MediaQueue {
   private async ready(item: MediaTransfer, generation: number) {
     this.grants.delete(item.attachmentId);
     const committed = await this.update(item, { state: "ready", generation, probe: null, settlement: null, completedParts: [] });
-    if (committed) await this.eraseReady(committed);
+    if (!committed) return;
+    if (committed.caller === "progress") (this.readyProgress ??= new Set()).add(committed.attachmentId);
+    await this.eraseReady(committed);
   }
 
   private async eraseReady(item: MediaTransfer) {

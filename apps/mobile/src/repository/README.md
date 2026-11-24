@@ -8,4 +8,6 @@ Authored drafts use `kind:id` keys. Each request has its own ID, and the first r
 
 Attendance captures use a stable operation ID. Acknowledged captures leave the outbox even if the assignment projection is on a later page. Only the matching attendance event or its review ID can mark a capture recorded or needing review. A lost response leaves it Checking with the original ID.
 
+Progress links wait until every referenced local photo is ready for the same assignment. Transfer failures stay unsent and can be retried or removed. A sync response stores the exact per-photo outcomes and timestamp with the cursor, independent of whether the screen is open. The receipt contains IDs, outcome codes and times, not captions or files.
+
 Native uses a device-only SecureStore key and SQLCipher. The iOS config plugin excludes `BookBuddyOffline` from backups before the repository opens; this requires a native build, not Expo Go. Stage outgoing files under `stagedMediaDirectory()` so sign-out can remove them alongside all partitions for the account. The React Native Web gallery uses a preview-only in-memory executor; it does not keep a database between page loads or use the deployment's API URL.
