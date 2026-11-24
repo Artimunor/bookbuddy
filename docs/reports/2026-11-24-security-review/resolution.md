@@ -27,13 +27,14 @@ This ledger covers the 65 numbered findings in the four independent baseline rev
 | SecAuth 12 — labelled credentials in arrival notes | Fixed | `e26c637a59`, `8823b31420`: reject explicit credential declarations, including nonnumeric values. The stricter numeric rule applies to arrival instructions, not case or chat prose, which checks credential labels. See D1 8 for the free-text limit. |
 | SecAuth 13 — support intake quota | Fixed | `949b0a5d32`: cap new cases at 10 per account per rolling day and leave idempotent replays free. |
 | Re-review — support intake crosses the sign-in boundary | Fixed | `6969c0d315`, `098e717382`: signed-out Help sends neither cookies nor expected-identity headers. A request with either identity header but no session credential gets `409 session_changed` without writing an anonymous case. |
-| Re-review — a lost Help response can duplicate cases | Fixed | `098e717382`: Help saves only the scoped operation ID. **Send again** returns the recorded reference for matching details in the same receipt scope; changed details require explicit confirmation before a new ID is issued. |
+| Re-review — a lost Help response can duplicate cases | Fixed | `098e717382`: Help saves only the operation ID. `754289a5c3`: **Send again** with matching details recovers the same anonymous case reference across networks; throttling new cases still uses the source. Changed details conflict and require confirmation before Help issues a new ID. |
 | SecAuth 14 — unbounded auth JSON | Fixed | `949b0a5d32`, `40c601c62a`: enforce a 16 KiB streaming cap before parsing and keep strict UTF-8 decoding with Worker-compatible options. |
 | SecAuth 15 — invitation cooldown bypass | Fixed | `e26c637a59`: count deliveries by business and recipient across invitation IDs and states; withdrawal does not reset the limit. |
 | SecAuth 16 — production fake mail | Fixed | `949b0a5d32`: inject the fake transport only from Bun dev; fail closed when Worker bindings request dev mail. |
 | SecAuth 17 — future-dated role activates early | Fixed | `ccd7d6e660`: shared session and context checks enforce `granted_at`, including on direct roster reads, bootstrap, and context switching. |
 | SecAuth 18 — sockets survive sign-out | Fixed | `949b0a5d32`, `ccd7d6e660`, `8823b31420`: close only the revoked session’s sockets. If the close RPC fails, live reads still require authorization and a Durable Object alarm reaps expired sockets even without traffic. The alarm is removed when no open sockets remain. |
 | SecAuth 19 — invalid upgrade admission | Residual risk | `949b0a5d32`, `8823b31420`: reject absent or malformed credentials before Durable Object routing and cap the shared pilot object at 128 sockets before checking D1. Wider rollout still needs topic partitioning and the unprovisioned Cloudflare ingress rate limit. |
+| Re-review — a full former business bucket blocks LiveTopic admission | Fixed | `754289a5c3`: the single authorization read identifies the current bucket before the session and bucket caps apply. The full shared pool still rejects before D1. |
 
 ## Authorization ([review](authorization.md))
 
@@ -57,6 +58,7 @@ This ledger covers the 65 numbered findings in the four independent baseline rev
 | Authz 15 — per-version evidence cap bypass | Fixed | `b0fabdfac1`: enforce five stored photos and one voice item across all stages in the final quote/change version write. |
 | Authz 16 — unverified media type and duration | Residual risk | `b0fabdfac1`: settlement enforces an 800 kB (800,000 byte) voice cap. R2 attests bytes and metadata, not the coded stream. No trusted decoder is available in this path, so MIME and duration remain unverified at settlement. |
 | Authz 17 — push and inbox fail open | Fixed | `b0fabdfac1`: recheck the destination grant for push claim, inbox, and sync, and deny unknown kinds. |
+| Re-review — valid shift links can open the wrong role | Fixed (API) | `754289a5c3`: the opening identifies the recipient as a worker, foreman, or provider admin without granting foreman actions to an admin. Recipient, live-role, and confirmed-assignment checks still apply. |
 
 ## Client privacy ([review](client-privacy.md))
 
@@ -85,6 +87,7 @@ This ledger covers the 65 numbered findings in the four independent baseline rev
 | SecClient 18 — oversize default photo resolution | Fixed | `1fda55756d`, `ccd7d6e660`: both clients re-encode with a 2,048-pixel long edge limit and do not upscale. |
 | Re-review — chat media uses the thread as its authorization parent | Fixed | `7273a7adf4`: S-10 batches thumbnails per chat entry and passes the same entry ID to S-15 for photos and voice. The server’s entry-history check is unchanged. |
 | Re-review — quote voice evidence has no opener | Fixed | `7273a7adf4`: C-06 offers an opener for every linked evidence ID, including voice and photos whose thumbnail grant failed. |
+| Re-review — personal second clock shares the time zone by default | Fixed (API) | `754289a5c3`: a default-off sharing preference separates consent from local two-clock display. The requester must enable both flags before an authorized projection returns `customerZone`. |
 
 ## D1 schema ([review](d1-schema.md))
 
@@ -109,4 +112,5 @@ This ledger covers the 65 numbered findings in the four independent baseline rev
 - For `9939b09591`, 51 affected mobile tests passed, and the mobile TypeScript check passed. The lock, staging, and stop-journal regressions did not exercise a signed device.
 - The API re-review fixes passed 35 tests across the sync transport, shared contract, push, completion, and billing suites. The API, API contract, and API client TypeScript checks passed.
 - For `7273a7adf4`, 41 affected mobile tests passed, as did the mobile TypeScript check, locale validation, and Expo web export.
+- For `754289a5c3`, 55 API tests covered support, LiveTopic admission, settings, schedule, field live, and shift links. API, API contract, and API client TypeScript checks passed.
 - The schema changes assume a fresh prerelease database. Local checks do not establish remote D1/R2 behavior, production ingress and headers, or physical-device authentication, push, and storage behavior.
