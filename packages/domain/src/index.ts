@@ -1,4 +1,5 @@
 export * from "./access";
+export * from "./aftercare";
 export * from "./commercial";
 export * from "./deadlines";
 export * from "./field";

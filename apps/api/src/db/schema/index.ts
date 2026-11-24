@@ -6,3 +6,4 @@ export * from "./commercial";
 export * from "./schedule";
 export * from "./staffing";
 export * from "./field";
+export * from "./aftercare";
