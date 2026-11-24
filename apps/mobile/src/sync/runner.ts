@@ -8,6 +8,13 @@ export type SyncResult = { status: "confirmed" } | { status: "closed" } | {
   code: string;
 };
 
+export async function retryOutboxOperation(
+  scope: ScopedRepository | null, operationId: string, refresh: () => Promise<SyncResult>,
+): Promise<SyncResult | null> {
+  if (!scope || !await scope.canRetryOperation(operationId) || !scope.isActive) return null;
+  return refresh();
+}
+
 interface Flight { run: Promise<SyncResult>; abort: AbortController; scope: ScopedRepository }
 
 export class SyncRunner {

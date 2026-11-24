@@ -1,18 +1,18 @@
 import { localeTagSchema } from "@bookbuddy/api-contract";
-import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useT } from "../../i18n";
 import { Button, Card, Dock, Screen, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { useOffline } from "../s-02/flow";
-import { type RequestDraft, useRequestDraft } from "./draft";
+import { requestDraftHref, type RequestDraft, useRequestDraft } from "./draft";
 
 export default function DescribeScreen() {
   const router = useRouter(); const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const local = useRequestDraft(); const offline = useOffline(); const t = useT();
   const next = returnTo === "review" ? "review" : "place";
   if (!local.loaded) return <Screen title={t("mobile.request.describeTitle")}><Copy>{local.failed ? t("mobile.request.saveFailed") : t("mobile.request.loading")}</Copy></Screen>;
-  if (local.value.pendingOperation) return <Screen title={t("mobile.request.describeTitle")}><Copy>{t("mobile.request.checking")}</Copy><Button label={t("mobile.request.review")} onPress={() => router.replace("/c/request/review" as Href)} /></Screen>;
-  return <DescribeView draft={local.value} saved={local.saved} failed={local.failed} warn={local.warn} offline={offline} onChange={(draft) => { void local.change(draft).catch(() => {}); }} onBack={() => router.back()} onContinue={() => { void local.change({ ...local.value, step: next }).then(() => router.push(`/c/request/${next}` as Href)).catch(() => {}); }} />;
+  if (local.value.pendingOperation) return <Screen title={t("mobile.request.describeTitle")}><Copy>{t("mobile.request.checking")}</Copy><Button label={t("mobile.request.review")} onPress={() => router.replace(requestDraftHref("review", local.draftId))} /></Screen>;
+  return <DescribeView draft={local.value} saved={local.saved} failed={local.failed} warn={local.warn} offline={offline} onChange={(draft) => { void local.change(draft).catch(() => {}); }} onBack={() => router.back()} onContinue={() => { void local.change({ ...local.value, step: next }).then(() => router.push(requestDraftHref(next, local.draftId))).catch(() => {}); }} />;
 }
 
 export function DescribeView({ draft, saved, failed, warn = false, offline, onChange, onBack, onContinue }: { draft: RequestDraft; saved: boolean; failed: boolean; warn?: boolean; offline: boolean; onChange: (draft: RequestDraft) => void; onBack: () => void; onContinue: () => void }) {

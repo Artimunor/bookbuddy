@@ -1,4 +1,5 @@
 import { accountSettingsSchema, errorBodySchema, operationIdSchema, sessionBootstrapSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
+import { accountSettingsSchema, errorBodySchema, mediaStageIdSchema, operationIdSchema, sessionBootstrapSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
 import type { ErrorBody, LocalePreferences, OperationId, SessionBootstrap, SyncOp, SyncPage } from "@bookbuddy/api-contract";
 import { attendanceProgress } from "./attendance";
 import type { AttendanceCapture, AttendanceEventKind, AttendanceOperation, AttendanceSnapshot, LocalAttendance } from "./attendance";
@@ -18,8 +19,10 @@ export type DevicePreferences = LocalePreferences & Partial<Pick<SessionBootstra
 export type Scope = { accountId: string; contextId: string };
 export type DraftKey = `${string}:${string}`;
 const draftKeyPattern = /^[a-z][a-z0-9_-]*:[A-Za-z0-9_-]+$/;
+const legacyRequestDraft = "request:new";
 export type DraftValue = null | boolean | number | string | DraftValue[] | { [key: string]: DraftValue };
 export type Draft<Value extends DraftValue = DraftValue> = { value: Value; updatedAt: number; warnAt: number; expiresAt: number };
+export type PendingDraft = { draftId: string; updatedAt: number; summary?: string };
 export type ProjectionQuery = { afterId?: string; limit?: number };
 type WithOptionalId<Op> = Op extends SyncOp ? Omit<Op, "operationId"> & { operationId?: string } : never;
 export type NewOperation = WithOptionalId<SyncOp> | AttendanceCapture;
@@ -212,21 +215,66 @@ export class ScopedRepository {
     this.notify("projection");
   }
 
-  getDraft<Value extends DraftValue = DraftValue>(key: DraftKey): Promise<Draft<Value> | null> {
-    return this.db.read(async (db) => {
-      const [row] = await db.select(drafts, { ...this.partition, key });
-      if (!this.active || !row || this.now() >= row.updated_at + draftExpiresAfter) return null;
-      return { value: JSON.parse(row.value) as Value, updatedAt: row.updated_at, warnAt: row.updated_at + draftWarnAfter, expiresAt: row.updated_at + draftExpiresAfter };
-    });
+  async getDraft<Value extends DraftValue = DraftValue>(key: DraftKey): Promise<Draft<Value> | null> {
+    const [row] = await this.db.read((db) => db.select(drafts, { ...this.partition, key }));
+    if (!this.active || !row || this.now() >= row.updated_at + draftExpiresAfter) return null;
+    if (key === legacyRequestDraft) {
+      await this.migrateRequestDraft();
+      return null;
+    }
+    return { value: JSON.parse(row.value) as Value, updatedAt: row.updated_at, warnAt: row.updated_at + draftWarnAfter, expiresAt: row.updated_at + draftExpiresAfter };
   }
 
-  countPendingDrafts(kindOrAllRoles?: string | boolean): Promise<number> {
+  private async migrateRequestDraft() {
+    const where = { ...this.partition, key: legacyRequestDraft };
+    const moved = await this.write(async (db) => {
+      const [legacy] = await db.select(drafts, where);
+      if (!legacy || this.now() >= legacy.updated_at + draftExpiresAfter) return false;
+      const key = `request:${this.newId()}`;
+      if (!draftKeyPattern.test(key) || key === legacyRequestDraft || (await db.count(drafts, { ...this.partition, key })) > 0) {
+        throw new Error("Invalid or duplicate generated request draft ID");
+      }
+      await db.put(drafts, { ...legacy, key });
+      await db.remove(drafts, where);
+      return true;
+    });
+    if (moved) this.notify("drafts");
+  }
+
+  async listPendingDrafts(kind: string): Promise<PendingDraft[]> {
+    const read = () => this.db.read((db) => db.select(drafts, {
+      ...this.partition, key: { op: "prefix", value: `${kind}:` },
+      updated_at: { op: ">", value: this.now() - draftExpiresAfter },
+    }));
+    if (!this.active) return [];
+    let rows = await read();
+    if (this.active && kind === "request" && rows.some(({ key }) => key === legacyRequestDraft)) {
+      await this.migrateRequestDraft();
+      rows = await read();
+    }
+    if (!this.active) return [];
+    const cutoff = this.now() - draftExpiresAfter;
+    rows.sort((a, b) => b.updated_at - a.updated_at || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    const result: PendingDraft[] = [];
+    for (const row of rows) {
+      if (row.updated_at <= cutoff) break;
+      const draft: PendingDraft = { draftId: row.key.slice(kind.length + 1), updatedAt: row.updated_at };
+      if (kind === "request") {
+        const value = JSON.parse(row.value) as DraftValue;
+        const summary = value && typeof value === "object" && !Array.isArray(value) && typeof value.description === "string"
+          ? value.description.trim().slice(0, 160) : "";
+        if (summary) draft.summary = summary;
+      }
+      result.push(draft);
+    }
+    return result;
+  }
+
+  countPendingDrafts(allRoles = false): Promise<number> {
     return this.db.read(async (db) => {
       if (!this.active) return 0;
-      const kind = typeof kindOrAllRoles === "string" ? kindOrAllRoles : null;
-      const partition = kindOrAllRoles === true ? { account_id: this.scope.accountId } : this.partition;
-      const count = await db.count(drafts, { ...partition, updated_at: { op: ">", value: this.now() - draftExpiresAfter },
-        ...(kind !== null && { key: { op: "prefix", value: `${kind}:` } }) });
+      const partition = allRoles ? { account_id: this.scope.accountId } : this.partition;
+      const count = await db.count(drafts, { ...partition, updated_at: { op: ">", value: this.now() - draftExpiresAfter } });
       return this.active ? count : 0;
     });
   }
@@ -254,7 +302,7 @@ export class ScopedRepository {
   }
 
   async saveDraft(key: DraftKey, value: DraftValue) {
-    if (!draftKeyPattern.test(key)) throw new Error("Draft keys use kind:id");
+    if (!draftKeyPattern.test(key) || key === legacyRequestDraft) throw new Error("Draft keys require a stable kind:id");
     const where = { ...this.partition, key };
     const text = JSON.stringify(value);
     const changed = await this.write(async (db) => {
@@ -298,6 +346,28 @@ export class ScopedRepository {
     });
     if (changed) this.notify("outbox", ...(operation.kind === "attendance" ? ["attendance" as const] : []));
     return parsedId;
+  }
+
+  async removeUnsentOperation(operationId: string): Promise<boolean> {
+    if (!this.active) return false;
+    const removed = await this.write(async (db) => {
+      const where = { ...this.partition, operation_id: operationId, status: "queued" as const };
+      if (!(await db.count(outbox, where))) return false;
+      await db.remove(outbox, where);
+      return true;
+    });
+    if (removed) this.notify("outbox", "attendance");
+    return removed;
+  }
+
+  canRetryOperation(operationId: string): Promise<boolean> {
+    return this.db.read(async (db) => {
+      if (!this.active) return false;
+      const count = await db.count(outbox, {
+        ...this.partition, operation_id: operationId, status: { op: "in", value: ["queued", "checking"] },
+      });
+      return this.active && count > 0;
+    });
   }
 
   listOutbox(): Promise<OutboxEntry[]> {
@@ -469,22 +539,37 @@ export class ScopedRepository {
     this.notify("media");
   }
 
-  async saveOnlineReceipt({ operationId, kind, resourceId, createdAt }: OnlineReceipt) {
-    await this.write((db) => db.put(pendingOnlineReceipts, {
-      ...this.partition, operation_id: operationIdSchema.parse(operationId), kind, resource_id: resourceId, created_at: createdAt,
-    }));
-    this.notify("receipts");
-  }
-
-  listOnlineReceipts(): Promise<OnlineReceipt[]> {
+  getOnlineReceipt(kind: string, resourceId: string): Promise<OnlineReceipt | null> {
     return this.db.read(async (db) => {
-      const rows = await db.select(pendingOnlineReceipts, this.partition, { order: ["created_at", "operation_id"] });
-      return this.active ? rows.map((row) => ({ operationId: row.operation_id, kind: row.kind, resourceId: row.resource_id, createdAt: row.created_at })) : [];
+      if (!this.active) return null;
+      const [row] = await db.select(pendingOnlineReceipts, { ...this.partition, kind, resource_id: resourceId }, { limit: 1 });
+      return row && this.active ? { operationId: row.operation_id, kind, resourceId, createdAt: row.created_at } : null;
     });
   }
 
-  async removeOnlineReceipt(operationId: string) {
-    await this.write((db) => db.remove(pendingOnlineReceipts, { ...this.partition, operation_id: operationId }));
-    this.notify("receipts");
+  async claimOnlineReceipt(kind: string, resourceId: string, operationId: string): Promise<{ receipt: OnlineReceipt; existing: boolean }> {
+    const claimed = await this.write(async (db) => {
+      const where = { ...this.partition, kind, resource_id: resourceId };
+      const [row] = await db.select(pendingOnlineReceipts, where, { limit: 1 });
+      if (row) return { receipt: { operationId: row.operation_id, kind, resourceId, createdAt: row.created_at }, existing: true };
+      const id = operationIdSchema.parse(operationId);
+      if (await db.count(pendingOnlineReceipts, { ...this.partition, operation_id: id })) {
+        throw new Error("An operation ID belongs to another pending command");
+      }
+      const createdAt = this.now();
+      await db.put(pendingOnlineReceipts, { ...where, operation_id: id, created_at: createdAt });
+      return { receipt: { operationId: id, kind, resourceId, createdAt }, existing: false };
+    });
+    if (!claimed.existing) this.notify("receipts");
+    return claimed;
+  }
+
+  async removeOnlineReceipt({ operationId, kind, resourceId, createdAt }: OnlineReceipt) {
+    // An already-started command can definitively settle after its scope closes.
+    // Only erase that exact claim; never recreate anything in a closed scope.
+    await this.db.transaction((db) => db.remove(pendingOnlineReceipts, {
+      ...this.partition, kind, resource_id: resourceId, operation_id: operationId, created_at: createdAt,
+    }));
+    if (this.active) this.notify("receipts");
   }
 }

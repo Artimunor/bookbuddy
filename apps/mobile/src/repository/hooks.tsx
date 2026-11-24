@@ -1,10 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import { useSync } from "../sync/provider";
+import { retryOutboxOperation } from "../sync/runner";
+import type { SyncResult } from "../sync/runner";
 import type { AttendanceStatus } from "./attendance";
-import { snapshotWindow } from "./cache";
+import { draftExpiresAfter, snapshotWindow } from "./cache";
 import type { CachedProjections, ProjectionKind } from "./cache";
 import type { RemoteCacheKind } from "./remote-cache";
-import type { Draft, DraftKey, DraftValue, NewOperation, OutboxEntry, ProjectionQuery, RepositoryTopic, Scope, ScopedRepository } from "./repository";
+import type { Draft, DraftKey, DraftValue, NewOperation, OutboxEntry, PendingDraft, ProjectionQuery, RepositoryTopic, Scope, ScopedRepository } from "./repository";
 
 const RepositoryContext = createContext<ScopedRepository | null>(null);
 const empty: readonly never[] = [];
@@ -92,14 +95,22 @@ export function useLastConfirmed(scope?: Scope): number | null {
   return useSnapshotVisible(result?.expiresAt) ? result?.confirmedAt ?? null : null;
 }
 
-export function useOutbox(): { entries: readonly OutboxEntry[]; enqueueOperation: (operation: NewOperation) => Promise<string> } {
+export function useOutbox(): {
+  entries: readonly OutboxEntry[];
+  enqueueOperation: (operation: NewOperation) => Promise<string>;
+  remove: (operationId: string) => Promise<boolean>;
+  retry: (operationId: string) => Promise<SyncResult | null>;
+} {
   const repo = useRepository();
+  const { refresh } = useSync();
   const entries = useRead("outbox", useCallback((repo: ScopedRepository) => repo.listOutbox(), [])) ?? empty;
   const enqueueOperation = useCallback(async (op: NewOperation) => {
     if (!repo) throw new Error("An active local scope is required");
     return repo.enqueueOperation(op);
   }, [repo]);
-  return { entries, enqueueOperation };
+  const remove = useCallback((id: string) => repo?.removeUnsentOperation(id) ?? Promise.resolve(false), [repo]);
+  const retry = useCallback((id: string) => retryOutboxOperation(repo, id, refresh), [repo, refresh]);
+  return { entries, enqueueOperation, remove, retry };
 }
 
 const emptyAttendance: AttendanceStatus = { arrival: null, departure: null, lastConfirmedAt: null };
@@ -114,8 +125,19 @@ export function useAttendanceStatus(assignmentId: string | null | undefined): At
     : { ...result.local, lastConfirmedAt: null };
 }
 
-export function usePendingDrafts(kindOrAllRoles?: string | boolean): number | null {
-  return useRead("drafts", useCallback((repo: ScopedRepository) => repo.countPendingDrafts(kindOrAllRoles), [kindOrAllRoles]));
+export function usePendingDrafts(kind: string): readonly PendingDraft[];
+export function usePendingDrafts(allRoles?: boolean): number | null;
+export function usePendingDrafts(kindOrAllRoles?: string | boolean): readonly PendingDraft[] | number | null {
+  const result = useRead<PendingDraft[] | number>("drafts", useCallback((repo: ScopedRepository) => typeof kindOrAllRoles === "string"
+    ? repo.listPendingDrafts(kindOrAllRoles) : repo.countPendingDrafts(kindOrAllRoles), [kindOrAllRoles]));
+  const rows = Array.isArray(result) ? result : empty;
+  const cutoff = Date.now() - draftExpiresAfter;
+  let end = rows.length;
+  while (end > 0 && rows[end - 1]!.updatedAt <= cutoff) end--;
+  const oldest = rows[end - 1];
+  useDeadline(oldest && oldest.updatedAt + draftExpiresAfter, Date.now);
+  if (typeof kindOrAllRoles === "string") return end === rows.length ? rows : rows.slice(0, end);
+  return typeof result === "number" ? result : null;
 }
 
 export function usePendingSends() {
@@ -126,11 +148,12 @@ export function useStagedMediaCount() {
   return useRead("media", useCallback((repo: ScopedRepository) => repo.countStagedMedia(), []));
 }
 
-export function useDraft<Value extends DraftValue = DraftValue>(key: DraftKey): {
-  draft: Draft<Value> | null; warn: boolean; save: (value: Value) => Promise<void>; remove: () => Promise<void>;
+export function useDraft<Value extends DraftValue = DraftValue>(key: DraftKey | null): {
+  draft: Draft<Value> | null; loaded: boolean; warn: boolean; save: (value: Value) => Promise<void>; remove: () => Promise<void>;
 } {
   const repo = useRepository();
-  const result = useRead("drafts", useCallback((repo: ScopedRepository) => repo.getDraft<Value>(key), [key]));
+  const read = useRead("drafts", useCallback(async (repo: ScopedRepository) => ({ draft: key ? await repo.getDraft<Value>(key) : null }), [key]));
+  const result = read?.draft ?? null;
   useDeadline(result?.warnAt, Date.now);
   useDeadline(result?.expiresAt, Date.now);
   const expired = !!result && Date.now() >= result.expiresAt;
@@ -138,13 +161,13 @@ export function useDraft<Value extends DraftValue = DraftValue>(key: DraftKey): 
     if (expired && repo?.isActive) void repo.expireDrafts().catch(() => undefined);
   }, [expired, repo]);
   const save = useCallback(async (value: Value) => {
-    if (!repo) throw new Error("An active local scope is required");
+    if (!repo || !key) throw new Error("An active draft key is required");
     await repo.saveDraft(key, value);
   }, [repo, key]);
   const remove = useCallback(async () => {
-    if (!repo) throw new Error("An active local scope is required");
+    if (!repo || !key) throw new Error("An active draft key is required");
     await repo.removeDraft(key);
   }, [repo, key]);
   const draft = expired ? null : result;
-  return { draft, warn: !!draft && Date.now() >= draft.warnAt, save, remove };
+  return { draft, loaded: read !== null, warn: !!draft && Date.now() >= draft.warnAt, save, remove };
 }

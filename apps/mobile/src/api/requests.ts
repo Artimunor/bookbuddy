@@ -1,9 +1,13 @@
 import type { ApiResult, RequestOptions } from "@bookbuddy/api-client";
-import type { AuthScope } from "@bookbuddy/api-contract";
+import { idSchema } from "@bookbuddy/api-contract";
+import type { AuthScope, RequestParts, RequestSchema, ResponseSchema, RouteDefinition, RouteResponse } from "@bookbuddy/api-contract";
+import type { OnlineReceipt, ScopedRepository } from "../repository/repository";
 
 export type ApiError = Extract<ApiResult<never>, { ok: false }>["error"];
 export type RemoteStatus = "idle" | "loading" | "ready" | "error" | "offline";
 export type CommandStatus = "idle" | "sending" | "done" | "conflict" | "checking" | "failed";
+export type PendingCommandStatus = "idle" | "sending" | "checking";
+export type CommandIntentKey = `${string}#${string}`;
 export type ReadSnapshot<Data> =
   | { status: "ready"; data: Data; error: null; lastConfirmedAt: number }
   | { status: "idle" | "loading" | "error"; data: null; error: ApiError | null; lastConfirmedAt: null }
@@ -50,6 +54,11 @@ export function requestKey(input: unknown): string | null {
   }
 }
 
+export function remoteRequestKey(route: RouteDefinition, input: unknown): string | null {
+  const parsed = route.input.safeParse(input);
+  return parsed.success && parsed.data.body === undefined ? requestKey(parsed.data) : null;
+}
+
 export class RemoteRead<Data> {
   private snapshot: ReadSnapshot<Data> = idleRead;
   private confirmedAt: number | null = null;
@@ -80,15 +89,16 @@ export class RemoteRead<Data> {
     for (const listener of this.listeners) listener();
   }
 
-  seed(data: Data, serverTime: number, fence: ReadFence): void {
-    if (fence.offline) return;
+  seed(data: Data, serverTime: number, fence: ReadFence): boolean {
+    if (fence.offline) return false;
     if (this.snapshot.status === "ready" && this.fence && sameReadGeneration(this.fence, fence) &&
-      this.snapshot.lastConfirmedAt > serverTime) return;
+      this.snapshot.lastConfirmedAt > serverTime) return false;
     this.inFlight?.abort.abort();
     this.inFlight = null;
     this.fence = fence;
     this.confirmedAt = this.now();
     this.publish({ status: "ready", data, error: null, lastConfirmedAt: serverTime });
+    return true;
   }
 
   load(call: Call<Data>, { refresh = false, getConnection }: { refresh?: boolean; getConnection: () => ReadFence }): Promise<void> {
@@ -138,32 +148,129 @@ export function commandSnapshot<Data>(outcome: ApiResult<Data>): CommandSnapshot
   return { state: conflict ? "conflict" : checking ? "checking" : "failed", result: null, error };
 }
 
-export class CommandIntents<Data> {
-  private readonly entries = new Map<string, { id: string; inFlight: Promise<ApiResult<Data>> | null; uncertain: ApiResult<Data> | null }>();
+export function commandIntentKey(route: Pick<RouteDefinition, "method" | "path">, resourceId?: string | readonly string[]): CommandIntentKey | null {
+  const ids = typeof resourceId === "string" ? [resourceId] : resourceId ?? [];
+  if (!ids.every((id) => idSchema.safeParse(id).success)) return null;
+  return `${route.method} ${route.path}#${ids.join(".")}`;
+}
 
-  run(key: string, newId: () => string, send: (operationId: string) => Promise<ApiResult<Data>>): Promise<ApiResult<Data>> {
-    let entry = this.entries.get(key);
-    if (!entry) {
-      entry = { id: newId(), inFlight: null, uncertain: null };
-      this.entries.set(key, entry);
-    }
-    if (entry.inFlight) return entry.inFlight;
-    const intent = entry;
-    const flight = Promise.resolve().then(() => send(intent.id)).catch(() => requestUncertain).then((outcome) => {
-      intent.inFlight = null;
-      if (outcome.ok) this.entries.delete(key);
-      else if ("delivery" in outcome.error && outcome.error.delivery === "not_sent" && intent.uncertain) return intent.uncertain;
-      else intent.uncertain = commandSnapshot(outcome).state === "checking" ? outcome : null;
+export function commandIntentForRequest(route: RouteDefinition, { params }: RequestParts): CommandIntentKey | null {
+  const ids: string[] = [];
+  for (const part of route.path.split("/")) {
+    if (!part.startsWith(":")) continue;
+    const value = params?.[part.slice(1)];
+    if (value === undefined) return null;
+    ids.push(String(value));
+  }
+  return commandIntentKey(route, ids);
+}
+
+type ReceiptStore = Pick<ScopedRepository, "getOnlineReceipt" | "claimOnlineReceipt" | "removeOnlineReceipt">;
+interface PendingCommand<Data> {
+  id: string;
+  receipt?: OnlineReceipt;
+  inputKey?: string;
+  uncertain?: ApiResult<Data>;
+}
+
+export class CommandIntent<Data> {
+  private status: PendingCommandStatus = "idle";
+  private readonly listeners = new Set<() => void>();
+  private loaded = false;
+  private hydration: Promise<void> | null = null;
+  private pending: PendingCommand<Data> | null = null;
+  private inFlight: { inputKey: string; requestedId?: string; promise: Promise<ApiResult<Data>> } | null = null;
+
+  constructor(private readonly key: CommandIntentKey, private readonly store?: ReceiptStore) {}
+
+  readonly getSnapshot = () => this.status;
+  readonly subscribe = (listener: () => void) => {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
+  };
+
+  private publish(status: PendingCommandStatus) {
+    if (this.status === status) return;
+    this.status = status;
+    for (const listener of this.listeners) listener();
+  }
+
+  private receiptKey(): readonly [kind: string, resourceId: string] {
+    const separator = this.key.indexOf("#");
+    return [this.key.slice(0, separator), this.key.slice(separator + 1)];
+  }
+
+  hydrate(): Promise<void> {
+    if (!this.store || this.loaded) return Promise.resolve();
+    return this.hydration ??= this.store.getOnlineReceipt(...this.receiptKey()).then((receipt) => {
+      if (this.loaded) return;
+      this.loaded = true;
+      if (receipt) this.pending = { id: receipt.operationId, receipt };
+      if (!this.inFlight && this.pending) this.publish("checking");
+    }, () => {}).finally(() => { this.hydration = null; });
+  }
+
+  run(
+    inputKey: string, proposedId: string, requestedId: string | undefined, available: () => boolean,
+    send: (operationId: string) => Promise<ApiResult<Data>>,
+  ): Promise<ApiResult<Data>> {
+    const running = this.inFlight;
+    if (running) return running.inputKey === inputKey && running.requestedId === requestedId
+      ? running.promise : Promise.resolve(requestUncertain);
+    const promise = Promise.resolve().then(async () => {
+      if (!available()) {
+        await this.hydrate();
+        return this.pending?.uncertain ?? (this.pending ? requestUncertain : requestNotSent);
+      }
+
+      let pending = this.pending;
+      let existing = pending !== null;
+      if (!pending && this.store) {
+        const claimed = await this.store.claimOnlineReceipt(...this.receiptKey(), proposedId);
+        this.loaded = true;
+        existing = claimed.existing;
+        pending = { id: claimed.receipt.operationId, receipt: claimed.receipt };
+        this.pending = pending;
+      }
+      if (pending && ((pending.inputKey !== undefined && pending.inputKey !== inputKey) ||
+        (requestedId !== undefined && pending.id !== requestedId))) {
+        // Do not turn a still-unresolved operation into a different mutation.
+        return pending.uncertain ?? requestUncertain;
+      }
+      pending ??= { id: proposedId };
+      this.pending = pending;
+      let outcome: ApiResult<Data> = requestNotSent;
+      if (available()) {
+        try { outcome = await send(pending.id); }
+        catch { outcome = requestUncertain; }
+      }
+      if (commandSnapshot(outcome).state === "checking") {
+        pending.inputKey = inputKey;
+        pending.uncertain = outcome;
+      } else if (existing && !outcome.ok && "delivery" in outcome.error && outcome.error.delivery === "not_sent") {
+        return pending.uncertain ?? requestUncertain;
+      } else {
+        if (pending.receipt) {
+          // Keep the durable reference if cleanup failed; don't misreport a definitive server result.
+          try { await this.store!.removeOnlineReceipt(pending.receipt); }
+          catch { return outcome; }
+        }
+        this.pending = null;
+      }
       return outcome;
+    }).catch(() => this.pending?.uncertain ?? (this.pending ? requestUncertain : requestNotSent)).finally(() => {
+      this.inFlight = null;
+      this.publish(this.pending ? "checking" : "idle");
     });
-    intent.inFlight = flight;
-    return flight;
+    this.inFlight = { inputKey, requestedId, promise };
+    this.publish("sending");
+    return promise;
   }
 }
 
 interface ScopeRequests {
   reads: Map<string, RemoteRead<unknown>>;
-  commands: WeakMap<object, CommandIntents<unknown>>;
+  commands: Map<CommandIntentKey, CommandIntent<unknown>>;
 }
 
 // One bearer lifetime, partitioned again by the active scoped repository lease.
@@ -183,7 +290,7 @@ export class RequestBook {
 
   private scope(owner: object): ScopeRequests {
     let bucket = this.scopes.get(owner);
-    if (!bucket) this.scopes.set(owner, bucket = { reads: new Map(), commands: new WeakMap() });
+    if (!bucket) this.scopes.set(owner, bucket = { reads: new Map(), commands: new Map() });
     return bucket;
   }
 
@@ -192,8 +299,7 @@ export class RequestBook {
     if (routeId === undefined) this.routes.set(route, routeId = this.nextRoute++);
     const key = `${routeId}:${input}`;
     const { reads } = this.scope(owner);
-    const cached = reads.get(key);
-    const entry = cached && !cached.stale ? cached : new RemoteRead();
+    const entry = reads.get(key) ?? new RemoteRead();
     reads.delete(key);
     reads.set(key, entry);
     if (reads.size > maxReadKeys) reads.delete(reads.keys().next().value!);
@@ -201,10 +307,23 @@ export class RequestBook {
     return entry as RemoteRead<Data>;
   }
 
-  commands<Data>(owner: object, route: object): CommandIntents<Data> {
-    const { commands } = this.scope(owner);
-    let intents = commands.get(route);
-    if (!intents) commands.set(route, intents = new CommandIntents());
-    return intents as CommandIntents<Data>;
+  seedRead<Input extends RequestSchema, Output extends ResponseSchema>(
+    context: { readonly isActive: boolean } | null, route: RouteDefinition<Input, Output> & { method: "GET" },
+    input: unknown, data: unknown, serverTime: number, fence: ReadFence,
+  ): { data: RouteResponse<Output> } | null {
+    if (!this.allows(route.auth, context) || fence.offline || !Number.isSafeInteger(serverTime)) return null;
+    const key = remoteRequestKey(route, input);
+    if (key === null) return null;
+    const parsed = route.output.safeParse(data);
+    if (!parsed.success) return null;
+    const entry = this.read<RouteResponse<Output>>(context ?? this, route, key);
+    return entry.seed(parsed.data, serverTime, fence) ? { data: parsed.data } : null;
+  }
+
+  command<Data>(context: ReceiptStore | null, key: CommandIntentKey): CommandIntent<Data> {
+    const { commands } = this.scope(context ?? this);
+    let intent = commands.get(key);
+    if (!intent) commands.set(key, intent = new CommandIntent(key, context ?? undefined));
+    return intent as CommandIntent<Data>;
   }
 }

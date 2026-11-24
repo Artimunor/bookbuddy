@@ -1,14 +1,16 @@
 import { getHomeRoute, type HomeProjection } from "@bookbuddy/api-contract";
+import { uuid } from "expo";
 import { useRouter, type Href } from "expo-router";
 import { View } from "react-native";
 import { useRemote } from "../../api";
 import { useFormat, useT } from "../../i18n";
-import { useDraft, usePendingDrafts } from "../../repository/hooks";
+import { useDraft, usePendingDrafts, useRepository } from "../../repository/hooks";
 import type { CachedRead } from "../../repository/remote-cache";
 import { useSession } from "../../session";
 import { Button, Card, EmptyState, Screen } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { Bell, Booking, CachedBooking, CachedVisit, DecisionLabel, HeaderIdentity, Journey, Live, OfflineNotice, Section, decisionAction, type Decision } from "./common";
+import { requestDraftHref, savedRequestHref, type RequestDraft } from "../c-02/draft";
 
 type Home = Extract<HomeProjection, { audience: "customer" }>;
 type Status = "idle" | "loading" | "ready" | "error" | "offline";
@@ -17,16 +19,22 @@ export default function CustomerNowScreen() {
   const router = useRouter();
   const remote = useRemote(getHomeRoute, { query: {} }, { cache: { kind: "home" } });
   const { bootstrap, preferences } = useSession();
-  const count = usePendingDrafts("request") ?? 0;
-  const { draft } = useDraft("request:new");
-  const value = draft?.value;
-  const step = value && typeof value === "object" && !Array.isArray(value) && typeof value.step === "string" ? value.step : "describe";
-  const description = value && typeof value === "object" && !Array.isArray(value) && typeof value.description === "string" ? value.description : undefined;
-  const resume = step === "place" || step === "review" ? step : "describe";
-  if (remote.status === "offline") return <CachedNowView home={remote.data?.audience === "customer" ? remote.data : null} confirmed={remote.lastConfirmedAt} name={bootstrap?.account.displayName ?? null} draftCount={count} draftDescription={description} onResume={() => router.push((count > 1 ? "/c/(tabs)/bookings" : `/c/request/${resume}`) as Href)} onAsk={() => router.push("/c/request/describe" as Href)} onIdentity={() => router.push("/you" as Href)} onBell={() => router.push("/notifications" as Href)} />;
+  const repo = useRepository();
+  const drafts = usePendingDrafts("request");
+  const count = drafts.length;
+  const latest = drafts[0];
+  const { draft } = useDraft<RequestDraft>(latest ? `request:${latest.draftId}` : null);
+  const resume = () => {
+    if (count > 1) router.push("/c/(tabs)/bookings" as Href);
+    else if (latest && draft) router.push(requestDraftHref(draft.value.step, latest.draftId));
+    else if (latest) void savedRequestHref(repo, latest.draftId).then((href) => { if (href) router.push(href); }).catch(() => {});
+  };
+  const ask = (mode?: "voice" | "photo") => router.push(requestDraftHref("describe", uuid.v4(), mode ? { mode } : undefined));
+  const description = latest?.summary;
+  if (remote.status === "offline") return <CachedNowView home={remote.data?.audience === "customer" ? remote.data : null} confirmed={remote.lastConfirmedAt} name={bootstrap?.account.displayName ?? null} draftCount={count} draftDescription={description} onResume={resume} onAsk={ask} onIdentity={() => router.push("/you" as Href)} onBell={() => router.push("/notifications" as Href)} />;
   return <NowView home={remote.data?.audience === "customer" ? remote.data : null} status={remote.status} confirmed={null} name={bootstrap?.account.displayName ?? null} twoClock={preferences?.twoClock ?? false} draftCount={count} draftDescription={description}
-    onAsk={(mode) => router.push((mode ? `/c/request/describe?mode=${mode}` : "/c/request/describe") as Href)}
-    onResume={() => router.push((count > 1 ? "/c/(tabs)/bookings" : `/c/request/${resume}`) as Href)}
+    onAsk={ask}
+    onResume={resume}
     onIdentity={() => router.push("/you" as Href)} onBell={() => router.push("/notifications" as Href)} onRetry={() => { void remote.refresh(); }}
     onJob={(id) => router.push(`/c/jobs/${id}` as Href)} onDecision={(decision) => {
       const root = `/c/jobs/${decision.jobId}`;

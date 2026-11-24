@@ -9,14 +9,14 @@ import { useSession } from "../../session";
 import { Button, Card, Dock, Screen } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { TwoClock } from "../../ui/live/TwoClock";
-import { type RequestDraft, useRequestDraft } from "../c-02/draft";
+import { requestDraftHref, type RequestDraft, useRequestDraft } from "../c-02/draft";
 import { useOffline } from "../s-02/flow";
 
 function payload(d: RequestDraft) {
   return submitRequestPayloadSchema.safeParse({ placeId: d.placeId, originalText: d.description, ...(d.language.trim() ? { originalLanguage: d.language.trim() } : {}), arrivalArrangement: d.arrivalArrangement, ...(d.arrivalArrangement === "someone_else" ? { arrivalContactName: d.arrivalContactName.trim() } : {}), ...(d.safeNote.trim() ? { safeNote: d.safeNote.trim() } : {}) });
 }
 export default function RequestReviewScreen() {
-  const router = useRouter(); const local = useRequestDraft(); const offline = useOffline(); const command = useCommand(submitRequestRoute); const t = useT(); const { preferences } = useSession();
+  const router = useRouter(); const local = useRequestDraft(); const offline = useOffline(); const command = useCommand(submitRequestRoute, { resourceId: local.draftId }); const t = useT(); const { preferences } = useSession();
   const place = useRemote(getPlaceRoute, { params: { p: local.value.placeId } }, { enabled: !!local.value.placeId });
   const [receipt, setReceipt] = useState<RequestReceipt | null>(null); const [failure, setFailure] = useState(false); const locked = useRef(false);
   async function send() {
@@ -32,14 +32,14 @@ export default function RequestReviewScreen() {
       else if (!("delivery" in result.error && result.error.delivery === "unknown") && result.error.code !== "INTERNAL_ERROR") {
         const changed = result.error.code === "STALE_REVISION" || result.error.code === "CONFLICT";
         await local.change({ ...d, pendingOperation: null, step: changed ? "place" : "review" });
-        if (changed) router.replace("/c/request/place?changed=1" as Href); else setFailure(true);
+        if (changed) router.replace(requestDraftHref("place", local.draftId, { changed: "1" })); else setFailure(true);
       }
     } catch { setFailure(true); }
     finally { locked.current = false; }
   }
   const checking = !!local.value.pendingOperation || command.state === "checking";
   if (!local.loaded && !receipt) return <Screen title={t("mobile.request.reviewTitle")}><Copy>{local.failed ? t("mobile.request.saveFailed") : t("mobile.request.loading")}</Copy></Screen>;
-  return <ReviewRequestView draft={local.value} place={place.data} offline={offline} status={command.state} checking={checking} failed={failure || local.failed} warn={local.warn} twoClock={preferences?.twoClock ?? false} receipt={receipt} onBack={() => router.back()} onEditDescription={() => router.push("/c/request/describe?returnTo=review" as Href)} onEditPlace={() => router.push("/c/request/place?returnTo=review" as Href)} onSend={() => { void send(); }} onOpenJob={() => { if (receipt) { router.dismissTo("/c/(tabs)/now" as Href); router.push(`/c/jobs/${receipt.jobId}` as Href); } }} onClose={() => router.dismissTo("/c/(tabs)/now" as Href)} />;
+  return <ReviewRequestView draft={local.value} place={place.data} offline={offline} status={command.state} checking={checking} failed={failure || local.failed} warn={local.warn} twoClock={preferences?.twoClock ?? false} receipt={receipt} onBack={() => router.back()} onEditDescription={() => router.push(requestDraftHref("describe", local.draftId, { returnTo: "review" }))} onEditPlace={() => router.push(requestDraftHref("place", local.draftId, { returnTo: "review" }))} onSend={() => { void send(); }} onOpenJob={() => { if (receipt) { router.dismissTo("/c/(tabs)/now" as Href); router.push(`/c/jobs/${receipt.jobId}` as Href); } }} onClose={() => router.dismissTo("/c/(tabs)/now" as Href)} />;
 }
 
 type CommandState = "idle" | "sending" | "done" | "conflict" | "checking" | "failed";

@@ -182,17 +182,34 @@ test("cached GET expiry and scope barriers cannot be bypassed by late old replie
   } finally { database.close(); }
 });
 
-test("draft counts filter by exact kind and by scope while account totals remain available", async () => {
-  const { database, repository, mobile } = await testRepository();
+test("migrates only the active context's legacy draft once, preserving age and newest-first summaries", async () => {
+  const { database, repository, mobile, clock } = await testRepository();
   try {
     const sameAccount = mobile.openScope({ accountId, contextId: "other-role" });
-    await repository.saveDraft("request:new", { step: "place" });
+    const insert = database.query("INSERT INTO drafts(account_id, context_id, key, value, updated_at) VALUES (?, ?, ?, ?, ?)");
+    const legacyValue = { step: "place", description: "  Fix the tap  " };
+    insert.run(accountId, context.contextId, "request:new", JSON.stringify(legacyValue), 900);
+    insert.run(accountId, "other-role", "request:new", "true", 950);
+    insert.run(accountId, context.contextId, "request:expired", "true", clock.now - draftExpiresAfter);
+    await repository.saveDraft("request:second", { description: "Second request" });
     await repository.saveDraft("request_revision:edit", true);
-    await sameAccount.saveDraft("request:other", true);
-    expect(await repository.countPendingDrafts("request")).toBe(1);
-    expect(await repository.countPendingDrafts()).toBe(2);
-    expect(await repository.countPendingDrafts(true)).toBe(3);
-    expect((await repository.getDraft("request:new"))?.value).toEqual({ step: "place" });
+    expect(await repository.countPendingDrafts()).toBe(3);
+    expect(await repository.countPendingDrafts(true)).toBe(4);
+    const [first, concurrent] = await Promise.all([repository.listPendingDrafts("request"), repository.listPendingDrafts("request")]);
+    expect(concurrent).toEqual(first);
+    expect(first).toEqual([
+      { draftId: "second", updatedAt: 1000, summary: "Second request" },
+      { draftId: "op-1", updatedAt: 900, summary: "Fix the tap" },
+    ]);
+    expect(await repository.getDraft("request:new")).toBeNull();
+    expect(await repository.getDraft("request:op-1")).toEqual({
+      value: legacyValue, updatedAt: 900, warnAt: 900 + draftWarnAfter, expiresAt: 900 + draftExpiresAfter,
+    });
+    expect(await sameAccount.getDraft("request:op-1")).toBeNull();
+    expect(await sameAccount.listPendingDrafts("request")).toEqual([{ draftId: "op-2", updatedAt: 950 }]);
+    await expect(repository.saveDraft("request:new", true)).rejects.toThrow("stable");
+    clock.now = 900 + draftExpiresAfter;
+    expect(await repository.listPendingDrafts("request")).toEqual([{ draftId: "second", updatedAt: 1000, summary: "Second request" }]);
   } finally { database.close(); }
 });
 

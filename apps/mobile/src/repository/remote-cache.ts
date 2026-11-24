@@ -9,6 +9,13 @@ const routes = {
 };
 export type RemoteCacheKind = keyof typeof routes;
 
+export function remoteCacheKind(route: RouteDefinition): RemoteCacheKind | undefined {
+  for (const kind of Object.keys(routes) as RemoteCacheKind[]) {
+    if (routes[kind] === route) return kind;
+  }
+  return undefined;
+}
+
 const span = { startsAt: true, endsAt: true } as const;
 const heading = { jobId: true, reference: true, title: true, siteZone: true } as const;
 const window = { visitId: true, window: span } as const;

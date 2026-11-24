@@ -4,7 +4,7 @@ Sync stores notification IDs, kinds and timestamps, and two assignment-keyed pro
 
 Only the active account and context can read a snapshot. Each cached GET expires 72 hours after its own confirmation; a sync without a fresh GET does not extend that window. A scope removal clears cached data before replacement rows are written. A disconnect hides unpersisted online data until a fresh grant read; reconnect alone does not fetch. Sign-out removes all partitions and the account's non-credential bootstrap. The bearer stays in device-only SecureStore.
 
-Authored drafts use `kind:id` keys, such as `request:new`. They warn at 11 idle days and expire at 14. Stable operation IDs and staged outgoing media metadata are separate from cached snapshots. Online-only operations have receipt keys, not executable payloads, and are never replayed by sync.
+Authored drafts use `kind:id` keys. Each request has its own ID, and the first read of a legacy `request:new` draft moves it without changing its contents or age. Drafts warn after 11 idle days and expire after 14. An online-only command saves its route, resource ID and stable operation ID before sending. A lost response keeps that receipt for Checking; it contains no request body and sync never replays it. Unsent outbox entries can be removed, and an explicit retry starts or joins one sync run for the active context.
 
 Attendance captures use a stable operation ID. Acknowledged captures leave the outbox even if the assignment projection is on a later page. Only the matching attendance event or its review ID can mark a capture recorded or needing review. A lost response leaves it Checking with the original ID.
 

@@ -1,6 +1,8 @@
 import type { ApiResult } from "@bookbuddy/api-client";
+import { approveQuoteVersionRoute, declineQuoteVersionRoute, notificationsRoute } from "@bookbuddy/api-contract";
 import { expect, test } from "bun:test";
-import { CommandIntents, RemoteRead, RequestBook, commandSnapshot, initialReadConnection, observeReadConnection, requestKey, requestNotSent } from "./requests";
+import { accountId, context, testRepository } from "../repository/sqlite.test-kit";
+import { RemoteRead, RequestBook, commandIntentForRequest, commandIntentKey, commandSnapshot, initialReadConnection, observeReadConnection, remoteRequestKey, requestKey, requestNotSent } from "./requests";
 
 const success = (data: string): ApiResult<string> => ({ ok: true, data, meta: { requestId: "request", serverTime: 100 } });
 
@@ -84,22 +86,83 @@ test("equivalent inputs share a root result only for the same route and active s
   expect(book.allows("session", null)).toBe(false);
 });
 
-test("same-intent retries keep their original ID and Checking survives a proven-unsent retry", async () => {
-  let created = 0;
-  const seen: string[] = [];
-  const replies = Promise.withResolvers<ApiResult<string>>();
-  const intents = new CommandIntents<string>();
-  const newId = () => `op-${++created}`;
-  const send = async (id: string) => { seen.push(id); return replies.promise; };
-  const first = intents.run("same", newId, send);
-  expect(intents.run("same", newId, send)).toBe(first);
-  replies.resolve({ ok: false, error: { code: "NETWORK_ERROR", delivery: "unknown" } });
-  expect(commandSnapshot(await first).state).toBe("checking");
-  const unsent = await intents.run("same", newId, async () => requestNotSent);
-  expect(commandSnapshot(unsent).state).toBe("checking");
-  const retry = (id: string) => { seen.push(id); return Promise.resolve(success("confirmed")); };
-  expect(commandSnapshot(await intents.run("same", newId, retry)).state).toBe("done");
-  expect(commandSnapshot(await intents.run("same", newId, retry)).state).toBe("done");
-  expect(seen).toEqual(["op-1", "op-1", "op-2"]);
-  expect(commandSnapshot({ ok: false, error: { code: "STALE_REVISION" }, meta: { requestId: "request" } }).state).toBe("conflict");
+test("a typed seed warms the destination read only for the same live scope, without a GET", async () => {
+  const book = new RequestBook(true);
+  const scope = { isActive: true };
+  const other = { isActive: true };
+  const route = notificationsRoute;
+  const input = { query: { contextId: context.contextId } };
+  const key = remoteRequestKey(route, input)!;
+  const data = { items: [], page: { cursor: null, hasMore: false } };
+  const entry = book.read(scope, route, key);
+  const fence = { ...initialReadConnection, visibility: 1 };
+  expect(book.seedRead(scope, route, {}, data, 120, fence)).toBeNull();
+  expect(book.seedRead(scope, route, input, { ...data, items: "invalid" }, 120, fence)).toBeNull();
+  expect(book.seedRead(null, route, input, data, 120, fence)).toBeNull();
+  expect(book.seedRead(scope, route, input, data, 120, { ...fence, offline: true })).toBeNull();
+  expect(book.seedRead(scope, route, input, data, 120, fence)).toEqual({ data });
+  expect(book.seedRead(scope, route, input, data, 119, fence)).toBeNull();
+  let fetched = false;
+  await entry.load(async () => { fetched = true; return requestNotSent; }, { getConnection: () => fence });
+  expect(fetched).toBe(false);
+  expect(entry.getSnapshot(fence)).toMatchObject({ status: "ready", data, lastConfirmedAt: 120 });
+  expect(book.read(other, route, key).getSnapshot(fence).status).toBe("idle");
+  expect(entry.getSnapshot({ ...fence, visibility: 2 }).data).toBeNull();
+});
+
+test("command status and the original operation ID survive remounts without saving the request body", async () => {
+  const { database, repository, mobile } = await testRepository();
+  try {
+    const key = commandIntentKey(approveQuoteVersionRoute, "version")!;
+    expect(key).toBe(commandIntentForRequest(approveQuoteVersionRoute, { params: { id: "version" } }));
+    expect(key).not.toBe(commandIntentKey(declineQuoteVersionRoute, "version"));
+    expect(commandIntentKey(approveQuoteVersionRoute, "private/address")).toBeNull();
+    const book = new RequestBook(true);
+    const original = book.command<string>(repository, key);
+    const states: string[] = [];
+    const unsubscribe = original.subscribe(() => states.push(original.getSnapshot()));
+    const sent = Promise.withResolvers<string>();
+    const replies = Promise.withResolvers<ApiResult<string>>();
+    const online = () => true;
+    const send = (id: string) => { sent.resolve(id); return replies.promise; };
+    const body = "private request body";
+    const first = original.run(body, "op-first", undefined, online, send);
+    expect(book.command(repository, key)).toBe(original);
+    expect(original.run(body, "op-ignored", undefined, online, send)).toBe(first);
+    expect(await sent.promise).toBe("op-first");
+    const rows = () => database.query("SELECT * FROM pending_online_receipts").all();
+    expect(rows()).toMatchObject([{ operation_id: "op-first", kind: "POST /quote-versions/:id/approve", resource_id: "version" }]);
+    expect(JSON.stringify(rows())).not.toContain(body);
+    replies.resolve({ ok: false, error: { code: "NETWORK_ERROR", delivery: "unknown" } });
+    expect(commandSnapshot(await first).state).toBe("checking");
+    expect(states).toEqual(["sending", "checking"]);
+    expect(commandSnapshot(await original.run("different body", "op-new", undefined, online, () => Promise.resolve(success("not expected")))).state).toBe("checking");
+    unsubscribe();
+    repository.close();
+
+    const restarted = new RequestBook(true);
+    const reopened = mobile.openScope(repository.scope);
+    const pending = restarted.command<string>(reopened, key);
+    await pending.hydrate();
+    expect(pending.getSnapshot()).toBe("checking");
+    const unprivileged = restarted.command(mobile.openScope({ accountId, contextId: "other-role" }), key);
+    await unprivileged.hydrate();
+    expect(unprivileged.getSnapshot()).toBe("idle");
+    expect(commandSnapshot(await pending.run(body, "op-new", undefined, online, () => Promise.resolve(requestNotSent))).state).toBe("checking");
+    const seen: string[] = [];
+    const retry = (id: string) => { seen.push(id); return Promise.resolve(success("confirmed")); };
+    expect(commandSnapshot(await pending.run(body, "op-new", undefined, online, retry)).state).toBe("done");
+    expect(seen).toEqual(["op-first"]);
+    expect(pending.getSnapshot()).toBe("idle");
+    expect(rows()).toEqual([]);
+
+    const conflict = { ok: false, error: { code: "STALE_REVISION" }, meta: { requestId: "request" } } as const;
+    expect(commandSnapshot(await pending.run(body, "op-new", undefined, online, () => Promise.resolve(conflict))).state).toBe("conflict");
+    expect(rows()).toEqual([]);
+    await pending.run(body, "op-remaining", undefined, online, () => replies.promise);
+    expect(rows()).toHaveLength(1);
+    reopened.close();
+    await mobile.wipeAccount(accountId, async () => {});
+    expect(rows()).toEqual([]);
+  } finally { database.close(); }
 });

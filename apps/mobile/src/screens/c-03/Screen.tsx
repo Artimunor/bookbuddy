@@ -5,7 +5,7 @@ import { useRemote } from "../../api";
 import { useT } from "../../i18n";
 import { Button, Card, Dock, Screen, SegmentedControl, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
-import { type RequestDraft, useRequestDraft } from "../c-02/draft";
+import { requestDraftHref, type RequestDraft, useRequestDraft } from "../c-02/draft";
 import { useOffline } from "../s-02/flow";
 
 export default function RequestPlaceScreen() {
@@ -23,9 +23,8 @@ export default function RequestPlaceScreen() {
     }
   }, [placeId, list.status, list.data, local.loaded, local.value, local.change]);
   if (!local.loaded) return <Screen title={t("mobile.request.placeTitle")}><Copy>{local.failed ? t("mobile.request.saveFailed") : t("mobile.request.loading")}</Copy></Screen>;
-  if (local.value.pendingOperation) return <Screen title={t("mobile.request.placeTitle")}><Copy>{t("mobile.request.checking")}</Copy><Button label={t("mobile.request.review")} onPress={() => router.replace("/c/request/review" as Href)} /></Screen>;
-  const next = "review";
-  return <PlaceRequestView draft={local.value} place={detail.data} places={list.data?.places ?? []} status={offline ? "offline" : list.status} saved={local.saved} failed={local.failed} warn={local.warn} changed={changed === "1"} onChange={d => { void local.change(d).catch(() => {}); }} onBack={() => router.back()} onNext={() => { void local.change({ ...local.value, step: next }).then(() => router.push(`/c/request/${next}` as Href)).catch(() => {}); }} onAdd={() => router.push("/c/places/new?returnTo=request" as Href)} onRetry={() => { void list.refresh(); if (local.value.placeId) void detail.refresh(); }} onMore={list.data?.hasMore && list.data.cursor ? () => setCursor(list.data!.cursor!) : undefined} />;
+  if (local.value.pendingOperation) return <Screen title={t("mobile.request.placeTitle")}><Copy>{t("mobile.request.checking")}</Copy><Button label={t("mobile.request.review")} onPress={() => router.replace(requestDraftHref("review", local.draftId))} /></Screen>;
+  return <PlaceRequestView draft={local.value} place={detail.data} places={list.data?.places ?? []} status={offline ? "offline" : list.status} saved={local.saved} failed={local.failed} warn={local.warn} changed={changed === "1"} onChange={d => { void local.change(d).catch(() => {}); }} onBack={() => router.back()} onNext={() => { void local.change({ ...local.value, step: "review" }).then(() => router.push(requestDraftHref("review", local.draftId))).catch(() => {}); }} onAdd={() => router.push(`/c/places/new?returnTo=request&draftId=${local.draftId}` as Href)} onRetry={() => { void list.refresh(); if (local.value.placeId) void detail.refresh(); }} onMore={list.data?.hasMore && list.data.cursor ? () => setCursor(list.data!.cursor!) : undefined} />;
 }
 
 type Status = "idle" | "loading" | "ready" | "error" | "offline";

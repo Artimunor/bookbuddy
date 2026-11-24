@@ -4,7 +4,7 @@ import { operationIdSchema } from "@bookbuddy/api-contract";
 import type { SyncPage, SyncRequest } from "@bookbuddy/api-contract";
 import { expect, test } from "bun:test";
 import { notification, page, testRepository } from "../repository/sqlite.test-kit";
-import { SyncRunner } from "./runner";
+import { retryOutboxOperation, SyncRunner } from "./runner";
 
 const readOperation = { kind: "notification_read_mark" as const, payload: { ids: ["notice"] } };
 
@@ -84,5 +84,39 @@ test("out-of-scope replies purge the snapshot but keep authored work", async () 
     expect(await repository.getProjection("notification", "notice")).toBeNull();
     expect(database.query("SELECT cursor FROM sync_state").get()).toEqual({ cursor: "before" });
     expect(await repository.listOutbox()).toMatchObject([{ operation: { operationId }, status: "queued" }]);
+  } finally { database.close(); }
+});
+
+test("only an unsent outbox item can be removed, and retry triggers one sync with the same ID", async () => {
+  const { database, repository } = await testRepository();
+  try {
+    const dropped = await repository.enqueueOperation(readOperation);
+    const kept = await repository.enqueueOperation(readOperation);
+    expect(await repository.removeUnsentOperation(dropped)).toBe(true);
+    expect(await repository.removeUnsentOperation(dropped)).toBe(false);
+    const sending = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<ApiResult<SyncPage>>();
+    const requests: SyncRequest[] = [];
+    const runner = new SyncRunner((request) => {
+      requests.push(request);
+      if (requests.length === 1) { sending.resolve(); return release.promise; }
+      return Promise.resolve({ ok: true, data: page("retry", { outcomes: [{ operationId: kept, status: "unchanged" }] }),
+        meta: { requestId: "reply", serverTime: 980 } });
+    });
+    const retry = (id: string) => retryOutboxOperation(repository, id, () => runner.refresh(repository));
+    expect(await retry(dropped)).toBeNull();
+    expect(requests).toHaveLength(0);
+    const first = retry(kept);
+    await sending.promise;
+    expect(await repository.removeUnsentOperation(kept)).toBe(false);
+    release.resolve({ ok: false, error: { code: "NETWORK_ERROR", delivery: "unknown" } });
+    expect(await first).toEqual({ status: "checking", code: "NETWORK_ERROR" });
+    expect(requests).toHaveLength(1);
+    expect(await repository.removeUnsentOperation(kept)).toBe(false);
+    expect(await retry(kept)).toEqual({ status: "confirmed" });
+    expect(requests).toHaveLength(2);
+    expect(requests[1]?.operations).toEqual(requests[0]?.operations);
+    expect(await retry(kept)).toBeNull();
+    expect(requests).toHaveLength(2);
   } finally { database.close(); }
 });
