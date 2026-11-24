@@ -1,4 +1,4 @@
-import { acceptJobHandoffRoute, declineJobHandoffRoute, getJobRoute, type JobDetail } from "@bookbuddy/api-contract";
+import { acceptJobHandoffRoute, declineJobHandoffRoute, getJobRoute, linkTokenSchema, openLinkRoute, type JobDetail } from "@bookbuddy/api-contract";
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useState } from "react";
 import { useCommand, useRemote } from "../../api";
@@ -13,12 +13,18 @@ import { siteTime } from "../f-01/Screen";
 type Intake = Extract<Extract<JobDetail, { audience: "foreman" }>["job"], { view: "intake" }>;
 type Status = "idle" | "loading" | "ready" | "error" | "offline";
 export default function IntakeScreen() {
-  const { handoffId, jobId } = useLocalSearchParams<{ handoffId: string; jobId?: string }>();
-  const remote = useRemote(getJobRoute, { params: { j: jobId ?? "" }, query: { view: "intake" } }, { enabled: !!jobId });
+  const { handoffId, jobId, opaque: rawLink } = useLocalSearchParams<{ handoffId: string; jobId?: string; opaque?: string }>();
+  const parsedLink = linkTokenSchema.safeParse(rawLink);
+  const opaque = parsedLink.success ? parsedLink.data : undefined;
+  const direct = useRemote(getJobRoute, { params: { j: jobId ?? "" }, query: { view: "intake" } }, { enabled: !!jobId && !opaque });
+  const linked = useRemote(openLinkRoute, { params: { opaque: opaque ?? "" } }, { enabled: !!opaque });
+  const remote = opaque ? linked : direct;
   const accept = useCommand(acceptJobHandoffRoute); const decline = useCommand(declineJobHandoffRoute);
   const router = useRouter(); const { bootstrap } = useSession(); const offline = useOffline(); const t = useT();
   const [reason, setReason] = useState(""); const [declining, setDeclining] = useState(false); const [destination, setDestination] = useState<string | null>(null);
-  const job = remote.data?.audience === "foreman" && remote.data.job.view === "intake" && remote.data.job.handoff.handoffId === handoffId ? remote.data.job : null;
+  const record = opaque ? (linked.data?.kind === "job" ? linked.data.record : null) : direct.data;
+  const job = record?.audience === "foreman" && record.job.view === "intake" && record.job.jobId === jobId
+    && record.job.handoff.handoffId === handoffId ? record.job : null;
   useFocusEffect(useCallback(() => { if (destination) { setDestination(null); if (destination === "back") router.back(); else router.replace(destination as Href); } }, [destination, router]));
   function confirm(kind: "accept" | "decline") {
     if (!job || offline || job.reply !== "available" || accept.state === "checking" || decline.state === "checking") return;
@@ -39,7 +45,9 @@ export function IntakeView({ job, status, offline, declining, reason, setReason,
   const t = useT(); const format = useFormat(); const takeover = !!job?.handoff.from;
   const available = !!job && job.reply === "available" && job.handoff.state === "offered" && !offline && !busy;
   const dock = job && status === "ready" && (job.reply === "available" || job.reply === "authority_missing") ? declining ? <Dock context={t("mobile.foremanHome.declineEffect")} primary={{ label: t("mobile.foremanHome.confirmDecline"), onPress: onDecline, disabled: !available }} secondary={{ label: t("mobile.foremanHome.cancel"), onPress: () => onDeclining(false), disabled: busy }} /> : <Dock context={job.reply === "authority_missing" ? t("mobile.foremanHome.authority") : takeover ? t("mobile.foremanHome.takeoverEffect") : t("mobile.foremanHome.effect")} primary={{ label: takeover ? t("mobile.foremanHome.takeoverAction") : t("mobile.foremanHome.accept"), onPress: onAccept, disabled: !available }} secondary={job.chatThreadId ? { label: t("mobile.foremanHome.ask"), onPress: () => onNavigate(`/chat/${job.chatThreadId}`) } : undefined} /> : undefined;
-  const originalLabel = job ? t("mobile.foremanHome.original", { language: job.request.originalLanguage ?? t("mobile.foremanHome.unknownLanguage") }) : "";
+  const request = job?.request;
+  const originalLabel = request?.originalText
+    ? t("mobile.foremanHome.original", { language: request.originalLanguage ?? t("mobile.foremanHome.unknownLanguage") }) : "";
   return <Screen title={takeover ? t("mobile.foremanHome.takeover") : t("mobile.foremanHome.newJob")} navigation={{ kind: "back", label: t("mobile.foremanHome.back"), onPress: onBack }} dock={dock}>
     {(status === "idle" || status === "loading") && <Copy>{t("mobile.foremanHome.loading")}</Copy>}
     {status === "offline" && <Copy>{t("mobile.foremanHome.offline")}</Copy>}
@@ -50,8 +58,8 @@ export function IntakeView({ job, status, offline, declining, reason, setReason,
       {job.reply === "authority_missing" && <><Copy>{t("mobile.foremanHome.authority")}</Copy><Button variant="quiet" label={t("mobile.foremanHome.help")} onPress={() => onNavigate("/help")} /></>}
       {job.reply === "closed_elsewhere" && <Copy>{t("mobile.foremanHome.closedElsewhere")}</Copy>}{(job.reply === "closed" || job.handoff.state !== "offered") && <Copy>{t("mobile.foremanHome.closed")}</Copy>}
       {takeover && <Card><Copy>{t("mobile.foremanHome.replyBy", { time: siteTime(format, job.handoff.expiresAt, job.siteZone) })}</Copy><Copy>{t("mobile.foremanHome.incumbent", { name: job.handoff.from!.displayName })}</Copy></Card>}
-      {job.request.originalText ? job.request.translation?.status === "ready" ? <TwinCard state="translated" title={t("mobile.foremanHome.requestFrom", { name: job.customerName, time: siteTime(format, job.request.submitted.at, job.siteZone) })} original={{ text: job.request.originalText, label: originalLabel }} translation={{ text: job.request.translation.text, label: t("mobile.foremanHome.translation", { language: job.request.translation.language }) }} /> : job.request.translation ? <TwinCard state={job.request.translation.status} title={t("mobile.foremanHome.requestFrom", { name: job.customerName, time: siteTime(format, job.request.submitted.at, job.siteZone) })} original={{ text: job.request.originalText, label: originalLabel }} status={job.request.translation.status === "pending" ? t("mobile.foremanHome.pendingTranslation") : t("mobile.foremanHome.unavailableTranslation")} /> : <TwinCard state="original" title={t("mobile.foremanHome.requestFrom", { name: job.customerName, time: siteTime(format, job.request.submitted.at, job.siteZone) })} original={{ text: job.request.originalText, label: originalLabel }} /> : <Copy>{t("mobile.foremanHome.voiceOnly")}</Copy>}
-      <Card>{job.request.photos.map(photo => <ListRow key={photo.attachmentId} label={t("mobile.foremanHome.photos", { count: job.request.photos.length })} onPress={photo.availability === "available" ? () => onNavigate(`/media/${photo.attachmentId}`) : undefined} />)}<ListRow label={job.town} description={t("mobile.foremanHome.addressHidden")} /></Card>
+      {request && (request.originalText ? request.translation?.status === "ready" ? <TwinCard state="translated" title={t("mobile.foremanHome.requestFrom", { name: job.customerName, time: siteTime(format, request.submitted.at, job.siteZone) })} original={{ text: request.originalText, label: originalLabel }} translation={{ text: request.translation.text, label: t("mobile.foremanHome.translation", { language: request.translation.language }) }} /> : request.translation ? <TwinCard state={request.translation.status} title={t("mobile.foremanHome.requestFrom", { name: job.customerName, time: siteTime(format, request.submitted.at, job.siteZone) })} original={{ text: request.originalText, label: originalLabel }} status={request.translation.status === "pending" ? t("mobile.foremanHome.pendingTranslation") : t("mobile.foremanHome.unavailableTranslation")} /> : <TwinCard state="original" title={t("mobile.foremanHome.requestFrom", { name: job.customerName, time: siteTime(format, request.submitted.at, job.siteZone) })} original={{ text: request.originalText, label: originalLabel }} /> : <Copy>{t("mobile.foremanHome.voiceOnly")}</Copy>)}
+      <Card>{request && request.photos.map(photo => <ListRow key={photo.attachmentId} label={t("mobile.foremanHome.photos", { count: request.photos.length })} onPress={photo.availability === "available" ? () => onNavigate(`/media/${photo.attachmentId}`) : undefined} />)}<ListRow label={job.town} description={t("mobile.foremanHome.addressHidden")} /></Card>
       {job.handoff.offeredBy && <Copy variant="supporting">{t("mobile.foremanHome.offeredBy", { name: job.handoff.offeredBy })}</Copy>}
       {job.reply === "available" && !declining && <Button variant="quiet" label={t("mobile.foremanHome.decline")} onPress={() => onDeclining(true)} disabled={!available} />}
       {declining && <TextField label={t("mobile.foremanHome.reason")} value={reason} onChangeText={setReason} multiline maxLength={500} disabled={busy} />}

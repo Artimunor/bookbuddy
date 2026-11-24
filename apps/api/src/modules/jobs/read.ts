@@ -115,10 +115,12 @@ function jobPacket(mode: ReadMode, linked = false): string {
 }
 
 function intakePacket(detail: boolean): string {
-  return `json_object(${headingSql("j", placeZone)}, ${journeySql("j", at)}, 'position', ${position("k")},
+  return `json_object(${headingSql("j", placeZone)}, ${journeySql("j", at)},
+    'position', json_object('rank', 0, 'time', h.expires_at, 'id', h.id),
     'revision', j.revision, 'town', area.name, 'customerName', ${displayName("customer")}, 'handoff', ${handoffJson("h", at)}
-    ${detail ? `, 'request', json_object('submitted', json_object('at', r.submitted_at, 'by', ${displayName("customer")}),
-      'originalText', r.original_text, 'originalLanguage', r.original_language)` : ""})`;
+    ${detail ? `, 'request', json(CASE WHEN r.job_id IS NOT NULL THEN json_object(
+      'submitted', json_object('at', r.submitted_at, 'by', ${displayName("customer")}),
+      'originalText', r.original_text, 'originalLanguage', r.original_language) END)` : ""})`;
 }
 
 const jobRowFrom = `JOIN reader s ON 1 ${jobFrom}
@@ -255,7 +257,7 @@ function read(access: SessionAccess, mode: ReadMode, options: {
         THEN ${workerHomeOffers("s.membership_id", "s.business_id")} ELSE '[]' END` : "'[]'"}),
       'jobs', json(${mode === "intake" ? "'[]'" : jsonRows(jobPacket(mode, !!link), `FROM (${selected}) j ${jobRowFrom} ORDER BY j.rank, j.time, j.id`)}),
       'incoming', json(${intakeFilter === "0" ? "'[]'" : jsonRows(intakePacket(mode === "intake"),
-        `FROM intake k ${intakeRowFrom} ${mode === "intake" ? "JOIN requests r ON r.job_id = j.id" : ""}
+        `FROM intake k ${intakeRowFrom} ${mode === "intake" ? "LEFT JOIN requests r ON r.job_id = j.id" : ""}
           WHERE ${mode === "list" ? segment === "incoming" ? after("k") : "0" : "1"}
           ORDER BY k.time, k.id LIMIT ${pageSize + 1}`)}),
       'counts', json_object('active', (SELECT count(*) FROM sorted_jobs WHERE state = 'open'),
@@ -286,6 +288,14 @@ export function projectJobLinkSql(job: string, scope: string, visit: string): st
     params: [],
   }, "whole", { link: { job, visit } }).sql}))`;
 }
+
+export function projectIntakeLinkSql(handoff: string, scope: string): string {
+  return `(WITH intake_scope AS (SELECT ${scope}.context_id AS context_id, ${scope}.role AS role, ${scope}.business_id AS business_id)
+    SELECT ${intakePacket(true)} FROM (SELECT resource_id AS id FROM (
+      ${scopedIntakeIds("intake_scope", at, `h.id = ${handoff}`)}
+    )) k ${intakeRowFrom} LEFT JOIN requests r ON r.job_id = j.id)`;
+}
+
 export const readJobsBusinessOverview = (access: SessionAccess, businessId: string) =>
   read(access, "overview", { businessId });
 
@@ -308,7 +318,7 @@ interface Job extends Heading, JourneyRow {
 }
 interface Intake extends Heading, JourneyRow {
   position: Position; town: string; customerName: string; handoff: Handoff; revision: number;
-  request?: { submitted: { at: number; by: string }; originalText: string | null; originalLanguage: string | null };
+  request?: { submitted: { at: number; by: string }; originalText: string | null; originalLanguage: string | null } | null;
 }
 interface Moment { position: Position; kind: string; jobId: string; recordId: string; at: number; by: string | null }
 interface Overview {
@@ -459,13 +469,16 @@ export function projectJobs(rows: ReadRows, segment: Segment, now: number) {
   }
 }
 
+export function projectIntake(row: Intake | undefined) {
+  if (!row) return null;
+  return { audience: "foreman", job: { ...incomingCard(row), view: "intake", revision: row.revision,
+    request: row.request ? { ...row.request, translation: null, photos: [], originalVoice: null } : null,
+    reply: "available", chatThreadId: null } };
+}
+
 export function projectJob(rows: ReadRows, view: View, now: number, exactVisit = false) {
   const { audience } = rows;
-  if (view === "intake") {
-    const row = rows.incoming[0];
-    return audience === "foreman" && row?.request ? { audience, job: { ...incomingCard(row), view, revision: row.revision,
-      request: { ...row.request, translation: null, photos: [], originalVoice: null }, reply: "available", chatThreadId: null } } : null;
-  }
+  if (view === "intake") return audience === "foreman" ? projectIntake(rows.incoming[0]) : null;
   const job = rows.jobs[0];
   if (!job) return null;
   const today = job.state === "cancelled" ? undefined : exactVisit ? job.today?.[0]

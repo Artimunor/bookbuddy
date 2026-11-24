@@ -24,7 +24,7 @@ function help(reason?: string): Href {
 }
 
 type Destination = Exclude<LinkOpening, { kind: "invitation" | "switch_context" | "unavailable" }>;
-function destination(link: Destination, role: string | undefined): Href {
+function destination(link: Destination, role: string | undefined, opaque: string): Href {
   switch (link.kind) {
     case "place": return { pathname: "/c/places/[placeId]", params: { placeId: link.place.id } } as Href;
     case "business_overview": return "/p/now" as Href;
@@ -34,7 +34,7 @@ function destination(link: Destination, role: string | undefined): Href {
       const record = link.record;
       if (record.audience === "customer") return { pathname: "/c/jobs/[jobId]", params: { jobId: record.job.jobId, view: record.job.view } } as Href;
       if (record.audience === "foreman") return record.job.view === "intake"
-        ? { pathname: "/f/intake/[handoffId]", params: { handoffId: record.job.handoff.handoffId } } as Href
+        ? { pathname: "/f/intake/[handoffId]", params: { handoffId: record.job.handoff.handoffId, jobId: record.job.jobId, opaque } } as Href
         : { pathname: "/f/jobs/[jobId]", params: { jobId: record.job.jobId, view: record.job.view } } as Href;
       if (record.audience === "worker") return { pathname: "/w/shifts/[shiftId]", params: { shiftId: record.job.assignment.shiftId } } as Href;
       return "/p/jobs" as Href;
@@ -43,6 +43,7 @@ function destination(link: Destination, role: string | undefined): Href {
       ? { pathname: "/f/cover/[gapId]", params: { gapId: link.cover.gapId } } as Href
       : { pathname: "/w/offers/[offerId]", params: { offerId: link.cover.offer.offerId } } as Href;
     case "assignment_offer": return { pathname: "/w/offers/[offerId]", params: { offerId: link.offer.offerId } } as Href;
+    case "crew_availability": return { pathname: "/w/availability", params: { date: link.date, opaque } } as Href;
   }
 }
 
@@ -132,7 +133,7 @@ export default function LinkScreen({ invitationOnly = false }: { invitationOnly?
     if (link.kind === "invitation") return <Redirect href={{ pathname: "/invite/[opaque]", params: { opaque } }} />;
     if (link.kind === "switch_context") return <Redirect href={{ pathname: "/switch-role", params: { opaque } }} />;
     if (link.kind === "unavailable") return <Redirect href={help(link.reason)} />;
-    return <Redirect href={destination(link, active?.role)} />;
+    return <Redirect href={destination(link, active?.role, opaque)} />;
   }
   let invitation: InvitationOpening | null = null;
   if (link?.kind === "invitation") invitation = link.invitation;

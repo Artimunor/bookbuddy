@@ -7,6 +7,7 @@ import type { RequestScope } from "../../db/scope";
 import { at, liveTerm, scopedStatement } from "../access/policy";
 import { loadDeliveryKey, mac, sealDelivery } from "../auth/crypto";
 import type { SessionAccess } from "../auth/session";
+import { createLinkedNotifications } from "../links/notifications";
 
 export interface JobCommandResult {
   operation: OperationResult;
@@ -138,15 +139,16 @@ function liveProviderHandoff(business: string): string {
 const liveIntake = (grant: string) => `${grant}.capability = 'intake' AND ${liveTerm(grant)}`;
 
 function notification(access: SessionAccess, guard: CommandStatement, ref: string, kind: string, audience: CommandStatement,
-  now: number, expiresAt: CommandStatement,
+  now: number, expiresAt: CommandStatement, jobId?: string,
 ) {
   const event = `${kind}:${ref}`;
   const matching = scopedStatement(access, `SELECT n.id, n.context_id FROM notifications n
     WHERE n.context_id IN (${audience.sql}) AND n.event_key = ?`, ...audience.params ?? [], event);
+  const targets = scopedStatement(access, `SELECT ? AS kind, ? AS resource_id, a.context_id AS required_scope,
+    (${expiresAt.sql}) AS expires_at, ${at} AS created_at FROM (${audience.sql}) a`,
+  jobId === undefined ? "job_handoff" : "job_update", jobId ?? ref, ...expiresAt.params ?? [], ...audience.params ?? []);
   return {
-    write: scopedStatement(access, `INSERT INTO notifications (id, context_id, event_key, kind, created_at)
-      SELECT lower(hex(randomblob(16))), context_id, ?, ?, ${at} FROM (${audience.sql}) WHERE ${guard.sql}`,
-    event, kind, ...audience.params ?? [], ...guard.params ?? []),
+    writes: createLinkedNotifications(targets, guard, event, kind),
     changes: `SELECT 'notification', n.id, n.context_id, 'upsert', ${at} FROM (${matching.sql}) n`,
     params: matching.params ?? [],
     effects: { sql: `SELECT lower(hex(randomblob(16))) AS id, 'notification_push' AS kind, 'notification_push:' || n.id AS dedupe_key,
@@ -242,7 +244,7 @@ export function planRequest(ctx: RequestScope, access: SessionAccess, input: Sub
           SELECT ?, ?, business_id, membership_id, 'standard', ${at}, expires_at, 'offered' FROM recipient CROSS JOIN deadline WHERE ${guard.sql}`,
         handoff, job, ...guard.params ?? []),
         addIntakeGrant(requestAccess, guard, handoff),
-        notice.write,
+        ...notice.writes,
       ],
       changes: changesFor(ctx.now, job, `${syncJob(true)} UNION ALL ${handoffChanges(offerRecipient, "upsert")} UNION ALL ${notice.changes}`,
         handoff, handoff, ...notice.params),
@@ -304,7 +306,7 @@ export function planHandoffOffer(ctx: RequestScope, access: SessionAccess, job: 
         handoff, reofferOfId ?? null, policy, urgentCallConfirmed ? ctx.now : null, ...guard.params ?? []),
         { sql: `UPDATE jobs SET revision = revision + 1 WHERE id = ? AND ${guard.sql}`, params: [job, ...guard.params ?? []] },
         addIntakeGrant(target, guard, handoff),
-        notice.write,
+        ...notice.writes,
       ],
       changes: changesFor(ctx.now, job, `${syncJob(false)} UNION ALL ${handoffChanges(offerRecipient, "upsert")}
         UNION ALL ${notice.changes}${reofferOfId === undefined ? "" : ` UNION ALL ${handoffChanges(offerRecipient, "remove")}`}`,
@@ -337,7 +339,8 @@ export function planHandoffDecision(ctx: RequestScope, access: SessionAccess, jo
         AND h.incumbent_id IS j.accountable_foreman_membership_id${withdraw ? "" : ` AND EXISTS (
           SELECT 1 FROM job_grants g WHERE g.job_id = j.id AND g.context_id = scope.context_id AND ${liveIntake("g")})`})`, params: [expectedRevision] },
     writes: (guard) => {
-      const notice = notification(target, guard, handoff, `job_handoff_${state}`, { sql: audience }, ctx.now, { sql: "?", params: [ctx.now + week] });
+      const notice = notification(target, guard, handoff, `job_handoff_${state}`, { sql: audience }, ctx.now,
+        { sql: "?", params: [ctx.now + week] }, job);
       return {
       statements: [
         { sql: `UPDATE job_handoffs SET state = ?, ended_at = ?, decline_reason = ? WHERE id = ? AND ${guard.sql}`,
@@ -346,7 +349,7 @@ export function planHandoffDecision(ctx: RequestScope, access: SessionAccess, jo
           WHERE id = ? AND ${guard.sql}`, params: [...accept ? [handoff] : [], job, ...guard.params ?? []] },
         revokeIntake(guard, handoff, ctx.now),
         bumpVisibilityEpoch(guard, { sql: loser, params: accept ? [handoff, handoff] : [handoff] }),
-        notice.write,
+        ...notice.writes,
       ],
       changes: changesFor(ctx.now, job, `${syncJob(accept)} UNION ${handoffChanges(offerRecipient, "remove")}
         UNION ${notice.changes}${accept ? ` UNION SELECT 'job', ?, context_id, 'upsert', ${at} FROM (${incumbentContext})` : ""}`,

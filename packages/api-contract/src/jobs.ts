@@ -201,7 +201,7 @@ export const jobDetailSchema = z.discriminatedUnion("audience", [
   ]) }),
   z.object({ audience: z.literal("foreman"), job: z.discriminatedUnion("view", [
     foremanIncoming.extend({
-      view: z.literal("intake"), revision: revisionSchema, request: intakeRequest,
+      view: z.literal("intake"), revision: revisionSchema, request: intakeRequest.nullable(),
       reply: z.enum(["available", "authority_missing", "closed_elsewhere", "closed"]), chatThreadId: idSchemaFor<"chat_thread">().nullable(),
     }),
     foremanCard.extend({

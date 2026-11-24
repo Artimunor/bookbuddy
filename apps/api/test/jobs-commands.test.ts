@@ -1,7 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
-import { offerJobHandoffRoute, operationIdHeader, resultSchema, submitRequestRoute, submitSupportRoute } from "@bookbuddy/api-contract";
+import { offerJobHandoffRoute, openLinkRoute, operationIdHeader, resultSchema, submitRequestRoute, submitSupportRoute } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
+import { runEffectBatch } from "../src/effects";
 import { randomToken } from "../src/modules/auth/crypto";
 import { hashSessionCredential } from "../src/modules/auth/session";
 import { createTestD1 } from "./d1";
@@ -115,8 +116,26 @@ test("text request makes an unassigned job, durable intake offer and safe replay
       .bind(jobId).first("valid_until")).toBe(tuesday);
     expect(await f.db.prepare("SELECT kind, partition_key FROM sync_changes WHERE resource_id = ?").bind(offer!.id).first())
       .toMatchObject({ kind: "job_handoff", partition_key: "first-staff" });
-    expect(await f.db.prepare("SELECT context_id FROM notifications").first("context_id")).toBe("first-staff");
+    const link = await f.db.prepare(`SELECT t.token, t.resource_id, t.expires_at FROM notifications n
+      JOIN link_targets t ON t.token = n.link_token AND t.required_scope = n.context_id
+      WHERE n.context_id = 'first-staff' AND t.kind = 'job_handoff'`).first<{ token: string }>();
+    expect(link).toMatchObject({ resource_id: offer!.id, expires_at: tuesday });
+    expect((await f.call(`/jobs/${jobId}`, "first")).status).toBe(404);
+    const path = `/links/${link!.token}`;
+    const opened = resultSchema(openLinkRoute.output).parse((await f.call(path, "first")).body);
+    expect(opened).toMatchObject({ data: { kind: "job", record: { audience: "foreman",
+      job: { jobId, view: "intake", handoff: { handoffId: offer!.id }, request: { originalText: requestPayload.originalText } } } } });
+    expect(JSON.stringify(opened)).not.toContain("Private address");
+    expect((await f.call(path, "second")).body).toMatchObject({ data: { kind: "unavailable", reason: "unavailable" } });
     expect(f.notices).toHaveLength(1);
+    await f.db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
+      VALUES ('phone','first','ExpoPushToken[phone]',1,'ios','active',?)`).bind(friday).run();
+    const sent: unknown[] = [];
+    await runEffectBatch({ DB: f.db, PUBLIC_APP_ORIGIN: origin } as Bindings, f.notices[0]!, friday, async (_url, request) => {
+      sent.push(JSON.parse(request.body as string));
+      return Response.json({ data: [{ status: "ok", id: "intake-delivery" }] });
+    });
+    expect(sent).toEqual([[{ to: "ExpoPushToken[phone]", title: "BookBuddy", body: "You have an update.", data: { url: `${origin}/l/${link!.token}` } }]]);
     expect((await f.call("/requests", "customer", body)).body).toMatchObject({ data: response.data });
     expect((await f.call("/requests", "customer", { ...body, payload: { ...requestPayload, originalText: "Changed" } })).body)
       .toMatchObject({ error: { code: "OPERATION_ID_REUSED" } });
@@ -143,6 +162,12 @@ test("only the intended foreman takes an open job; a non-default incumbent canno
     expect(opened.data).toMatchObject({ expiresAt: tuesday + hour / 2, revision: 1, state: "offered" });
     expect(await f.db.prepare("SELECT accountable_foreman_membership_id FROM jobs WHERE id = 'job'").first("accountable_foreman_membership_id"))
       .toBe("third-member");
+    const token = await f.db.prepare(`SELECT token FROM link_targets
+      WHERE kind='job_handoff' AND resource_id=? AND required_scope='second-staff'`).bind(opened.data.handoffId).first<string>("token");
+    expect(token).toBeTruthy();
+    expect((await f.call(`/links/${token}`, "second")).body).toMatchObject({ data: { kind: "job", record: {
+      audience: "foreman", job: { jobId: "job", view: "intake", request: null, handoff: { handoffId: opened.data.handoffId } },
+    } } });
     const path = `/jobs/job/handoffs/${opened.data.handoffId}`;
     const decide = { operationId: "accept", expectedRevision: 1, payload: {} };
     expect((await f.call(`${path}/withdraw`, "peer", decide)).status).toBe(404);
@@ -153,6 +178,7 @@ test("only the intended foreman takes an open job; a non-default incumbent canno
       .toBe("second-member");
     expect(await f.db.prepare("SELECT revoked_at FROM job_grants WHERE context_id = 'second-staff'").first("revoked_at")).toBe(tuesday);
     expect(await f.db.prepare("SELECT visibility_epoch FROM sync_scope_state WHERE context_id = 'third-staff'").first("visibility_epoch")).toBe(1);
+    expect((await f.call(`/links/${token}`, "second")).body).toMatchObject({ data: { kind: "unavailable", reason: "removed" } });
     expect((await f.call(`${path}/accept`, "second", decide)).body).toMatchObject({ data: accepted.body.data });
     expect((await f.call("/jobs/job/handoffs", "admin", body)).body).toMatchObject({ data: opened.data });
     expect(f.notices).toHaveLength(2);

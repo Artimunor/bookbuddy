@@ -1,6 +1,6 @@
 import { linkOpeningSchema } from "@bookbuddy/api-contract";
 import { at } from "../access/policy";
-import { projectJob, projectJobLinkSql } from "../jobs/read";
+import { projectIntake, projectIntakeLinkSql, projectJob, projectJobLinkSql } from "../jobs/read";
 import type { ReadRows } from "../jobs/read";
 import { placeCapability } from "../places/policy";
 import { unavailableLink } from ".";
@@ -28,6 +28,19 @@ export const jobRecordLinkResolver: LinkResolver = {
   decode(value, now) {
     const { record, view } = value as { record: ReadRows; view: "whole" | "today" };
     const opened = projectJob(record, view, now, view === "today");
+    return opened ? linkOpeningSchema.parse({ kind: "job", record: opened }) : unavailableLink("removed");
+  },
+};
+
+export const jobIntakeLinkResolver: LinkResolver = {
+  targetKind: "job",
+  project(resource, scope) {
+    return `(SELECT json_object('kind', 'job', 'intake', json(value))
+      FROM (SELECT ${projectIntakeLinkSql(resource, scope)} AS value LIMIT 1) WHERE value IS NOT NULL)`;
+  },
+  decode(value) {
+    const { intake } = value as { intake: ReadRows["incoming"][number] }; // Internal SQL projection above.
+    const opened = projectIntake(intake);
     return opened ? linkOpeningSchema.parse({ kind: "job", record: opened }) : unavailableLink("removed");
   },
 };

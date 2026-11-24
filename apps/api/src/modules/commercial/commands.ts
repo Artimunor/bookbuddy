@@ -202,8 +202,8 @@ export function transitionVersion(ctx: RequestScope, session: SessionAccess, kin
     access: commandAccess, scope: actorScope, operationId, command: `${kind}.${action}`, input: [id, body], resultRef: id,
     authorize: { sql: authorized }, eligible: { sql: scoped(condition), params: checks },
     writes: (guard) => {
-      const { notification, changes, effects } = commercialSignals(access, guard, kind, id, event, mail);
-      return { statements: [...mutation(guard), notification], changes, effects };
+      const { notifications, changes, effects } = commercialSignals(access, guard, kind, id, event, mail);
+      return { statements: [...mutation(guard), ...notifications], changes, effects };
     },
   }, versionProjection(kind, id), expectedRevision);
 }

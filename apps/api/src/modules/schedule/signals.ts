@@ -3,23 +3,26 @@ import { at, scopedStatement } from "../access/policy";
 import { liveContextPredicate } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { workerFieldShiftChangeRows } from "../field/attendance";
+import { createLinkedNotifications } from "../links/notifications";
 import { placeCapability } from "../places/policy";
+import { calendarDay } from "./calendar";
 import { customer, foreman, provider } from "./policy";
 import { crewAvailabilityKind, workerAgendaKind } from "./projections";
 
 export function noticeSignals(access: SessionAccess, guard: CommandStatement, kind: string, recipients: string,
-  otherChanges?: string) {
+  link: { kind: "job_update" | "crew_availability"; resource: string }, otherChanges?: string) {
   const event = `${kind}:${crypto.randomUUID()}`;
-  const inserted = scopedStatement(access, `INSERT INTO notifications (id, context_id, event_key, kind, created_at)
-    SELECT lower(hex(randomblob(16))), context_id, ?, ?, ${at} FROM (${recipients}) WHERE ${guard.sql}`,
-  event, kind, ...guard.params ?? []);
+  const expires = `${at} + ${calendarDay}`;
+  const targets = scopedStatement(access, `SELECT ? AS kind, ${link.resource} AS resource_id, r.context_id AS required_scope,
+    ${expires} AS expires_at, ${at} AS created_at FROM (${recipients}) r`, link.kind);
+  const notifications = createLinkedNotifications(targets, guard, event, kind);
   const changes = scopedStatement(access, `SELECT 'notification' AS kind, n.id AS resource_id, n.context_id AS partition_key,
     'upsert' AS op, ${at} AS at FROM (${recipients}) r JOIN notifications n ON n.context_id = r.context_id
     WHERE n.event_key = ?${otherChanges ? ` UNION ALL ${otherChanges}` : ""}`, event);
   const effects = scopedStatement(access, `SELECT lower(hex(randomblob(16))) AS id, 'notification_push' AS kind,
-    'notification_push:' || n.id AS dedupe_key, n.id AS resource_ref, ${at} AS due_at, ${at} + 86400000 AS expires_at
-    FROM (${recipients}) r JOIN notifications n ON n.context_id = r.context_id WHERE n.event_key = ?`, event);
-  return { inserted, changes, effects };
+    'notification_push:' || n.id AS dedupe_key, n.id AS resource_ref, ${at} AS due_at, ${expires} AS expires_at
+    FROM (${recipients}) r JOIN notifications n ON n.context_id = r.context_id WHERE n.event_key = ? AND n.link_token IS NOT NULL`, event);
+  return { notifications, changes, effects };
 }
 
 export function jobSignals(access: SessionAccess, guard: CommandStatement, kind: string, to: "customer" | "provider" | "other_side",
@@ -41,7 +44,7 @@ export function jobSignals(access: SessionAccess, guard: CommandStatement, kind:
     AND (j.owner_id = audience.account_id OR ${placeCapability("j.place_id", "audience.account_id", "view")})))`;
   const jobChanges = bookingChanged ? `SELECT 'job', j.id, audience.context_id, 'upsert', ${at}
     FROM schedule_audience audience CROSS JOIN schedule_job j WHERE ${readable}` : undefined;
-  return noticeSignals(withAudience, guard, kind, recipients, jobChanges);
+  return noticeSignals(withAudience, guard, kind, recipients, { kind: "job_update", resource: "(SELECT id FROM schedule_job)" }, jobChanges);
 }
 
 export function affectedWorkerKeys(access: SessionAccess, visit: string): CommandStatement {

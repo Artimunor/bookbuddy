@@ -59,7 +59,9 @@ export function editAvailability(ctx: RequestScope, session: SessionAccess, { pa
         FROM availability_member m CROSS JOIN (${audience}) worker`;
       const recipients = `SELECT worker.context_id FROM (${audience}) worker CROSS JOIN live_scope actor
         WHERE actor.role <> 'worker' AND actor.account_id <> worker.account_id`;
-      const { inserted, changes, effects } = noticeSignals(edit, guard, "availability_corrected", recipients, change);
+      const { notifications, changes, effects } = noticeSignals(edit, guard, "availability_corrected", recipients, {
+        kind: "crew_availability", resource: `(SELECT id || ':' || ${date} FROM availability_member)`,
+      }, change);
       return { statements: [
         scopedStatement(edit, `DELETE FROM availability_intervals AS a WHERE a.membership_id = (SELECT id FROM availability_member)
           AND ${datePreferences(date)} AND ${guard.sql}`, ...pending),
@@ -69,7 +71,7 @@ export function editAvailability(ctx: RequestScope, session: SessionAccess, { pa
             CASE WHEN scope.role = 'worker' THEN 'worker' ELSE 'employer' END,
             m.cover, scope.account_id, ${at}, m.expected_revision + 1
           FROM availability_edit m CROSS JOIN availability_hours h CROSS JOIN live_scope scope WHERE ${guard.sql}`, ...pending),
-        inserted,
+        ...notifications,
       ], changes, effects };
     },
   }, { sql: `SELECT ${availabilityJson("m", "m.site_zone", at, dateBasisFilter(date), { start: "m.day_start", end: "m.day_end" })}

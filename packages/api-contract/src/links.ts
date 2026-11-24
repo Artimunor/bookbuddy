@@ -7,6 +7,7 @@ import { contextIdSchema, idSchemaFor } from "./common";
 import { jobDetailSchema } from "./jobs";
 import { placeDetailsSchema } from "./places";
 import { defineRoute } from "./route";
+import { crewAvailabilitySchema } from "./schedule";
 import { coverViewSchema, workerAssignmentOfferSchema } from "./staffing";
 
 export const opaqueLinkRoute = "/l/:token";
@@ -52,6 +53,7 @@ export const linkOpeningSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("job"), record: jobDetailSchema }),
   z.object({ kind: z.literal("cover"), cover: coverViewSchema }),
   z.object({ kind: z.literal("assignment_offer"), offer: workerAssignmentOfferSchema }),
+  z.object({ kind: z.literal("crew_availability"), date: z.iso.date(), availability: crewAvailabilitySchema }),
   z.strictObject({
     kind: z.literal("switch_context"),
     targetKind: z.enum(["place", "business", "invitation", "job", "shift", "offer", "conversation", "update"]),

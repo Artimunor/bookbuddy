@@ -1,6 +1,7 @@
 import type { CommandStatement } from "../../db/commit";
 import { at, liveTerm, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { createLinkedNotifications } from "../links/notifications";
 import { customer, decisionGrant, foreman, routedReviewer, versionFrom } from "./policy";
 import type { CommercialKind } from "./policy";
 
@@ -26,16 +27,16 @@ export function commercialSignals(access: SessionAccess, guard: CommandStatement
   const audience = ready ? `(${customer("target")} AND EXISTS (${decisionGrant("target")}))`
     : reviewDue ? routedReviewer("target", "review") : foreman("target");
   const eventKey = `${event}:${kind}:${id}`;
-  const notification = scopedStatement(access, `INSERT INTO notifications (id, context_id, event_key, kind, created_at)
-    SELECT lower(hex(randomblob(16))), target.id, ?, ?, ${at} ${versionFrom(kind)} ${contexts}
-    WHERE v.id = ? AND ${audience} AND ${guard.sql}
-    ON CONFLICT (context_id, event_key) DO NOTHING`, eventKey, event, id, ...guard.params ?? []);
+  const quoteReady = event === "quote_ready";
   const expiry = ready ? `v.expires_at` : reviewDue ? `review.due_at + ${DAY_MS}` : `${at} + ${7 * DAY_MS}`;
+  const targets = scopedStatement(access, `SELECT ? AS kind, ${quoteReady ? "v.id" : "j.id"} AS resource_id,
+    target.id AS required_scope, ${expiry} AS expires_at, ${at} AS created_at ${versionFrom(kind)} ${contexts}
+    WHERE v.id = ? AND ${audience}`, quoteReady ? "quote_ready" : "job_update", id);
+  const notifications = createLinkedNotifications(targets, guard, eventKey, event);
   const push = `SELECT lower(hex(randomblob(16))) AS id, 'notification_push' AS kind,
     'notification_push:' || n.id AS dedupe_key, n.id AS resource_ref, ${at} AS due_at, ${expiry} AS expires_at
-    ${versionFrom(kind)} JOIN notifications n ON n.event_key = ? WHERE v.id = ?`;
+    ${versionFrom(kind)} JOIN notifications n ON n.event_key = ? AND n.link_token IS NOT NULL WHERE v.id = ?`;
   const effects = scopedStatement(access, push + (mail ? ` UNION ALL ${mail.sql}` : ""), eventKey, id, ...mail?.params ?? []);
-  const capturesFirstQuote = event === "quote_ready";
   const jobChanges = `SELECT 'job', j.id, target.id, 'upsert', ${at} ${versionFrom("quote")} ${contexts}
     WHERE v.id = ? AND NOT EXISTS (SELECT 1 FROM quote_versions prior WHERE prior.quote_id = v.quote_id
       AND prior.id <> v.id AND prior.issued_at IS NOT NULL)
@@ -45,9 +46,9 @@ export function commercialSignals(access: SessionAccess, guard: CommandStatement
             AND bg.capability = 'backup_foreman' AND ${liveTerm("bg")}
           WHERE g.job_id = j.id AND g.context_id = target.id AND g.capability = 'backup' AND ${liveTerm("g")})))))`;
   const changes = scopedStatement(access, `SELECT 'notification' AS kind, n.id AS resource_id, n.context_id AS partition_key,
-    'upsert' AS op, ${at} AS at FROM notifications n WHERE n.event_key = ?` + (capturesFirstQuote ? ` UNION ALL ${jobChanges}` : ""),
-  eventKey, ...(capturesFirstQuote ? [id] : []));
-  return { notification, changes, effects };
+    'upsert' AS op, ${at} AS at FROM notifications n WHERE n.event_key = ?` + (quoteReady ? ` UNION ALL ${jobChanges}` : ""),
+  eventKey, ...(quoteReady ? [id] : []));
+  return { notifications, changes, effects };
 }
 
 export function mailIntent(key: string, receipt: string): CommandStatement {

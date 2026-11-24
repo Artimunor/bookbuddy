@@ -113,8 +113,8 @@ export function proposeWindows(ctx: RequestScope, session: SessionAccess, { para
         SELECT w.id, input.visit_id, input.original, input.request_id, w.starts_at, w.ends_at, w.expires_at, 1, ${now}, scope.account_id, 'proposed'
         FROM proposal_input input CROSS JOIN proposal_windows w CROSS JOIN live_scope scope WHERE ${guard.sql}`, ...guard.params ?? []),
       bumpVisit(access, guard, visit));
-      const { inserted, changes, effects } = jobSignals(access, guard, "visit_windows_offered", "customer");
-      return { statements: [...statements, inserted], changes, effects };
+      const { notifications, changes, effects } = jobSignals(access, guard, "visit_windows_offered", "customer");
+      return { statements: [...statements, ...notifications], changes, effects };
     },
   }, { sql: changedVisitJson(visit) }, revisionOf(expectedRevision, visit));
 }
@@ -135,7 +135,7 @@ export function confirmWindow(ctx: RequestScope, session: SessionAccess, { param
     ineligible: windowUnavailable,
     writes(guard) {
       const pending = guard.params ?? [];
-      const { inserted, changes, effects } = jobSignals(access, guard, "visit_window_confirmed", "provider", true);
+      const { notifications, changes, effects } = jobSignals(access, guard, "visit_window_confirmed", "provider", true);
       return { statements: [
         scopedStatement(access, `UPDATE visit_windows SET state = 'superseded' WHERE visit_id = ${visitForWindow}
           AND state = 'confirmed' AND ${guard.sql}`, ...pending),
@@ -164,7 +164,7 @@ export function confirmWindow(ctx: RequestScope, session: SessionAccess, { param
         scopedStatement(access, `INSERT INTO shift_slots (id, shift_id, number, is_lead)
           SELECT lower(hex(randomblob(16))), sh.id, 1, 1 FROM shifts sh WHERE sh.visit_id = ${visitForWindow} AND sh.state = 'planned'
             AND ${guard.sql} AND NOT EXISTS (SELECT 1 FROM shift_slots slot WHERE slot.shift_id = sh.id)`, ...pending),
-        inserted,
+        ...notifications,
       ], changes, effects };
     },
   }, { sql: changedVisitJson(visitForWindow) }, revisionOf(expectedRevision, visitForWindow));
@@ -181,14 +181,14 @@ export function withdrawWindow(ctx: RequestScope, session: SessionAccess, { para
     ineligible: windowUnavailable,
     writes(guard) {
       const pending = guard.params ?? [];
-      const { inserted, changes, effects } = jobSignals(access, guard, "visit_window_withdrawn", "customer");
+      const { notifications, changes, effects } = jobSignals(access, guard, "visit_window_withdrawn", "customer");
       return { statements: [
         scopedStatement(access, `UPDATE visit_windows SET state = 'withdrawn' WHERE id = ${targetId} AND ${guard.sql}`, ...pending),
         scopedStatement(access, `UPDATE reschedule_requests AS request SET state = 'requested'
           WHERE request.state = 'proposed' AND request.id = (SELECT reschedule_request_id FROM visit_windows WHERE id = ${targetId})
             AND ${guard.sql} AND NOT EXISTS (SELECT 1 FROM visit_windows w WHERE w.reschedule_request_id = request.id
               AND w.state = 'proposed' AND w.expires_at > ${now})`, ...pending),
-        bumpVisit(access, guard, visitForWindow), inserted,
+        bumpVisit(access, guard, visitForWindow), ...notifications,
       ], changes, effects };
     },
   }, { sql: changedVisitJson(visitForWindow) }, revisionOf(expectedRevision, visitForWindow));
@@ -204,7 +204,7 @@ export function cancelVisit(ctx: RequestScope, session: SessionAccess, { params:
     params: [expectedRevision, payload.bookedWindowId] },
     writes(guard) {
       const pending = guard.params ?? [];
-      const { inserted, changes, effects } = jobSignals(access, guard, "visit_cancelled", "other_side", true);
+      const { notifications, changes, effects } = jobSignals(access, guard, "visit_cancelled", "other_side", true);
       return { statements: [
         scopedStatement(access, `UPDATE visits SET state = 'cancelled', revision = revision + 1, cancelled_at = ${now},
           cancelled_by = (SELECT account_id FROM live_scope) WHERE id = ${targetId} AND ${guard.sql}`, ...pending),
@@ -213,7 +213,7 @@ export function cancelVisit(ctx: RequestScope, session: SessionAccess, { params:
         ...endShiftCommitments(access, guard, targetId),
         scopedStatement(access, `UPDATE shifts SET state = 'cancelled' WHERE visit_id = ${targetId} AND state = 'planned' AND ${guard.sql}`, ...pending),
         scopedStatement(access, `UPDATE reschedule_requests SET state = 'withdrawn'
-          WHERE visit_id = ${targetId} AND state IN ('requested', 'proposed') AND ${guard.sql}`, ...pending), inserted,
+          WHERE visit_id = ${targetId} AND state IN ('requested', 'proposed') AND ${guard.sql}`, ...pending), ...notifications,
       ], changes, effects };
     },
   }, { sql: changedVisitJson(targetId) }, revisionOf(expectedRevision, targetId));
@@ -230,13 +230,13 @@ export function requestReschedule(ctx: RequestScope, session: SessionAccess, { p
       AND NOT EXISTS (SELECT 1 FROM reschedule_requests r WHERE r.id = ? OR (r.visit_id = v.id AND r.reply_by > ${now}
         AND r.state IN ('requested', 'proposed'))))`, params: [expectedRevision, payload.bookedWindowId, payload.id] },
     writes(guard) {
-      const { inserted, changes, effects } = jobSignals(access, guard, "visit_reschedule_requested", "other_side");
+      const { notifications, changes, effects } = jobSignals(access, guard, "visit_reschedule_requested", "other_side");
       return { statements: [
         scopedStatement(access, `INSERT INTO reschedule_requests (id, visit_id, requester_id, state, requested_at, reply_by)
           SELECT ?, v.id, scope.account_id, 'requested', ${now},
             min(coalesce(booked.starts_at, ${now} + ${DIRECT_RESCHEDULE_NOTICE_MS}), ${now} + ${DIRECT_RESCHEDULE_NOTICE_MS})
           FROM visits v ${confirmedWindow("v")} CROSS JOIN live_scope scope WHERE v.id = ${targetId} AND ${guard.sql}`,
-        payload.id, ...guard.params ?? []), bumpVisit(access, guard, targetId), inserted,
+        payload.id, ...guard.params ?? []), bumpVisit(access, guard, targetId), ...notifications,
       ], changes, effects };
     },
   }, { sql: changedVisitJson(targetId) }, revisionOf(expectedRevision, targetId));

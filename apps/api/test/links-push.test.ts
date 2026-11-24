@@ -167,10 +167,12 @@ test("push claims once, localizes opaque-only notices and batches Expo tickets a
         ('wrong-scope','recipient-customer','Wrong context event','job_update','other-link',?)`).bind(now, now, now, now, now),
       db.prepare(`INSERT INTO effect_outbox SELECT 'effect-' || id, 'notification_push', event_key, id, ?, 'pending', ? FROM notifications`)
         .bind(now, expiry),
-      db.prepare(`INSERT INTO push_installations SELECT 'i-' || value, 'recipient', 'ExpoPushToken[i-' || value || ']', 1,
+      db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
+        SELECT 'i-' || value, 'recipient', 'ExpoPushToken[i-' || value || ']', 1,
         'ios', CASE WHEN value=100 THEN 'revoked' ELSE 'active' END, ? FROM json_each(?)`)
         .bind(now, JSON.stringify(Array.from({ length: 101 }, (_, i) => i))),
-      db.prepare("INSERT INTO push_installations VALUES ('i-other','other','ExpoPushToken[i-other]',1,'android','active',?)").bind(now),
+      db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
+        VALUES ('i-other','other','ExpoPushToken[i-other]',1,'android','active',?)`).bind(now),
     ]);
     const sends: ExpoMessage[][] = [];
     const claimCounts: number[] = [];
@@ -244,7 +246,8 @@ test("an ambiguous Expo send is not retried by a duplicate wake or due sweep", a
       db.prepare("INSERT INTO link_targets VALUES ('dest','job_update','job','recipient-customer',?)").bind(now + minute),
       db.prepare("INSERT INTO notifications VALUES ('n','recipient-customer','event','job_update','dest',?,NULL)").bind(now),
       db.prepare("INSERT INTO effect_outbox VALUES ('effect','notification_push','event','n',?,'pending',?)").bind(now, now + minute),
-      db.prepare("INSERT INTO push_installations VALUES ('phone','recipient','ExpoPushToken[phone]',1,'ios','active',?)").bind(now),
+      db.prepare(`INSERT INTO push_installations (id,account_id,token,token_epoch,platform,state,updated_at)
+        VALUES ('phone','recipient','ExpoPushToken[phone]',1,'ios','active',?)`).bind(now),
     ]);
     let calls = 0;
     const ambiguous: ExpoFetch = async () => { calls++; throw new Error("connection ended after request"); };

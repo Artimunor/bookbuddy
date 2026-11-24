@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { operationIdHeader, resultSchema, syncRoute } from "@bookbuddy/api-contract";
+import { openLinkRoute, operationIdHeader, resultSchema, syncRoute } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { randomToken } from "../src/modules/auth/crypto";
@@ -103,8 +103,9 @@ async function fixture() {
       body: options && JSON.stringify(options.body),
     }, env, execution);
     if (!options?.race) {
-      expect(db.calls.batch - batch).toBe(options ? 1 : 0);
-      expect(db.calls.query - query).toBe(options ? 0 : 1);
+      const batched = !!options || path.startsWith("/links/");
+      expect(db.calls.batch - batch).toBe(batched ? 1 : 0);
+      expect(db.calls.query - query).toBe(batched ? 0 : 1);
     }
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     return { status: response.status, body: await response.json() };
@@ -140,6 +141,14 @@ test("proposals make no holds; competing jobs consume the one available slot onc
     for (const job of ["alpha", "beta"]) {
       expect((await f.call("foreman", `/jobs/${job}/windows`, { body: write(`${job}-propose`, 0, booking(job, starts)) })).status).toBe(200);
     }
+    const dest = await f.db.prepare(`SELECT t.token FROM notifications n JOIN link_targets t ON t.token = n.link_token
+      AND t.required_scope = n.context_id JOIN effect_outbox e ON e.resource_ref = n.id AND e.kind = 'notification_push'
+      WHERE t.kind = 'job_update' AND t.resource_id = 'alpha' AND n.kind = 'visit_windows_offered'
+        AND n.context_id = 'customer-context'`).first<string>("token");
+    expect(dest).toBeTruthy();
+    expect((await f.call("customer", `/links/${dest}`)).body).toMatchObject({
+      data: { kind: "job", record: { audience: "customer", job: { jobId: "alpha", view: "whole" } } },
+    });
     expect(await f.db.prepare("SELECT count(*) AS total FROM shifts").first("total")).toBe(0);
     const windows = await f.call("customer", "/jobs/alpha/windows");
     expect(windows.body).toMatchObject({ data: { visits: [{ bookedWindow: null, offeredWindows: [{ confirmationMode: "booking" }] }] } });
@@ -258,6 +267,15 @@ test("availability honors worker scope, stale bases, attributed correction and m
       .toMatchObject({ error: { code: "STALE_REVISION", current: { kind: "revision", revision: 1 } } });
     expect((await f.call("provider", path, { ...edit, body: write("corrected", 1, correction) })).body)
       .toMatchObject({ data: { day: { revision: 2, preference: { kind: "available", source: "employer" } } } });
+    const dest = await f.db.prepare(`SELECT t.token FROM notifications n JOIN link_targets t ON t.token = n.link_token
+      AND t.required_scope = n.context_id JOIN effect_outbox e ON e.resource_ref = n.id AND e.kind = 'notification_push'
+      WHERE n.kind = 'availability_corrected' AND n.context_id = 'crew-context' AND t.kind = 'crew_availability'`).first<string>("token");
+    expect(dest).toBeTruthy();
+    const opened = resultSchema(openLinkRoute.output).parse((await f.call("crew", `/links/${dest}`)).body);
+    expect(opened).toMatchObject({ data: { kind: "crew_availability", date: payload.date,
+      availability: { membershipId: "crew-member", days: expect.arrayContaining([{ date: payload.date, revision: 2,
+        confirmedShifts: [], preference: expect.objectContaining({ source: "employer" }) }]) } } });
+    expect((await f.call("second", `/links/${dest}`)).body).toMatchObject({ data: { kind: "unavailable", reason: "unavailable" } });
     expect(await f.db.prepare("SELECT recorded_by FROM availability_intervals WHERE membership_id = 'crew-member' AND week_day_or_date = '2026-11-23'").first("recorded_by")).toBe("provider");
     const week = await f.call("crew", `${path}?weekOf=2026-11-25`);
     expect(week.body).toMatchObject({ data: { membershipId: "crew-member", siteZone: "Europe/Madrid", days: [

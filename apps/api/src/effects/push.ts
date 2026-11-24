@@ -3,6 +3,7 @@ import { createPushTranslator } from "@bookbuddy/i18n/push";
 import type { Bindings } from "../bindings";
 import { at } from "../modules/access/policy";
 import { liveContextPredicate } from "../modules/auth/session";
+import { scopedIntakeIds } from "../modules/jobs/projections";
 import { createExpoPush, maxReceiptIds } from "../providers/expo-push";
 import type { ExpoFetch, ExpoMessage } from "../providers/expo-push";
 import type { ClaimedEffect } from ".";
@@ -14,6 +15,9 @@ const input = `FROM notifications n JOIN account_contexts c ON c.id = n.context_
   JOIN link_targets l ON l.token = n.link_token AND l.required_scope = c.id AND l.expires_at > ${at}`;
 const eligible = `n.id = e.resource_ref AND n.read_at IS NULL AND ${liveContextPredicate}
   AND CASE n.kind
+    WHEN 'job_handoff_offered' THEN l.kind = 'job_handoff' AND EXISTS (
+      WITH notice_scope AS (SELECT c.id AS context_id, c.role, c.business_id)
+      ${scopedIntakeIds("notice_scope", at, "h.id = l.resource_id")})
     WHEN 'assignment_offer' THEN l.kind = 'assignment_offer' AND EXISTS (
       SELECT 1 FROM assignment_offers o JOIN shift_slots slot ON slot.id = o.slot_id
       JOIN shifts sh ON sh.id = slot.shift_id JOIN visits v ON v.id = sh.visit_id JOIN jobs j ON j.id = v.job_id

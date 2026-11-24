@@ -1,4 +1,5 @@
-import { jobRecordLinkResolver } from "../links/job";
+import { jobIntakeLinkResolver, jobRecordLinkResolver } from "../links/job";
+import { crewAvailabilityLinkResolver } from "../links/schedule";
 import { registerLinkResolver } from "../links";
 import type { LinkResolver } from "../links";
 import { inviteKind, managesBusiness } from "./policy";
@@ -58,3 +59,5 @@ registerLinkResolver("business_member", {
 
 for (const [kind, resolver] of Object.entries(coverLinkResolver)) registerLinkResolver(kind, resolver);
 for (const kind of ["job_update", "quote_ready", "visit_live"]) registerLinkResolver(kind, jobRecordLinkResolver);
+registerLinkResolver("job_handoff", jobIntakeLinkResolver);
+registerLinkResolver("crew_availability", crewAvailabilityLinkResolver);

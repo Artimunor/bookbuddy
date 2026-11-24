@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import {
   approveChangeVersionRoute, approveQuoteVersionRoute, createQuoteVersionRoute, getQuoteVersionRoute,
-  listQuoteVersionsRoute, operationIdHeader, requestEarlyStartRoute, resultSchema, submitQuoteReviewRoute, withdrawContractRoute,
+  listQuoteVersionsRoute, openLinkRoute, operationIdHeader, requestEarlyStartRoute, resultSchema, submitQuoteReviewRoute, withdrawContractRoute,
 } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
@@ -83,8 +83,9 @@ async function fixture() {
       headers: { Authorization: `Bearer ${credential}`, ...(operationId ? { [operationIdHeader]: operationId, "Content-Type": "application/json" } : {}) },
       body: operationId ? JSON.stringify({ operationId, payload }) : undefined,
     }, env, execution);
-    expect(db.calls.batch - batch).toBe(operationId ? 1 : 0);
-    expect(db.calls.query - query).toBe(operationId ? 0 : 1);
+    const batched = !!operationId || path.startsWith("/links/");
+    expect(db.calls.batch - batch).toBe(batched ? 1 : 0);
+    expect(db.calls.query - query).toBe(batched ? 0 : 1);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     return { status: response.status, body: await response.json() as unknown };
   }
@@ -145,6 +146,14 @@ test("quote review, publication and exact approval respect live roles, privacy a
     await expect(f.db.prepare("UPDATE quote_items SET net_minor = 100 WHERE version_id = 'q1'").run()).rejects.toThrow("immutable");
     expect(await f.request(`${f.quote("q1")}/issue`, "foreman", "ungranted", terms)).toMatchObject(conflict);
     expect(await f.issue("q1")).toMatchObject({ status: 200, body: { data: { state: "issued", publisherDisplayName: "reviewer", expiresAt: expiry } } });
+    const link = await f.db.prepare(`SELECT t.token, t.kind, t.resource_id FROM effect_outbox e
+      JOIN notifications n ON n.id = e.resource_ref JOIN link_targets t ON t.token = n.link_token AND t.required_scope = n.context_id
+      WHERE e.kind = 'notification_push' AND n.kind = 'quote_ready' AND n.context_id = 'customer-customer'`).first<{ token: string }>();
+    expect(link).toMatchObject({ kind: "quote_ready", resource_id: "q1" });
+    expect(resultSchema(openLinkRoute.output).parse((await f.request(`/links/${link!.token}`, "customer")).body)).toMatchObject({
+      data: { kind: "job", record: { audience: "customer", job: { jobId: "job", quote: { versionId: "q1" } } } },
+    });
+    expect((await f.request(`/links/${link!.token}`, "guest")).body).toMatchObject({ data: { kind: "unavailable", reason: "unavailable" } });
     const customerPath = "/jobs/job/quotes/q1";
     const publicQuote = resultSchema(getQuoteVersionRoute.output).parse((await f.request(customerPath, "customer")).body);
     expect(publicQuote).toMatchObject({ data: { audience: "customer", actions: { approve: true, decline: true }, terms: { hash: terms.termsHash } } });
