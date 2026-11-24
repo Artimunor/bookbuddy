@@ -1,6 +1,6 @@
 import {
-  acceptJobHandoffRoute, declineJobHandoffRoute, getOperationRoute, offerJobHandoffRoute, operationIdHeader,
-  submitRequestRoute, submitSupportRoute, withdrawJobHandoffRoute,
+  acceptJobHandoffRoute, declineJobHandoffRoute, expectedContextHeader, expectedSessionHeader, getOperationRoute,
+  offerJobHandoffRoute, operationIdHeader, submitRequestRoute, submitSupportRoute, withdrawJobHandoffRoute,
 } from "@bookbuddy/api-contract";
 import type { ErrorBody, ResponseSchema } from "@bookbuddy/api-contract";
 import { Hono } from "hono";
@@ -76,9 +76,12 @@ jobsCommandRoutes.post(submitSupportRoute.path, async (c) => {
   const input = submitSupportRoute.input.safeParse({ body: await boundedBody(request) });
   if (!input.success || input.data.body.operationId !== c.req.header(operationIdHeader)) return transportFailure(c, "VALIDATION_FAILED");
   if (request.headers.has("Origin") && !isTrustedOrigin(request)) return transportFailure(c, "UNAUTHENTICATED");
-  const ctx = openRequestScope(c.env.DB, c.var.requestId);
   const hasSession = request.headers.has("Authorization") || request.headers.get("Cookie")?.split(";")
     .some((cookie) => cookie.trimStart().startsWith(`${sessionCookieName}=`));
+  if (!hasSession && (request.headers.has(expectedSessionHeader) || request.headers.has(expectedContextHeader))) {
+    return transportFailure(c, { code: "CONFLICT", current: { kind: "session_changed" } });
+  }
+  const ctx = openRequestScope(c.env.DB, c.var.requestId);
   let access: SessionAccess | { lookup: CryptoKey; source: string };
   if (hasSession) {
     // Account-wide intake also works after the user's staff scope was revoked.

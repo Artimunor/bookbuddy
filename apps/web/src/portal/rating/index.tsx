@@ -11,7 +11,7 @@ export function Rating() { const { id = "" } = useParams(); const scope = useSco
 function RatingPage({ id }: { id: string }) {
   const { api, t, locale, time } = useCloseout(); const [data, setData] = useState<RatingEligibility | null>(null); const [receipt, setReceipt] = useState<RatingReceipt | null>(null); const [error, setError] = useState(false); const [generation, setGeneration] = useState(0); const [stars, setStars] = useState(0); const [comment, setComment] = useState("");
   useEffect(() => { const controller = new AbortController(); setError(false); setData(null); void api.request(getJobRatingEligibilityRoute, { params: { j: id } }, { signal: controller.signal }).then(result => { if (controller.signal.aborted) return; if (result.ok) setData(result.data); else setError(true); }); return () => controller.abort(); }, [api, id, generation]);
-  const command = usePendingOperation(`rating:${id}`, `POST ${submitRatingRoute.path}`, (body: RatingOperation) => api.request(submitRatingRoute, { params: { j: id }, body }), setReceipt, undefined, {
+  const command = usePendingOperation(`rating:${id}`, (body: RatingOperation) => api.request(submitRatingRoute, { params: { j: id }, body }), setReceipt, undefined, {
     onCommitted: () => { setData(null); setGeneration(n => n + 1); },
   });
   const sent = receipt ?? (data?.status === "submitted" ? data.rating : null); const busy = command.state === "sending" || command.state === "checking";

@@ -1,56 +1,58 @@
 import { getOperationRoute, type OperationStatus } from "@bookbuddy/api-contract";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "./index";
-import { requestReplay } from "./pending-request";
+import { attemptPendingOperation, type CommandResult, type PendingInput } from "./pending-attempt";
 import {
-  clearPendingOperation, pendingOperationKey, pendingOperationScopeIsCurrent, readPendingOperation,
-  savePendingOperation, settleMissingPendingOperation, type StoredOperation,
+  anonymousSupportScope, clearPendingOperation, pendingOperationKey, pendingOperationScopeIsCurrent,
+  readPendingOperation, savePendingOperation, settleMissingPendingOperation, type StorageKey, type StoredOperation,
 } from "./pending-storage";
 
-type Operation = { operationId: string; expectedRevision?: number; payload?: unknown };
 export type PendingOperationState = "idle" | "sending" | "checking" | "failed" | "unknown" | "committed";
 export type PendingOperation<P> = {
   state: PendingOperationState;
   pending: StoredOperation | null;
+  canResend: boolean;
+  replacement: { confirm: () => void; dismiss: () => void } | null;
   start: (input: P) => void;
   check: () => void;
-  resend: (input: P) => (() => void) | undefined;
+  resend: (input: P) => void;
 };
-type Result<T> = { ok: true; data: T } | { ok: false; error: { code: string; delivery?: string } };
+type Display<P> = {
+  storage: StorageKey;
+  state: PendingOperationState;
+  replacement?: { operationId: string; confirmedInput: () => P };
+};
 
-export function usePendingOperation<P extends Operation, R>(
+export function usePendingOperation<P extends PendingInput, R>(
   intentKey: string,
-  routeId: string | ((input: P) => string),
-  send: (input: P) => Promise<Result<R>>,
+  send: (input: P) => Promise<CommandResult<R>>,
   onSuccess: ((value: R, input: P) => void) | undefined,
   onFailure: ((code: string) => void) | undefined,
   recovery: {
-    onCommitted: (receipt: OperationStatus, operation: StoredOperation) => void;
-    resourceIds?: (input: P) => readonly string[];
+    onCommitted?: (receipt: OperationStatus) => void;
+    allowAnonymous?: true;
     includeResource?: true;
-    sameRequestIntent?: (attempted: P, input: P) => boolean;
+    replay?: true;
+    placeId?: (input: P) => string;
   },
 ): PendingOperation<P> {
-  const { api, bootstrap, markUnauthenticated } = useSession();
-  const identity = bootstrap ? `${bootstrap.sessionId}:${bootstrap.activeContext?.contextId ?? ""}` : null;
-  const storage = useMemo(() => pendingOperationKey(identity, intentKey), [identity, intentKey]);
+  const { api, bootstrap, markUnauthenticated, status } = useSession();
+  const identity = bootstrap ? `${bootstrap.sessionId}:${bootstrap.activeContext?.contextId ?? ""}`
+    : recovery.allowAnonymous && status === "unauthenticated" ? anonymousSupportScope : null;
+  const key = pendingOperationKey(identity, intentKey);
+  const storage = useMemo(() => key, [key?.key, key?.generation]);
   const current = useRef(storage);
   current.current = storage;
   const mounted = useRef(false);
   useLayoutEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  const busy = useRef<object | null>(null);
-  const attemptedRequest = useRef<{ storage: NonNullable<typeof storage>; input: P } | null>(null);
-  const [display, setDisplay] = useState<{ storage: typeof storage; state: PendingOperationState } | null>(null);
-
-  function read(): StoredOperation | null {
-    if (!storage) return null;
-    const saved = readPendingOperation(storage);
-    return saved && (typeof routeId !== "string" || saved.routeId === routeId) ? saved : null;
-  }
-  const pending = read();
-  const visibleState = display?.storage === storage ? display.state : "idle";
-  const state = visibleState === "sending" || (pending?.retryReady && visibleState === "failed") ? visibleState
-    : pending ? pending.retryReady ? "unknown" : "checking" : visibleState;
+  const busy = useRef<StorageKey | null>(null);
+  const attemptTime = useRef<{ storage: StorageKey; operationId: string; at: number } | null>(null);
+  const [display, setDisplay] = useState<Display<P> | null>(null);
+  const pending = storage ? readPendingOperation(storage) : null;
+  const canResend = pending !== null && !!recovery.replay && (!recovery.placeId || pending.expectedRevision !== undefined);
+  const visible = display?.storage === storage ? display : null;
+  const state = visible?.state === "sending" || visible?.state === "failed" ? visible.state
+    : pending ? canResend ? "unknown" : "checking" : visible?.state ?? "idle";
 
   function viewIsCurrent() {
     return !!storage && mounted.current && current.current === storage && pendingOperationScopeIsCurrent(storage);
@@ -60,62 +62,59 @@ export function usePendingOperation<P extends Operation, R>(
 
   function submit(input: P, replaces?: string) {
     if (!storage || busy.current === storage || !viewIsCurrent()) return;
-    const saved = read();
-    if (replaces ? !saved?.retryReady || saved.operationId !== replaces : saved !== null) return;
-    busy.current = storage;
-    setDisplay({ storage, state: "sending" });
+    if (readPendingOperation(storage)?.operationId !== replaces) return;
     if (!savePendingOperation(storage, { operationId: input.operationId,
-      routeId: typeof routeId === "string" ? routeId : routeId(input), resourceIds: recovery.resourceIds?.(input),
-      attemptedAt: Date.now(), expectedRevision: recovery.sameRequestIntent ? input.expectedRevision : undefined,
+      expectedRevision: recovery.replay ? input.expectedRevision : undefined, placeId: recovery.placeId?.(input),
     })) {
-      release();
       setDisplay({ storage, state: "failed" });
       return;
     }
-    if (recovery.sameRequestIntent) attemptedRequest.current = { storage, input };
+    if (!recovery.replay) attemptTime.current = { storage, operationId: input.operationId, at: Date.now() };
     void attempt(input);
   }
 
   function resend(input: P) {
-    if (!recovery.sameRequestIntent || !storage || busy.current === storage || !viewIsCurrent()) return;
-    const saved = read();
-    if (!saved?.retryReady) return;
-    const attempted = attemptedRequest.current;
-    const replay = requestReplay(saved, attempted?.storage === storage ? attempted.input : undefined, input, recovery.sameRequestIntent);
-    if (replay) { submit(replay, saved.operationId); return; }
-    // The review dialog is the only caller of this continuation.
-    return () => { void submit({ ...input, operationId: crypto.randomUUID() }, saved.operationId); };
+    if (!storage || busy.current === storage || !viewIsCurrent() || !canResend) return;
+    const previous = readPendingOperation(storage);
+    if (previous && previous.operationId === pending?.operationId) void attempt(input, previous);
   }
 
-  async function attempt(input: P) {
+  async function attempt(input: P, previous?: StoredOperation) {
     if (!storage) return;
-    let result: Result<R>;
-    try { result = await send(input); }
-    catch { result = { ok: false, error: { code: "NETWORK_ERROR", delivery: "unknown" } }; }
+    const operationId = previous?.operationId ?? input.operationId;
+    busy.current = storage;
+    setDisplay({ storage, state: "sending" });
+    const result = await attemptPendingOperation(send, input, previous);
     release();
     if (!pendingOperationScopeIsCurrent(storage)) return;
-    if (!result.ok && result.error.code === "UNAUTHENTICATED") { markUnauthenticated(); return; }
-    if (!viewIsCurrent()) return;
-    const uncertain = !result.ok && (result.error.delivery === "unknown" || result.error.code === "INTERNAL_ERROR" ||
-      (recovery.sameRequestIntent && result.error.code === "OPERATION_ID_REUSED"));
-    if (!uncertain) {
-      clearPendingOperation(storage, input.operationId);
-      attemptedRequest.current = null;
+    if (result.kind === "rejected" && result.code === "UNAUTHENTICATED" && bootstrap) {
+      markUnauthenticated();
+      return;
     }
-    if (result.ok) { setDisplay({ storage, state: "idle" }); onSuccess?.(result.data, input); }
-    else if (uncertain) setDisplay({ storage, state: "checking" });
-    else { setDisplay({ storage, state: "failed" }); onFailure?.(result.error.code); }
+    if (!viewIsCurrent() || readPendingOperation(storage)?.operationId !== operationId) return;
+    if (result.kind === "committed") {
+      clearPendingOperation(storage, operationId);
+      setDisplay({ storage, state: "idle" });
+      onSuccess?.(result.data, result.input);
+    } else if (result.kind === "changed") {
+      setDisplay({ storage, state: "unknown", replacement: { operationId, confirmedInput: result.replacement } });
+    } else if (result.kind === "uncertain") {
+      setDisplay({ storage, state: "checking" });
+    } else {
+      if (!previous) clearPendingOperation(storage, operationId);
+      setDisplay({ storage, state: "failed" });
+      onFailure?.(result.code);
+    }
   }
 
   async function check() {
-    if (!storage || busy.current === storage || !viewIsCurrent()) return;
-    let operation = read();
+    if (!storage || !recovery.onCommitted || busy.current === storage || !viewIsCurrent()) return;
+    const operation = readPendingOperation(storage);
     if (!operation) return;
     const checkedAt = Date.now();
-    // Older metadata predates attempt timestamps. Give it a full window from its first lookup.
-    if (operation.attemptedAt === undefined) {
-      const dated = { ...operation, attemptedAt: checkedAt };
-      if (savePendingOperation(storage, dated)) operation = dated;
+    const clock = attemptTime.current;
+    if (!recovery.replay && (clock?.storage !== storage || clock.operationId !== operation.operationId)) {
+      attemptTime.current = { storage, operationId: operation.operationId, at: checkedAt };
     }
     busy.current = storage;
     setDisplay({ storage, state: "sending" });
@@ -124,16 +123,21 @@ export function usePendingOperation<P extends Operation, R>(
     release();
     if (!pendingOperationScopeIsCurrent(storage)) return;
     if (!result.ok && result.error.code === "UNAUTHENTICATED") { markUnauthenticated(); return; }
-    if (!viewIsCurrent()) return;
+    if (!viewIsCurrent() || readPendingOperation(storage)?.operationId !== operation.operationId) return;
     if (result.ok && result.data.operationId === operation.operationId) {
       clearPendingOperation(storage, operation.operationId);
-      attemptedRequest.current = null;
       setDisplay({ storage, state: "committed" });
-      recovery.onCommitted(result.data, operation);
-    } else if (!result.ok && result.error.code === "NOT_FOUND" &&
-      (operation.retryReady || settleMissingPendingOperation(storage, operation, checkedAt, !!recovery.sameRequestIntent))) {
+      recovery.onCommitted(result.data);
+    } else if (!result.ok && result.error.code === "NOT_FOUND" && !recovery.replay &&
+      settleMissingPendingOperation(storage, operation.operationId, attemptTime.current?.at ?? checkedAt, checkedAt)) {
       setDisplay({ storage, state: "unknown" });
     } else setDisplay({ storage, state: "checking" });
   }
-  return { state, pending, start: submit, check: () => { void check(); }, resend };
+
+  const changed = visible?.replacement;
+  const replacement = storage && changed && pending?.operationId === changed.operationId ? {
+    confirm: () => submit(changed.confirmedInput(), changed.operationId),
+    dismiss: () => setDisplay({ storage, state: "unknown" }),
+  } : null;
+  return { state, pending, canResend, replacement, start: submit, check: () => { void check(); }, resend };
 }

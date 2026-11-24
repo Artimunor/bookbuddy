@@ -47,15 +47,6 @@ export function Places() {
   </Frame>;
 }
 type PlaceEdit = { alias: string; address: string; safeArrivalNote: string | null };
-const placeRoutes = {
-  create: "POST /places",
-  edit: "PATCH /places/:p",
-  person: "PATCH /places/:p/people/:person",
-  invite: "POST /places/:p/invite",
-  approver: "POST /places/:p/change-approver",
-  reissue: "POST /invitations/:id/reissue",
-  withdraw: "POST /invitations/:id/withdraw",
-};
 type PlaceOperation = { operationId: string } & (
   | { kind: "create"; payload: PlaceEdit }
   | { kind: "edit"; expectedRevision: number; payload: PlaceEdit }
@@ -109,7 +100,7 @@ function PlaceDetailPage({ id }: { id: string }) {
       }
     }
   }
-  const command = usePendingOperation(`place:${id}`, (input: PlaceOperation) => placeRoutes[input.kind], send, (value, input) => {
+  const command = usePendingOperation(`place:${id}`, send, (value, input) => {
     if (value && "people" in value) {
       setPlace(value);
       if (input.kind === "person") setPersonId(null);
@@ -134,7 +125,6 @@ function PlaceDetailPage({ id }: { id: string }) {
     }
   }, undefined, {
     ...(id === "new" ? { includeResource: true as const } : {}),
-    resourceIds: input => input.kind === "create" ? [] : [id, ...(input.kind === "person" ? [input.person] : input.kind === "reissue" || input.kind === "withdraw" ? [input.invitation] : [])],
     onCommitted: status => {
       const resource = status.resource;
       if (id === "new" && resource?.kind === "place") {

@@ -223,7 +223,7 @@ function SetupForm({ session, next, accept, locale }: { session: SessionBootstra
   const [twoClock, setTwoClock] = useState(viewerZone !== "Europe/Madrid");
   const authClient = usePortalAuth();
   const { reload } = useSession();
-  const command = usePendingOperation("setup", "PATCH /account/settings",
+  const command = usePendingOperation("setup",
     (body: { operationId: string; expectedRevision: number; payload: AccountSettingsPatch }) => authClient.patchSettings(body),
     result => { if (accept(result)) navigate(next, { replace: true }); }, undefined, { onCommitted: reload });
   const checking = command.state === "checking";

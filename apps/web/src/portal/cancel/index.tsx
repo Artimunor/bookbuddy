@@ -10,8 +10,7 @@ type Operation = { kind: "cancel" | "request"; visitId: string; operationId: str
 export function Cancel() {
   const { id = "" } = useParams(); const [search] = useSearchParams(); const { t } = usePortal(); const { data, setData, schedule, failed, refresh } = useWindows(id);
   const visit = currentVisit(data, search.get("visit")); const [choice, setChoice] = useState<"reschedule" | "cancel">("reschedule"); const [dialog,setDialog] = useState(false);
-  const command = usePendingOperation(`manage:${id}`, (p: Operation) => p.kind === "cancel" ? "POST /visits/:id/cancel" : "POST /visits/:id/request-reschedule", p => p.kind === "cancel" && p.bookedWindowId ? schedule.cancelVisit(p.visitId, {operationId:p.operationId, expectedRevision:p.expectedRevision, payload:{bookedWindowId:p.bookedWindowId}}) : schedule.requestVisitReschedule(p.visitId, {operationId:p.operationId, expectedRevision:p.expectedRevision, payload:{id:p.requestId,bookedWindowId:p.bookedWindowId}}), value => {setData(old => old ? {...old,visits:old.visits.map(v=>v.id===value.visit.id ? value.visit : v)} : old);setDialog(false);}, () => {void refresh();}, {
-    resourceIds: input => [input.visitId],
+  const command = usePendingOperation(`manage:${id}`, (p: Operation) => p.kind === "cancel" && p.bookedWindowId ? schedule.cancelVisit(p.visitId, {operationId:p.operationId, expectedRevision:p.expectedRevision, payload:{bookedWindowId:p.bookedWindowId}}) : schedule.requestVisitReschedule(p.visitId, {operationId:p.operationId, expectedRevision:p.expectedRevision, payload:{id:p.requestId,bookedWindowId:p.bookedWindowId}}), value => {setData(old => old ? {...old,visits:old.visits.map(v=>v.id===value.visit.id ? value.visit : v)} : old);setDialog(false);}, () => {void refresh();}, {
     onCommitted: () => { setData(null); setDialog(false); void refresh(); },
   });
   useEffect(() => { if (command.state === "checking" || command.state === "failed") setDialog(false); }, [command.state]);

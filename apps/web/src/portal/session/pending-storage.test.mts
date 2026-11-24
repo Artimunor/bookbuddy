@@ -1,9 +1,12 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
-import { submitRequestRoute } from "@bookbuddy/api-contract";
-import { requestReplay, sameRequestIntent } from "./pending-request";
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
+import { createJobsClient } from "@bookbuddy/api-client";
+import { operationIdHeader, submitRequestRoute, submitSupportRoute, type SubmitRequest } from "@bookbuddy/api-contract";
+import { createWebTranslator } from "@bookbuddy/i18n/web";
+import { createPortalApi } from "./api";
+import { attemptPendingOperation } from "./pending-attempt";
 import {
-  activatePendingOperations, clearPendingOperation, clearPendingOperationsForSession, migrateLegacyPendingOperations,
-  pendingOperationKey, readPendingOperation, savePendingOperation, settleMissingPendingOperation, suspendPendingOperations,
+  activatePendingOperations, anonymousSupportScope, clearPendingOperation, clearPendingOperationsForSession, migrateLegacyPendingOperations,
+  pendingOperationKey, readPendingOperation, savePendingOperation, settleMissingPendingOperation, supportIntent, suspendPendingOperations,
 } from "./pending-storage";
 
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
@@ -37,9 +40,9 @@ test("only operation metadata survives reload; legacy bodies and signed-out scop
   migrateLegacyPendingOperations();
   activatePendingOperations(identity);
   const originalKey = pendingOperationKey(identity, intent)!;
-  expect(readPendingOperation(originalKey)).toEqual({ operationId: "legacy-operation", routeId: "POST /places" });
+  expect(readPendingOperation(originalKey)).toEqual({ operationId: "legacy-operation" });
   expect(Array.from(entries.values()).join(" ")).not.toContain("Private");
-  const metadata = { operationId: "new-place", routeId: "POST /places", resourceIds: ["place-id"] };
+  const metadata = { operationId: "new-place", placeId: "place-id" };
   const input = { ...metadata, input: { address: "Private address", safeArrivalNote: "Private note" } };
   expect(savePendingOperation(originalKey, input)).toBe(true);
   expect(Array.from(entries.values()).join(" ")).not.toContain("Private");
@@ -56,52 +59,123 @@ test("only operation metadata survives reload; legacy bodies and signed-out scop
   expect(savePendingOperation(originalKey, input)).toBe(false);
 });
 
-test("an early missing receipt keeps the original ID recoverable across remount", () => {
+test("activating the same identity rewrites old request fingerprints to allowlisted v3 metadata", () => {
   activatePendingOperations(identity);
+  const v2 = `bookbuddy.pending-operation.v2:entry:${JSON.stringify([identity, requestIntent])}`;
+  entries.set("bookbuddy.pending-operation.v2:scope", identity);
+  entries.set(v2, JSON.stringify({
+    operationId: "old-request", routeId: "POST /requests", expectedRevision: 4, resourceIds: ["saved-place"],
+    digest: "private-input-digest", attemptedAt: 10_000, retryReady: true, payload: { originalText: "Private request" },
+  }));
+  const v2Decline = `bookbuddy.pending-operation.v2:entry:${JSON.stringify([identity, "invitation:invite-id"])}`;
+  entries.set(v2Decline, JSON.stringify({ operationId: "old-decline", routeId: "POST /invitations/:id/decline", resourceIds: ["invite-id"] }));
+  const foreign = `bookbuddy.pending-operation.v2:entry:${JSON.stringify(["other:context-b", requestIntent])}`;
+  entries.set(foreign, JSON.stringify({ operationId: "foreign-request", digest: "foreign-digest" }));
+
+  activatePendingOperations(identity);
+
   const key = pendingOperationKey(identity, requestIntent)!;
-  const operation = { operationId: "first-request", routeId: "POST /requests", attemptedAt: 10_000 };
+  expect(key.key).toStartWith("bookbuddy.pending-operation.v3:");
+  expect(JSON.parse(entries.get(key.key)!)).toEqual({ operationId: "old-request", expectedRevision: 4, placeId: "saved-place" });
+  expect(readPendingOperation(pendingOperationKey(identity, "invitation-decline:invite-id")!)).toEqual({ operationId: "old-decline" });
+  expect([...entries.keys()]).not.toContain(v2);
+  expect([...entries.keys()].some(entry => entry.startsWith("bookbuddy.pending-operation.v2:"))).toBe(false);
+  expect([...entries.values()].join(" ")).not.toContain("digest");
+});
+
+test("receipt-only operations keep the original ID until a settled negative lookup", () => {
+  activatePendingOperations(identity);
+  const key = pendingOperationKey(identity, "setup")!;
+  const operation = { operationId: "first-settings" };
   expect(savePendingOperation(key, operation)).toBe(true);
-  expect(settleMissingPendingOperation(key, operation, 129_999, true)).toBe(false);
+  expect(settleMissingPendingOperation(key, operation.operationId, 10_000, 129_999)).toBe(false);
 
   suspendPendingOperations();
   activatePendingOperations(identity);
-  const remounted = pendingOperationKey(identity, requestIntent)!;
+  const remounted = pendingOperationKey(identity, "setup")!;
   expect(readPendingOperation(remounted)).toEqual(operation);
-  clearPendingOperation(remounted, operation.operationId);
+  expect(settleMissingPendingOperation(remounted, "different-settings", 140_000, 260_000)).toBe(false);
+  expect(settleMissingPendingOperation(remounted, operation.operationId, 140_000, 260_000)).toBe(true);
   expect(readPendingOperation(remounted)).toBeNull();
 });
 
-test("request retries preserve only receipt metadata and require an in-memory intent match", () => {
+test("request resend after reload tries the old ID and revision before any changed-intent confirmation", async () => {
   activatePendingOperations(identity);
   const key = pendingOperationKey(identity, requestIntent)!;
   const first = submitRequestRoute.input.parse({ body: {
     operationId: "first-request",
     expectedRevision: 4,
-    payload: { placeId: "place-id", originalText: "Private request", safeNote: "Private arrival note", attachmentIds: ["photo"], arrivalArrangement: "requester" },
+    payload: { placeId: "place-id", originalText: "Private request", safeNote: "Private arrival note", arrivalArrangement: "requester" },
   } }).body;
-  const operation = { operationId: first.operationId, routeId: "POST /requests", attemptedAt: 10_000,
-    expectedRevision: first.expectedRevision, resourceIds: [first.payload.placeId] };
-  expect(savePendingOperation(key, operation)).toBe(true);
-  expect(JSON.parse(entries.get(key.key)!)).toEqual(operation);
-  expect(requestReplay(operation, first, first, sameRequestIntent)).toBeNull();
-  expect(settleMissingPendingOperation(key, operation, 130_000, true)).toBe(true);
-  const readyInPage = readPendingOperation(key)!;
-  const reentered = { ...first, expectedRevision: 5, payload: { ...first.payload, attachmentIds: [...first.payload.attachmentIds!] } };
-  expect(requestReplay(readyInPage, first, reentered, sameRequestIntent)).toEqual(first);
-  expect(requestReplay(readyInPage, first, { ...reentered, payload: { ...reentered.payload, originalText: "Changed request" } }, sameRequestIntent)).toBeNull();
-  expect(requestReplay(readyInPage, first, { ...reentered, payload: { ...reentered.payload, attachmentIds: [] } }, sameRequestIntent)).toBeNull();
-
+  expect(savePendingOperation(key, { operationId: first.operationId, expectedRevision: first.expectedRevision, placeId: first.payload.placeId })).toBe(true);
   suspendPendingOperations();
   activatePendingOperations(identity);
-  const remounted = pendingOperationKey(identity, requestIntent)!;
-  const ready = readPendingOperation(remounted)!;
-  expect(ready).toEqual({ ...operation, retryReady: true });
-  expect(requestReplay(ready, undefined, reentered, sameRequestIntent)).toBeNull();
-  expect(readPendingOperation(remounted)).toEqual(ready);
+  const old = readPendingOperation(pendingOperationKey(identity, requestIntent)!)!;
+  const reentered = submitRequestRoute.input.parse({ body: { ...first, operationId: "new-draft", expectedRevision: 5 } }).body;
+  const requests: SubmitRequest[] = [];
+  const uuid = spyOn(crypto, "randomUUID");
+  try {
+    const same = await attemptPendingOperation(async input => {
+      requests.push(input);
+      return { ok: true, data: { jobId: "earlier-job" } };
+    }, reentered, old);
+    expect(requests).toEqual([first]);
+    expect(same).toMatchObject({ kind: "committed", data: { jobId: "earlier-job" } });
+    const edited = { ...reentered, payload: { ...reentered.payload, originalText: "Changed request" } };
+    const conflict = await attemptPendingOperation(async input => {
+      requests.push(input);
+      return { ok: false, error: { code: "OPERATION_ID_REUSED" } };
+    }, edited, old);
+    expect(requests).toEqual([first, { ...first, payload: edited.payload }]);
+    expect(uuid).not.toHaveBeenCalled();
+    expect(conflict.kind).toBe("changed");
+    if (conflict.kind !== "changed") throw new Error("Expected a changed-intent confirmation");
+    const confirmed = conflict.replacement();
+    expect(confirmed).toEqual({ ...edited, operationId: expect.any(String) });
+    expect(confirmed.operationId).not.toBe(first.operationId);
+    expect(uuid).toHaveBeenCalledTimes(1);
+    expect(await attemptPendingOperation(async () => ({ ok: false, error: { code: "STALE_REVISION" } }), edited, old))
+      .toEqual({ kind: "rejected", code: "STALE_REVISION" });
+  } finally { uuid.mockRestore(); }
+});
 
-  const retried = { ...operation, attemptedAt: 140_000 };
-  expect(savePendingOperation(remounted, retried)).toBe(true);
-  expect(settleMissingPendingOperation(remounted, operation, 140_001, true)).toBe(false);
-  expect(settleMissingPendingOperation(remounted, retried, 259_999, true)).toBe(false);
-  expect(readPendingOperation(remounted)).toEqual(retried);
+test.each([anonymousSupportScope, identity])("Help replays a lost response after reload in its original scope (%s)", async (scope) => {
+  activatePendingOperations(scope);
+  const original = submitSupportRoute.input.parse({ body: {
+    operationId: "first-help", payload: { kind: "access", message: "Private support message", replyEmail: "help@example.test" },
+  } }).body;
+  const key = pendingOperationKey(scope, supportIntent)!;
+  expect(savePendingOperation(key, original)).toBe(true);
+  expect(entries.get(key.key)).toBe('{"operationId":"first-help"}');
+  const data = { reference: "recorded-case", receivedAt: 123 };
+  const calls: unknown[] = [];
+  const api = createPortalApi({
+    identity: scope === anonymousSupportScope ? null : { sessionId: "session-a", contextId: "context-a" },
+    getLocale: () => "en", isCurrent: () => true, onSessionChanged: () => {},
+    fetch: async (url, init) => {
+      expect(url).toBe("/api/v1/support");
+      const id = new Headers(init.headers).get(operationIdHeader);
+      calls.push([id, JSON.parse(init.body as string)]);
+      if (calls.length === 1) throw new Error("Lost response");
+      return Response.json({ ok: true, data, meta: { serverTime: 124, requestId: "replayed-help" } });
+    },
+  });
+  const { submitSupport } = createJobsClient(api);
+  expect(await attemptPendingOperation(submitSupport, original)).toEqual({ kind: "uncertain" });
+
+  suspendPendingOperations();
+  activatePendingOperations(scope);
+  const remounted = pendingOperationKey(scope, supportIntent)!;
+  const stored = readPendingOperation(remounted);
+  expect(stored).toEqual({ operationId: original.operationId });
+  const reentered = { ...original, operationId: "new-help-draft" };
+  expect(await attemptPendingOperation(submitSupport, reentered, stored!)).toMatchObject({ kind: "committed", data });
+  expect(calls).toEqual([[original.operationId, original], [original.operationId, original]]);
+  clearPendingOperation(remounted, original.operationId);
+  expect(readPendingOperation(remounted)).toBeNull();
+});
+
+test("Help's account-and-access topic is localized in both portal locales", () => {
+  expect(createWebTranslator("en").t("web.portal.help.kind")).toBe("Topic: account and access");
+  expect(createWebTranslator("pt-PT").t("web.portal.help.kind")).toBe("Assunto: conta e acesso");
 });

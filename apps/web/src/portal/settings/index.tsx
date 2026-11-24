@@ -8,7 +8,7 @@ import { PendingReceiptNotice } from "../session/pending-receipt";
 export function Settings() {
   const { bootstrap, acceptBootstrap, reload, t, locale } = usePortal();
   const authClient = usePortalAuth();
-  const command = usePendingOperation("settings", "PATCH /account/settings", (body: { operationId: string; expectedRevision: number; payload: AccountSettingsPatch }) => authClient.patchSettings(body), acceptBootstrap, undefined, { onCommitted: reload });
+  const command = usePendingOperation("settings", (body: { operationId: string; expectedRevision: number; payload: AccountSettingsPatch }) => authClient.patchSettings(body), acceptBootstrap, undefined, { onCommitted: reload });
   if (!bootstrap) return null;
   const preferences = bootstrap.preferences;
   const disabled = command.state === "sending" || command.state === "checking";

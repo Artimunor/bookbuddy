@@ -7,7 +7,7 @@ import { authDraft } from "../auth/flow";
 import { clearCheckedOpenings } from "../notifications/handoff";
 import { placeSearch } from "../places/search";
 import { createPortalApi, type PortalIdentity } from "./api";
-import { activatePendingOperations, clearPendingOperationsForSession, migrateLegacyPendingOperations, suspendPendingOperations } from "./pending-storage";
+import { activatePendingOperations, anonymousSupportScope, clearPendingOperationsForSession, migrateLegacyPendingOperations, suspendPendingOperations } from "./pending-storage";
 import { connectSessionSignals, type SessionSignals } from "./signals";
 
 type Locale = "en" | "pt-PT";
@@ -68,7 +68,7 @@ export function PortalSessionProvider({ children }: { children: ReactNode }) {
   }, []);
   const markUnauthenticated = useCallback(() => {
     resetView();
-    activatePendingOperations(null);
+    activatePendingOperations(anonymousSupportScope);
     setStatus("unauthenticated");
   }, [resetView]);
   const reload = useCallback(() => {

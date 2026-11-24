@@ -53,7 +53,7 @@ function ThreadPage({ id }: { id: string }) {
     });
     return () => controller.abort();
   }, [api, id, generation]);
-  const command = usePendingOperation(`thread-send:${id}`, `POST ${appendThreadEntriesRoute.path}`, async (op: MessageOperation) => {
+  const command = usePendingOperation(`thread-send:${id}`, async (op: MessageOperation) => {
     const result = await api.request(appendThreadEntriesRoute, { params: { id }, body: { operations: [op] } });
     if (!result.ok) return result;
     const outcome = result.data.outcomes.find(item => item.operationId === op.operationId);

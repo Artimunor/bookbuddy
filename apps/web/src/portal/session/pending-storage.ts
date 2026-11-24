@@ -1,48 +1,72 @@
 import { idSchema, operationIdSchema } from "@bookbuddy/api-contract";
 
-const prefix = "bookbuddy.pending-operation.v2:";
+const prefixes = ["bookbuddy.pending-operation.v3:", "bookbuddy.pending-operation.v2:", "bookbuddy.pending-operation.v1:"] as const;
+const [prefix] = prefixes;
 const scopeKey = `${prefix}scope`;
-const legacyPrefix = "bookbuddy.pending-operation.v1:";
-const legacy = /^(bookbuddy\.(pending-operation|quote-decision)\.v1:|bb\.(change|manage|window|withdrawal):)/;
-const routePattern = /^(POST|PATCH|PUT|DELETE) \/(?:[a-z0-9_-]+|:[a-zA-Z][a-zA-Z0-9]*)(?:\/(?:[a-z0-9_-]+|:[a-zA-Z][a-zA-Z0-9]*))*$/;
+const obsolete = /^(bookbuddy\.quote-decision\.v1:|bb\.(change|manage|window|withdrawal):)/;
+export const anonymousSupportScope = "anonymous";
+export const supportIntent = "support-intake";
 let scope: string | null = null;
 let generation = 0;
 
-function removeEntries(matches: (key: string) => boolean) {
+const entryKey = (identity: string, intent: string) => `${prefix}entry:${JSON.stringify([identity, intent])}`;
+const validIntent = (identity: string, intent: string) => identity === anonymousSupportScope
+  ? intent === supportIntent : intent.split(":").every(part => idSchema.safeParse(part).success);
+
+function storedScope(): string | null {
+  for (const version of prefixes) {
+    const saved = sessionStorage.getItem(`${version}scope`);
+    if (saved !== null) return saved === anonymousSupportScope || /^[A-Za-z0-9_-]{1,256}:[A-Za-z0-9_-]{0,256}$/.test(saved)
+      ? saved : null;
+  }
+  return null;
+}
+
+function rewritePendingStorage(previous: string | null, next: string | null) {
+  const keep = next !== null && previous === next;
+  const migrated = new Map<string, { version: number; metadata: string }>();
+  let hasScope = false;
   for (let index = sessionStorage.length - 1; index >= 0; index--) {
     const key = sessionStorage.key(index);
-    if (key && matches(key)) sessionStorage.removeItem(key);
+    if (!key) continue;
+    const version = prefixes.findIndex(candidate => key.startsWith(candidate));
+    if (version === -1 && !obsolete.test(key)) continue;
+    if (keep && key === scopeKey) { hasScope = true; continue; }
+    const entry = version === -1 ? null : `${prefixes[version]}entry:`;
+    if (keep && entry && key.startsWith(entry)) {
+      try {
+        const parts: unknown = JSON.parse(key.slice(entry.length));
+        if (Array.isArray(parts) && parts.length === 2 && parts[0] === next &&
+          typeof parts[1] === "string" && validIntent(next, parts[1])) {
+          const raw = sessionStorage.getItem(key);
+          const value: unknown = JSON.parse(raw ?? "null");
+          const intent = parts[1];
+          const metadata = operationMetadata(value, version !== 0 && (intent === "submit-request" || intent.startsWith("place:")));
+          if (metadata) {
+            // A decline needs no invitation read after recovering its receipt.
+            const decline = version !== 0 && intent.startsWith("invitation:") && value && typeof value === "object" &&
+              "routeId" in value && value.routeId === "POST /invitations/:id/decline";
+            const target = entryKey(next, decline ? `invitation-decline:${intent.slice("invitation:".length)}` : intent);
+            const clean = JSON.stringify(metadata);
+            if (version === 0 && target === key && clean === raw) continue;
+            const duplicate = migrated.get(target);
+            if (!duplicate || version < duplicate.version) migrated.set(target, { version, metadata: clean });
+          }
+        }
+      } catch { /* Remove malformed entries without copying them. */ }
+    }
+    sessionStorage.removeItem(key);
+  }
+  if (next !== null && !hasScope) sessionStorage.setItem(scopeKey, next);
+  for (const [key, { metadata }] of migrated) {
+    if (sessionStorage.getItem(key) === null) sessionStorage.setItem(key, metadata);
   }
 }
 
 export function migrateLegacyPendingOperations() {
   try {
-    const previousScope = sessionStorage.getItem(`${legacyPrefix}scope`);
-    const currentScope = sessionStorage.getItem(scopeKey);
-    const validScope = previousScope && /^[A-Za-z0-9_-]{1,256}:[A-Za-z0-9_-]{0,256}$/.test(previousScope) &&
-      (currentScope === null || currentScope === previousScope);
-    const sanitized: [string, StoredOperation][] = [];
-    const entryPrefix = `${legacyPrefix}entry:`;
-    removeEntries(key => {
-      if (!legacy.test(key)) return false;
-      if (validScope && key.startsWith(entryPrefix)) {
-        try {
-          const parts: unknown = JSON.parse(key.slice(entryPrefix.length));
-          if (Array.isArray(parts) && parts.length === 2 && parts[0] === previousScope &&
-            typeof parts[1] === "string" && validIntent(parts[1])) {
-            const metadata = operationMetadata(JSON.parse(sessionStorage.getItem(key) ?? "null"));
-            if (metadata) sanitized.push([`${prefix}entry:${JSON.stringify(parts)}`, metadata]);
-          }
-        } catch { /* Remove malformed entries without copying them. */ }
-      }
-      return true;
-    });
-    if (previousScope && sanitized.length) {
-      sessionStorage.setItem(scopeKey, previousScope);
-      for (const [key, metadata] of sanitized) if (sessionStorage.getItem(key) === null) {
-        sessionStorage.setItem(key, JSON.stringify(metadata));
-      }
-    }
+    const previous = storedScope();
+    rewritePendingStorage(previous, previous);
   } catch { /* Storage may be disabled. */ }
 }
 
@@ -54,57 +78,43 @@ export function suspendPendingOperations() {
 export function activatePendingOperations(next: string | null) {
   if (next === null || next !== scope) generation++;
   scope = next;
-  try {
-    if (next !== null && sessionStorage.getItem(scopeKey) === next) return;
-    removeEntries(key => key.startsWith(prefix) || legacy.test(key));
-    if (next !== null) sessionStorage.setItem(scopeKey, next);
-  } catch { /* Storage can be disabled; mutations require a saved receipt ID. */ }
+  try { rewritePendingStorage(storedScope(), next); }
+  catch { /* Storage can be disabled; mutations require a saved receipt ID. */ }
 }
 
 export function clearPendingOperationsForSession(sessionId: string) {
   try {
-    if (sessionStorage.getItem(scopeKey)?.startsWith(`${sessionId}:`)) activatePendingOperations(null);
+    if (storedScope()?.startsWith(`${sessionId}:`)) activatePendingOperations(null);
   } catch { /* Storage may be disabled. */ }
 }
 
-const validIntent = (intent: string) => intent.split(":").every(part => idSchema.safeParse(part).success);
-type StorageKey = { key: string; generation: number };
+export type StorageKey = { key: string; generation: number };
 export function pendingOperationKey(identity: string | null, intent: string): StorageKey | null {
-  return identity !== null && identity === scope && validIntent(intent)
-    ? { key: `${prefix}entry:${JSON.stringify([identity, intent])}`, generation } : null;
+  return identity !== null && identity === scope && validIntent(identity, intent)
+    ? { key: entryKey(identity, intent), generation } : null;
 }
 
 export function pendingOperationScopeIsCurrent(key: StorageKey) { return key.generation === generation; }
 
 export type StoredOperation = {
   operationId: string;
-  routeId: string;
-  resourceIds?: readonly string[];
-  attemptedAt?: number;
-  retryReady?: true;
   expectedRevision?: number;
+  placeId?: string;
 };
 
-function operationMetadata(value: unknown): StoredOperation | null {
-  if (!value || typeof value !== "object" || !("operationId" in value) || !("routeId" in value)) return null;
-  const { operationId, routeId } = value;
-  if (typeof operationId !== "string" || !operationIdSchema.safeParse(operationId).success ||
-    typeof routeId !== "string" || !routePattern.test(routeId)) return null;
-  const metadata: StoredOperation = { operationId, routeId };
-  if ("resourceIds" in value && value.resourceIds !== undefined) {
-    const ids: unknown = value.resourceIds;
-    if (!Array.isArray(ids) || ids.length > 8 || ids.some(id => !idSchema.safeParse(id).success)) return null;
-    metadata.resourceIds = ids as string[];
-  }
-  if ("attemptedAt" in value && typeof value.attemptedAt === "number" &&
-    Number.isSafeInteger(value.attemptedAt) && value.attemptedAt >= 0) {
-    metadata.attemptedAt = value.attemptedAt;
-    if ("retryReady" in value && value.retryReady === true && routeId === "POST /requests") metadata.retryReady = true;
-  }
-  if (routeId === "POST /requests" && "expectedRevision" in value && typeof value.expectedRevision === "number" &&
+function operationMetadata(value: unknown, legacyPlace = false): StoredOperation | null {
+  if (!value || typeof value !== "object" || !("operationId" in value)) return null;
+  const operationId = operationIdSchema.safeParse(value.operationId);
+  if (!operationId.success) return null;
+  const metadata: StoredOperation = { operationId: operationId.data };
+  if ("expectedRevision" in value && typeof value.expectedRevision === "number" &&
     Number.isSafeInteger(value.expectedRevision) && value.expectedRevision >= 0) {
     metadata.expectedRevision = value.expectedRevision;
   }
+  const placeId = "placeId" in value ? value.placeId
+    : legacyPlace && "resourceIds" in value && Array.isArray(value.resourceIds) ? value.resourceIds[0] : undefined;
+  const place = idSchema.safeParse(placeId);
+  if (place.success) metadata.placeId = place.data;
   return metadata;
 }
 export function readPendingOperation(key: StorageKey): StoredOperation | null {
@@ -123,19 +133,15 @@ export function savePendingOperation(key: StorageKey, operation: StoredOperation
 }
 
 export function clearPendingOperation(key: StorageKey, operationId: string) {
-  if (readPendingOperation(key)?.operationId !== operationId) return;
-  try { sessionStorage.removeItem(key.key); } catch { /* Storage can be disabled. */ }
+  if (readPendingOperation(key)?.operationId !== operationId) return false;
+  try { sessionStorage.removeItem(key.key); return true; }
+  catch { return false; }
 }
 
 const settleMs = 2 * 60_000;
 
 export function settleMissingPendingOperation(
-  key: StorageKey, operation: StoredOperation, checkedAt: number, retainForRetry: boolean,
+  key: StorageKey, operationId: string, attemptedAt: number, checkedAt: number,
 ): boolean {
-  if (operation.attemptedAt === undefined || checkedAt - operation.attemptedAt < settleMs) return false;
-  const current = readPendingOperation(key);
-  if (current?.operationId !== operation.operationId || current.attemptedAt !== operation.attemptedAt) return false;
-  if (retainForRetry) return savePendingOperation(key, { ...current, retryReady: true });
-  clearPendingOperation(key, operation.operationId);
-  return true;
+  return checkedAt - attemptedAt >= settleMs && clearPendingOperation(key, operationId);
 }

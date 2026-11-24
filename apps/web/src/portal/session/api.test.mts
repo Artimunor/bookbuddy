@@ -50,6 +50,8 @@ test("signed-out portal support omits cookies without changing session bootstrap
   ]);
   const headers = new Headers(calls[1]?.init.headers);
   expect(headers.get(expectedSessionHeader)).toBeNull();
+  expect(headers.get(expectedContextHeader)).toBeNull();
+  expect(headers.get("Authorization")).toBeNull();
   expect(headers.get(operationIdHeader)).toBe(supportBody.operationId);
 });
 

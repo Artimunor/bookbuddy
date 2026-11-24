@@ -1,13 +1,12 @@
 import { createJobsClient } from "@bookbuddy/api-client";
 import { submitSupportRoute } from "@bookbuddy/api-contract";
 import { createWebTranslator } from "@bookbuddy/i18n/web";
-import { useRef, useState, type FormEvent } from "react";
-import { ActionLink, Button, Card, TextField } from "../../ui";
+import { useMemo, useState, type FormEvent } from "react";
+import { ActionLink, Button, Card, Dialog, TextField } from "../../ui";
 import "../auth/styles.css";
 import { useSession } from "../session";
-
-type Submission = { state: "editing" | "sending" | "invalid" | "unavailable" | "uncertain" } |
-  { state: "sent"; reference: string };
+import { usePendingOperation } from "../session/pending-operation";
+import { supportIntent } from "../session/pending-storage";
 
 export function Help() {
   const { bootstrap, locale, reload, status } = useSession();
@@ -37,38 +36,35 @@ function SupportForm() {
   const { t } = createWebTranslator(locale);
   const [message, setMessage] = useState("");
   const [email, setEmail] = useState("");
-  const [submission, setSubmission] = useState<Submission>({ state: "editing" });
-  const inFlight = useRef(false);
-  const { state } = submission;
-  const locked = state === "sending" || state === "uncertain" || state === "sent";
-
-  async function send(event: FormEvent<HTMLFormElement>) {
+  const [invalid, setInvalid] = useState(false);
+  const [reference, setReference] = useState<string | null>(null);
+  const { submitSupport } = useMemo(() => createJobsClient(api), [api]);
+  const command = usePendingOperation(supportIntent, submitSupport, receipt => {
+    setMessage("");
+    setEmail("");
+    setReference(receipt.reference);
+  }, undefined, { replay: true, allowAnonymous: true });
+  const busy = command.state === "sending";
+  const locked = busy || command.replacement !== null;
+  function send(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inFlight.current || locked) return;
+    if (locked) return;
     const replyEmail = email.trim();
-    const body = { operationId: crypto.randomUUID(), payload: { kind: "access" as const, message,
-      ...(replyEmail ? { replyEmail } : {}) } };
-    if (!submitSupportRoute.input.safeParse({ body }).success) { setSubmission({ state: "invalid" }); return; }
-    inFlight.current = true;
-    setSubmission({ state: "sending" });
-    try {
-      const result = await createJobsClient(api).submitSupport(body);
-      if (result.ok) {
-        setMessage(""); setEmail("");
-        setSubmission({ state: "sent", reference: result.data.reference });
-      } else {
-        setSubmission({ state: result.error.code === "INTERNAL_ERROR" ||
-          ("delivery" in result.error && result.error.delivery === "unknown") ? "uncertain" : "unavailable" });
-      }
-    } catch { setSubmission({ state: "uncertain" }); }
-    finally { inFlight.current = false; }
+    const parsed = submitSupportRoute.input.safeParse({ body: {
+      operationId: command.pending?.operationId ?? crypto.randomUUID(),
+      payload: { kind: "access", message, ...(replyEmail ? { replyEmail } : {}) },
+    } });
+    setInvalid(!parsed.success);
+    if (!parsed.success) return;
+    if (command.canResend) command.resend(parsed.data.body);
+    else command.start(parsed.data.body);
   }
 
   return <section aria-labelledby="help-contact" className="space-y-2">
     <h2 id="help-contact" className="text-section-title">{t("web.portal.help.contact")}</h2>
-    {submission.state === "sent" ? <Card><div role="status">
+    {reference ? <Card><div role="status">
       <p>{t("web.portal.help.sent")}</p>
-      <p>{t("web.portal.help.reference")}: <bdi dir="ltr">{submission.reference}</bdi></p>
+      <p>{t("web.portal.help.reference")}: <bdi dir="ltr">{reference}</bdi></p>
     </div></Card> : <Card>
       <form onSubmit={send} noValidate>
         <div className="space-y-2">
@@ -79,15 +75,20 @@ function SupportForm() {
         <label className="bb-field">
           <span className="text-label">{t("web.portal.help.message")}</span>
           <textarea className="bb-input" dir="auto" rows={4} maxLength={2000} value={message} readOnly={locked}
-            onChange={event => { setMessage(event.target.value); setSubmission({ state: "editing" }); }} />
+            onChange={event => { setMessage(event.target.value); setInvalid(false); }} />
         </label>
         <TextField label={t("web.portal.help.email")} type="email" autoComplete="email" dir="ltr" value={email} readOnly={locked}
-          onChange={event => { setEmail(event.target.value); setSubmission({ state: "editing" }); }} />
-        {state === "invalid" && <p role="alert">{t("web.portal.help.invalid")}</p>}
-        {state === "unavailable" && <p role="alert">{t("web.portal.help.unavailable")}</p>}
-        {state === "uncertain" && <p role="alert">{t("web.portal.help.uncertain")}</p>}
-        <Button type="submit" pending={state === "sending"} disabled={locked || !message.trim()}>{t("web.portal.help.send")}</Button>
+          onChange={event => { setEmail(event.target.value); setInvalid(false); }} />
+        {invalid && <p role="alert">{t("web.portal.help.invalid")}</p>}
+        {!invalid && command.state === "failed" && <p role="alert">{t("web.portal.help.unavailable")}</p>}
+        {command.canResend && !busy && <p role="status">{t("web.portal.help.uncertain")}</p>}
+        <Button type="submit" pending={busy} disabled={locked || !message.trim()}>
+          {command.canResend ? t("web.portal.help.sendAgain") : t("web.portal.help.send")}
+        </Button>
       </form>
     </Card>}
+    <Dialog open={command.replacement !== null} onOpenChange={open => { if (!open) command.replacement?.dismiss(); }}
+      title={t("web.portal.help.sendChanged")} description={t("web.portal.help.sendChangedDetail")} closeLabel={t("web.portal.work.close")}
+      footer={<Button onClick={command.replacement?.confirm}>{t("web.portal.ps.confirm")}</Button>}>{null}</Dialog>
   </section>;
 }

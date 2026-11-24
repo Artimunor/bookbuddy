@@ -10,7 +10,7 @@ import { PendingReceiptNotice } from "../session/pending-receipt";
 import { formatPortalTime } from "../time";
 
 type InvitationAction = "accept" | "decline";
-type InvitationOperation = { action: InvitationAction; operationId: string; invitationId: string };
+type InvitationOperation = { operationId: string; invitationId: string };
 
 export function Invitation() {
   const { opaque = "" } = useParams();
@@ -22,23 +22,24 @@ function InvitationPage({ opaque, loading }: { opaque: string; loading: boolean 
   const api = useMemo(() => createAccessClient(portalApi), [portalApi]);
   const [opening,setOpening] = useState<InvitationOpening | null>(null); const [failed,setFailed] = useState(false); const [declined,setDeclined] = useState(false); const [dialog,setDialog] = useState<InvitationAction | null>(null);
   useEffect(()=>{ if (loading) return; const checked = takeCheckedOpening(location.state,bootstrap?.sessionId,activeContext?.contextId ?? null); if(checked?.kind === "invitation" && checked.invitation.status !== "unavailable" && checked.invitation.id === opaque) {setOpening(checked.invitation); return;} const c = new AbortController(); void api.getInvitation(opaque,{signal:c.signal}).then(r=>{if(!c.signal.aborted) r.ok ? setOpening(r.data) : setFailed(true);}); return ()=>c.abort(); },[api,opaque,location.state,bootstrap?.sessionId,activeContext?.contextId,loading]);
-  const command = usePendingOperation(`invitation:${opaque}`, (input: InvitationOperation) => `POST /invitations/:id/${input.action}`, async input => {
-    const body = { operationId: input.operationId, payload: {} };
-    if (input.action === "accept") return api.acceptInvitation(input.invitationId, body);
-    const result = await api.declineInvitation(input.invitationId, body);
-    return result.ok ? { ...result, data: null } : result;
-  }, value => { if (value) setOpening(value); else setDeclined(true); }, undefined, {
-    resourceIds: input => [input.invitationId],
-    onCommitted: (_, operation) => {
-      if (operation.routeId === "POST /invitations/:id/decline") { setDeclined(true); return; }
+  const [lastAction, setLastAction] = useState<InvitationAction | null>(null);
+  const accept = usePendingOperation(`invitation:${opaque}`, (input: InvitationOperation) =>
+    api.acceptInvitation(input.invitationId, { operationId: input.operationId, payload: {} }), setOpening, undefined, {
+    onCommitted: () => {
       setOpening(null);
       void api.getInvitation(opaque).then(result => { if (result.ok) setOpening(result.data); else setFailed(true); });
     },
   });
+  const decline = usePendingOperation(`invitation-decline:${opaque}`, (input: InvitationOperation) =>
+    api.declineInvitation(input.invitationId, { operationId: input.operationId, payload: {} }),
+  () => setDeclined(true), undefined, { onCommitted: () => setDeclined(true) });
+  const action = decline.pending ? "decline" : accept.pending ? "accept" : lastAction ?? (decline.state === "idle" ? "accept" : "decline");
+  const command = action === "decline" ? decline : accept;
   const busy = command.state === "sending" || command.state === "checking";
   function decide(action: InvitationAction) {
     if (!bootstrap || busy || opening?.status !== "pending") return;
-    command.start({ action, operationId: crypto.randomUUID(), invitationId: opening.id });
+    setLastAction(action);
+    (action === "decline" ? decline : accept).start({ operationId: crypto.randomUUID(), invitationId: opening.id });
     setDialog(null);
   }
   const viewerZone = bootstrap?.preferences.twoClock ? bootstrap.preferences.displayZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;

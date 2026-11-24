@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { getJobRoute, offerJobHandoffRoute, openLinkRoute, operationIdHeader, resultSchema, submitRequestRoute, submitSupportRoute } from "@bookbuddy/api-contract";
+import { expectedContextHeader, expectedSessionHeader, getJobRoute, offerJobHandoffRoute, openLinkRoute, operationIdHeader, resultSchema, submitRequestRoute, submitSupportRoute } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { runEffectBatch } from "../src/effects";
@@ -68,13 +68,16 @@ async function fixture() {
   const credentials = new Map(tokens.map(({ actor, token }) => [actor, token]));
   type Actor = typeof actors[number];
   type Body = { operationId: string; expectedRevision?: number; payload: unknown };
-  async function call(path: string, actor: Actor | null, body?: Body, verifyBatches: 0 | 1 | false = 1, source = "192.0.2.5") {
+  async function call(path: string, actor: Actor | null, body?: Body, verifyBatches: 0 | 1 | false = 1, source = "192.0.2.5",
+    headers?: Record<string, string>,
+  ) {
     const { batch, query } = db.calls;
     const response = await app.request(`${origin}/api/v1${path}`, {
       method: body ? "POST" : "GET",
       headers: {
         ...(actor ? { Authorization: `Bearer ${credentials.get(actor)}` } : { "CF-Connecting-IP": source }),
         ...(body ? { [operationIdHeader]: body.operationId, "Content-Type": "application/json" } : {}),
+        ...headers,
       },
       body: body && JSON.stringify(body),
     }, env, execution);
@@ -139,9 +142,11 @@ test("text request makes an unassigned job, durable intake offer and safe replay
       return Response.json({ data: [{ status: "ok", id: "intake-delivery" }] });
     });
     expect(sent).toEqual([[{ to: "ExpoPushToken[phone]", title: "BookBuddy", body: "You have an update.", data: { url: `${origin}/l/${link!.token}` } }]]);
+    await f.db.prepare("UPDATE places SET revision = revision + 1 WHERE id = 'place'").run();
     expect((await f.call("/requests", "customer", body)).body).toMatchObject({ data: response.data });
-    expect((await f.call("/requests", "customer", { ...body, payload: { ...requestPayload, originalText: "Changed" } })).body)
-      .toMatchObject({ error: { code: "OPERATION_ID_REUSED" } });
+    const changed = await f.call("/requests", "customer", { ...body, payload: { ...body.payload, originalText: "Changed" } });
+    expect(changed.status).toBe(409);
+    expect(changed.body).toMatchObject({ error: { code: "OPERATION_ID_REUSED", current: { kind: "operation_id_reused" } } });
     expect((await f.call("/operations/submit", "customer")).body).toMatchObject({ data: { operationId: "submit", status: "committed", committedAt: friday } });
     expect((await f.call("/operations/submit", "other")).status).toBe(404);
     expect(f.notices).toHaveLength(1);
@@ -336,6 +341,28 @@ test("the deadline is exclusive; an expired offer may be reoffered only once to 
     } })).status).toBe(409);
     expect(await f.db.prepare("SELECT accountable_foreman_membership_id FROM jobs WHERE id = 'job'").first("accountable_foreman_membership_id"))
       .toBe("first-member");
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("support rejects either expected-identity header without credentials but accepts anonymous intake", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(tuesday);
+  const f = await fixture();
+  try {
+    const contact = { operationId: "lost-cookie", payload: { kind: "access", message: "Help with my account" } };
+    for (const headers of [
+      { [expectedSessionHeader]: "customer-session" },
+      { [expectedContextHeader]: "customer-customer" },
+      { [expectedSessionHeader]: "customer-session", [expectedContextHeader]: "customer-customer" },
+    ]) {
+      const result = await f.call("/support", null, contact, 0, undefined, { ...headers, Origin: origin });
+      expect(result.status).toBe(409);
+      expect(result.body).toMatchObject({ error: { code: "CONFLICT", current: { kind: "session_changed" } } });
+    }
+    expect(f.notices).toHaveLength(0);
+    expect(await f.db.prepare("SELECT count(*) AS count FROM support_cases").first("count")).toBe(0);
+    const signedOut = await f.call("/support", null, contact, 1, undefined, { Origin: origin });
+    expect(signedOut.status).toBe(200);
+    expect(await f.db.prepare("SELECT reporter_id FROM support_cases").first()).toEqual({ reporter_id: null });
   } finally { f.db.close(); clock.mockRestore(); }
 });
 

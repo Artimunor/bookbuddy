@@ -23,7 +23,7 @@ function QuoteView({ id, version }: { id: string; version: string }) {
   const [dialog, setDialog] = useState<"approve" | "decline" | null>(null);
   const [changed, setChanged] = useState(false);
   const command = usePendingOperation<Pending, QuoteData>(
-    `quote:${id}:${version}`, input => `POST /quote-versions/:id/${input.action}`,
+    `quote:${id}:${version}`,
     input => {
       const { operationId, termsHash, readingArtifactRef } = input;
       const body = { operationId, payload: { termsHash, ...(readingArtifactRef ? { readingArtifactRef } : {}) } };
