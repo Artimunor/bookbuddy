@@ -5,8 +5,13 @@ import { API_BASE_PATH, PRIVATE_CACHE_CONTROL } from "./config";
 import { commercialRoutes } from "./modules/commercial/routes";
 import { accessRoutes } from "./modules/access/routes";
 import { authRoutes } from "./modules/auth/routes";
+import { jobSyncProjections } from "./modules/jobs/projections";
 import { jobsCommandRoutes } from "./modules/jobs/routes.commands";
-import { transportRoutes } from "./modules/sync/routes";
+import { jobsReadRoutes } from "./modules/jobs/routes.read";
+import { placeSyncProjection } from "./modules/places/read";
+import { placesRoutes } from "./modules/places/routes";
+import { scheduleRoutes, scheduleSyncProjections } from "./modules/schedule";
+import { createTransportRoutes } from "./modules/sync/routes";
 
 function failure(requestId: string, code: ErrorCode): ErrorEnvelope {
   return { ok: false, error: { code }, meta: { requestId } };
@@ -25,9 +30,12 @@ export function createApp() {
 
   app.route(API_BASE_PATH, authRoutes);
   app.route(API_BASE_PATH, jobsCommandRoutes);
-  app.route(API_BASE_PATH, transportRoutes);
+  app.route(API_BASE_PATH, jobsReadRoutes);
+  app.route(API_BASE_PATH, createTransportRoutes({ projections: [placeSyncProjection, ...jobSyncProjections, ...scheduleSyncProjections] }));
   app.route(API_BASE_PATH, accessRoutes);
+  app.route(API_BASE_PATH, placesRoutes);
   app.route(API_BASE_PATH, commercialRoutes);
+  app.route(API_BASE_PATH, scheduleRoutes);
 
   // Mount feature routers here via app.basePath(API_BASE_PATH).route("/", routes).
   // Routers' paths are relative to /api/v1, not each module name (see plan §3).
