@@ -1,6 +1,6 @@
 import { idSchema } from "@bookbuddy/api-contract";
 import { uuid } from "expo";
-import { useLocalSearchParams, type Href } from "expo-router";
+import { useIsFocused, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDraft, useRepository } from "../../repository/hooks";
 import type { ScopedRepository } from "../../repository";
@@ -14,6 +14,9 @@ export type RequestDraft = {
   arrivalContactName: string;
   safeNote: string;
   attachments: [];
+  mediaPlaceId?: string;
+  mediaStages?: string[];
+  omittedMedia?: string[];
   pendingOperation: { id: string; revision: number } | null;
 };
 export const emptyDraft: RequestDraft = { step: "describe", description: "", language: "", placeId: "", arrivalArrangement: "requester", arrivalContactName: "", safeNote: "", attachments: [], pendingOperation: null };
@@ -39,6 +42,7 @@ export function useRequestDraft() {
   const draftId = routeId ?? initialId;
   const storage = useDraft<RequestDraft>(`request:${draftId}`);
   const repo = useRepository();
+  const focused = useIsFocused();
   const [value, setValue] = useState<RequestDraft>(emptyDraft);
   const [saved, setSaved] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -46,20 +50,26 @@ export function useRequestDraft() {
   const loaded = !!repo?.isActive && hydrated?.repo === repo && hydrated.draftId === draftId;
   const queue = useRef<Promise<void>>(Promise.resolve());
   const sequence = useRef(0);
+  const unsaved = useRef(false);
+  const hydratedDraft = useRef(storage.draft);
   useEffect(() => {
-    if (!repo || loaded || !storage.loaded) return;
-    sequence.current++;
+    if (!repo || !focused || !storage.loaded || (loaded && (unsaved.current || storage.draft === hydratedDraft.current))) return;
+    if (!loaded) { sequence.current++; unsaved.current = false; }
+    hydratedDraft.current = storage.draft;
     setValue(storage.draft ? { ...emptyDraft, ...storage.draft.value } : emptyDraft);
     setSaved(storage.draft !== null);
     setFailed(false);
     setHydrated({ repo, draftId });
-  }, [repo, draftId, loaded, storage.loaded, storage.draft]);
+  }, [repo, draftId, focused, loaded, saved, storage.loaded, storage.draft]);
   const change = useCallback((next: RequestDraft) => {
     setValue(next); setSaved(false); setFailed(false);
+    unsaved.current = true;
     const current = ++sequence.current;
     const write = queue.current.catch(() => {}).then(() => storage.save(next));
     queue.current = write;
-    void write.then(() => { if (current === sequence.current) setSaved(true); }, () => { if (current === sequence.current) setFailed(true); });
+    void write.then(() => {
+      if (current === sequence.current) { unsaved.current = false; setSaved(true); }
+    }, () => { if (current === sequence.current) setFailed(true); });
     return write;
   }, [storage.save]);
   const remove = useCallback(async () => { await queue.current.catch(() => {}); await storage.remove(); }, [storage.remove]);

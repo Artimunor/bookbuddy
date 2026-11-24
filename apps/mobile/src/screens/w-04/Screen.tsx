@@ -52,6 +52,7 @@ export function LiveShiftView(p: { data: FieldShift | null; shiftId: string; ass
       {!hold && d.holds.some(h => h.state === "cleared") && <HoldBanner state="cleared" label={t("mobile.liveShift.holdCleared")} />}
       {arrival && arrival.status !== "recorded" && <Copy>{t("mobile.liveShift.pendingAttendance")}</Copy>}
       {active && <Card><Copy variant="sectionTitle">{d.task}</Copy><Copy>{d.job.reference}</Copy>{"placeAlias" in d.job && d.job.placeAlias && <Copy>{d.job.placeAlias}</Copy>}<Button variant="quiet" label={t("mobile.liveShift.briefing")} onPress={() => p.onNavigate(path("briefing"))} />{!departure && <Button variant="quiet" label={arrival ? t("mobile.liveShift.checkOut") : t("mobile.liveShift.checkIn")} onPress={() => p.onNavigate(`${path("attendance")}&event=${arrival ? "departure" : "arrival"}`)} />}{!arrival && <Button variant="quiet" label={t("mobile.liveShift.cantMakeIt")} onPress={() => p.onNavigate(path("dropout"))} />}{d.crewThreadId && <Button variant="quiet" label={t("mobile.liveShift.chat")} onPress={() => p.onNavigate(`/threads/${d.crewThreadId}`)} />}</Card>}
+      {active && <Button variant="neutral" label={t("mobile.photos.progressTitle")} onPress={() => p.onNavigate(path("photos"))} />}
     </>}
   </Screen>;
 }

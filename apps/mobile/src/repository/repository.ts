@@ -621,9 +621,8 @@ export class ScopedRepository {
           progressChanged = true;
         }
         if (outcome.status !== "rejected") {
-          const accepted = attendance.get(outcome.operationId);
-          if (accepted) await db.put(attendanceReceipts, {
-            ...key, assignment_id: accepted.operation.payload.assignmentId, created_at: accepted.row.created_at, value: accepted.row.value,
+          if (operation.kind === "attendance") await db.put(attendanceReceipts, {
+            ...key, assignment_id: operation.payload.assignmentId, created_at: row.created_at, value: row.value,
             result_ref: outcome.status === "unchanged" ? null : outcome.resultRef,
           });
           await db.remove(outbox, key);
