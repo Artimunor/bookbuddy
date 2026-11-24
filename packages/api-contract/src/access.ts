@@ -1,13 +1,12 @@
 import { BUSINESS_STATES, CURRENCIES, ELIGIBILITY_DISPLAY_STATES, MEMBERSHIP_ROLES, VISIT_STEPS } from "@bookbuddy/domain";
 import { z } from "zod";
 import {
-  activeContextSchema, businessIdSchema, commandInputSchema, contextIdSchema, cursorSchema, idSchemaFor,
+  activeContextSchema, businessIdSchema, commandInputSchema, cursorSchema, idSchemaFor,
   localeTagSchema, paginationSchema, timestampSchema,
 } from "./common";
-import { linkTokenSchema } from "./links";
 import {
   invitationIdSchema, invitationManagementSchema, managedPlaceTransferInvitationSchema,
-  managedPlaceViewInvitationSchema, placeCapabilitySchema, placeDetailsSchema, placeIdSchema,
+  managedPlaceViewInvitationSchema, placeCapabilitySchema, placeIdSchema,
 } from "./places";
 import { defineRoute } from "./route";
 
@@ -162,7 +161,7 @@ export const businessEligibilitySchema = z.discriminatedUnion("audience", [
   }),
 ]);
 
-const contextChoice = z.object({ scope: activeContextSchema, businessName: displayName.nullable() });
+export const contextChoiceSchema = z.object({ scope: activeContextSchema, businessName: displayName.nullable() });
 const invitationGrant = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("business_role"), businessName: displayName, role: invitationalRole }),
   z.object({ kind: z.literal("place_view"), placeAlias: displayName, capabilities: z.tuple([z.literal("view")]) }),
@@ -187,7 +186,7 @@ const inviteAccepted = z.object({
   currentAccess: z.discriminatedUnion("kind", [
     z.object({
       kind: z.literal("business"),
-      context: contextChoice,
+      context: contextChoiceSchema,
       workEligibility: eligibilityStatus,
       supportReference: supportReference.nullable(),
     }),
@@ -202,44 +201,22 @@ const inviteAccepted = z.object({
   ]),
 });
 
-const unavailable = z.strictObject({
+export const invitationUnavailableSchema = z.strictObject({
   status: z.literal("unavailable"),
   reason: z.enum(["unavailable", "expired", "removed", "wrong_account"]),
   supportReference: supportReference.nullable(),
 });
 
 // Only a verified intended recipient sees invitation details. Acceptance is a view of live access.
-export const invitationOpeningSchema = z.discriminatedUnion("status", [invitePending, inviteAccepted, unavailable]);
-
-export const linkOpeningSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("invitation"), invitation: invitationOpeningSchema }),
-  z.object({ kind: z.literal("place"), place: placeDetailsSchema }),
-  z.object({ kind: z.literal("business_overview"), business: businessOverviewSchema }),
-  z.object({ kind: z.literal("business_member"), business: businessHeader, member: businessMemberSchema }),
-  z.object({ kind: z.literal("business_eligibility"), eligibility: businessEligibilitySchema }),
-  z.strictObject({
-    kind: z.literal("switch_context"),
-    targetKind: z.enum(["place", "business", "invitation", "job", "shift", "offer", "conversation", "update"]),
-    activeContextId: contextIdSchema.nullable(),
-    choices: z.array(contextChoice).min(1),
-  }),
-  unavailable.extend({ kind: z.literal("unavailable") }),
-]);
+export const invitationOpeningSchema = z.discriminatedUnion("status", [invitePending, inviteAccepted, invitationUnavailableSchema]);
 
 export type BusinessOverview = z.infer<typeof businessOverviewSchema>;
 export type BusinessPeople = z.infer<typeof businessPeopleSchema>;
 export type BusinessEligibility = z.infer<typeof businessEligibilitySchema>;
 export type ManagedInvitation = z.infer<typeof managedInvitationSchema>;
 export type InvitationOpening = z.infer<typeof invitationOpeningSchema>;
-export type LinkOpening = z.infer<typeof linkOpeningSchema>;
 
 const invitationCommand = z.object({ params: invitationParams, body: commandInputSchema(z.strictObject({})) });
-
-// Auth scopes describe credential transport; the worker checks current authority in the same D1 call.
-export const openLinkRoute = defineRoute({
-  method: "GET", path: "/links/:opaque", auth: "session",
-  input: z.object({ params: z.object({ opaque: linkTokenSchema }) }), output: linkOpeningSchema,
-});
 
 export const getBusinessOverviewRoute = defineRoute({
   method: "GET", path: "/businesses/:b/overview", auth: "context",

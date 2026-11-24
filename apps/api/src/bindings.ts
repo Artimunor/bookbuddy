@@ -9,6 +9,7 @@ export interface Bindings extends AuthBindings {
   EFFECTS: Queue<EffectsWake>;
   SYNC_CURSOR_HMAC_KEY?: string;
   PUBLIC_APP_ORIGIN?: string;
+  EXPO_ACCESS_TOKEN?: string;
 }
 
 export type ApiEnv = {

@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { idSchemaFor } from "./common";
+import {
+  businessEligibilitySchema, businessMemberSchema, businessOverviewSchema, contextChoiceSchema,
+  invitationOpeningSchema, invitationUnavailableSchema,
+} from "./access";
+import { contextIdSchema, idSchemaFor } from "./common";
+import { jobDetailSchema } from "./jobs";
+import { placeDetailsSchema } from "./places";
+import { defineRoute } from "./route";
+import { coverViewSchema, workerAssignmentOfferSchema } from "./staffing";
 
 export const opaqueLinkRoute = "/l/:token";
 export const linkTokenSchema = idSchemaFor<"link_token">();
@@ -34,3 +42,31 @@ export function parseOpaqueLink(origin: string, href: string): LinkToken | null 
   const token = linkTokenSchema.safeParse(href.slice(prefix.length));
   return token.success ? token.data : null;
 }
+
+export const linkOpeningSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("invitation"), invitation: invitationOpeningSchema }),
+  z.object({ kind: z.literal("place"), place: placeDetailsSchema }),
+  z.object({ kind: z.literal("business_overview"), business: businessOverviewSchema }),
+  z.object({ kind: z.literal("business_member"), business: businessOverviewSchema.shape.business, member: businessMemberSchema }),
+  z.object({ kind: z.literal("business_eligibility"), eligibility: businessEligibilitySchema }),
+  z.object({ kind: z.literal("job"), record: jobDetailSchema }),
+  z.object({ kind: z.literal("cover"), cover: coverViewSchema }),
+  z.object({ kind: z.literal("assignment_offer"), offer: workerAssignmentOfferSchema }),
+  z.strictObject({
+    kind: z.literal("switch_context"),
+    targetKind: z.enum(["place", "business", "invitation", "job", "shift", "offer", "conversation", "update"]),
+    activeContextId: contextIdSchema.nullable(),
+    choices: z.array(contextChoiceSchema).min(1),
+  }),
+  invitationUnavailableSchema.extend({
+    kind: z.literal("unavailable"),
+    reason: z.enum([...invitationUnavailableSchema.shape.reason.options, "pending"]),
+  }),
+]);
+export type LinkOpening = z.infer<typeof linkOpeningSchema>;
+
+// The worker checks recipient, scope and the opening projection in one read.
+export const openLinkRoute = defineRoute({
+  method: "GET", path: "/links/:opaque", auth: "session",
+  input: z.object({ params: z.object({ opaque: linkTokenSchema }) }), output: linkOpeningSchema,
+});

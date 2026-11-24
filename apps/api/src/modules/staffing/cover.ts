@@ -255,10 +255,13 @@ function foremanCover(g: string, scope: string) {
       'canConfirm', ${bool(`${holdAlive(g)} AND ${vacant(g)} AND EXISTS (SELECT 1 FROM holder h WHERE ${fitToCover("h", g)})`)})) FROM dispatches)`;
 }
 
-function view(g: string, scope: string, exact = "1", workerOnly = false) {
-  const worker = `(SELECT json_object('audience', 'worker', 'offer', json(offer))
+function workerView(g: string, scope: string, exact?: string) {
+  return `(SELECT json_object('audience', 'worker', 'offer', json(offer))
     FROM (SELECT ${workerOffer(g, scope, exact)} AS offer LIMIT 1) WHERE offer IS NOT NULL)`;
-  return workerOnly ? worker : `CASE WHEN ${foremanScope(scope, g)} THEN ${foremanCover(g, scope)} ELSE ${worker} END`;
+}
+
+function view(g: string, scope: string) {
+  return `CASE WHEN ${foremanScope(scope, g)} THEN ${foremanCover(g, scope)} ELSE ${workerView(g, scope)} END`;
 }
 
 export function readCover(session: SessionAccess, now: number, gapId: string): CommandStatement {
@@ -266,17 +269,17 @@ export function readCover(session: SessionAccess, now: number, gapId: string): C
     FROM live_scope scope CROSS JOIN (${target("g.id = ?")}) g) AS value FROM acting_session`, gapId);
 }
 
-function linkProjection(gap: string, scope: string, exact = "1", workerOnly = false) {
+function linkProjection(gap: string, projection: string) {
   return `(SELECT json_object('kind', 'cover', 'cover', json(value)) FROM (
-    SELECT ${view("g", scope, exact, workerOnly)} AS value FROM (${target(`g.id = ${gap}`)}) g LIMIT 1
+    SELECT ${projection} AS value FROM (${target(`g.id = ${gap}`)}) g LIMIT 1
   ) WHERE value IS NOT NULL)`;
 }
 
 export const coverLinkResolver = {
   cover: { targetKind: "shift", project: (resource: string, scope: string) =>
-    `CASE WHEN ${scope}.role = 'foreman' THEN ${linkProjection(resource, scope)} END` },
+    linkProjection(resource, `CASE WHEN ${foremanScope(scope, "g")} THEN ${foremanCover("g", scope)} END`) },
   cover_offer: { targetKind: "offer", project: (resource: string, scope: string) =>
-    linkProjection(`(SELECT gap_id FROM cover_offers WHERE id = ${resource})`, scope, `o.id = ${resource}`, true) },
+    linkProjection(`(SELECT gap_id FROM cover_offers WHERE id = ${resource})`, workerView("g", scope, `o.id = ${resource}`)) },
 } as const;
 
 function coverAudience(scope: string, g: string) {

@@ -13,12 +13,14 @@ import type { RequestScope } from "../../db/scope";
 import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { decodeJobRows, projectJobsBusinessOverview, readJobsBusinessOverview } from "../jobs/read";
+import { decodeLink, readLink } from "../links";
+import type { LinkRow } from "../links";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import { decodeBusinessEligibility, decodeBusinessPeople, readBusinessEligibility, readBusinessPeople } from "./businesses";
 import { decideInvitation, issueBusinessInvitation, reissueInvitation, revokeBusinessRole, withdrawInvitation } from "./commands";
 import type { AccessCommandResult } from "./commands";
 import { decodeManagedInvitation, decodeOpening, readInvitation } from "./invitations";
-import { decodeLink, readLink } from "./links";
+import "./links";
 import { invitationMailKeys } from "./mail";
 import { accessClock } from "./policy";
 
@@ -36,11 +38,12 @@ accessRoutes.get(openLinkRoute.path, async (c) => {
   const authorized = await authorize(c);
   if (!authorized) return transportFailure(c, "UNAUTHENTICATED");
   const { ctx, access } = authorized;
-  const link = await readLink(access, input.data.params.opaque);
+  const statements = await readLink(access, input.data.params.opaque);
   const row = await commitCommand(ctx, prepareCommand(ctx, {
-    statements: [link], decode: ([result]) => result?.results[0] as { invitation: string | null; scoped: string | null } | undefined,
+    statements,
+    decode: (results) => results.find(({ results }) => results.length)?.results[0] as LinkRow | undefined,
   }));
-  return row ? transportSuccess(c, decodeLink(row), ctx.now) : transportFailure(c, "UNAUTHENTICATED");
+  return row ? transportSuccess(c, decodeLink(row, ctx.now), ctx.now) : transportFailure(c, "UNAUTHENTICATED");
 });
 
 accessRoutes.get(getInvitationRoute.path, async (c) => {

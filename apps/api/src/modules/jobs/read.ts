@@ -78,12 +78,13 @@ const proposalPacket = `json_object('id', offered.id, 'proposedAt', offered.prop
   'by', (SELECT ${displayName("a")} FROM accounts a WHERE a.id = offered.proposed_by))`;
 const jobFrom = `JOIN places p ON p.id = j.place_id JOIN businesses b ON b.id = j.business_id
   JOIN operating_areas area ON area.id = b.catchment_id JOIN accounts customer ON customer.id = j.requester_id`;
-const todayVisits = jsonRows(visitJson("v", "w"), `FROM visits v JOIN visit_windows w ON w.visit_id = v.id AND w.state = 'confirmed'
+const todayVisits = (linked: boolean) => jsonRows(visitJson("v", "w"), `FROM visits v JOIN visit_windows w ON w.visit_id = v.id AND w.state = 'confirmed'
   WHERE v.job_id = j.id AND v.state IN ('booked', 'finished') AND w.confirmed_at <= ${at}
-    AND w.starts_at < ${at} + ${visitDayMargin} AND w.ends_at > ${at} - ${visitDayMargin}
+    AND (${linked ? "v.id = (SELECT visit_id FROM input) OR ((SELECT visit_id FROM input) IS NULL AND " : ""}
+      (w.starts_at < ${at} + ${visitDayMargin} AND w.ends_at > ${at} - ${visitDayMargin})${linked ? ")" : ""})
   ORDER BY v.state = 'finished', w.starts_at, v.id LIMIT ${pageSize}`);
 
-function jobPacket(mode: ReadMode): string {
+function jobPacket(mode: ReadMode, linked = false): string {
   const detail = mode === "whole" || mode === "today";
   return `json_object(${headingSql("j", placeZone)}, ${journeySql("j", at)},
     'position', ${position("j")}, 'revision', j.revision, 'place', json_object('placeId', p.id, 'alias', p.alias),
@@ -99,7 +100,7 @@ function jobPacket(mode: ReadMode): string {
     'writeQuote', j.write_quote,
     'openChange', s.role = 'foreman' AND EXISTS (SELECT 1 FROM change_versions ch
       WHERE ch.job_id = j.id AND ch.state = 'issued' AND ch.issued_at <= ${at} AND ch.expires_at > ${at})
-    ${detail ? `, 'today', json(${todayVisits}),
+    ${detail ? `, 'today', json(${todayVisits(linked)}),
       'review', json(CASE WHEN s.role = 'provider_admin' AND j.state = 'open' THEN (
         SELECT json_object('kind', candidate.kind, 'versionId', candidate.version_id, 'version', candidate.no,
           'submitted', json_object('at', candidate.submitted_at, 'by', ${displayName("author")}))
@@ -173,8 +174,9 @@ const readScope = `reader AS MATERIALIZED (
 
 function read(access: SessionAccess, mode: ReadMode, options: {
   placeId?: string; id?: string; businessId?: string; segment?: Segment; position?: Position;
+  link?: { job: string; visit: string };
 } = {}): CommandStatement {
-  const { placeId = null, id = null, businessId = null, segment = "active", position: cursor = { rank: -1, time: 0, id: "" } } = options;
+  const { placeId = null, id = null, businessId = null, segment = "active", position: cursor = { rank: -1, time: 0, id: "" }, link } = options;
   const detail = mode === "whole" || mode === "today" || mode === "intake";
   const history = mode === "home" || mode === "whole";
   const isOverview = mode === "home" || mode === "overview";
@@ -194,9 +196,12 @@ function read(access: SessionAccess, mode: ReadMode, options: {
         ORDER BY decision_at, id LIMIT ${pageSize})
       UNION SELECT id FROM (SELECT id FROM sorted_jobs WHERE state = 'open' AND write_quote ORDER BY submitted_at, id LIMIT ${pageSize})` : ""}
     ) ORDER BY ${ordered}`;
+  const input = link
+    ? `SELECT NULL, ${link.job}, NULL, -1, 0, '', ${link.visit}`
+    : "VALUES (?, ?, ?, ?, ?, ?, NULL)";
 
   return scopedStatement(access, `,
-    input(place_id, job_id, business_id, rank, time, cursor_id) AS (VALUES (?, ?, ?, ?, ?, ?)),
+    input(place_id, job_id, business_id, rank, time, cursor_id, visit_id) AS (${input}),
     job_places AS MATERIALIZED (${customerPlaces("live_scope", at)}), ${readScope},
     visible_jobs AS MATERIALIZED (SELECT j.* FROM (${scopedJobIds("reader", "job_places", at, jobFilter)}) k JOIN jobs j ON j.id = k.resource_id),
     intake AS MATERIALIZED (
@@ -207,7 +212,9 @@ function read(access: SessionAccess, mode: ReadMode, options: {
     review_deadlines AS (SELECT job_id, min(due_at) AS due_at FROM pending_reviews GROUP BY job_id),
     job_keys AS MATERIALIZED (
       SELECT j.*, s.role AS audience, r.submitted_at,
-        (${nextVisitId("j", at)}) AS window_id,
+        ${link ? `CASE WHEN (SELECT visit_id FROM input) IS NOT NULL THEN (SELECT id FROM visit_windows w
+          WHERE w.visit_id = (SELECT visit_id FROM input) AND w.state = 'confirmed') ELSE (${nextVisitId("j", at)}) END`
+          : `(${nextVisitId("j", at)})`} AS window_id,
         CASE WHEN s.role = 'customer' THEN (${latestQuote}) END AS quote_id,
         CASE WHEN s.role = 'customer' THEN (${latestChange}) END AS change_id,
         CASE WHEN s.role = 'customer' AND j.state = 'open' THEN (${nextProposal}) END AS proposal_id,
@@ -246,7 +253,7 @@ function read(access: SessionAccess, mode: ReadMode, options: {
       'unreadCount', (SELECT count(*) FROM notifications n WHERE n.context_id = s.context_id AND n.read_at IS NULL),
       'offers', json(${mode === "home" ? `CASE WHEN s.role = 'worker'
         THEN ${workerHomeOffers("s.membership_id", "s.business_id")} ELSE '[]' END` : "'[]'"}),
-      'jobs', json(${mode === "intake" ? "'[]'" : jsonRows(jobPacket(mode), `FROM (${selected}) j ${jobRowFrom} ORDER BY j.rank, j.time, j.id`)}),
+      'jobs', json(${mode === "intake" ? "'[]'" : jsonRows(jobPacket(mode, !!link), `FROM (${selected}) j ${jobRowFrom} ORDER BY j.rank, j.time, j.id`)}),
       'incoming', json(${intakeFilter === "0" ? "'[]'" : jsonRows(intakePacket(mode === "intake"),
         `FROM intake k ${intakeRowFrom} ${mode === "intake" ? "JOIN requests r ON r.job_id = j.id" : ""}
           WHERE ${mode === "list" ? segment === "incoming" ? after("k") : "0" : "1"}
@@ -260,7 +267,8 @@ function read(access: SessionAccess, mode: ReadMode, options: {
       'history', json(${history ? `CASE WHEN s.role = 'customer' THEN ${jsonRows(historyPacket,
         `FROM history e LEFT JOIN accounts a ON a.id = e.actor_id WHERE ${after("e")} ORDER BY e.time, e.id LIMIT ${pageSize + 1}`)} ELSE '[]' END` : "'[]'"}),
       'overview', json(${isOverview ? `CASE WHEN s.role = 'provider_admin' THEN ${overviewPacket} END` : "null"})
-    ) FROM reader s) AS value FROM acting_session`, placeId, id, businessId, cursor.rank, cursor.time, cursor.id);
+    ) FROM reader s${link ? " WHERE EXISTS (SELECT 1 FROM visible_jobs)" : ""}) AS value FROM acting_session`,
+  ...(link ? [] : [placeId, id, businessId, cursor.rank, cursor.time, cursor.id]));
 }
 
 export const readHome = (access: SessionAccess, placeId?: string) => read(access, "home", { placeId });
@@ -268,6 +276,16 @@ export const readJobs = (access: SessionAccess, segment: Segment, position: Posi
   read(access, "list", { segment, position, placeId });
 export const readJob = (access: SessionAccess, id: string, view: View, position: Position) =>
   read(access, view, { id, position });
+
+// Compose the regular authorized record read into the opaque-token statement.
+// Only trusted SQL expressions reach here; user-supplied tokens remain bound.
+export function projectJobLinkSql(job: string, scope: string, visit: string): string {
+  return `(SELECT value FROM (${read({
+    sql: `WITH live_scope AS (SELECT ${scope}.account_id AS account_id, ${scope}.context_id AS context_id,
+      ${scope}.role AS role, ${scope}.business_id AS business_id), acting_session AS (SELECT 1)`,
+    params: [],
+  }, "whole", { link: { job, visit } }).sql}))`;
+}
 export const readJobsBusinessOverview = (access: SessionAccess, businessId: string) =>
   read(access, "overview", { businessId });
 
@@ -441,7 +459,7 @@ export function projectJobs(rows: ReadRows, segment: Segment, now: number) {
   }
 }
 
-export function projectJob(rows: ReadRows, view: View, now: number) {
+export function projectJob(rows: ReadRows, view: View, now: number, exactVisit = false) {
   const { audience } = rows;
   if (view === "intake") {
     const row = rows.incoming[0];
@@ -450,8 +468,8 @@ export function projectJob(rows: ReadRows, view: View, now: number) {
   }
   const job = rows.jobs[0];
   if (!job) return null;
-  const today = job.state === "cancelled" ? undefined : job.today?.find((visit) => isLive(visit, now))
-    ?? job.today?.find((visit) => onSiteDay(visit, job.siteZone, now));
+  const today = job.state === "cancelled" ? undefined : exactVisit ? job.today?.[0]
+    : job.today?.find((visit) => isLive(visit, now)) ?? job.today?.find((visit) => onSiteDay(visit, job.siteZone, now));
   switch (audience) {
     case "customer": {
       const { quote, change } = job;
