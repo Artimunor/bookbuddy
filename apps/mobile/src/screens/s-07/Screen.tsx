@@ -1,5 +1,5 @@
-import { linkTokenSchema, openLinkRoute, sessionContextRoute, type SessionBootstrap } from "@bookbuddy/api-contract";
-import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { jobIdSchema, linkTokenSchema, openLinkRoute, sessionContextRoute, type SessionBootstrap } from "@bookbuddy/api-contract";
+import { Redirect, Stack, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useRef, useState } from "react";
 import { View } from "react-native";
 import { useCommand, useRemote } from "../../api";
@@ -17,9 +17,21 @@ type SwitchState = "switching" | "checking" | "failed" | "local";
 const sheetPresentation = { presentation: "transparentModal", animation: "none", gestureEnabled: false,
   contentStyle: { backgroundColor: "transparent" } } as const;
 
+function roleDestination(role: RoleChoice["role"], jobId?: string): Href {
+  if (!jobId) return roleRoots[role];
+  const params = { jobId, fromSwitch: "1" };
+  // Each destination's existing scoped job read decides whether the record is still visible.
+  switch (role) {
+    case "customer": return { pathname: "/c/jobs/[jobId]", params };
+    case "foreman": return { pathname: "/f/jobs/[jobId]", params };
+    case "provider_admin": return { pathname: "/p/jobs", params };
+    case "worker": return roleRoots.worker;
+  }
+}
+
 export default function SwitchRoleScreen() {
   const router = useRouter();
-  const { opaque: link } = useLocalSearchParams<{ opaque?: string }>();
+  const { opaque: link, jobId: record } = useLocalSearchParams<{ opaque?: string; jobId?: string }>();
   const parsed = linkTokenSchema.safeParse(link);
   const opaque = parsed.success ? parsed.data : undefined;
   const t = useT();
@@ -67,7 +79,7 @@ export default function SwitchRoleScreen() {
       await acceptBootstrap(confirmed.current);
       if (router.canDismiss()) router.dismissAll();
       if (opaque) router.replace({ pathname: "/l/[opaque]", params: { opaque } });
-      else router.replace(roleRoots[choice.role]);
+      else router.replace(roleDestination(choice.role, jobIdSchema.safeParse(record).data));
     } catch { setState(confirmed.current ? "local" : "checking"); }
     finally { inFlight.current = false; }
   }

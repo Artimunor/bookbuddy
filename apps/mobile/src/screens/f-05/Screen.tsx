@@ -1,7 +1,7 @@
 import { finishVisitWorkRoute, getJobRoute, getVisitLiveRoute, startVisitWorkRoute, type ForemanVisitControl, type JobDetail } from "@bookbuddy/api-contract";
 import { formatSiteDateTime, JOURNEY_STEPS, type ClockParts, type SiteDateTime } from "@bookbuddy/domain";
 import { uuid } from "expo";
-import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { View } from "react-native";
 import { useCommand, useRemote } from "../../api";
@@ -27,12 +27,12 @@ export function clockTime(time: number, zone: string, locale: string): string {
 }
 type ViewMode = "today" | "whole";
 export default function JobControlScreen() {
-  const { jobId } = useLocalSearchParams<{ jobId: string }>();
+  const { jobId, fromSwitch } = useLocalSearchParams<{ jobId: string; fromSwitch?: string }>();
   const { session } = useSession();
-  return <JobControlRoute key={`${session?.sessionId}:${session?.activeContext?.contextId}:${jobId}`} jobId={jobId} />;
+  return <JobControlRoute key={`${session?.sessionId}:${session?.activeContext?.contextId}:${jobId}`} jobId={jobId} fromSwitch={fromSwitch === "1"} />;
 }
 
-function JobControlRoute({ jobId }: { jobId: string }) {
+function JobControlRoute({ jobId, fromSwitch }: { jobId: string; fromSwitch: boolean }) {
   const router = useRouter(); const { bootstrap, session } = useSession(); const t = useT();
   const format = useFormat();
   const [viewOverride, setView] = useState<ViewMode>();
@@ -69,6 +69,7 @@ function JobControlRoute({ jobId }: { jobId: string }) {
     const label = kind === "start" ? t("mobile.jobControl.start") : t("mobile.jobControl.finish");
     confirmAction(router, { title: label, actionLabel: label, actionLabelKey: kind === "start" ? "mobile.jobControl.start" : "mobile.jobControl.finish", item: job.reference, actor: bootstrap?.account.displayName ?? "", role: session?.activeContext?.businessName ?? "", effects: [t("mobile.jobControl.workEffect")], onReview: () => {}, onConfirm: async () => { const result = await command.run({ params: { id: visit.visitId }, body: { expectedRevision: visit.revision, payload: { id: uuid.v4(), bookedWindowId: visit.window.id } } }); if (result.ok) { await visitRead.refresh(); return "confirmed"; } return result.error.code === "INTERNAL_ERROR" || ("delivery" in result.error && result.error.delivery === "unknown") ? "uncertain" : "invalidated"; } });
   }
+  if (fromSwitch && jobRead.error?.code === "NOT_FOUND") return <Redirect href="/f/now" />;
   return <JobControlView job={job} visit={visit} viewMode={view} onView={setView} status={jobRead.status} visitStatus={visitRead.status} busy={busy}
     checking={start.state === "checking" || finish.state === "checking"} failed={[start.state, finish.state].some(s => s === "failed" || s === "conflict")}
     payee={active?.businessName} canSwitchToProvider={canSwitchToProvider}
@@ -152,7 +153,7 @@ export function JobControlView({ job, visit, status, visitStatus, busy, checking
           </View>
         </Card>
         <BillCard bill={bill} payee={payee} sent={billSent} paid={paid} siteZone={job.siteZone} ready={status === "ready"} canSwitchToProvider={canSwitchToProvider}
-          onSwitch={() => onNavigate("/switch-role")} />
+          onSwitch={() => onNavigate(`/switch-role?jobId=${encodeURIComponent(job.jobId)}`)} />
         <Card>
           <VersionRow kind="quote" version={job.quote} root={root} history={job.history?.items} onNavigate={onNavigate} siteZone={job.siteZone} />
           {job.change && <VersionRow kind="change" version={job.change} root={root} history={job.history?.items} onNavigate={onNavigate} siteZone={job.siteZone} />}

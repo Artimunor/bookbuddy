@@ -1,7 +1,7 @@
 import { getJobRoute, getJobsRoute, idSchema, issueBillRoute, offerJobHandoffRoute, recordPaidRoute, withdrawJobHandoffRoute, type RouteResponse } from "@bookbuddy/api-contract";
 import { uuid } from "expo";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCommand, useRemote } from "../../api";
 import { useLocale, useT } from "../../i18n";
 import { Badge, BookingCard, Button, Card, ListRow, SegmentedControl, SwitchRow, TextField } from "../../ui/controls";
@@ -95,17 +95,17 @@ function RecordPayment({ bill, actor, ready, onChanged }: { bill: UnpaidBill; ac
 }
 
 export default function ProviderJobsScreen() {
-  const params = useLocalSearchParams<{ jobId?: string; segment?: string; reviewKind?: string; reviewVersionId?: string }>();
+  const params = useLocalSearchParams<{ jobId?: string; segment?: string; reviewKind?: string; reviewVersionId?: string; fromSwitch?: string }>();
   const router = useRouter();
   if (params.jobId && params.reviewVersionId && (params.reviewKind === "quote" || params.reviewKind === "change")) {
     return <CommercialReview key={`${params.jobId}:${params.reviewKind}:${params.reviewVersionId}`}
       target={{ jobId: params.jobId, kind: params.reviewKind, versionId: params.reviewVersionId }}
       onClose={() => router.canGoBack() ? router.back() : router.replace("/you")} onChanged={() => {}} />;
   }
-  return <ProviderJobs jobId={params.jobId} initialSegment={params.segment} />;
+  return <ProviderJobs jobId={params.jobId} initialSegment={params.segment} fromSwitch={params.fromSwitch === "1"} />;
 }
 
-function ProviderJobs({ jobId, initialSegment }: { jobId?: string; initialSegment?: string }) {
+function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; initialSegment?: string; fromSwitch: boolean }) {
   const router = useRouter(); const t = useT(); const format = useFormat(); const labels = useProviderLabels(); const { actor } = useProvider();
   const [segment, setSegment] = useState<Segment>(initialSegment === "needs_you" ? "needs_you" : jobId ? "active" : "needs_you");
   const [selected, setSelected] = useState<string | null>(jobId ?? null); const [recipient, setRecipient] = useState<string | null>(null); const [urgentCalled, setUrgentCalled] = useState(false);
@@ -119,6 +119,13 @@ function ProviderJobs({ jobId, initialSegment }: { jobId?: string; initialSegmen
   }, [jobId, initialSegment]);
   const jobs = useRemote(getJobsRoute, { query: { segment, ...(cursors.at(-1) ? { cursor: cursors.at(-1) } : {}) } });
   const detail = useRemote(getJobRoute, { params: { j: selected ?? "" }, query: { view: "whole" } }, { enabled: !!selected });
+  useFocusEffect(useCallback(() => {
+    if (!fromSwitch || selected !== jobId || detail.error?.code !== "NOT_FOUND") return;
+    // This tab stays mounted when navigating to Now; do not reopen the denied record.
+    setSelected(null);
+    router.setParams({ jobId: undefined, fromSwitch: undefined });
+    router.replace("/p/now");
+  }, [detail.error?.code, fromSwitch, jobId, router, selected]));
   const offer = useCommand(offerJobHandoffRoute); const withdraw = useCommand(withdrawJobHandoffRoute);
   const page = jobs.data?.audience === "provider_admin" ? jobs.data : null;
   const job = detail.data?.audience === "provider_admin" && detail.data.job.view === "whole" ? detail.data.job : null;

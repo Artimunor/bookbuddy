@@ -51,15 +51,16 @@ function momentPath(jobId: string, item: Moment): string | null {
 }
 
 export default function JobHomeScreen() {
-  const { jobId, view: requestedView } = useLocalSearchParams<{ jobId: string; view?: string }>();
+  const { jobId, view: requestedView, fromSwitch } = useLocalSearchParams<{ jobId: string; view?: string; fromSwitch?: string }>();
   const router = useRouter();
   const { preferences } = useSession();
   const [view, setView] = useState<"today" | "whole">(requestedView === "whole" ? "whole" : "today");
   useEffect(() => { setView(requestedView === "whole" ? "whole" : "today"); }, [requestedView]);
   const remote = useRemote(getJobRoute, { params: { j: jobId ?? "" }, query: { view: "whole" } }, { enabled: !!jobId });
   useEffect(() => {
-    if (remote.error?.code === "NOT_FOUND" || remote.error?.code === "UNAUTHENTICATED") router.replace("/help?reason=removed" as Href);
-  }, [remote.error, router]);
+    if (remote.error?.code === "NOT_FOUND") router.replace(fromSwitch === "1" ? "/c/now" : "/help?reason=removed" as Href);
+    if (remote.error?.code === "UNAUTHENTICATED") router.replace("/help?reason=removed" as Href);
+  }, [fromSwitch, remote.error, router]);
   const job = remote.data?.audience === "customer" && remote.data.job.view === "whole" ? remote.data.job : null;
   const lastVisit = useRef<{ jobId: string; visitId: string } | null>(null);
   if (job?.hasTodayView && job.nextVisit) lastVisit.current = { jobId: job.jobId, visitId: job.nextVisit.visitId };

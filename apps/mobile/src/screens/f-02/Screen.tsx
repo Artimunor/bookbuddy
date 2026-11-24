@@ -83,7 +83,7 @@ export function JobsView({ data, items = data?.list.items ?? [], cached, lastCon
       accessibilityLabel={[live.reference, visitLabel(t, live.visit.status), liveTime].filter(Boolean).join(", ")} onPress={() => onNavigate(`/f/jobs/${live.jobId}`)} />
   </View>;
   return <Screen title={t("mobile.foremanHome.jobs")} scroll={false} dock={livePill}
-    identity={<IdentityChip name={name || t("mobile.foremanHome.foreman")} initials={name.split(/\s+/).map(x => x[0]).join("").slice(0,2)} context={[t("mobile.foremanHome.foreman"), data?.businessName].filter(Boolean).join(" · ")} accessibilityLabel={t("mobile.foremanHome.profile")} onPress={() => onNavigate("/profile")} />}
+    identity={<IdentityChip name={name || t("mobile.foremanHome.foreman")} initials={name.split(/\s+/).map(x => x[0]).join("").slice(0,2)} context={[t("mobile.foremanHome.foreman"), data?.businessName].filter(Boolean).join(" · ")} accessibilityLabel={t("mobile.foremanHome.profile")} onPress={() => onNavigate("/you")} />}
     bell={<Button variant="quiet" label={t("mobile.foremanHome.bell", { count: data?.unreadCount ?? 0 })} onPress={() => onNavigate("/notifications")} />}>
     <View style={{ paddingHorizontal: space.contentInset, paddingTop: space.contentInset, gap }}>
       {data && <Copy variant="supporting">{data.businessName} · {data.siteZone}</Copy>}
