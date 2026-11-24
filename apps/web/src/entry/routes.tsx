@@ -1,6 +1,10 @@
 import { enabledLocales, type LocaleTag } from "@bookbuddy/i18n/locales";
 import { useEffect } from "react";
 import { Outlet, useLoaderData, type RouteObject } from "react-router";
+import { Now } from "../portal/now";
+import { Bookings } from "../portal/bookings";
+import { JobHome } from "../portal/jobs";
+import { Quote } from "../portal/quote";
 import { publicPaths } from "./public-paths";
 
 type WebLocale = (typeof enabledLocales)[number];
@@ -54,8 +58,11 @@ export const routes: RouteObject[] = [
         id: "portal-protected",
         lazy: async () => ({ Component: (await import("../portal/session")).ProtectedPortal }),
         children: [
-          "now",
-          "bookings",
+          { path: "now", caseSensitive: true, Component: Now },
+          { path: "bookings", caseSensitive: true, Component: Bookings },
+          { path: "jobs/:id", caseSensitive: true, Component: JobHome },
+          { path: "jobs/:id/quote/:version", caseSensitive: true, Component: Quote },
+          ...[
           "new/describe",
           "new/place",
           "new/review",
@@ -65,9 +72,7 @@ export const routes: RouteObject[] = [
           "messages",
           "messages/:id",
           "notifications",
-          "jobs/:id",
           "jobs/:id/live",
-          "jobs/:id/quote/:version",
           "jobs/:id/windows",
           "jobs/:id/completion",
           "jobs/:id/bill",
@@ -76,7 +81,8 @@ export const routes: RouteObject[] = [
           "jobs/:id/cases/:caseId",
           "jobs/:id/cancel",
           "jobs/:id/withdrawal",
-        ].map(pendingPortalRoute),
+          ].map(pendingPortalRoute),
+        ],
       },
     ],
   },
