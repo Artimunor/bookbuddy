@@ -1,12 +1,13 @@
-import type { BusinessSchedule, CrewAvailability, ShiftAgenda } from "@bookbuddy/api-contract";
+import type { BusinessSchedule, CrewAvailability } from "@bookbuddy/api-contract";
 import type { CommandStatement } from "../../db/commit";
-import { accessClock, at, displayName, scopedStatement } from "../access/policy";
+import { at, displayName, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { confirmedAssignments, weekBounds } from "./availability";
 import { calendarDay, calendarWeek, intersect, localDate, mergeSpans } from "./calendar";
 import type { Span } from "./calendar";
 import {
   approvedQuoteJoin, capacity, confirmationMode, confirmedWindow, customer, eligibleWorkers, foreman, jobOpen, namedApprover,
-  noWithdrawal, provider, scheduleAccess, targetId, unstarted, visitManager, workerContext,
+  noWithdrawal, provider, scheduleAccess, unstarted, visitManager,
 } from "./policy";
 
 const bool = (predicate: string) => `json(CASE WHEN ${predicate} THEN 'true' ELSE 'false' END)`;
@@ -20,10 +21,18 @@ export function visitJson(j: string, v: string, booked: string, scope: string) {
   const mayManage = `(${visitManager(scope)} AND ${unstarted(v, booked)})`;
   const activeRequest = `EXISTS (SELECT 1 FROM reschedule_requests pending WHERE pending.visit_id = ${v}.id
     AND pending.state IN ('requested', 'proposed') AND pending.reply_by > ${at})`;
+  const needsCrew = `EXISTS (SELECT 1 FROM shifts sh JOIN shift_slots slot ON slot.shift_id = sh.id
+    WHERE sh.visit_id = ${v}.id AND sh.state = 'planned' AND NOT EXISTS (
+      SELECT 1 FROM assignments a JOIN memberships m ON m.id = a.worker_membership_id
+      JOIN accounts worker ON worker.id = m.account_id AND worker.state = 'active'
+      WHERE a.slot_id = slot.id AND a.state = 'confirmed' AND a.confirmed_at <= ${at}
+        AND m.state = 'active' AND m.business_id = ${j}.business_id
+        AND EXISTS (SELECT 1 FROM membership_roles mr WHERE mr.membership_id = m.id AND mr.role = 'worker'
+          AND mr.revoked_at IS NULL AND mr.granted_at <= ${at})))`;
   return `json_object('id', ${v}.id, 'kind', ${v}.kind, 'state', ${v}.state, 'revision', ${v}.revision,
     'bookedWindow', json(CASE WHEN ${booked}.id IS NOT NULL THEN json_object('id', ${booked}.id,
       'startsAt', ${booked}.starts_at, 'endsAt', ${booked}.ends_at, 'confirmedAt', ${booked}.confirmed_at,
-      'crewAvailability', CASE WHEN ${v}.state = 'booked' AND ${booked}.starts_at > ${at}
+      'crewAvailability', CASE WHEN ${v}.state = 'booked' AND ${booked}.starts_at > ${at} AND ${needsCrew}
         AND NOT ${capacity(j, `${v}.id`, `${booked}.starts_at`, `${booked}.ends_at`)}
         THEN 'no_crew_available' ELSE 'as_agreed' END) END),
     'offeredWindows', json(${jsonArray(`SELECT json_object('id', w.id, 'startsAt', w.starts_at, 'endsAt', w.ends_at,
@@ -71,13 +80,15 @@ export function projectJobWindows(value: unknown, now: number) {
 }
 
 function lanesJson(now: string) {
+  const bounds = weekBounds(now, "(SELECT day FROM week_input)");
   return jsonArray(`SELECT json_object('membershipId', crew.id, 'displayName', ${displayName("a")},
       'eligibleUntil', crew.eligible_until, 'intervals', json(${jsonArray(`SELECT json_object('startsAt', p.starts_at,
-        'endsAt', p.ends_at, 'kind', p.kind) AS value FROM availability_intervals p CROSS JOIN week_input
-        WHERE p.membership_id = crew.id AND p.starts_at IS NOT NULL
-          AND p.starts_at < 1000 * unixepoch(coalesce(week_input.day, date(${now} / 1000, 'unixepoch')), '+8 day')
-          AND p.ends_at > 1000 * unixepoch(coalesce(week_input.day, date(${now} / 1000, 'unixepoch')), '-8 day')
-        ORDER BY p.starts_at, p.id`)})) AS value
+        'endsAt', p.ends_at, 'kind', p.kind) AS value FROM availability_intervals p
+        WHERE p.membership_id = crew.id AND p.recorded_at <= ${now} AND p.starts_at IS NOT NULL
+          AND p.starts_at < ${bounds.end} AND p.ends_at > ${bounds.start}
+        ORDER BY p.starts_at, p.id`)}), 'busy', json(${jsonArray(`SELECT json_object('startsAt', work.starts_at,
+        'endsAt', work.ends_at) AS value ${confirmedAssignments("crew.id", "j.business_id", now)}
+        AND work.starts_at < ${bounds.end} AND work.ends_at > ${bounds.start} ORDER BY work.starts_at, work.id`)})) AS value
     FROM (SELECT id, account_id, max(eligible_until) AS eligible_until FROM (${eligibleWorkers("j", at)}) GROUP BY id, account_id) crew
     JOIN accounts a ON a.id = crew.account_id ORDER BY a.display_name, crew.id`);
 }
@@ -97,7 +108,7 @@ export function readBusinessSchedule(session: SessionAccess, now: number, busine
 }
 
 type Lane = { membershipId: CrewAvailability["membershipId"]; displayName: string; eligibleUntil: number;
-  intervals: (Span & { kind: "available" | "unavailable" | "duty" })[] };
+  intervals: (Span & { kind: "available" | "unavailable" | "duty" })[]; busy: Span[] };
 
 function availableSpans(lane: Lane, period: Span): Span[] {
   const bounds = { startsAt: period.startsAt, endsAt: Math.min(period.endsAt, lane.eligibleUntil) };
@@ -116,38 +127,14 @@ function availableSpans(lane: Lane, period: Span): Span[] {
 export function projectBusinessSchedule(value: unknown, now: number, weekOf: string | null) {
   const { lanes, ...result } = value as { siteZone: string; lanes: Lane[] | null };
   const capacity: BusinessSchedule["capacity"] = lanes === null ? { state: "unavailable" } : {
-    state: "ready", days: calendarWeek(result.siteZone, now, weekOf).map(({ date, toUtc }) => ({
-      date, lanes: lanes.map((lane) => ({
+    state: "ready", days: calendarWeek(result.siteZone, now, weekOf).map(({ date, toUtc }) => {
+      const bounds = toUtc(0, calendarDay);
+      return { date, lanes: lanes.map((lane) => ({
         membershipId: lane.membershipId, displayName: lane.displayName,
-        available: mergeSpans(toUtc(0, calendarDay).flatMap((period) => availableSpans(lane, period))),
-        // Until staffing has named assignments, unallocated slots count against
-        // pooled capacity on issue/confirm but cannot be attributed to a lane.
-        busy: [],
-      })),
-    })),
+        available: mergeSpans(bounds.flatMap((period) => availableSpans(lane, period))),
+        busy: mergeSpans(lane.busy.flatMap((span) => bounds.flatMap((period) => intersect(span, period) ?? []))),
+      })) };
+    }),
   };
   return { ...result, capacity };
-}
-
-export function readShift(session: SessionAccess, now: number, shift: string): CommandStatement {
-  const access = scheduleAccess(session, now, { kind: "shift", id: shift });
-  return scopedStatement(access, `SELECT (SELECT json_object('view', 'foreman', 'shift', json_object('id', sh.id,
-    'visitId', v.id, 'job', ${jobJson("j")}, 'startsAt', sh.starts_at, 'endsAt', sh.ends_at,
-    'siteZone', j.site_zone, 'placeAlias', j.alias, 'task', coalesce(nullif(j.trade, ''), j.reference),
-    'skill', sh.skill, 'briefingLanguage', sh.briefing_language, 'state', sh.state),
-    'slots', json(${jsonArray(`SELECT json_object('id', slot.id, 'number', slot.number, 'isLead', ${bool("slot.is_lead = 1")},
-      'assignments', json('[]'), 'pendingOffer', NULL) AS value FROM shift_slots slot WHERE slot.shift_id = sh.id ORDER BY slot.number`)}),
-    'holds', json('[]'), 'customerUpdate', json_object('state', 'not_shared'), 'crewThreadId', NULL,
-    'nextAction', CASE WHEN ${jobOpen()} AND sh.state = 'planned' AND v.state = 'booked' AND sh.starts_at > ${at}
-      AND EXISTS (SELECT 1 FROM shift_slots slot WHERE slot.shift_id = sh.id) THEN 'assign_crew' END)
-    FROM live_scope scope JOIN schedule_job j ON ${foreman("scope")} JOIN visits v ON v.job_id = j.id
-    JOIN shifts sh ON sh.visit_id = v.id AND sh.id = ${targetId}) AS value FROM acting_session`);
-}
-
-// Do not infer a worker's assignment from a booked visit or from availability.
-// Once 0007 is present, both this view and sync must use exact assignment/offer joins.
-export function readShiftAgenda(session: SessionAccess, now: number, segment: ShiftAgenda["segment"]): CommandStatement {
-  const access = accessClock(session, now);
-  const value = JSON.stringify({ segment, rows: [], hasMore: false, cursor: null, ...(segment === "upcoming" ? { total: 0 } : {}) });
-  return scopedStatement(access, `SELECT (SELECT ? FROM live_scope scope WHERE ${workerContext("scope")}) AS value FROM acting_session`, value);
 }

@@ -4,6 +4,7 @@ import { liveContextPredicate } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { placeCapability } from "../places/policy";
 import { customer, foreman, provider } from "./policy";
+import { crewAvailabilityKind, workerAgendaKind } from "./projections";
 
 export function noticeSignals(access: SessionAccess, guard: CommandStatement, kind: string, recipients: string,
   otherChanges?: string) {
@@ -40,4 +41,15 @@ export function jobSignals(access: SessionAccess, guard: CommandStatement, kind:
   const jobChanges = bookingChanged ? `SELECT 'job', j.id, audience.context_id, 'upsert', ${at}
     FROM schedule_audience audience CROSS JOIN schedule_job j WHERE ${readable}` : undefined;
   return noticeSignals(withAudience, guard, kind, recipients, jobChanges);
+}
+
+export function affectedWorkerKeys(access: SessionAccess, visit: string): CommandStatement {
+  return scopedStatement(access, `SELECT kind.value AS kind, m.id AS resource_id, c.id AS partition_key, 'upsert' AS op, ${at} AS at
+    FROM account_contexts c JOIN membership_roles r ON r.id = c.role_grant_id AND r.granted_at <= ${at}
+    JOIN memberships m ON m.id = r.membership_id JOIN schedule_job j ON j.business_id = m.business_id
+    JOIN accounts a ON a.id = m.account_id AND a.state = 'active'
+    CROSS JOIN json_each('["${workerAgendaKind}","${crewAvailabilityKind}"]') kind
+    WHERE c.role = 'worker' AND ${liveContextPredicate} AND EXISTS (
+      SELECT 1 FROM assignments a JOIN shift_slots slot ON slot.id = a.slot_id JOIN shifts sh ON sh.id = slot.shift_id
+      WHERE sh.visit_id = ${visit} AND sh.state = 'planned' AND a.worker_membership_id = m.id AND a.state = 'confirmed')`);
 }

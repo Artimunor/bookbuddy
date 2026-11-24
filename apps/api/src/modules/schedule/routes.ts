@@ -16,8 +16,9 @@ import { boundedBody, scheduleOperationSignals, transportFailure, transportSucce
 import { projectAvailability, projectChangedAvailability, readAvailability } from "./availability";
 import { editAvailability } from "./availability-command";
 import { cancelVisit, confirmWindow, proposeWindows, requestReschedule, withdrawWindow } from "./commands";
-import { projectBusinessSchedule, projectJobWindows, readBusinessSchedule, readJobWindows, readShift, readShiftAgenda } from "./read";
+import { projectBusinessSchedule, projectJobWindows, readBusinessSchedule, readJobWindows } from "./read";
 import type { ScheduleCommandResult } from "./receipts";
+import { agendaPosition, projectShiftAgenda, readShift, readShiftAgenda } from "./shifts";
 
 export const scheduleRoutes = new Hono<ApiEnv>();
 
@@ -71,7 +72,11 @@ get(getJobWindowsRoute, (session, now, { params }) => readJobWindows(session, no
 get(getBusinessScheduleRoute, (session, now, { params, query }) =>
   readBusinessSchedule(session, now, params.b, query.jobId, query.visitId ?? null, query.weekOf ?? null),
 (value, now, { query }) => projectBusinessSchedule(value, now, query.weekOf ?? null));
-get(listShiftsRoute, (session, now, { query }) => query?.cursor ? null : readShiftAgenda(session, now, query?.segment ?? "upcoming"));
+get(listShiftsRoute, (session, now, { query }) => {
+  const segment = query?.segment ?? "upcoming";
+  const cursor = agendaPosition(query?.cursor, segment);
+  return cursor && readShiftAgenda(session, now, segment, cursor);
+}, projectShiftAgenda);
 get(getShiftRoute, (session, now, { params }) => readShift(session, now, params.s));
 get(getCrewAvailabilityRoute, (session, now, { params, query }) => readAvailability(session, now, params.member, query?.weekOf ?? null),
 (value, _now, { query }) => projectAvailability(value, query?.weekOf ?? null));

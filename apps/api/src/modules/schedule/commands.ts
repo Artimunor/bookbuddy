@@ -3,6 +3,7 @@ import type {
 } from "@bookbuddy/api-contract";
 import { DIRECT_RESCHEDULE_NOTICE_MS } from "@bookbuddy/domain";
 import type { CommandStatement } from "../../db/commit";
+import { recordSyncChanges } from "../../db/operations";
 import type { RequestScope } from "../../db/scope";
 import { at, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
@@ -12,7 +13,7 @@ import {
 } from "./policy";
 import { changedVisitJson } from "./read";
 import { scheduleReceipt } from "./receipts";
-import { jobSignals } from "./signals";
+import { affectedWorkerKeys, jobSignals } from "./signals";
 
 type Proposal = RouteResponse<typeof proposeVisitWindowsRoute.input>;
 type Confirmation = RouteResponse<typeof confirmVisitWindowRoute.input>;
@@ -30,6 +31,28 @@ const revisionOf = (expected: number, visitId: string) => ({ expected, sql: `SEL
 const bumpVisit = (access: SessionAccess, guard: CommandStatement, visitId: string) => scopedStatement(access,
   `UPDATE visits SET revision = revision + 1 WHERE id = ${visitId} AND ${guard.sql}`, ...guard.params ?? []);
 const windowUnavailable = { code: "CONFLICT", current: { kind: "window_unavailable" } } as const;
+
+// A worker agreed to the old times, not to a new window. Release those
+// assignments and offers only when the customer actually moves or cancels it.
+function endShiftCommitments(access: SessionAccess, guard: CommandStatement, visitId: string): CommandStatement[] {
+  const pending = guard.params ?? [];
+  const slots = `SELECT slot.id FROM shift_slots slot JOIN shifts sh ON sh.id = slot.shift_id
+    WHERE sh.visit_id = ${visitId} AND sh.state = 'planned'`;
+  const gaps = `SELECT g.id FROM cover_gaps g WHERE g.slot_id IN (${slots}) AND g.state IN ('open', 'accepted_pending_confirmation')`;
+  return [
+    recordSyncChanges(guard, affectedWorkerKeys(access, visitId)),
+    scopedStatement(access, `UPDATE assignments SET state = 'released' WHERE state = 'confirmed' AND slot_id IN (${slots})
+      AND ${guard.sql}`, ...pending),
+    scopedStatement(access, `UPDATE assignment_offers SET state = CASE WHEN expires_at <= ${now} THEN 'expired' ELSE 'withdrawn' END,
+      resolved_at = ${now} WHERE state = 'offered' AND issued_at <= ${now} AND slot_id IN (${slots}) AND ${guard.sql}`, ...pending),
+    scopedStatement(access, `UPDATE cover_rounds SET state = 'closed', ended_at = ${now}
+      WHERE state IN ('open', 'accepted_pending_confirmation') AND gap_id IN (${gaps}) AND opened_at <= ${now} AND ${guard.sql}`, ...pending),
+    scopedStatement(access, `UPDATE cover_dispatches SET state = 'closed', closed_at = ${now}
+      WHERE state = 'open' AND gap_id IN (${gaps}) AND issued_at <= ${now} AND ${guard.sql}`, ...pending),
+    scopedStatement(access, `UPDATE cover_gaps SET state = 'closed', closed_at = ${now}, revision = revision + 1
+      WHERE id IN (${gaps}) AND ${guard.sql}`, ...pending),
+  ];
+}
 
 function retireProposals(access: SessionAccess, guard: CommandStatement, visitId: string) {
   return scopedStatement(access, `UPDATE visit_windows SET state = 'withdrawn'
@@ -100,7 +123,7 @@ export function confirmWindow(ctx: RequestScope, session: SessionAccess, { param
   const { expectedRevision, operationId, payload } = body;
   const access = scheduleAccess(session, ctx.now, { kind: "window", id });
   const confirmed = `SELECT w.visit_id, w.starts_at, w.ends_at, j.trade,
-    (SELECT crew.work_language FROM (${freeWorkers("j", "w.starts_at", "w.ends_at")}) crew
+    (SELECT crew.work_language FROM (${freeWorkers("j", "v.id", "w.starts_at", "w.ends_at")}) crew
       ORDER BY crew.work_language, crew.id LIMIT 1) AS language
     FROM visit_windows w JOIN visits v ON v.id = w.visit_id JOIN schedule_job j ON j.id = v.job_id WHERE w.id = ${targetId}`;
   return scheduleReceipt(ctx, access, {
@@ -123,6 +146,13 @@ export function confirmWindow(ctx: RequestScope, session: SessionAccess, { param
         scopedStatement(access, `UPDATE reschedule_requests SET state = CASE WHEN id = (
           SELECT reschedule_request_id FROM visit_windows WHERE id = ${targetId}) THEN 'accepted' ELSE 'withdrawn' END
           WHERE visit_id = ${visitForWindow} AND state IN ('requested', 'proposed') AND ${guard.sql}`, ...pending),
+        ...endShiftCommitments(access, guard, visitForWindow),
+        // Preserve the original times for any already issued offer or assignment.
+        scopedStatement(access, `UPDATE shifts AS sh SET state = 'cancelled'
+          WHERE sh.visit_id = ${visitForWindow} AND sh.state = 'planned' AND ${guard.sql}
+            AND EXISTS (SELECT 1 FROM shift_slots slot WHERE slot.shift_id = sh.id AND (
+              EXISTS (SELECT 1 FROM assignments a WHERE a.slot_id = slot.id)
+              OR EXISTS (SELECT 1 FROM assignment_offers o WHERE o.slot_id = slot.id)))`, ...pending),
         scopedStatement(access, `, selected AS MATERIALIZED (${confirmed})
           UPDATE shifts AS sh SET starts_at = selected.starts_at, ends_at = selected.ends_at,
             skill = selected.trade, briefing_language = selected.language FROM selected
@@ -180,6 +210,7 @@ export function cancelVisit(ctx: RequestScope, session: SessionAccess, { params:
           cancelled_by = (SELECT account_id FROM live_scope) WHERE id = ${targetId} AND ${guard.sql}`, ...pending),
         scopedStatement(access, `UPDATE visit_windows SET state = CASE state WHEN 'confirmed' THEN 'cancelled' ELSE 'withdrawn' END
           WHERE visit_id = ${targetId} AND state IN ('confirmed', 'proposed') AND ${guard.sql}`, ...pending),
+        ...endShiftCommitments(access, guard, targetId),
         scopedStatement(access, `UPDATE shifts SET state = 'cancelled' WHERE visit_id = ${targetId} AND state = 'planned' AND ${guard.sql}`, ...pending),
         scopedStatement(access, `UPDATE reschedule_requests SET state = 'withdrawn'
           WHERE visit_id = ${targetId} AND state IN ('requested', 'proposed') AND ${guard.sql}`, ...pending), inserted,

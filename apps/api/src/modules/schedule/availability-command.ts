@@ -3,7 +3,7 @@ import type { RequestScope } from "../../db/scope";
 import { at, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import {
-  availabilityAccess, availabilityJson, dateBasisFilter, datePreferences, datedRevision, mayEditAvailability,
+  availabilityAccess, availabilityJson, confirmedAssignments, dateBasisFilter, datePreferences, datedRevision, mayEditAvailability,
 } from "./availability";
 import { dayBoundsByZone } from "./calendar";
 import { crewAvailabilityKind } from "./projections";
@@ -16,7 +16,8 @@ export function editAvailability(ctx: RequestScope, session: SessionAccess, { pa
   const { expectedRevision, operationId, payload } = body;
   const available = payload.kind === "available";
   const access = availabilityAccess(session, ctx.now, member);
-  const edit: SessionAccess = { sql: `${access.sql}, availability_input(date, zones, expected_revision, kind, hours, cover) AS (VALUES (?, ?, ?, ?, ?, ?)),
+  const edit: SessionAccess = { sql: `${access.sql},
+    availability_input(date, zones, expected_revision, kind, hours, cover, expected_work) AS (VALUES (?, ?, ?, ?, ?, ?, ?)),
     availability_edit AS MATERIALIZED (
       SELECT m.*, i.date, i.expected_revision, i.kind, i.hours, i.cover,
         z.value ->> '$[0]' AS day_start, z.value ->> '$[1]' AS day_end
@@ -26,12 +27,19 @@ export function editAvailability(ctx: RequestScope, session: SessionAccess, { pa
       FROM availability_edit i CROSS JOIN json_each(i.hours) h
       UNION ALL SELECT day_start, day_end FROM availability_edit WHERE kind = 'unavailable'
     )`, params: [...access.params, payload.date, dayBoundsByZone(payload.date), expectedRevision, payload.kind,
-    JSON.stringify(available ? payload.hours : []), Number(available && payload.openToCover)] };
+    JSON.stringify(available ? payload.hours : []), Number(available && payload.openToCover), JSON.stringify(payload.expectedConfirmedShifts)] };
   const date = "(SELECT date FROM availability_input)";
   const current = datedRevision("m.id", date);
+  const onDay = `${confirmedAssignments("m.id", "m.business_id", at)}
+    AND work.starts_at < m.day_end AND work.ends_at > m.day_start`;
+  const exactBasis = `(SELECT count(*) ${onDay}) = json_array_length((SELECT expected_work FROM availability_input))
+    AND NOT EXISTS (SELECT 1 ${onDay} AND NOT EXISTS (
+      SELECT 1 FROM availability_input input CROSS JOIN json_each(input.expected_work) expected
+      WHERE expected.value ->> '$.assignmentId' = work.id
+        AND expected.value ->> '$.startsAt' = work.starts_at AND expected.value ->> '$.endsAt' = work.ends_at))`;
   const valid = `m.expected_revision = ${current} AND m.expected_revision < ${Number.MAX_SAFE_INTEGER}
     AND NOT EXISTS (SELECT 1 FROM availability_hours h WHERE h.begins < m.day_start OR h.ends > m.day_end)
-    AND ${payload.expectedConfirmedShifts.length} = 0`;
+    AND ${exactBasis}`;
   const same = `(SELECT count(*) FROM availability_intervals a WHERE a.membership_id = m.id AND ${datePreferences("m.date")})
       = (SELECT count(*) FROM availability_hours)
     AND NOT EXISTS (SELECT 1 FROM availability_hours h WHERE NOT EXISTS (SELECT 1 FROM availability_intervals a
@@ -64,6 +72,7 @@ export function editAvailability(ctx: RequestScope, session: SessionAccess, { pa
         inserted,
       ], changes, effects };
     },
-  }, { sql: `SELECT ${availabilityJson("m", "m.site_zone", at, dateBasisFilter(date))} FROM availability_member m` },
+  }, { sql: `SELECT ${availabilityJson("m", "m.site_zone", at, dateBasisFilter(date), { start: "m.day_start", end: "m.day_end" })}
+    FROM availability_edit m` },
   { expected: expectedRevision, sql: `SELECT ${current} FROM availability_member m` });
 }

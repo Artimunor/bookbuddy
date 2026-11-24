@@ -63,10 +63,11 @@ export const confirmedWindow = (visit: string, alias = "booked") => `LEFT JOIN v
   ON ${alias}.visit_id = ${visit}.id AND ${alias}.state = 'confirmed' AND ${alias}.confirmed_at <= ${at}`;
 
 // An active/finished shift is evidence that work has already started even if the clock is early.
-// The field slice must include accepted work-start activity when that ledger is available.
 export const unstarted = (visit: string, booked: string) => `(${visit}.state IN ('planned', 'booked')
   AND (${booked}.id IS NULL OR ${booked}.starts_at > ${at})
-  AND NOT EXISTS (SELECT 1 FROM shifts started WHERE started.visit_id = ${visit}.id AND started.state IN ('active', 'finished')))`;
+  AND NOT EXISTS (SELECT 1 FROM shifts started WHERE started.visit_id = ${visit}.id AND started.state IN ('active', 'finished'))
+  AND NOT EXISTS (SELECT 1 FROM visit_activity_events e WHERE e.visit_id = ${visit}.id
+    AND e.kind IN ('work_started', 'work_paused', 'work_finished') AND e.at <= ${at}))`;
 
 export const approvedVersion = (j = "j", q = "q") => `${q}.job_id = ${j}.id AND ${q}.state = 'approved' AND ${q}.issued_at <= ${at}`;
 export const approvedQuoteJoin = (j = "j", q = "q") => `LEFT JOIN quote_versions ${q} ON ${approvedVersion(j, q)}`;
@@ -81,39 +82,47 @@ export function eligibleWorkers(j: string, ends: string) {
     WHERE m.business_id = ${j}.business_id AND m.state = 'active'
       AND EXISTS (SELECT 1 FROM membership_roles mr WHERE mr.membership_id = m.id AND mr.role = 'worker'
         AND mr.revoked_at IS NULL AND mr.granted_at <= ${at})
-      AND e.state = 'approved' AND e.checked_at <= ${at} AND ${eligibilityCutoff("e")} >= ${ends} AND ${currentCheck("e")}`;
+      AND e.scope = 'internal' AND e.state = 'approved' AND e.checked_at <= ${at}
+      AND ${eligibilityCutoff("e")} >= ${ends} AND ${currentCheck("e")}`;
 }
 
 // Only UTC-dated positive coverage is usable as a booking commitment in the
 // 0006 model. Recurring local preferences are not an allocated worker or slot.
 function datedCoverage(member: string, starts: string, ends: string) {
   return `NOT EXISTS (SELECT 1 FROM availability_intervals off WHERE off.membership_id = ${member}
-      AND off.kind = 'unavailable' AND off.starts_at < ${ends} AND off.ends_at > ${starts})
+      AND off.recorded_at <= ${at} AND off.kind = 'unavailable' AND off.starts_at < ${ends} AND off.ends_at > ${starts})
     AND EXISTS (SELECT count(*) FROM (
       SELECT hours.starts_at, hours.ends_at, max(hours.ends_at) OVER (ORDER BY hours.starts_at, hours.ends_at, hours.id
         ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS previous_end
       FROM availability_intervals hours WHERE hours.membership_id = ${member} AND hours.kind IN ('available', 'duty')
-        AND hours.starts_at < ${ends} AND hours.ends_at > ${starts}
+        AND hours.recorded_at <= ${at} AND hours.starts_at < ${ends} AND hours.ends_at > ${starts}
     ) HAVING count(*) > 0 AND min(starts_at) <= ${starts} AND max(ends_at) >= ${ends}
         AND max(CASE WHEN starts_at > previous_end THEN 1 ELSE 0 END) = 0)`;
 }
 
-export const freeWorkers = (j: string, starts: string, ends: string) => `SELECT crew.*
-  FROM (${eligibleWorkers(j, ends)}) crew WHERE ${datedCoverage("crew.id", starts, ends)}`;
+export function freeWorkers(j: string, visitId: string, starts: string, ends: string) {
+  return `SELECT crew.* FROM (${eligibleWorkers(j, ends)}) crew WHERE ${datedCoverage("crew.id", starts, ends)}
+    AND NOT EXISTS (SELECT 1 FROM memberships peer JOIN assignments busy ON busy.worker_membership_id = peer.id
+      JOIN shift_slots slot ON slot.id = busy.slot_id
+      JOIN shifts sh ON sh.id = slot.shift_id AND sh.state IN ('planned', 'active')
+      JOIN visits live ON live.id = sh.visit_id AND live.state = 'booked' AND live.id <> ${visitId}
+      WHERE peer.account_id = crew.account_id AND busy.state = 'confirmed' AND busy.confirmed_at <= ${at}
+        AND busy.starts_at < ${ends} AND busy.ends_at > ${starts})`;
+}
 
-// One slot per booking (no planned crew count in the wire or storage). Count
-// overlapping booked slots, not proposals. With no assignments to allocate, only
-// commit when there is an eligible worker left even if all those slots use one.
+// Named assignments consume their own lanes. Unfilled overlapping booked slots
+// conservatively consume pooled capacity; outstanding proposals consume none.
 export function capacity(j: string, visitId: string, starts: string, ends: string) {
   const other = `other.id <> ${visitId} AND other.state = 'booked'`;
   const overlap = (alias: string) => `${alias}.starts_at < ${ends} AND ${alias}.ends_at > ${starts}`;
   return `(NOT EXISTS (SELECT 1 FROM jobs same_place JOIN visits other ON other.job_id = same_place.id
     JOIN visit_windows w ON w.visit_id = other.id AND w.state = 'confirmed'
     WHERE same_place.place_id = ${j}.place_id AND ${other} AND ${overlap("w")})
-    AND (SELECT count(DISTINCT free.id) FROM (${freeWorkers(j, starts, ends)}) free) > (
+    AND (SELECT count(DISTINCT free.id) FROM (${freeWorkers(j, visitId, starts, ends)}) free) > (
       SELECT count(*) FROM jobs same_business JOIN visits other ON other.job_id = same_business.id
       JOIN shifts sh ON sh.visit_id = other.id AND sh.state IN ('planned', 'active') JOIN shift_slots slot ON slot.shift_id = sh.id
-      WHERE same_business.business_id = ${j}.business_id AND ${other} AND ${overlap("sh")}))`;
+      WHERE same_business.business_id = ${j}.business_id AND ${other} AND ${overlap("sh")}
+        AND NOT EXISTS (SELECT 1 FROM assignments a WHERE a.slot_id = slot.id AND a.state = 'confirmed')))`;
 }
 
 export function likeForLike(j: string, booked: string, starts: string, ends: string) {

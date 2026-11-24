@@ -216,12 +216,25 @@ test("a like-for-like alternative is direct at exactly 24 hours, and withdrawing
     const revised = (id: string) => ({ ...booking("alpha", at + 48 * hour),
       purpose: { kind: "direct_alternative", replacesWindowId: "alpha-window" }, windows: [windowAt(id, at + 48 * hour)] });
     const open = await f.call("foreman", "/jobs/alpha/windows", { body: write("first-alternative", 2, revised("alt-one")) });
+    const staffed = await f.db.prepare(`SELECT sh.id, slot.id AS slot FROM shifts sh JOIN shift_slots slot ON slot.shift_id = sh.id
+      WHERE sh.visit_id = 'alpha-visit'`).first<{ id: string; slot: string }>();
+    if (!staffed) throw new Error("Expected the booked shift");
+    await f.db.prepare(`INSERT INTO assignments (id, slot_id, worker_membership_id, source, state, confirmed_by, confirmed_at, starts_at, ends_at)
+      VALUES ('initial-assignment', ?, 'crew-member', 'ordinary', 'confirmed', 'foreman', ?, ?, ?)`)
+      .bind(staffed.slot, at, at + 24 * hour, at + 25 * hour).run();
     expect(open.body).toMatchObject({ data: { visit: { bookedWindow: { id: "alpha-window" }, offeredWindows: [{ confirmationMode: "direct_reschedule" }] } } });
     expect((await f.call("foreman", "/windows/alt-one/withdraw", { body: write("withdraw", 3, {}) })).body)
       .toMatchObject({ data: { visit: { revision: 4, bookedWindow: { id: "alpha-window" }, offeredWindows: [] } } });
     expect((await f.call("foreman", "/jobs/alpha/windows", { body: write("second-alternative", 4, revised("alt-two")) })).status).toBe(200);
     expect((await f.call("customer", "/windows/alt-two/confirm", { body: write("confirm-alternative", 5, { approvedQuoteVersionId: "alpha-version" }) })).body)
       .toMatchObject({ data: { visit: { bookedWindow: { id: "alt-two" } } } });
+    expect(await f.db.prepare("SELECT state, starts_at FROM shifts WHERE id = ?").bind(staffed.id).first())
+      .toEqual({ state: "cancelled", starts_at: at + 24 * hour });
+    expect(await f.db.prepare("SELECT state FROM assignments WHERE id = 'initial-assignment'").first("state")).toBe("released");
+    expect(await f.db.prepare("SELECT starts_at FROM shifts WHERE state = 'planned'").first("starts_at")).toBe(at + 48 * hour);
+    await f.db.prepare(`INSERT INTO visit_activity_events (id, visit_id, actor_id, kind, at)
+      VALUES ('early-work', 'alpha-visit', 'foreman', 'work_started', ?)`).bind(at).run();
+    expect((await f.call("customer", "/visits/alpha-visit/cancel", { body: write("actual-start", 6, { bookedWindowId: "alt-two" }) })).status).toBe(409);
     clock.mockReturnValue(at + 48 * hour);
     expect((await f.call("customer", "/visits/alpha-visit/cancel", { body: write("after-start", 6, { bookedWindowId: "alt-two" }) })).status).toBe(409);
   } finally { f.db.close(); clock.mockRestore(); }
@@ -261,5 +274,79 @@ test("availability honors worker scope, stale bases, attributed correction and m
         { kind: "crew_availability", resourceId: `${actor}-member` }, { kind: "shift_agenda", resourceId: `${actor}-member` },
       ]);
     }
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("worker reads only their confirmed shift, their named offer, and an address-free sync agenda", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(at);
+  const f = await fixture();
+  try {
+    const start = at + 3 * hour;
+    await f.job("alpha");
+    await f.job("beta");
+    await book(f, "alpha", start);
+    await book(f, "beta", start + 2 * hour);
+    const { results: shifts } = await f.db.prepare(`SELECT sh.id, sh.starts_at, sh.ends_at, slot.id AS slot
+      FROM shifts sh JOIN shift_slots slot ON slot.shift_id = sh.id ORDER BY sh.starts_at`)
+      .all<{ id: string; starts_at: number; ends_at: number; slot: string }>();
+    const [own, other] = shifts;
+    if (!own || !other) throw new Error("Expected two booked shifts");
+    await f.db.batch([
+      ...([[own, "crew"], [other, "second"]] as const).map(([item, worker]) => {
+        return f.db.prepare(`INSERT INTO assignments (id, slot_id, worker_membership_id, source, state, confirmed_by, confirmed_at, starts_at, ends_at)
+          VALUES (?, ?, ?, 'ordinary', 'confirmed', 'foreman', ?, ?, ?)`)
+          .bind(`${worker}-assignment`, item.slot, `${worker}-member`, at, item.starts_at, item.ends_at);
+      }),
+      f.db.prepare("INSERT INTO shift_slots (id, shift_id, number) VALUES ('offer-slot', ?, 2)").bind(other.id),
+      f.db.prepare(`INSERT INTO assignment_offers (id, slot_id, recipient_id, issued_by, issued_at, expires_at, state)
+        VALUES ('crew-offer', 'offer-slot', 'crew-member', 'foreman', ?, ?, 'offered')`).bind(at, at + hour),
+      f.db.prepare("INSERT INTO safety_holds (id, assignment_id, kind, state) VALUES ('briefing', 'crew-assignment', 'briefing', 'active')"),
+    ]);
+    const agenda = await f.call("crew", "/shifts");
+    expect(agenda.body).toMatchObject({ data: { segment: "upcoming", total: 1,
+      rows: [{ shift: { id: own.id }, assignment: { id: "crew-assignment" }, nextAction: "check_briefing" }] } });
+    const offer = await f.call("crew", "/shifts?segment=offers");
+    expect(offer.body).toMatchObject({ data: { segment: "offers", rows: [{ kind: "offer", id: "crew-offer", state: "offered" }] } });
+    expect(JSON.stringify(offer.body)).not.toMatch(/Private alias|customer|second-assignment/);
+    expect((await f.call("crew", `/shifts/${other.id}`)).status).toBe(404);
+    expect((await f.call("second", `/shifts/${own.id}`)).status).toBe(404);
+    const detail = await f.call("crew", `/shifts/${own.id}`);
+    expect(detail.body).toMatchObject({ data: { view: "worker", shift: { id: own.id, placeAlias: "Private alias" },
+      assignment: { id: "crew-assignment" }, holds: [{ id: "briefing" }] } });
+    expect(detail.body.data).not.toHaveProperty("slots");
+    expect((await f.call("foreman", `/shifts/${own.id}`)).body).toMatchObject({ data: { view: "foreman",
+      slots: [{ assignments: [{ member: { id: "crew-member" }, confirmedByName: "foreman name" }] }] } });
+    const board = await f.call("foreman", "/businesses/business/schedule?jobId=beta");
+    expect(board.body.data.capacity.days[0].lanes).toMatchObject([{ membershipId: "crew-member",
+      busy: [{ startsAt: own.starts_at, endsAt: own.ends_at }] }]);
+    expect(board.body.data.capacity.days[0].lanes[0].busy[0]).toEqual({ startsAt: own.starts_at, endsAt: own.ends_at });
+    const sync = ({ cursor = null }: { cursor?: string | null } = {}) => f.call("crew", "/sync", {
+      body: { contextId: "crew-context", operations: [], cursor },
+    });
+    const snapshot = resultSchema(syncRoute.output).parse((await sync()).body);
+    if (!snapshot.ok) throw new Error(JSON.stringify(snapshot));
+    const cached = snapshot.data.upserts.find(({ kind }) => kind === "shift_agenda");
+    expect(cached).toMatchObject({ resourceId: "crew-member", value: { rows: [{ shift: { id: own.id } }] } });
+    expect(JSON.stringify(cached)).not.toMatch(/Private alias|BB-ALPHA|placeAlias|visitId|second-assignment/);
+    const changeDay = { date: "2026-11-23", kind: "unavailable" };
+    const edit = (id: string, basis: unknown[]) => f.call("crew", "/crew/crew-member/availability", {
+      method: "PATCH", body: write(id, 0, { ...changeDay, expectedConfirmedShifts: basis }),
+    });
+    expect((await edit("stale-basis", [])).status).toBe(409);
+    expect((await edit("correct-basis", [{ assignmentId: "crew-assignment", startsAt: own.starts_at, endsAt: own.ends_at }])).body)
+      .toMatchObject({ data: { day: { confirmedShifts: [{ assignmentId: "crew-assignment", conflictsWithPreference: true }] } } });
+    expect(await f.db.prepare("SELECT state FROM assignments WHERE id = 'crew-assignment'").first("state")).toBe("confirmed");
+    expect((await f.call("customer", "/jobs/alpha/windows")).body).toMatchObject({ data: { visits: [
+      { bookedWindow: { crewAvailability: "as_agreed" } },
+    ] } });
+    const cancelled = await f.call("customer", "/visits/alpha-visit/cancel", { body: write("cancel-staffed", 2, { bookedWindowId: "alpha-window" }) });
+    expect(cancelled.status).toBe(200);
+    expect(await f.db.prepare("SELECT state FROM assignments WHERE id = 'crew-assignment'").first("state")).toBe("released");
+    const delta = resultSchema(syncRoute.output).parse((await sync({ cursor: snapshot.data.cursor })).body);
+    if (!delta.ok) throw new Error(JSON.stringify(delta));
+    expect(delta.data.upserts.find(({ kind }) => kind === "shift_agenda")).toMatchObject({ value: { rows: [] } });
+    expect((await f.call("crew", "/shifts?segment=past")).body).toMatchObject({ data: { rows: [
+      { shift: { id: own.id, placeAlias: null }, outcome: "cancelled", endedAt: at },
+    ] } });
   } finally { f.db.close(); clock.mockRestore(); }
 });

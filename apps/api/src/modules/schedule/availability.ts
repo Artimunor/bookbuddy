@@ -3,7 +3,7 @@ import type { CommandStatement } from "../../db/commit";
 import { accessClock, at, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import { currentMembership } from "../jobs/projections";
-import { calendarWeek, mergeSpans, singleDate } from "./calendar";
+import { calendarDay, calendarWeek, mergeSpans, singleDate } from "./calendar";
 import type { CalendarDate } from "./calendar";
 import { scheduler, workerContext } from "./policy";
 
@@ -26,6 +26,17 @@ interface RawAvailability {
   siteZone: string;
   now: number;
   intervals: Interval[];
+  shifts: ConfirmedShift[];
+}
+
+type Day = CrewAvailability["days"][number];
+type ConfirmedShift = Omit<Day["confirmedShifts"][number], "conflictsWithPreference">;
+
+export function confirmedAssignments(member: string, business: string, clock: string) {
+  return `FROM assignments work JOIN shift_slots slot ON slot.id = work.slot_id JOIN shifts sh ON sh.id = slot.shift_id
+    JOIN visits v ON v.id = sh.visit_id JOIN jobs work_job ON work_job.id = v.job_id JOIN places work_place ON work_place.id = work_job.place_id
+    WHERE work.worker_membership_id = ${member} AND work_job.business_id = ${business} AND work.state = 'confirmed'
+      AND work.confirmed_at <= ${clock} AND sh.state IN ('planned', 'active') AND v.state = 'booked' AND work_job.state = 'open'`;
 }
 
 export function intervalsJson(member: string, filter: string) {
@@ -45,42 +56,56 @@ export function availabilityWeekFilter(now: string, weekOf: string) {
     OR a.week_day_or_date IN ('1', '2', '3', '4', '5', '6', '7'))`;
 }
 
-export function availabilityJson(m: string, zone: string, now: string, filter: string) {
+export function availabilityJson(m: string, zone: string, now: string, filter: string, bounds: { start: string; end: string }) {
   return `json_object('membershipId', ${m}.id, 'businessId', ${m}.business_id, 'siteZone', ${zone}, 'now', ${now},
-    'intervals', json(${intervalsJson(`${m}.id`, `a.kind <> 'duty' AND (${filter})`)}))`;
+    'intervals', json(${intervalsJson(`${m}.id`, `a.kind <> 'duty' AND a.recorded_at <= ${now} AND (${filter})`)}),
+    'shifts', json((SELECT json_group_array(json(value)) FROM (
+      SELECT json_object('shiftId', sh.id, 'assignmentId', work.id, 'startsAt', work.starts_at, 'endsAt', work.ends_at,
+        'siteZone', coalesce(work_place.site_zone, ${zone})) AS value ${confirmedAssignments(`${m}.id`, `${m}.business_id`, now)}
+      AND work.starts_at < ${bounds.end} AND work.ends_at > ${bounds.start} ORDER BY work.starts_at, work.id))))`;
 }
 
-type Day = CrewAvailability["days"][number];
-function projectDay(intervals: Interval[], calendar: CalendarDate): Day {
+export function weekBounds(now: string, day: string) {
+  const anchor = `coalesce(${day}, date(${now} / 1000, 'unixepoch'))`;
+  return { start: `1000 * unixepoch(${anchor}, '-8 day')`, end: `1000 * unixepoch(${anchor}, '+8 day')` };
+}
+
+function projectDay(intervals: Interval[], shifts: ConfirmedShift[], calendar: CalendarDate): Day {
   const { date, weekday, toUtc } = calendar;
   const dated = intervals.filter((row) => row.day === date);
   const rows = dated.length ? dated : intervals.filter((row) => row.day === weekday);
   const revision = dated.reduce((latest, row) => Math.max(latest, row.revision), 0);
-  // 0006 stores preferences, not worker assignments. Slots alone must never
-  // appear here as confirmed work or grant a worker access to a site.
-  const base = { date, revision, confirmedShifts: [] };
+  const daySpans = toUtc(0, calendarDay);
+  const base = { date, revision, confirmedShifts: shifts.filter((shift) =>
+    daySpans.some((day) => day.startsAt < shift.endsAt && day.endsAt > shift.startsAt)) };
   const unavailable = rows.reduce<Interval | undefined>((latest, row) => row.kind === "unavailable"
     && (!latest || row.savedAt > latest.savedAt) ? row : latest, undefined);
-  if (unavailable) return { ...base, preference: { kind: "unavailable", savedAt: unavailable.savedAt, source: unavailable.source } };
+  if (unavailable) return { ...base, confirmedShifts: base.confirmedShifts.map((shift) => ({ ...shift, conflictsWithPreference: true })),
+    preference: { kind: "unavailable", savedAt: unavailable.savedAt, source: unavailable.source } };
   const hours = mergeSpans(rows.flatMap((row) => {
     if (row.kind !== "available") return [];
     return row.startsAt === null || row.endsAt === null
       ? toUtc(row.startOffset!, row.endOffset!) : [{ startsAt: row.startsAt, endsAt: row.endsAt }];
   }));
   const saved = rows.reduce<Interval | undefined>((latest, row) => !latest || row.savedAt > latest.savedAt ? row : latest, undefined);
-  return { ...base, preference: hours.length && saved
+  const confirmedShifts = base.confirmedShifts.map((shift) => ({ ...shift, conflictsWithPreference: hours.length > 0
+    && daySpans.some((day) => {
+      const startsAt = Math.max(day.startsAt, shift.startsAt), endsAt = Math.min(day.endsAt, shift.endsAt);
+      return startsAt < endsAt && !hours.some((span) => span.startsAt <= startsAt && span.endsAt >= endsAt);
+    }) }));
+  return { ...base, confirmedShifts, preference: hours.length && saved
     ? { kind: "available", hours, openToCover: rows.some(({ cover }) => cover === 1), savedAt: saved.savedAt, source: saved.source }
     : { kind: "not_set" } };
 }
 
 export function projectAvailability(value: unknown, weekOf: string | null = null): CrewAvailability {
-  const { now, intervals, ...scope } = value as RawAvailability;
-  return { ...scope, days: calendarWeek(scope.siteZone, now, weekOf).map((calendar) => projectDay(intervals, calendar)) };
+  const { now, intervals, shifts, ...scope } = value as RawAvailability;
+  return { ...scope, days: calendarWeek(scope.siteZone, now, weekOf).map((calendar) => projectDay(intervals, shifts, calendar)) };
 }
 
 export function projectChangedAvailability(value: unknown, date: string) {
-  const { now: _now, intervals, ...scope } = value as RawAvailability;
-  return { ...scope, day: projectDay(intervals, singleDate(date, scope.siteZone)) };
+  const { now: _now, intervals, shifts, ...scope } = value as RawAvailability;
+  return { ...scope, day: projectDay(intervals, shifts, singleDate(date, scope.siteZone)) };
 }
 
 export function availabilityAccess(session: SessionAccess, now: number, member: string): SessionAccess {
@@ -100,8 +125,9 @@ export const mayEditAvailability = (scope: string, m: string) => `(${scope}.busi
 
 export function readAvailability(session: SessionAccess, now: number, member: string, weekOf: string | null): CommandStatement {
   const access = availabilityAccess(session, now, member);
+  const day = "(SELECT day FROM week_input)";
   return scopedStatement(access, `, week_input(day) AS (VALUES (?))
-    SELECT (SELECT ${availabilityJson("m", "m.site_zone", at, availabilityWeekFilter(at, "(SELECT day FROM week_input)"))}
+    SELECT (SELECT ${availabilityJson("m", "m.site_zone", at, availabilityWeekFilter(at, day), weekBounds(at, day))}
       FROM live_scope scope JOIN availability_member m ON ${mayEditAvailability("scope", "m")}) AS value
     FROM acting_session`, weekOf);
 }
