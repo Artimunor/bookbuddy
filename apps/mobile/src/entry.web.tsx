@@ -1,5 +1,5 @@
 import "@expo/metro-runtime";
 import { registerRootComponent } from "expo";
-import EmptyRoute from "./navigation/empty-route";
+import PreviewGallery from "./preview/gallery";
 
-registerRootComponent(EmptyRoute);
+registerRootComponent(PreviewGallery);
