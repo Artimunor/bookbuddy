@@ -9,5 +9,6 @@ export * from "./ids";
 export * from "./jobs";
 export * from "./journey";
 export * from "./schedule";
+export * from "./sessions";
 export * from "./staffing";
 export * from "./states";
