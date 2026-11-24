@@ -16,10 +16,22 @@ type LiveReadState = {
 
 const empty: LiveReadState = { visit: null, failed: false, loading: false, canSubscribe: false };
 
+function reconcileHead(head: CustomerLiveVisit, previous: CustomerLiveVisit): CustomerLiveVisit {
+  const boundary = head.moments.at(-1);
+  if (!head.page.hasMore || !boundary) return head;
+  // The server orders by recorded time, then ID, both descending. Keep the loaded suffix
+  // beyond this new boundary, including rows that a new moment displaced from page one.
+  const seen = new Set(head.moments.map(({ id }) => id));
+  const older = previous.moments.filter(({ id, recordedAt }) => !seen.has(id) &&
+    (recordedAt < boundary.recordedAt || (recordedAt === boundary.recordedAt && id < boundary.id)));
+  return older.length ? { ...head, moments: [...head.moments, ...older], page: previous.page } : head;
+}
+
 export function createLiveVisitRead(api: ApiClient, jobId: string, visitId: string | null) {
   let state = empty;
   let active: { controller: AbortController; authorization: boolean } | null = null;
   let reconcile = false;
+  let headSize = 0;
   const listeners = new Set<() => void>();
 
   function publish(next: LiveReadState) {
@@ -38,7 +50,11 @@ export function createLiveVisitRead(api: ApiClient, jobId: string, visitId: stri
     const queued = reconcile;
     reconcile = false;
     // A page's summary is also current, even though its moments precede the cursor.
-    const visit = cursor && state.visit && page ? { ...page, moments: [...state.visit.moments, ...page.moments] } : page;
+    const previous = state.visit;
+    const visit = !page || !previous ? page
+      : cursor ? { ...page, moments: [...previous.moments, ...page.moments] }
+      : previous.moments.length > headSize ? reconcileHead(page, previous) : page;
+    if (!cursor) headSize = page?.moments.length ?? 0;
     publish({ visit, failed: !visit, loading: false, canSubscribe: !!visit });
     if (queued && visit) void load();
   }
@@ -63,6 +79,7 @@ export function createLiveVisitRead(api: ApiClient, jobId: string, visitId: stri
 
   function reset() {
     cancel();
+    headSize = 0;
     publish(empty);
   }
 

@@ -28,8 +28,8 @@ export function useLiveHints(topic: LiveTopicKey | null, onHint: () => void, onU
         onUnavailable: callback.current.onUnavailable,
         onScopeClosed: callback.current.onUnavailable,
       }));
-    // The exact visit has already been read before opening the socket.
-    subscription.connect(false);
+    // A change may have been published between the exact visit read and socket attachment.
+    subscription.connect("always");
     return () => subscription.disconnect();
   }, [sessionId, contextId, kind, opaqueId]);
 }

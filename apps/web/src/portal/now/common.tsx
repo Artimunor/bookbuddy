@@ -81,12 +81,13 @@ export function visitLabels(t: T) {
   };
 }
 export function dayLine(labels: Record<(typeof VISIT_STEPS)[number], string>, step: (typeof VISIT_STEPS)[number] | null, t: T): JobLineProps {
-  const current = step ?? "confirmed";
   return {
     stages: VISIT_STEPS.map(id => ({ id, label: labels[id] })),
-    currentId: current,
+    currentId: step ?? "",
     labelAll: true,
-    ariaLabel: t("web.portal.work.stepCount", { index: VISIT_STEPS.indexOf(current) + 1, count: VISIT_STEPS.length, stage: labels[current] }),
+    ariaLabel: step
+      ? t("web.portal.work.stepCount", { index: VISIT_STEPS.indexOf(step) + 1, count: VISIT_STEPS.length, stage: labels[step] })
+      : t("web.portal.schedule.quiet"),
   };
 }
 export function date(locale: string, at: number, zone: string) {

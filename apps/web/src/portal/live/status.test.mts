@@ -40,3 +40,18 @@ test("Live stops announcing the travel stage and removes the crew travel glyph a
     }
   } finally { now.mockRestore(); }
 });
+
+test("an expired estimate does not announce a milestone without crew confirmation", () => {
+  const { t } = createWebTranslator("en");
+  const now = spyOn(Date, "now").mockReturnValue(end);
+  try {
+    const unconfirmed = { ...visit, confirmedCrewNames: [] };
+    for (const data of [unconfirmed, { ...unconfirmed, live: { ...visit.live, status: null, step: null, arrival: null } }]) {
+      const expired = renderToStaticMarkup(createElement(VisitStatus, { visit: data, t, locale: "en", viewer: undefined }));
+      expect(expired).toContain("Arrival window passed; no arrival update yet");
+      expect(expired).not.toContain('data-step="current"');
+      expect(expired).not.toContain('aria-label="Step ');
+      expect(expired).not.toContain('data-status="confirmed"');
+    }
+  } finally { now.mockRestore(); }
+});

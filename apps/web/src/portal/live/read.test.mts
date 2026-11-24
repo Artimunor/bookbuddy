@@ -1,4 +1,5 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
+import { createLiveSubscription } from "@bookbuddy/api-client";
 import { customerLiveVisitSchema } from "@bookbuddy/api-contract";
 import { createPortalApi } from "../session/api";
 import { createLiveVisitRead } from "./read";
@@ -98,11 +99,54 @@ test("socket unavailability gates the retained visit while one exact read checks
   expect(urls).toEqual([visitPath, visitPath]);
 });
 
+test("a pause published after the foreground read appears after socket ready, without an invalidate", async () => {
+  const { read, urls, nextRequest } = setup();
+  const page = Object.assign(new EventTarget(), { visibilityState: "hidden" as DocumentVisibilityState });
+  const stop = read.watchVisibility(page);
+  const socket = { close() {} } as WebSocket;
+  const subscription = createLiveSubscription(
+    { kind: "customer-visit", opaqueId: visit.visitId }, async () => socket,
+    () => read.snapshot().canSubscribe, () => ({ onHint: read.hint, onUnavailable: read.reauthorize }),
+  );
+  try {
+    const foreground = nextRequest();
+    const opened = settled(read);
+    page.visibilityState = "visible";
+    page.dispatchEvent(new Event("visibilitychange"));
+    (await foreground).response.resolve(Response.json({ ok: true, data: visit, meta }));
+    expect((await opened).visit?.live.status).toBe("confirmed");
+
+    const pause = { id: "update-pause", kind: "paused", recordedAt: at + 1, sharedByName: "Foreman", nextUpdateAt: null };
+    const published = { ...visit, live: { ...visit.live, status: "paused" }, moments: [pause, ...visit.moments] };
+    expect(subscription.connect("always")).toBe(true);
+    await Promise.resolve();
+    expect(urls).toEqual([visitPath]);
+
+    const ready = new MessageEvent("message", { data: JSON.stringify({ kind: "ready" }) });
+    expect(socket.onmessage).toBeFunction();
+    const schedule = spyOn(globalThis, "setTimeout");
+    const reconciled = nextRequest();
+    const refreshed = settled(read);
+    try {
+      socket.onmessage?.call(socket, ready);
+      socket.onmessage?.call(socket, ready);
+      expect(schedule).toHaveBeenCalledTimes(1);
+    } finally { schedule.mockRestore(); }
+    (await reconciled).response.resolve(Response.json({ ok: true, data: published, meta }));
+    expect((await refreshed).visit).toMatchObject({ live: { status: "paused" }, moments: [pause, ...visit.moments] });
+    expect(urls).toEqual([visitPath, visitPath]);
+  } finally {
+    subscription.disconnect();
+    stop();
+  }
+});
+
 test("More adopts its live summary and coalesces in-flight hints into one reconciliation", async () => {
   const { read, urls, nextRequest } = setup();
   const initialRequest = nextRequest();
   const initial = read.load();
-  (await initialRequest).response.resolve(Response.json({ ok: true, data: visit, meta }));
+  const displacedMoment = { ...visit.moments[0], id: "update-displaced", recordedAt: at - 1 };
+  (await initialRequest).response.resolve(Response.json({ ok: true, data: { ...visit, moments: [...visit.moments, displacedMoment] }, meta }));
   await initial;
 
   const older = nextRequest();
@@ -112,7 +156,7 @@ test("More adopts its live summary and coalesces in-flight hints into one reconc
   read.hint();
   read.hint();
   expect(urls).toEqual([visitPath, `${visitPath}?cursor=older`]);
-  const olderMoment = { ...visit.moments[0], id: "update-older", recordedAt: at - 1 };
+  const olderMoment = { ...visit.moments[0], id: "update-older", recordedAt: at - 2 };
   const reconciliation = nextRequest();
   request.response.resolve(Response.json({ ok: true, meta, data: {
     ...visit, confirmedCrewNames: ["New Crew"], live: { ...visit.live, status: "paused" },
@@ -120,12 +164,21 @@ test("More adopts its live summary and coalesces in-flight hints into one reconc
   } }));
   await more;
   expect(read.snapshot().visit).toMatchObject({
-    live: { status: "paused" }, confirmedCrewNames: ["New Crew"], moments: [...visit.moments, olderMoment],
+    live: { status: "paused" }, confirmedCrewNames: ["New Crew"], moments: [...visit.moments, displacedMoment, olderMoment],
   });
 
   const next = await reconciliation;
   const refreshed = settled(read);
-  next.response.resolve(Response.json({ ok: true, meta, data: { ...visit, live: { ...visit.live, status: "no_crew_available" } } }));
-  expect((await refreshed).visit?.live.status).toBe("no_crew_available");
+  const newMoment = { ...visit.moments[0], id: "update-new", recordedAt: at + 1 };
+  const refreshedMoment = { ...visit.moments[0], sharedByName: "Updated Foreman" };
+  next.response.resolve(Response.json({ ok: true, meta, data: {
+    ...visit, live: { ...visit.live, status: "no_crew_available" },
+    moments: [newMoment, refreshedMoment], page: { hasMore: true, cursor: "new-head" },
+  } }));
+  expect((await refreshed).visit).toMatchObject({
+    live: { status: "no_crew_available" },
+    moments: [newMoment, refreshedMoment, displacedMoment, olderMoment],
+    page: { hasMore: false, cursor: null },
+  });
   expect(urls).toEqual([visitPath, `${visitPath}?cursor=older`, visitPath]);
 });

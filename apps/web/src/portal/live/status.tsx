@@ -15,7 +15,10 @@ export function VisitStatus({ visit, t, locale, viewer }: { visit: CustomerLiveV
   const status = expiredArrival || estimateExpired ? "estimate_passed" : live.status;
   const labels = visitLabels(t);
   const label = status === "estimate_passed" ? t("web.portal.schedule.passed") : status ? labels[status] : t("web.portal.schedule.quiet");
-  const step = status === "estimate_passed" && live.step === "on_the_way" ? null : live.step;
+  const hasConfirmedCrew = visit.confirmedCrewNames.length > 0;
+  const step = status === "estimate_passed" && live.step === "on_the_way"
+    ? hasConfirmedCrew ? "confirmed" : null
+    : live.step;
   const band = status === "on_the_way" || status === "estimate_passed" ? arrival : status === "confirmed" ? visit.window : null;
   const clocks = band ? formatPortalClock(band.startsAt, siteZone, locale, viewer, band.endsAt, true) ?? undefined : undefined;
   const source = live.source ? formatPortalTime(live.source.at, siteZone, locale, viewer)?.site ?? "" : "";
@@ -29,7 +32,7 @@ export function VisitStatus({ visit, t, locale, viewer }: { visit: CustomerLiveV
     <LiveCapsule ariaLabel={label} source={visit.providerName} reference={visit.job.reference}
       state={{ kind: capsule, label }} clocks={clocks} provenance={provenance} stageLine={dayLine(labels, step, t)} />
     {nextUpdate && <Card><p>{t("web.portal.schedule.updateBy", { time: nextUpdate.site })}</p>{nextUpdate.viewer && <p className="text-supporting text-muted">{nextUpdate.viewer}</p>}</Card>}
-    {visit.confirmedCrewNames.length > 0 && <Card title={t("web.portal.schedule.crew")}><CrewDots
+    {hasConfirmedCrew && <Card title={t("web.portal.schedule.crew")}><CrewDots
       people={visit.confirmedCrewNames.map((name, i) => ({ id: String(i), name, initials: name.split(/\s+/).map(x => x[0]).join("").slice(0, 2).toUpperCase(), role: "", tone: i % 2 ? "d" : "b" }))}
       status={crew} statusLabel={label} /></Card>}
   </>;

@@ -33,14 +33,14 @@ export function createLiveSubscription(
     }, 300);
   }
 
-  function connect(reconcile = true) {
+  function connect(reconcile: boolean | "always" = true) {
     if (!canReceive() || pending || socket) return false;
     const attempt = pending = new AbortController();
     void openSocket(attempt, reconcile);
     return true;
   }
 
-  async function openSocket(attempt: AbortController, reconcile: boolean) {
+  async function openSocket(attempt: AbortController, reconcile: boolean | "always") {
     let next: WebSocket | null = null;
     try { next = await open(attempt.signal); }
     catch { /* WebSocket setup can fail before a close event is possible. */ }
@@ -59,8 +59,7 @@ export function createLiveSubscription(
           callbacks().onCatchUp?.(frame);
         } else if (topic.kind !== "thread" && frame?.kind === "ready") {
           ready = true;
-          // The normal screen load already covers its first subscription.
-          if (reconcile && resume.opened) queueHint();
+          if (reconcile === "always" || (reconcile && resume.opened)) queueHint();
         } else {
           connected.close();
           return;
