@@ -97,3 +97,38 @@ test("contribution keys pass extraction before merge and merge updates both cata
     await rm(workspace, { recursive: true, force: true });
   }
 });
+
+test("replacement contributions revise only existing keys after validation", async () => {
+  const workspace = await mkdtemp(join(tmpdir(), "bookbuddy-locale-"));
+  try {
+    const root = join(workspace, "packages", "i18n");
+    await mkdir(join(root, "contributions"), { recursive: true });
+    await cp(join(import.meta.dir, "../catalogs"), join(root, "catalogs"), { recursive: true });
+    const key = "mobile.replace.example";
+    const entry = { surface: "mobile", key, messages: { en: "Welcome", "pt-PT": "Bem-vindo" }, context: "Original note." };
+    const contribution = join(root, "contributions", "replacement.json");
+    await writeFile(contribution, JSON.stringify([{ ...entry, replace: true }]));
+    await expect(runBuild(root, "merge")).rejects.toThrow("cannot replace missing key");
+    await writeFile(contribution, JSON.stringify([entry]));
+    await runBuild(root, "merge");
+    const revised = { ...entry, messages: { en: "Hello", "pt-PT": "Olá" }, context: "Revised note." };
+    await writeFile(contribution, JSON.stringify([revised]));
+    await expect(runBuild(root, "merge")).rejects.toThrow("key already exists");
+    await writeFile(contribution, JSON.stringify([{ ...revised, replace: true, messages: { ...revised.messages, en: "Hello, {name}" } }]));
+    await expect(runBuild(root, "merge")).rejects.toThrow("incompatible placeholders");
+    const replacement = { ...revised, replace: true };
+    await writeFile(contribution, JSON.stringify([replacement, replacement]));
+    await expect(runBuild(root, "merge")).rejects.toThrow("key already exists");
+    await writeFile(contribution, JSON.stringify([replacement]));
+    await runBuild(root, "check");
+    await runBuild(root, "merge");
+    expect(await Bun.file(contribution).exists()).toBe(false);
+    for (const [locale, message] of Object.entries(revised.messages)) {
+      expect((await Bun.file(join(root, "catalogs", locale, "mobile.json")).json())[key]).toBe(message);
+    }
+    expect((await Bun.file(join(root, "catalogs", "context.json")).json())[key]).toBe(revised.context);
+    await runBuild(root, "check");
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});

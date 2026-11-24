@@ -10,7 +10,7 @@ export const locales = Object.keys(config.enabledLocales).sort();
 export type TextCatalog = Record<string, string>;
 export type SourceCatalogs = Record<string, Record<Surface, TextCatalog>>;
 type CatalogSources = { catalogs: SourceCatalogs; context: TextCatalog };
-type Contribution = { surface: Surface; key: string; messages: TextCatalog; context: string };
+type Contribution = { surface: Surface; key: string; messages: TextCatalog; context: string; replace: boolean };
 
 function fail(at: string, message: string): never {
   throw new Error(`${at}: ${message}`);
@@ -110,7 +110,9 @@ export async function readContributions(root: string): Promise<{ files: string[]
     return data.map((value: unknown, index): Contribution => {
       const at = `${file}[${index}]`;
       const entry = object(value, at);
-      verifyKeys(["surface", "key", "messages", "context"], Object.keys(entry), at);
+      const replace = Object.hasOwn(entry, "replace");
+      verifyKeys(["surface", "key", "messages", "context", ...(replace ? ["replace"] : [])], Object.keys(entry), at);
+      if (replace && entry.replace !== true) fail(at, "replace must be true when provided");
       const surface = entry.surface as Surface;
       if (!surfaces.includes(surface)) fail(at, `unknown surface ${JSON.stringify(surface)}`);
       const key = text(entry.key, at);
@@ -118,7 +120,7 @@ export async function readContributions(root: string): Promise<{ files: string[]
       const messages = object(entry.messages, `${at}.messages`);
       verifyKeys(locales, Object.keys(messages), `${at}.messages`);
       return {
-        surface, key,
+        surface, key, replace,
         messages: Object.fromEntries(locales.map((locale) => [locale, text(messages[locale], `${at}.messages.${locale}`)])),
         context: text(entry.context, `${at}.context`),
       };
@@ -128,8 +130,13 @@ export async function readContributions(root: string): Promise<{ files: string[]
 }
 
 export function applyContributions({ catalogs, context }: CatalogSources, entries: readonly Contribution[]): void {
-  for (const { surface, key, messages, context: note } of entries) {
-    if (Object.hasOwn(context, key)) fail("contributions", `key already exists: ${key}`);
+  const seen = new Set<string>();
+  for (const { surface, key, messages, context: note, replace } of entries) {
+    if (seen.has(key)) fail("contributions", `key already exists: ${key}`);
+    const exists = Object.hasOwn(context, key);
+    if (exists && !replace) fail("contributions", `key already exists: ${key}`);
+    if (!exists && replace) fail("contributions", `cannot replace missing key: ${key}`);
+    seen.add(key);
     for (const locale of locales) catalogs[locale]![surface][key] = messages[locale]!;
     context[key] = note;
   }

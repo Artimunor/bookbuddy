@@ -30,7 +30,9 @@ Each feature slice owns `contributions/<sliceId>.json`. Use an array of entries 
 
 Start keys with `shared.`, `mobile.`, `web.`, or `push.` to match the surface. Choose a feature namespace; for web, distinguish `web.public.` from `web.portal.`. Supply real translations and explain where the copy appears, what its placeholders mean and any length constraints. Keep the same ICU arguments, `select` branches and exact-number plural branches; plural categories may vary by language. `other` is the fallback for a `select`, including unspecified gender.
 
-Do not edit canonical catalogs or generated types in parallel slices. The integrator runs `bun run --cwd packages/i18n merge` from the repo root. It validates all pending files, writes sorted canonical catalogs and context, regenerates ASTs and types, then deletes the merged files. Commit those changes together. Use `bun run i18n:build` to regenerate and `bun run i18n:check` to check parity, ICU, generated output and literal `t()` calls under `apps/`. The usage check recognizes pending keys before merge; the runtime and types only include merged keys. Unused keys warn without failing.
+Do not edit canonical catalogs or generated types in parallel slices. The integrator runs `bun run --cwd packages/i18n merge` from the repo root. It sweeps all pending contribution files, validates them, writes sorted catalogs and context, regenerates ASTs and types, then deletes the merged files. To revise one of your slice's already-merged keys, resubmit the key with `"replace": true`, every locale value, and a context note. Commit the resulting changes together.
+
+Use `bun run i18n:build` to regenerate and `bun run i18n:check` to check parity, ICU, generated output and literal `t()` calls under `apps/`. The usage check recognizes pending keys before merge; the runtime and types only include merged keys. Unused keys warn without failing.
 
 ## Bundle configuration
 
