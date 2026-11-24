@@ -62,8 +62,9 @@ async function fixture() {
       headers: { Authorization: `Bearer ${credential}`, ...(operationId ? { [operationIdHeader]: operationId, "Content-Type": "application/json" } : {}) },
       body: operationId ? JSON.stringify({ operationId, payload }) : undefined,
     }, env, execution);
-    expect(db.calls.batch - batch).toBe(1);
-    expect(db.calls.query - query).toBe(0);
+    const directSessionRead = path === "/session";
+    expect(db.calls.batch - batch).toBe(directSessionRead ? 0 : 1);
+    expect(db.calls.query - query).toBe(directSessionRead ? 1 : 0);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     return { status: response.status, body: await response.json() as unknown };
   }
@@ -218,6 +219,30 @@ test("foreman reads only crew eligibility and a cold scoped link can offer that 
     expect(JSON.stringify([eligibility.body, people.body])).not.toMatch(/checkedBy|internal-proof|example\.test|admin-member/);
     expect((await f.request("/businesses/business/people?view=invited", foreman)).body).toMatchObject({ error: missing });
     expect((await f.request("/businesses/other-business/people", foreman)).body).toMatchObject({ error: missing });
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
+test("future staff authority is absent from roster reads, the bootstrap, and context switching until effective", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(start);
+  const f = await fixture();
+  try {
+    await f.db.batch([
+      f.db.prepare("UPDATE membership_roles SET granted_at = ? WHERE id = 'admin-role'").bind(start + 1),
+      f.db.prepare("INSERT INTO account_preferences (account_id) VALUES ('admin')"),
+    ]);
+    const roster = () => f.request("/businesses/business/people", f.admin);
+    expect(await roster()).toMatchObject({ status: 404, body: { error: missing } });
+    expect((await f.request("/session", f.admin)).body).toMatchObject({
+      data: { activeContext: null, contexts: [{ contextId: "admin-customer" }] },
+    });
+    await f.db.prepare("UPDATE sessions SET active_context_id = 'admin-customer' WHERE id = 'admin-session'").run();
+    const select = () => f.request("/session/context", f.admin, "select-admin", { contextId: "admin-business" });
+    expect(await select()).toMatchObject({ status: 404, body: { error: missing } });
+    expect(await f.db.prepare("SELECT active_context_id FROM sessions WHERE id = 'admin-session'").first("active_context_id")).toBe("admin-customer");
+
+    date.mockReturnValue(start + 1);
+    expect(await select()).toMatchObject({ status: 200, body: { data: { activeContext: { contextId: "admin-business" } } } });
+    expect((await roster()).body).toMatchObject({ data: { audience: "provider_admin", members: [{ email: "admin@example.test" }] } });
   } finally { f.db.close(); date.mockRestore(); }
 });
 

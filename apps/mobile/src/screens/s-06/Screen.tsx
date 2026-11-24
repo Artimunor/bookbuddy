@@ -11,23 +11,23 @@ import { Button, Card, Dock, ListRow, Screen, Sheet, StatusBanner, TextField } f
 import { Copy } from "../../ui/controls/shared";
 import { useBeaconTheme } from "../../ui/theme";
 import { appLanguageLabel, readingLanguageLabel } from "../s-12/language";
-import { confirmAction } from "../s-17/confirmAction";
 import { businessLabel, initials, isolated, roleLabel, roleRoots, useAccountDetails, type RoleChoice } from "./account";
+import { SignOutSheet } from "./SignOutSheet";
 
 type PendingWork = { drafts?: number; waiting?: number; checking?: number; media?: number };
-type AccountIdentity = { displayName: string | null; email: string };
+type AccountIdentity = { displayName: string | null; email?: string };
 
 export default function YouScreen() {
   const router = useRouter();
-  const t = useT();
-  const { session, bootstrap, offline, loading, canRetry, retry } = useAccountDetails();
-  const { preferences, status, signOut } = useSession();
+  const { session, bootstrap, offlineBootstrap, offline, loading, canRetry, retry } = useAccountDetails();
+  const { preferences, status } = useSession();
   const [editing, setEditing] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const signOutTrigger = useRef<ComponentRef<typeof View>>(null);
   const editTrigger = useRef<ComponentRef<typeof View>>(null);
   const switchTrigger = useRef<ComponentRef<typeof View>>(null);
   const openedSwitch = useRef(false);
-  const account = bootstrap?.account;
+  const account = bootstrap?.account ?? offlineBootstrap?.account;
   const active = bootstrap?.activeContext ?? session?.activeContext ?? undefined;
   const [placesContext, setPlacesContext] = useState<string | null>(null);
   const places = useRemote(listPlacesRoute, { query: {} }, { enabled: active?.role === "customer", loadOnMount: false });
@@ -60,24 +60,11 @@ export default function YouScreen() {
     return () => setPlacesContext(null);
   }, [router, session, status]));
 
-  function openSignOut() {
-    if (!session) return;
-    const confirmation = [t("mobile.you.confirmOtherDevices"), t("mobile.you.confirmWipe"), ...pendingLines(t, pending)];
-    if (confirmation.length > 2) confirmation.push(t("mobile.you.confirmUnknown"));
-    confirmAction(router, {
-      title: t("mobile.you.confirmTitle"), actionLabel: t("mobile.you.confirmAction"), actionLabelKey: "mobile.you.confirmAction",
-      item: t("mobile.you.confirmItem"), actor: isolated(account?.displayName || account?.email || t("mobile.you.title")),
-      role: active ? roleLabel(t, active.role) : t("mobile.you.device"), effects: confirmation,
-      onConfirm: async () => { await signOut(); return "confirmed"; }, onReview: () => setEditing(false),
-      serverAction: false, destructive: true, returnFocusRef: signOutTrigger,
-    });
-  }
-
   if (!session) return null;
   return <>
     <YouView account={account} active={active ?? undefined} contexts={bootstrap?.contexts} readingLocale={preferences?.readingLocale}
-      pending={pending} loading={loading} canEdit={!!account && !offline} signOutTrigger={signOutTrigger} editTrigger={editTrigger} switchTrigger={switchTrigger}
-      onRetry={canRetry ? retry : undefined} onSignOut={openSignOut} onEdit={() => setEditing(true)}
+      pending={pending} loading={loading} canEdit={!!bootstrap && !offline} signOutTrigger={signOutTrigger} editTrigger={editTrigger} switchTrigger={switchTrigger}
+      onRetry={canRetry ? retry : undefined} onSignOut={() => setConfirmingSignOut(true)} onEdit={() => setEditing(true)}
       openingPlaces={openingPlaces} onPlaces={() => {
         if (active?.role !== "customer" || openingPlaces) return;
         setPlacesContext(active.contextId);
@@ -88,7 +75,8 @@ export default function YouScreen() {
         if (router.canGoBack()) router.back();
         else router.replace(active ? roleRoots[active.role] : "/help");
       }} />
-    {account && <EditName account={account} visible={editing} returnFocusRef={editTrigger} onClose={() => setEditing(false)} />}
+    {bootstrap && <EditName account={bootstrap.account} visible={editing} returnFocusRef={editTrigger} onClose={() => setEditing(false)} />}
+    <SignOutSheet visible={confirmingSignOut} returnFocusRef={signOutTrigger} onClose={() => setConfirmingSignOut(false)} />
   </>;
 }
 
@@ -143,7 +131,7 @@ export function YouView({ account, active, contexts, readingLocale, place, named
         </View>
         <View style={{ flexGrow: 1, flexShrink: 1, minWidth: "45%", gap: space.grid[1] }}>
           <Copy variant="sectionTitle">{isolated(name)}</Copy>
-          {!!account.displayName && <Copy variant="supporting" style={muted}>{`\u2066${account.email}\u2069`}</Copy>}
+          {!!account.displayName && !!account.email && <Copy variant="supporting" style={muted}>{`\u2066${account.email}\u2069`}</Copy>}
         </View>
         <Button ref={editTrigger} label={t("mobile.you.edit")} variant="quiet" onPress={onEdit} disabled={!canEdit} />
       </View>
@@ -180,7 +168,7 @@ export function YouView({ account, active, contexts, readingLocale, place, named
     {lines.length > 0 && <Card>
       <Copy variant="label" style={{ color: color.attentionInk }}>{t("mobile.you.pending")}</Copy>
       {lines.map((line) => <Copy key={line} variant="supporting">{line}</Copy>)}
-      <Copy variant="supporting" style={muted}>{t("mobile.you.confirmWipe")}</Copy>
+      <Copy variant="supporting" style={muted}>{t("mobile.you.pendingHint")}</Copy>
     </Card>}
     <View style={{ gap: space.grid[2], paddingTop: space.grid[2] }}>
       <Button ref={signOutTrigger} label={t("mobile.you.signOut")} variant="destructive" onPress={onSignOut} />

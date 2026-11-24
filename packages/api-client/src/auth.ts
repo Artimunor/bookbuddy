@@ -1,6 +1,6 @@
 import {
   accountSettingsRoute, emailResendRoute, emailStartRoute, emailStatusRoute,
-  emailVerifyRoute, sessionContextRoute, sessionEndRoute, sessionRoute,
+  emailVerifyRoute, sessionContextRoute, sessionEndRoute, sessionRevokeRoute, sessionRoute,
 } from "@bookbuddy/api-contract";
 import type { RouteRequest } from "@bookbuddy/api-contract";
 import type { ApiClient, RequestOptions } from "./client";
@@ -18,6 +18,8 @@ export function createAuthClient(api: ApiClient) {
     switchContext: (body: RouteRequest<typeof sessionContextRoute.input>["body"], options?: RequestOptions) =>
       api.request(sessionContextRoute, { body }, options),
     end: (options?: RequestOptions) => api.request(sessionEndRoute, {}, options),
+    revoke: (body: RouteRequest<typeof sessionRevokeRoute.input>["body"], options?: RequestOptions) =>
+      api.request(sessionRevokeRoute, { body }, options),
     patchSettings: (body: RouteRequest<typeof accountSettingsRoute.input>["body"], options?: RequestOptions) =>
       api.request(accountSettingsRoute, { body }, options),
   };

@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router";
 import { ActionLink, Badge, Button, Card, Dialog, Dock, QuoteTable, StatusBanner, TwinCard } from "../../ui";
 import { Frame, money, usePortal } from "../now/common";
 import { usePendingOperation } from "../session/pending-operation";
+import { PendingReceiptNotice } from "../session/pending-receipt";
 import { formatPortalTime } from "../time";
 
 type QuoteData = Extract<QuoteVersion, { audience: "customer" }>;
@@ -30,6 +31,12 @@ function QuoteView({ id, version }: { id: string; version: string }) {
     },
     value => { setQuote(value); setDialog(null); },
     code => setChanged(code === "CONFLICT" || code === "STALE_REVISION"),
+    { onCommitted: () => {
+      setQuote(null); setDialog(null);
+      void commercial.getQuoteVersion(id, version).then(result => {
+        if (result.ok && result.data.audience === "customer") setQuote(result.data); else setLoadFailed(true);
+      });
+    } },
   );
   const outcome = changed ? "changed" : command.state === "sending" ? "processing" : command.state;
   useEffect(() => { if (outcome === "checking" || outcome === "failed" || outcome === "changed") setDialog(null); }, [outcome]);
@@ -65,6 +72,7 @@ function QuoteView({ id, version }: { id: string; version: string }) {
       {outcome === "checking" && <StatusBanner title={t("web.portal.work.checking")} tone="attention" announce="polite" action={<Button onClick={command.check}>{t("web.portal.work.checkAgain")}</Button>} />}
       {outcome === "changed" && <StatusBanner title={t("web.portal.work.changed")} tone="attention" announce="polite" />}
       {outcome === "failed" && <StatusBanner title={t("web.portal.work.notRecorded")} tone="critical" announce="assertive" />}
+      <PendingReceiptNotice state={command.state} />
     {quote && <><header><h1 className="text-page-title">{t("web.portal.work.quote")}</h1><p>{quote.job.jobTitle} · {quote.job.reference} · {quote.job.placeAlias}</p></header>
       {!quote.viewerIsNamedApprover && <StatusBanner title={t("web.portal.work.notApprover")} />}
       <Card><div className="space-y-3"><p>{quote.job.providerDisplayName}</p><Badge label={`${t("web.portal.work.version", { version: quote.no })} · ${status}`} tone={quote.state === "approved" ? "success" : "neutral"} /><p className="text-page-title"><bdi>{amount}</bdi></p><p>{t("web.portal.work.sent", { name: quote.publisherDisplayName, date: sentClock?.site ?? "" })}{sentClock?.viewer && <><br />{sentClock.viewer}</>}</p><p>{t("web.portal.work.expiry", { date: expiryClock?.site ?? "" })}{expiryClock?.viewer && <><br />{expiryClock.viewer}</>}</p>{quote.decision && <p>{t("web.portal.work.decision", { decision: quote.decision.decision === "approve" ? t("web.portal.work.approved") : t("web.portal.work.declined"), name: quote.decision.actorDisplayName, date: decisionClock?.site ?? "" })}{decisionClock?.viewer && <><br />{decisionClock.viewer}</>}</p>}</div></Card>

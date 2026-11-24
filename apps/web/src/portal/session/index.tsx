@@ -1,10 +1,14 @@
-import { createApiClient, createAuthClient } from "@bookbuddy/api-client";
+import { createAuthClient, type ApiClient } from "@bookbuddy/api-client";
 import type { SessionBootstrap } from "@bookbuddy/api-contract";
 import { createWebTranslator } from "@bookbuddy/i18n/web";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
+import { authDraft } from "../auth/flow";
 import { clearCheckedOpenings } from "../notifications/handoff";
-import { activatePendingOperations } from "./pending-storage";
+import { placeSearch } from "../places/search";
+import { createPortalApi, type PortalIdentity } from "./api";
+import { activatePendingOperations, clearPendingOperationsForSession, migrateLegacyPendingOperations, suspendPendingOperations } from "./pending-storage";
+import { connectSessionSignals, type SessionSignals } from "./signals";
 
 type Locale = "en" | "pt-PT";
 function browserLocale(): Locale {
@@ -13,10 +17,6 @@ function browserLocale(): Locale {
 function supportedLocale(locale: string | null | undefined): Locale {
   return locale?.toLowerCase().startsWith("pt") ? "pt-PT" : locale ? "en" : browserLocale();
 }
-let requestLocale: Locale = "en";
-export const authClient = createAuthClient(createApiClient({
-  baseUrl: "/api/v1", getSession: () => null, getLocale: () => requestLocale,
-}));
 type SessionContext = {
   bootstrap: SessionBootstrap | null;
   account: SessionBootstrap["account"] | null;
@@ -24,9 +24,12 @@ type SessionContext = {
   preferences: SessionBootstrap["preferences"] | null;
   status: "loading" | "authenticated" | "unauthenticated" | "error";
   locale: Locale;
-  acceptBootstrap: (session: SessionBootstrap) => void;
+  api: ApiClient;
+  acceptBootstrap: (session: SessionBootstrap) => boolean;
   markUnauthenticated: () => void;
   reload: () => void;
+  signOut: () => void;
+  signOutStatus: "idle" | "sending" | "failed";
 };
 const Context = createContext<SessionContext | null>(null);
 export function useSession() {
@@ -34,33 +37,108 @@ export function useSession() {
   if (!value) throw new Error("PortalSessionProvider is missing");
   return value;
 }
+
+export function usePortalAuth() {
+  const { api } = useSession();
+  return useMemo(() => createAuthClient(api), [api]);
+}
 export function PortalSessionProvider({ children }: { children: ReactNode }) {
   const [bootstrap, setBootstrap] = useState<SessionBootstrap | null>(null);
   const [status, setStatus] = useState<SessionContext["status"]>("loading");
   const [generation, setGeneration] = useState(0);
-  const identity = useRef<string | null>(null);
+  const [signOutStatus, setSignOutStatus] = useState<SessionContext["signOutStatus"]>("idle");
+  const identity = useRef<PortalIdentity | null>(null);
+  const epoch = useRef(0);
+  const pendingSignOut = useRef<number | null>(null);
+  const endedSession = useRef<string | null>(null);
+  const signals = useRef<SessionSignals | null>(null);
   const locale = supportedLocale(bootstrap?.preferences.uiLocale);
-  requestLocale = locale;
-  const acceptBootstrap = useCallback((session: SessionBootstrap) => {
-    const nextIdentity = `${session.sessionId}:${session.activeContext?.contextId ?? ""}`;
-    if (identity.current !== nextIdentity) { clearCheckedOpenings(); activatePendingOperations(nextIdentity); }
-    identity.current = nextIdentity;
-    setBootstrap(session); setStatus("authenticated");
+  const requestLocale = useRef(locale);
+  requestLocale.current = locale;
+
+  const resetView = useCallback(() => {
+    epoch.current++;
+    identity.current = null;
+    clearCheckedOpenings();
+    placeSearch.query = "";
+    authDraft.challenge = null;
+    authDraft.email = "";
+    setSignOutStatus("idle");
+    setBootstrap(null);
   }, []);
   const markUnauthenticated = useCallback(() => {
-    clearCheckedOpenings(); activatePendingOperations(null); identity.current = null;
-    setBootstrap(null); setStatus("unauthenticated");
-  }, []);
+    resetView();
+    activatePendingOperations(null);
+    setStatus("unauthenticated");
+  }, [resetView]);
+  const reload = useCallback(() => {
+    resetView();
+    suspendPendingOperations();
+    setStatus("loading");
+    setGeneration(n => n + 1);
+  }, [resetView]);
+
+  const install = useCallback((session: SessionBootstrap, notify: boolean) => {
+    if (endedSession.current === session.sessionId) { markUnauthenticated(); return false; }
+    const next: PortalIdentity = { sessionId: session.sessionId, contextId: session.activeContext?.contextId ?? null };
+    if (identity.current?.sessionId !== next.sessionId || identity.current.contextId !== next.contextId) {
+      resetView();
+      activatePendingOperations(`${next.sessionId}:${next.contextId ?? ""}`);
+      identity.current = next;
+      if (notify) signals.current?.publish({ kind: "changed", ...next });
+    }
+    setBootstrap(session); setStatus("authenticated");
+    return true;
+  }, [markUnauthenticated, resetView]);
+
+  useLayoutEffect(() => {
+    migrateLegacyPendingOperations();
+    const bus = connectSessionSignals(signal => {
+      if (signal.kind === "signed_out") {
+        endedSession.current = signal.sessionId;
+        if (identity.current?.sessionId === signal.sessionId) markUnauthenticated();
+        else clearPendingOperationsForSession(signal.sessionId);
+      } else if (identity.current?.sessionId !== signal.sessionId || identity.current.contextId !== signal.contextId) reload();
+    });
+    signals.current = bus;
+    return () => { signals.current = null; bus.close(); };
+  }, [markUnauthenticated, reload]);
   useEffect(() => {
-    let active = true;
-    void authClient.getSession().then((result) => {
-      if (!active) return;
-      if (result.ok) acceptBootstrap(result.data);
+    const controller = new AbortController();
+    const requestedAt = epoch.current;
+    const client = createAuthClient(createPortalApi({ identity: null, getLocale: () => requestLocale.current,
+      isCurrent: () => epoch.current === requestedAt, onSessionChanged: reload }));
+    void client.getSession({ signal: controller.signal }).then(result => {
+      if (controller.signal.aborted || requestedAt !== epoch.current) return;
+      if (result.ok) install(result.data, false);
       else if (result.error.code === "UNAUTHENTICATED") markUnauthenticated();
       else setStatus("error");
     });
-    return () => { active = false; };
-  }, [generation, acceptBootstrap, markUnauthenticated]);
+    return () => controller.abort();
+  }, [generation, install, markUnauthenticated, reload]);
+
+  const renderEpoch = epoch.current;
+  const sessionId = bootstrap?.sessionId ?? null;
+  const contextId = bootstrap?.activeContext?.contextId ?? null;
+  const api = useMemo(() => createPortalApi({
+    identity: sessionId === null ? null : { sessionId, contextId },
+    getLocale: () => locale, isCurrent: () => epoch.current === renderEpoch, onSessionChanged: reload,
+  }), [sessionId, contextId, locale, renderEpoch, reload]);
+  const acceptBootstrap = useCallback((session: SessionBootstrap) =>
+    epoch.current === renderEpoch && install(session, true), [renderEpoch, install]);
+  const signOut = useCallback(async () => {
+    if (!sessionId || epoch.current !== renderEpoch || pendingSignOut.current === renderEpoch) return;
+    pendingSignOut.current = renderEpoch;
+    setSignOutStatus("sending");
+    const result = await createAuthClient(api).end();
+    if (pendingSignOut.current === renderEpoch) pendingSignOut.current = null;
+    if (result.ok || result.error.code === "UNAUTHENTICATED") {
+      endedSession.current = sessionId;
+      if (identity.current?.sessionId === sessionId) markUnauthenticated();
+      else clearPendingOperationsForSession(sessionId);
+      signals.current?.publish({ kind: "signed_out", sessionId });
+    } else if (epoch.current === renderEpoch) setSignOutStatus("failed");
+  }, [api, markUnauthenticated, renderEpoch, sessionId]);
   useEffect(() => { document.documentElement.lang = locale; document.documentElement.dir = "ltr"; }, [locale]);
   useEffect(() => {
     const root = document.documentElement;
@@ -79,9 +157,8 @@ export function PortalSessionProvider({ children }: { children: ReactNode }) {
   }, [bootstrap?.preferences.theme, bootstrap?.preferences.fieldMode]);
   const value = useMemo<SessionContext>(() => ({ bootstrap, account: bootstrap?.account ?? null,
     activeContext: bootstrap?.activeContext ?? null, preferences: bootstrap?.preferences ?? null,
-    status, locale, acceptBootstrap, markUnauthenticated,
-    reload: () => { clearCheckedOpenings(); setStatus("loading"); setGeneration((n) => n + 1); },
-  }), [bootstrap, status, locale, acceptBootstrap, markUnauthenticated]);
+    status, locale, api, acceptBootstrap, markUnauthenticated, reload, signOut, signOutStatus,
+  }), [bootstrap, status, locale, api, acceptBootstrap, markUnauthenticated, reload, signOut, signOutStatus]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function PortalLayout() { return <PortalSessionProvider><Outlet /></PortalSessionProvider>; }
@@ -91,7 +168,8 @@ export function ProtectedPortal() {
   const { t } = createWebTranslator(locale);
   if (status === "loading") return <main><p role="status">{t("web.portal.auth.loading")}</p></main>;
   if (status === "error") return <main><p role="alert">{t("web.portal.auth.unavailable")}</p><button onClick={reload}>{t("web.portal.auth.retry")}</button></main>;
-  if (status === "unauthenticated") return <Navigate replace to={`/portal/sign-in?next=${encodeURIComponent(location.pathname + location.search + location.hash)}`} />;
-  if (bootstrap?.setup === "required") return <Navigate replace to={`/portal/setup?next=${encodeURIComponent(location.pathname + location.search + location.hash)}`} />;
-  return <Outlet />;
+  const destination = location.pathname === "/portal/places" ? location.pathname : location.pathname + location.search + location.hash;
+  if (status === "unauthenticated") return <Navigate replace to={`/portal/sign-in?next=${encodeURIComponent(destination)}`} />;
+  if (bootstrap?.setup === "required") return <Navigate replace to={`/portal/setup?next=${encodeURIComponent(destination)}`} />;
+  return <Outlet key={`${bootstrap?.sessionId}:${bootstrap?.activeContext?.contextId ?? ""}`} />;
 }

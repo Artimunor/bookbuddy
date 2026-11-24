@@ -1,4 +1,4 @@
-import { createApiClient, createMediaClient } from "@bookbuddy/api-client";
+import { createMediaClient } from "@bookbuddy/api-client";
 import type { MediaCaller, MediaReadGrant } from "@bookbuddy/api-contract";
 import { useMemo, useState } from "react";
 import { Button, Dialog } from "../../ui";
@@ -16,7 +16,7 @@ export function MediaViewer({ grant, caption, close }: { grant: ReadyGrant; capt
 
 /** Fetch the whole visible group on the first open; capabilities stay in memory only. */
 export function AttachmentThumb({ caller, parentScopeId, attachments }: { caller: MediaCaller; parentScopeId: string; attachments: Attachment[] }) {
-  const { locale, t } = usePortal(); const client = useMemo(() => createMediaClient(createApiClient({ baseUrl: "/api/v1", getSession: () => null, getLocale: () => locale })), [locale]);
+  const { api, t } = usePortal(); const client = useMemo(() => createMediaClient(api), [api]);
   const [grants, setGrants] = useState<MediaReadGrant[]>([]); const [selected, setSelected] = useState<string | null>(null); const [busy, setBusy] = useState(false); const [failed, setFailed] = useState(false);
   async function open(id: string) {
     if (busy) return;

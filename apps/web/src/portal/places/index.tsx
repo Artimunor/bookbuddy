@@ -1,31 +1,38 @@
-import { createAccessClient, createApiClient, createPlacesClient, type ApiResult } from "@bookbuddy/api-client";
+import { createAccessClient, createPlacesClient, type ApiResult } from "@bookbuddy/api-client";
 import type { PlaceDetails, PlaceList, PlacePersonPatch } from "@bookbuddy/api-contract";
 import { looksLikeAccessCode } from "@bookbuddy/domain";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { Button, Dialog, TextField } from "../../ui";
 import { Frame, usePortal } from "../now/common";
 import { storeCheckedOpening, takeCheckedOpening } from "../notifications/handoff";
 import { usePendingOperation } from "../session/pending-operation";
+import { PendingReceiptNotice } from "../session/pending-receipt";
 import { formatPortalTime } from "../time";
 import { PlacePersonDialog } from "./people";
+import { placeSearch } from "./search";
 
 function usePlaces() {
-  const { locale } = usePortal();
-  return useMemo(() => createPlacesClient(createApiClient({ baseUrl: "/api/v1", getSession: () => null, getLocale: () => locale })), [locale]);
+  const { api } = usePortal();
+  return useMemo(() => createPlacesClient(api), [api]);
 }
 export function Places() {
   const { t } = usePortal(); const api = usePlaces();
-  const [params, setParams] = useSearchParams(); const query = params.get("q") ?? "";
+  const [query, setQuery] = useState(() => placeSearch.query);
+  const location = useLocation(); const navigate = useNavigate();
+  useEffect(() => {
+    // Replace an old bookmark/current history entry without carrying its filter forward.
+    if (new URLSearchParams(location.search).has("q")) navigate(location.pathname, { replace: true });
+  }, [location.pathname, location.search, navigate]);
   const [page, setPage] = useState<PlaceList | null>(null); const [failed, setFailed] = useState(false);
   useEffect(() => { const controller = new AbortController(); setPage(null); setFailed(false);
     const timer = window.setTimeout(() => { void api.listPlaces(query.trim() ? { q: query.trim() } : undefined, { signal: controller.signal }).then(r => { if (!controller.signal.aborted) r.ok ? setPage(r.data) : setFailed(true); }); }, query ? 300 : 0);
     return () => { window.clearTimeout(timer); controller.abort(); }; }, [api,query]);
   const shown = page?.places.slice().sort((a,b) => b.liveBookingCount - a.liveBookingCount || b.openBookingCount - a.openBookingCount || a.alias.localeCompare(b.alias));
   async function more() { if (!page?.cursor) return; const r = await api.listPlaces({ cursor: page.cursor, ...(query.trim() ? {q:query.trim()} : {}) }); if (r.ok) setPage({ ...r.data, places: [...page.places, ...r.data.places] }); else setFailed(true); }
-  return <Frame><h1 className="text-page-title">{t("web.portal.work.places")}</h1><TextField label={t("web.portal.ps.search")} value={query} onChange={e => setParams(e.target.value ? { q: e.target.value } : {}, { replace: true })}/>
+  return <Frame><h1 className="text-page-title">{t("web.portal.work.places")}</h1><TextField label={t("web.portal.ps.search")} value={query} onChange={e => { placeSearch.query = e.target.value; setQuery(placeSearch.query); }}/>
     {failed && <p role="alert">{t("web.portal.work.failed")}</p>}{!page && !failed && <p role="status">{t("web.portal.work.loading")}</p>}
-    {page && <><p>{t("web.portal.ps.placeCount", { count: page.total })}</p>{shown?.length ? shown.map(p => <article key={p.id} className="rounded-2xl border p-5"><Link to={`/portal/places/${encodeURIComponent(p.id)}`} state={{ from: `/portal/places${query ? `?q=${encodeURIComponent(query)}` : ""}` }}><h2 className="text-section-title">{p.alias}</h2><p>{[p.areaName,p.siteZone].filter(Boolean).join(" · ")}</p><p>{p.relationship === "manager" && p.ownerDisplayName ? t("web.portal.ps.managedFor", { name: p.ownerDisplayName }) : p.relationship === "owner" ? t("web.portal.ps.owner") : t("web.portal.ps.viewer")}{p.viewerIsNamedApprover ? ` · ${t("web.portal.ps.namedApprover")}` : ""}</p><p>{t("web.portal.ps.bookingsCount", { count: p.openBookingCount })}</p></Link></article>) : <p>{query ? t("web.portal.ps.noMatch") : t("web.portal.ps.noPlaces")}</p>}{page.hasMore && <Button onClick={() => void more()}>{t("web.portal.work.more")}</Button>}</>}
+    {page && <><p>{t("web.portal.ps.placeCount", { count: page.total })}</p>{shown?.length ? shown.map(p => <article key={p.id} className="rounded-2xl border p-5"><Link to={`/portal/places/${encodeURIComponent(p.id)}`}><h2 className="text-section-title">{p.alias}</h2><p>{[p.areaName,p.siteZone].filter(Boolean).join(" · ")}</p><p>{p.relationship === "manager" && p.ownerDisplayName ? t("web.portal.ps.managedFor", { name: p.ownerDisplayName }) : p.relationship === "owner" ? t("web.portal.ps.owner") : t("web.portal.ps.viewer")}{p.viewerIsNamedApprover ? ` · ${t("web.portal.ps.namedApprover")}` : ""}</p><p>{t("web.portal.ps.bookingsCount", { count: p.openBookingCount })}</p></Link></article>) : <p>{query ? t("web.portal.ps.noMatch") : t("web.portal.ps.noPlaces")}</p>}{page.hasMore && <Button onClick={() => void more()}>{t("web.portal.work.more")}</Button>}</>}
     <Link to="/portal/places/new">{t("web.portal.ps.addPlace")}</Link><p>{t("web.portal.ps.separatePeople")}</p></Frame>;
 }
 type PlaceEdit = { alias: string; address: string; safeArrivalNote: string | null };
@@ -54,13 +61,22 @@ export function PlaceDetail() {
   return <PlaceDetailPage key={`${bootstrap?.sessionId}:${activeContext?.contextId}:${id}`} id={id} />;
 }
 function PlaceDetailPage({ id }: { id: string }) {
-  const { t, locale, bootstrap, activeContext } = usePortal(); const api = usePlaces(); const navigate = useNavigate(); const location = useLocation();
+  const { t, locale, api: portalApi, bootstrap, activeContext } = usePortal(); const api = usePlaces(); const navigate = useNavigate(); const location = useLocation();
   const [place, setPlace] = useState<PlaceDetails | null>(null); const [failed, setFailed] = useState(false);
+  const [generation, setGeneration] = useState(0);
   const [personId, setPersonId] = useState<string | null>(null);
   const [invitationAction, setInvitationAction] = useState<{ id: string; email: string; action: "reissue" | "withdraw" } | null>(null);
-  const access = useMemo(() => createAccessClient(createApiClient({baseUrl:"/api/v1",getSession:()=>null,getLocale:()=>locale})), [locale]);
+  const access = useMemo(() => createAccessClient(portalApi), [portalApi]);
   const [email, setEmail] = useState(""); const [successor, setSuccessor] = useState(""); const [confirm, setConfirm] = useState(false); const [editing, setEditing] = useState(id === "new"); const [alias,setAlias] = useState(""); const [address,setAddress] = useState(""); const [note,setNote] = useState("");
-  useEffect(() => { if (id === "new") return; const checked = takeCheckedOpening(location.state, bootstrap?.sessionId, activeContext?.contextId ?? null); if (checked?.kind === "place" && checked.place.id === id) { const p = checked.place; setPlace(p); setAlias(p.alias); setAddress(p.address ?? ""); setNote(p.safeArrivalNote ?? ""); return; } const controller = new AbortController(); setPlace(null); setFailed(false); void api.getPlace(id, { signal: controller.signal }).then(r => { if (!controller.signal.aborted) { if (r.ok) { setPlace(r.data); setAlias(r.data.alias); setAddress(r.data.address ?? ""); setNote(r.data.safeArrivalNote ?? ""); } else setFailed(true); } }); return () => controller.abort(); }, [api,id,location.state,bootstrap?.sessionId,activeContext?.contextId]);
+  useEffect(() => {
+    if (id === "new") return;
+    const checked = takeCheckedOpening(location.state, bootstrap?.sessionId, activeContext?.contextId ?? null);
+    function show(data: PlaceDetails) { setPlace(data); setAlias(data.alias); setAddress(data.address ?? ""); setNote(data.safeArrivalNote ?? ""); }
+    if (checked?.kind === "place" && checked.place.id === id) { show(checked.place); return; }
+    const controller = new AbortController(); setPlace(null); setFailed(false);
+    void api.getPlace(id, { signal: controller.signal }).then(r => { if (!controller.signal.aborted) r.ok ? show(r.data) : setFailed(true); });
+    return () => controller.abort();
+  }, [api, id, location.state, bootstrap?.sessionId, activeContext?.contextId, generation]);
   const blocked = looksLikeAccessCode(note);
   async function send(input: PlaceOperation): Promise<ApiResult<PlaceDetails | PlaceInvite | null>> {
     const { operationId, kind } = input;
@@ -105,6 +121,18 @@ function PlaceDetailPage({ id }: { id: string }) {
         return { ...current, pendingInvitations: current.pendingInvitations.flatMap(item => item.id === input.invitation ? replacement : [item]) };
       });
     }
+  }, undefined, {
+    ...(id === "new" ? { includeResource: true as const } : {}),
+    resourceIds: input => input.kind === "create" ? [] : [id, ...(input.kind === "person" ? [input.person] : input.kind === "reissue" || input.kind === "withdraw" ? [input.invitation] : [])],
+    onCommitted: status => {
+      const resource = status.resource;
+      if (id === "new" && resource?.kind === "place") {
+        navigate(location.pathname.startsWith("/portal/new/") ? "/portal/new/place" : `/portal/places/${encodeURIComponent(resource.id)}`, { replace: true });
+      } else if (id !== "new") {
+        setPlace(null); setEditing(false); setPersonId(null); setEmail(""); setSuccessor("");
+        setGeneration(n => n + 1);
+      } else setEditing(false);
+    },
   });
   const busy = command.state === "sending";
   const checking = command.state === "checking";
@@ -136,11 +164,11 @@ function PlaceDetailPage({ id }: { id: string }) {
     setPersonId(null);
   }
   const title = place?.alias ?? t("web.portal.ps.addPlace");
-  const state: unknown = location.state;
-  const back = location.pathname.startsWith("/portal/new/") ? "/portal/new/place" : state && typeof state === "object" && "from" in state && typeof state.from === "string" && state.from.startsWith("/portal/places?") ? state.from : "/portal/places";
+  const back = location.pathname.startsWith("/portal/new/") ? "/portal/new/place" : "/portal/places";
   const viewerZone = bootstrap?.preferences.twoClock ? bootstrap.preferences.displayZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
   return <Frame><Link to={back}>{t("web.portal.ps.backPlaces")}</Link><h1 className="text-page-title">{title}</h1>{place && <p>{[place.areaName,place.siteZone].filter(Boolean).join(" · ")}</p>}
     {(failed || command.state === "failed") && <p role="alert">{t("web.portal.work.failed")}</p>}
+    <PendingReceiptNotice state={command.state} />
     {checking && <><p role="status">{t("web.portal.auth.uncertain")}</p><Button onClick={command.check}>{t("web.portal.work.checkAgain")}</Button></>}
     {id !== "new" && !place && !failed && <p role="status">{t("web.portal.work.loading")}</p>}
     {editing ? <section className="space-y-4"><TextField label={t("web.portal.ps.placeName")} value={alias} maxLength={100} readOnly={busy || checking} onChange={e=>setAlias(e.target.value)}/><TextField label={t("web.portal.ps.address")} value={address} maxLength={500} readOnly={busy || checking} onChange={e=>setAddress(e.target.value)}/><TextField label={t("web.portal.ps.safeNote")} value={note} maxLength={500} readOnly={busy || checking} onChange={e=>setNote(e.target.value)} error={blocked ? t("web.portal.ps.noCodesError") : undefined}/><p>{t("web.portal.ps.noCodes")}</p><Button disabled={blocked || busy || checking} onClick={save}>{t("web.portal.ps.save")}</Button>{place && <Button variant="text" disabled={busy || checking} onClick={()=>setEditing(false)}>{t("web.portal.work.close")}</Button>}</section> : place && <><section className="rounded-2xl border p-5 space-y-2"><h2 className="text-section-title">{t("web.portal.ps.placeDetails")}</h2>{place.address && <p dir="auto">{place.address}</p>}{place.safeArrivalNote && <p dir="auto">{place.safeArrivalNote}</p>}<p>{t("web.portal.ps.noCodes")}</p>{place.actions.edit && <Button disabled={busy || checking} onClick={()=>setEditing(true)}>{t("web.portal.ps.edit")}</Button>}</section>

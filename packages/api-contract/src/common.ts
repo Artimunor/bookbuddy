@@ -17,6 +17,9 @@ export const operationIdSchema = idSchemaFor<"operation">();
 export type OperationId = z.infer<typeof operationIdSchema>;
 
 export const operationIdHeader = "X-Operation-Id";
+export const expectedSessionHeader = "X-Expected-Session";
+export const expectedContextHeader = "X-Expected-Context";
+export const noExpectedContext = "~";
 
 export const timestampSchema = z.int();
 export const revisionSchema = z.int().nonnegative();
@@ -96,6 +99,7 @@ export type FieldError = z.infer<typeof fieldErrorSchema>;
 export const safeConflictSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("revision"), revision: revisionSchema }),
   z.strictObject({ kind: z.literal("operation_id_reused") }),
+  z.strictObject({ kind: z.literal("session_changed") }),
   z.strictObject({ kind: z.literal("window_unavailable") }),
   z.strictObject({
     kind: z.literal("cover"),

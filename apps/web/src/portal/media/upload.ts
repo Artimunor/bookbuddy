@@ -8,7 +8,7 @@ export async function preparePhoto(file: File): Promise<PendingMedia> {
   const image = await createImageBitmap(file);
   try {
     const canvas = document.createElement("canvas");
-    const scale = Math.min(1, 2400 / Math.max(image.width, image.height));
+    const scale = Math.min(1, 2048 / Math.max(image.width, image.height));
     canvas.width = Math.max(1, Math.round(image.width * scale));
     canvas.height = Math.max(1, Math.round(image.height * scale));
     const context = canvas.getContext("2d");
@@ -26,14 +26,15 @@ export function prepareVoice(blob: Blob, durationMs: number): PendingMedia {
   return { attachmentId: crypto.randomUUID(), blob, file: { kind: "voice", mime, bytes: blob.size, durationMs: Math.max(1, Math.round(durationMs)) } };
 }
 
-async function put(blob: Blob, grant: MediaUploadGrant): Promise<{ partNumber: number; etag: string }[]> {
+async function put(blob: Blob, grant: MediaUploadGrant, signal: AbortSignal): Promise<{ partNumber: number; etag: string }[]> {
+  signal.throwIfAborted();
   if (grant.kind === "single") {
-    const response = await fetch(grant.url, { method: "PUT", headers: grant.headers, body: blob, cache: "no-store" });
+    const response = await fetch(grant.url, { method: "PUT", headers: grant.headers, body: blob, cache: "no-store", signal });
     if (!response.ok) throw new Error("Upload outcome unknown");
     return [];
   }
   const results = await Promise.allSettled(grant.parts.map(async part => {
-    const response = await fetch(part.url, { method: "PUT", body: blob.slice(part.offset, part.offset + part.bytes), cache: "no-store" });
+    const response = await fetch(part.url, { method: "PUT", body: blob.slice(part.offset, part.offset + part.bytes), cache: "no-store", signal });
     const etag = response.headers.get("ETag");
     if (!response.ok || !etag) throw new Error("Part outcome unknown");
     return { partNumber: part.partNumber, etag };
@@ -43,16 +44,21 @@ async function put(blob: Blob, grant: MediaUploadGrant): Promise<{ partNumber: n
 }
 
 /** One grant and one settle per batch on the ordinary path; recovery probes only uncertain transfers. */
-export async function uploadMedia(api: ApiClient, stageId: string, scope: { caller: "request" | "case"; parentScopeId: string }, files: PendingMedia[]): Promise<string[]> {
+export async function uploadMedia(api: ApiClient, stageId: string, scope: { caller: "request" | "case"; parentScopeId: string }, files: PendingMedia[], signal: AbortSignal): Promise<string[]> {
+  signal.throwIfAborted();
+  const options = { signal };
   const client = createMediaClient(api);
   const request = { stageId, scope, files: files.map(({ attachmentId, file }) => ({ attachmentId, file })) };
-  let grants = await client.createGrants(request);
+  let grants = await client.createGrants(request, options);
+  signal.throwIfAborted();
   // The exact reservation is safe to replay if the response to the reservation itself was lost.
-  if (!grants.ok && "delivery" in grants.error && grants.error.delivery === "unknown") grants = await client.createGrants(request);
+  if (!grants.ok && "delivery" in grants.error && grants.error.delivery === "unknown") grants = await client.createGrants(request, options);
+  signal.throwIfAborted();
   if (!grants.ok || grants.data.grants.length !== files.length) throw new Error("Grant unavailable");
   const settlements: MediaSettlement[] = [];
   const alreadyReady: string[] = [];
   for (const outcome of grants.data.grants) {
+    signal.throwIfAborted();
     const pending = files.find(item => item.attachmentId === outcome.attachmentId)!;
     if (outcome.state === "ready") { alreadyReady.push(outcome.attachmentId); continue; }
     if (outcome.state !== "uploading") throw new Error("Grant not ready");
@@ -60,10 +66,12 @@ export async function uploadMedia(api: ApiClient, stageId: string, scope: { call
     try {
       if (pending.attempted) throw new Error("Reconcile before retry");
       pending.attempted = true;
-      const parts = await put(pending.blob, outcome.grant);
+      const parts = await put(pending.blob, outcome.grant, signal);
       settlements.push(outcome.grant.kind === "single" ? { ...reservation, kind: "single" } : { ...reservation, kind: "multipart", parts });
     } catch {
-      const recovery = await client.recover({ stageId, files: [{ ...reservation, unknown: outcome.grant.kind === "single" ? "put" : "parts" }] });
+      signal.throwIfAborted();
+      const recovery = await client.recover({ stageId, files: [{ ...reservation, unknown: outcome.grant.kind === "single" ? "put" : "parts" }] }, options);
+      signal.throwIfAborted();
       if (!recovery.ok || !recovery.data.files[0]) throw new Error("Recovery unavailable");
       const state = recovery.data.files[0];
       if (state.state === "ready") { alreadyReady.push(state.attachmentId); continue; }
@@ -71,19 +79,21 @@ export async function uploadMedia(api: ApiClient, stageId: string, scope: { call
       const missing = state.transfer.kind === "multipart" ? state.transfer.missingPartNumbers : undefined;
       let parts = state.transfer.kind === "multipart" ? state.transfer.completedParts : [];
       if (!missing || missing.length) {
-        const refreshed = await client.createGrants({ ...request, files: [{ attachmentId: pending.attachmentId, file: pending.file, refresh: { uploadGeneration: state.uploadGeneration, ...(missing ? { missingPartNumbers: missing } : {}) } }] });
+        const refreshed = await client.createGrants({ ...request, files: [{ attachmentId: pending.attachmentId, file: pending.file, refresh: { uploadGeneration: state.uploadGeneration, ...(missing ? { missingPartNumbers: missing } : {}) } }] }, options);
         const next = refreshed.ok ? refreshed.data.grants[0] : null;
         if (!next || next.state !== "uploading") throw new Error("Refresh unavailable");
-        parts = [...parts, ...await put(pending.blob, next.grant)];
+        parts = [...parts, ...await put(pending.blob, next.grant, signal)];
       }
       settlements.push(state.transfer.kind === "single" ? { ...reservation, kind: "single" } : { ...reservation, kind: "multipart", parts });
     }
   }
+  signal.throwIfAborted();
   if (settlements.length) {
-    const result = await client.settle({ stageId, files: settlements });
+    const result = await client.settle({ stageId, files: settlements }, options);
+    signal.throwIfAborted();
     const unresolved = settlements.filter(file => !result.ok || !result.data.acknowledgements.some(item => item.attachmentId === file.attachmentId && item.uploadGeneration === file.uploadGeneration && item.state === "ready"));
     if (unresolved.length) {
-      const recovered = await client.recover({ stageId, files: unresolved.map(({ attachmentId, uploadGeneration }) => ({ attachmentId, uploadGeneration, unknown: "completion" as const })) });
+      const recovered = await client.recover({ stageId, files: unresolved.map(({ attachmentId, uploadGeneration }) => ({ attachmentId, uploadGeneration, unknown: "completion" as const })) }, options);
       if (!recovered.ok || unresolved.some(file => !recovered.data.files.some(item => item.attachmentId === file.attachmentId && item.uploadGeneration === file.uploadGeneration && item.state === "ready"))) throw new Error("Settlement incomplete");
     }
   }

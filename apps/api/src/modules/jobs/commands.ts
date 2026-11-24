@@ -1,14 +1,15 @@
-import type { ErrorBody, HandoffReceipt, OperationId, RouteResponse, SubmitRequest, offerJobHandoffRoute, declineJobHandoffRoute, submitSupportRoute } from "@bookbuddy/api-contract";
+import type { ErrorBody, HandoffReceipt, OperationId, OperationStatus, RouteResponse, SubmitRequest, offerJobHandoffRoute, declineJobHandoffRoute, submitSupportRoute } from "@bookbuddy/api-contract";
 import { projectJourney } from "@bookbuddy/domain";
 import type { CommandInput, CommandStatement } from "../../db/commit";
 import { bumpVisibilityEpoch, planOperation, recordEffectIntents } from "../../db/operations";
 import type { OperationResult, OperationSpec } from "../../db/operations";
 import type { RequestScope } from "../../db/scope";
-import { at, liveTerm, scopedStatement } from "../access/policy";
+import { accessClock, at, liveTerm, scopedStatement } from "../access/policy";
 import { loadDeliveryKey, mac, sealDelivery } from "../auth/crypto";
 import type { SessionAccess } from "../auth/session";
 import { createLinkedNotifications } from "../links/notifications";
 import { stagedAttachmentSql } from "../media/policy";
+import { placeReadable } from "../places/policy";
 import { foreman } from "../schedule/policy";
 
 export interface JobCommandResult {
@@ -389,11 +390,31 @@ export function planHandoffDecision(ctx: RequestScope, access: SessionAccess, jo
   }, handoffReceipt(state, expectedRevision + 1), { sql: "SELECT revision FROM target_job", expected: expectedRevision });
 }
 
-export function readOperation(access: SessionAccess, operation: OperationId): CommandInput<{ context_id: string | null; committedAt: number | null } | undefined> {
-  return { statements: [scopedStatement(access, `SELECT scope.context_id, r.committed_at AS committedAt
+const operationResource = `CASE r.command
+  WHEN 'places.create' THEN (
+    SELECT 'place' FROM places p JOIN place_people pp ON pp.place_id = p.id AND pp.account_id = scope.account_id
+    WHERE p.id = r.result_ref AND ${placeReadable("p", "pp", "scope")})
+  WHEN 'jobs.submit_request' THEN (
+    SELECT 'job' FROM jobs j JOIN places p ON p.id = j.place_id
+    JOIN place_people pp ON pp.place_id = p.id AND pp.account_id = scope.account_id
+    WHERE j.id = r.result_ref AND j.requester_id = scope.account_id AND ${placeReadable("p", "pp", "scope")})
+  WHEN 'case.report' THEN (
+    SELECT 'case' FROM problem_cases pc JOIN jobs j ON j.id = pc.job_id JOIN places p ON p.id = j.place_id
+    JOIN place_people pp ON pp.place_id = p.id AND pp.account_id = scope.account_id
+    LEFT JOIN requests req ON req.job_id = j.id
+    WHERE pc.id = r.result_ref AND pc.reporter_id = scope.account_id AND pc.opened_at <= ${at}
+      AND ${placeReadable("p", "pp", "scope")} AND (j.requester_id = scope.account_id OR req.submitted_at >= pp.history_from))
+  END`;
+
+type OperationRow = { context_id: string | null; committedAt: number | null;
+  resourceKind?: NonNullable<OperationStatus["resource"]>["kind"] | null; resourceId?: string };
+
+export function readOperation(access: SessionAccess, operation: OperationId, now: number, includeResource: boolean): CommandInput<OperationRow | undefined> {
+  return { statements: [scopedStatement(includeResource ? accessClock(access, now) : access, `SELECT
+    scope.context_id, r.committed_at AS committedAt${includeResource ? `, ${operationResource} AS resourceKind, r.result_ref AS resourceId` : ""}
     FROM acting_session a LEFT JOIN live_scope scope ON scope.account_id = a.account_id
     LEFT JOIN operation_receipts r ON r.account_id = scope.account_id AND r.context_id = scope.context_id AND r.operation_id = ?`, operation)],
-  decode: ([result]) => result?.results[0] as { context_id: string | null; committedAt: number | null } | undefined };
+  decode: ([result]) => result?.results[0] as OperationRow | undefined };
 }
 
 type SupportInput = RouteResponse<(typeof submitSupportRoute)["input"]>["body"];

@@ -1,12 +1,12 @@
-import { createApiClient, createFieldClient, createScheduleClient } from "@bookbuddy/api-client";
+import { createFieldClient, createScheduleClient } from "@bookbuddy/api-client";
 import type { JobWindows } from "@bookbuddy/api-contract";
 import { useEffect, useMemo, useState } from "react";
 import { usePortal } from "../now/common";
 import { formatPortalTime } from "../time";
 
 export function useScheduleClients() {
-  const { locale } = usePortal();
-  return useMemo(() => { const api = createApiClient({ baseUrl: "/api/v1", getSession: () => null, getLocale: () => locale }); return { schedule: createScheduleClient(api), field: createFieldClient(api) }; }, [locale]);
+  const { api } = usePortal();
+  return useMemo(() => ({ schedule: createScheduleClient(api), field: createFieldClient(api) }), [api]);
 }
 export function currentVisit(data: JobWindows | null, visitId?: string | null) {
   return visitId ? data?.visits.find(v => v.id === visitId) ?? null : data?.visits.find(v => v.offeredWindows.length) ?? data?.visits.find(v => v.bookedWindow && v.state === "booked") ?? data?.visits[0] ?? null;

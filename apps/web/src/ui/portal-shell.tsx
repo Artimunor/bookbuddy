@@ -10,6 +10,7 @@ type NavItem = { label: string; to: To; unread?: { value: string; label: string 
 
 export type PortalShellProps = {
   identity: { name: string; initials: string; detail?: string; to?: To };
+  accountActions?: ReactNode;
   nav: Record<Destination, NavItem>;
   current?: Destination;
   navLabel: string;
@@ -17,7 +18,7 @@ export type PortalShellProps = {
   children: ReactNode;
 };
 
-export function PortalShell({ identity, nav, current, navLabel, skipLabel, children }: PortalShellProps) {
+export function PortalShell({ identity, accountActions, nav, current, navLabel, skipLabel, children }: PortalShellProps) {
   const mainId = useId();
   const person = <>
     <span className="bb-avatar" data-tone="a" aria-hidden="true"><bdi>{identity.initials}</bdi></span>
@@ -32,7 +33,13 @@ export function PortalShell({ identity, nav, current, navLabel, skipLabel, child
       <a className="bb-skip" href={`#${mainId}`}>{skipLabel}</a>
       <header className="bb-portal-header">
         <div className="bb-portal-header-inner">
-          {identity.to ? <Link to={identity.to} className="bb-identity">{person}</Link> : <div className="bb-identity">{person}</div>}
+          {accountActions ? <details className="relative">
+            <summary className="bb-identity cursor-pointer list-none">{person}</summary>
+            <div className="absolute start-0 top-full z-20 mt-2 min-w-44 space-y-2 rounded-xl border bg-surface p-3 shadow-lg">
+              {identity.to && <Link className="block p-2" to={identity.to}>{nav.settings.label}</Link>}
+              {accountActions}
+            </div>
+          </details> : identity.to ? <Link to={identity.to} className="bb-identity">{person}</Link> : <div className="bb-identity">{person}</div>}
           <nav className="bb-portal-nav" aria-label={navLabel}>
             <ul>
               {destinations.map((destination) => {

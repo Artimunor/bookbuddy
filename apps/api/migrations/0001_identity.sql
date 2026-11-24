@@ -30,6 +30,7 @@ CREATE TABLE sessions (
   id TEXT PRIMARY KEY NOT NULL,
   account_id TEXT NOT NULL REFERENCES accounts (id),
   secret_hash TEXT NOT NULL UNIQUE,
+  revocation_hash TEXT,
   active_context_id TEXT,
   device_id TEXT NOT NULL,
   issued_at INTEGER NOT NULL,

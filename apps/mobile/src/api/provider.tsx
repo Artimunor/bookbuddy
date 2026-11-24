@@ -21,7 +21,7 @@ interface ApiAccess {
   offline: boolean;
   getConnection: () => ReadConnection;
   isOffline: () => boolean;
-  bindSession: (credential: string | null, sessionId: string | null, uiLocale: string | null) => void;
+  bindSession: (credential: string | null, sessionId: string | null, uiLocale: string | null, contextId: string | null) => void;
   setRequestLocale: (locale: LocaleTag) => void;
 }
 const ApiContext = createContext<ApiAccess | null>(null);
@@ -36,6 +36,7 @@ export function ApiProvider({ children, baseUrl, fetch }: { children: ReactNode;
   const locales = useLocales();
   const credential = useRef<string | null>(null);
   const sessionId = useRef<string | null>(null);
+  const contextId = useRef<string | null>(null);
   const [requests, setRequests] = useState(() => new RequestBook(false));
   const currentRequests = useRef(requests);
   const [connection, setConnection] = useState(initialReadConnection);
@@ -68,8 +69,11 @@ export function ApiProvider({ children, baseUrl, fetch }: { children: ReactNode;
   }, []);
   const client = useMemo(() => url ? createApiClient({
     baseUrl: url, getSession: () => credential.current, getLocale: () => explicitHeader.current ?? fallbackHeader.current, fetch,
-  }) : null, [url, fetch]);
-  const bindSession = useCallback((token: string | null, id: string | null, preferred: string | null) => {
+    getExpectedCookieIdentity: () => cookieSession && sessionId.current
+      ? { sessionId: sessionId.current, contextId: contextId.current } : null,
+  }) : null, [url, fetch, cookieSession]);
+  const bindSession = useCallback((token: string | null, id: string | null, preferred: string | null, context: string | null) => {
+    contextId.current = context;
     if (sessionId.current !== id || credential.current !== token) {
       sessionId.current = id;
       credential.current = token;

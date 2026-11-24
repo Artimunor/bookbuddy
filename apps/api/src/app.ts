@@ -5,6 +5,7 @@ import { API_BASE_PATH, PRIVATE_CACHE_CONTROL } from "./config";
 import { commercialRoutes } from "./modules/commercial/routes";
 import { accessRoutes } from "./modules/access/routes";
 import { billingRoutes, completionRoutes } from "./modules/aftercare";
+import { cookieSessionChanged } from "./modules/auth/session";
 import { authRoutes } from "./modules/auth/routes";
 import { chatThreadSyncProjection } from "./modules/chat/read";
 import { chatRoutes } from "./modules/chat/routes";
@@ -38,6 +39,11 @@ export function createApp() {
     c.header("X-Request-Id", requestId);
     c.header("Cache-Control", PRIVATE_CACHE_CONTROL);
     await next();
+    if (c.res.status === 401 && await cookieSessionChanged(c.req.raw, c.env.DB)) {
+      c.res = c.json<ErrorEnvelope>({
+        ok: false, error: { code: "CONFLICT", current: { kind: "session_changed" } }, meta: { requestId },
+      }, 409);
+    }
   });
 
   app.route(API_BASE_PATH, authRoutes);

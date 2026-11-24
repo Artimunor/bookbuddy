@@ -1,15 +1,14 @@
-import { createAccessClient, createApiClient, listNotifications, markNotificationsRead } from "@bookbuddy/api-client";
+import { createAccessClient, listNotifications, markNotificationsRead } from "@bookbuddy/api-client";
 import type { LinkOpening, NotificationProjection } from "@bookbuddy/api-contract";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { Button } from "../../ui";
 import { Frame, usePortal } from "../now/common";
-import { authClient } from "../session";
+import { usePortalAuth } from "../session";
 import { storeCheckedOpening } from "./handoff";
 
 export function Notifications() {
-  const { locale,activeContext,t } = usePortal();
-  const api = useMemo(()=>createApiClient({baseUrl:"/api/v1",getSession:()=>null,getLocale:()=>locale}),[locale]);
+  const { api, locale, activeContext, t } = usePortal();
   const [items,setItems] = useState<NotificationProjection[] | null>(null); const [cursor,setCursor] = useState<string | null>(null); const [failed,setFailed] = useState(false); const [busy,setBusy] = useState(false);
   const contextId = activeContext?.contextId;
   useEffect(()=>{ if(!contextId) { setFailed(true); return; } const c = new AbortController(); setItems(null); setFailed(false); void listNotifications(api,{contextId},{signal:c.signal}).then(r=>{ if(!c.signal.aborted) { if(r.ok) {setItems(r.data.items); setCursor(r.data.page.cursor);} else setFailed(true); }}); return ()=>c.abort(); },[api,contextId]);
@@ -18,8 +17,8 @@ export function Notifications() {
   return <Frame><h1 className="text-page-title">{t("web.portal.ps.notifications")}</h1>{failed && <p role="alert">{t("web.portal.work.failed")}</p>}{!items && !failed && <p role="status">{t("web.portal.work.loading")}</p>}{items && <>{items.length ? <><Button disabled={busy || !items.some(i=>!i.readAt)} onClick={()=>void markAll()}>{t("web.portal.ps.markAll")}</Button>{items.map(item=><article key={item.id} className="rounded-2xl border p-4">{item.linkToken ? <Link to={`/l/${encodeURIComponent(item.linkToken)}`} state={{notificationId:item.id,contextId}}>{t("web.portal.ps.notification")}</Link> : <span>{t("web.portal.ps.notification")}</span>}<p><time dateTime={new Date(item.createdAt).toISOString()}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(item.createdAt)}</time>{!item.readAt && ` · ${t("web.portal.ps.unread")}`}</p></article>)}</> : <p>{t("web.portal.ps.noNotifications")}</p>}{cursor && <Button disabled={busy} onClick={()=>void more()}>{t("web.portal.work.more")}</Button>}</>}</Frame>;
 }
 export function LinkResolver() {
-  const { opaque = "" } = useParams(); const { locale,activeContext,acceptBootstrap,bootstrap,t } = usePortal(); const navigate = useNavigate(); const location = useLocation();
-  const api = useMemo(()=>createApiClient({baseUrl:"/api/v1",getSession:()=>null,getLocale:()=>locale}),[locale]);
+  const { opaque = "" } = useParams(); const { api, activeContext, acceptBootstrap, bootstrap, t } = usePortal(); const navigate = useNavigate(); const location = useLocation();
+  const authClient = usePortalAuth();
   const [status,setStatus] = useState<"loading" | "unavailable" | "native" | "expired" | "wrongAccount" | "choose">("loading");
   const [choices,setChoices] = useState<Extract<LinkOpening,{kind:"switch_context"}>["choices"]>([]);
   const [switching,setSwitching] = useState(false); const [switchError,setSwitchError] = useState(false);

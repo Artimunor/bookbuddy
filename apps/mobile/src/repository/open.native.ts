@@ -1,18 +1,19 @@
 import { uuid } from "expo";
 import { Directory, File, Paths } from "expo-file-system";
+import { authenticateAsync, getEnrolledLevelAsync, SecurityLevel } from "expo-local-authentication";
 import { AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY, getItemAsync, setItemAsync } from "expo-secure-store";
 import { openDatabaseAsync } from "expo-sqlite";
 import { Platform } from "react-native";
+import { clearEphemeralStagedFiles, eraseStagedFile, listStagedFiles } from "../media/files.native";
+import { createMemoryExecutor } from "./memory";
 import { MobileRepository } from "./repository";
 import { createSqliteExecutor } from "./sqlite";
 
 const databaseName = "bookbuddy.sqlite";
 const keyName = "bookbuddy.sqlite-key.v1";
 let opening: Promise<MobileRepository> | undefined;
-
-export function stagedMediaDirectory(): string {
-  return new Directory(Paths.document, "BookBuddyOffline", "staged-media").uri;
-}
+let memory: MobileRepository | undefined;
+let unlocked = false;
 
 async function open() {
   const directory = new Directory(Paths.document, "BookBuddyOffline");
@@ -38,26 +39,48 @@ async function open() {
       run: async (sql, values) => { await db.runAsync(sql, values); },
       all: (sql, values) => db.getAllAsync(sql, values),
     });
-    return new MobileRepository(executor, uuid.v4);
+    const repository = new MobileRepository(executor, uuid.v4, Date.now, eraseStagedFile, true);
+    await repository.reconcileStagedFiles(listStagedFiles, removeStagedFiles);
+    return repository;
   } catch (error) {
     await db.closeAsync();
     throw error;
   }
 }
 
-export function openMobileRepository(): Promise<MobileRepository> {
+function openPersistentRepository(): Promise<MobileRepository> {
   return opening ??= open().catch((error: unknown) => { opening = undefined; throw error; });
 }
 
-export async function removeStagedFiles(uris: readonly string[]) {
-  const root = new URL(stagedMediaDirectory());
-  const directory = root.pathname.replace(/\/?$/, "/");
-  for (const uri of uris) {
-    const path = new URL(uri);
-    if (path.protocol !== "file:" || path.host !== root.host || !path.pathname.startsWith(directory) || /%2[ef]|%5c/i.test(path.pathname)) {
-      throw new Error("Staged file is outside the app's private staging directory");
-    }
-    const file = new File(path.href);
-    if (file.exists) file.delete();
+function openMemoryRepository(): MobileRepository {
+  if (!memory) {
+    clearEphemeralStagedFiles();
+    memory = new MobileRepository(createMemoryExecutor(), uuid.v4, Date.now, eraseStagedFile);
   }
+  return memory;
+}
+
+export async function openMobileRepository(promptMessage: string): Promise<MobileRepository> {
+  if (!unlocked) {
+    try {
+      const enrolled = await getEnrolledLevelAsync();
+      if (enrolled === SecurityLevel.NONE) return openMemoryRepository();
+      const directory = new Directory(Paths.document, "BookBuddyOffline");
+      if (new File(directory, databaseName).exists &&
+          !(await authenticateAsync({ promptMessage, disableDeviceFallback: false })).success) return openMemoryRepository();
+    } catch {
+      return openMemoryRepository();
+    }
+    unlocked = true;
+  }
+  return openPersistentRepository();
+}
+
+// Resume disposal after a crash without exposing a repository scope or cached data to the UI.
+export async function openSignOutRepository(persistent: boolean): Promise<MobileRepository> {
+  return persistent ? openPersistentRepository() : openMemoryRepository();
+}
+
+export async function removeStagedFiles(uris: readonly string[]) {
+  for (const uri of uris) await eraseStagedFile(uri);
 }

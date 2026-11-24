@@ -1,17 +1,12 @@
-import { authTokenPattern, sessionBootstrapSchema } from "@bookbuddy/api-contract";
+import { expectedContextHeader, expectedSessionHeader, idSchema, noExpectedContext, sessionBootstrapSchema } from "@bookbuddy/api-contract";
 import type { SessionBootstrap } from "@bookbuddy/api-contract";
-import { SESSIONS_FEATURE_FLAG } from "@bookbuddy/domain";
 import type { CommandStatement } from "../../db/commit";
 import { at } from "../access/policy";
-import { currentPerson, placeViewer } from "../places/policy";
+import { sessionsBusinessEnabled, sessionsCustomerPlace, sessionsMarketEnabled } from "../sessions/policy";
+import { requestSessionCredential, sessionCookieName } from "./credential";
 
-export const sessionCookieName = "__Host-bookbuddy_session";
+export { isTrustedOrigin, sessionCookieName } from "./credential";
 const encoder = new TextEncoder();
-
-export function isTrustedOrigin(request: Request): boolean {
-  const { origin } = new URL(request.url);
-  return request.headers.get("Origin") === origin;
-}
 
 export async function hashSessionCredential(credential: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", encoder.encode(credential));
@@ -24,72 +19,95 @@ const liveStaffGrant = `g.id = c.role_grant_id AND g.role = c.role AND g.revoked
 
 // Only pick the account's current, live staff roles. Resource authority must
 // still be checked by the calling statement; a context is not a grant.
-export const liveContextPredicate = `(c.role = 'customer' OR EXISTS (
+export const liveContextAt = (time?: string) => `(c.role = 'customer' OR EXISTS (
   SELECT 1 FROM membership_roles g
   JOIN memberships m ON m.id = g.membership_id
   JOIN businesses b ON b.id = m.business_id
-  WHERE ${liveStaffGrant}
+  WHERE ${liveStaffGrant}${time === undefined ? "" : ` AND g.granted_at <= ${time}`}
 ))`;
+export const liveContextPredicate = liveContextAt();
+
+const effectiveContext = `(SELECT c.id FROM account_contexts c
+  WHERE c.id = s.active_context_id AND c.account_id = s.account_id AND ${liveContextAt("session_input.at")})`;
+const validSession = `FROM (SELECT ? AS secret_hash, ? AS at) session_input
+  JOIN sessions s ON s.secret_hash = session_input.secret_hash JOIN accounts a ON a.id = s.account_id
+  WHERE s.revoked_at IS NULL AND s.expires_at > session_input.at AND a.state = 'active'`;
+type CookieFence = { hash: string; now: number; sessionId: string; contextId: string | null };
+const cookieFences = new WeakMap<Request, CookieFence | "missing">();
+
+// The write is already fenced in its own statements. Resolve the reason only
+// after an auth failure, without a second D1 call on ordinary writes.
+export async function cookieSessionChanged(request: Request, db: D1Database): Promise<boolean> {
+  const fence = cookieFences.get(request);
+  if (!fence) return false;
+  if (fence === "missing") return true;
+  const row = await db.prepare(`SELECT s.id IS NOT ? OR ${effectiveContext} IS NOT ? AS changed ${validSession}`)
+    .bind(fence.sessionId, fence.contextId, fence.hash, fence.now).first<{ changed: number }>();
+  return row?.changed === 1;
+}
 
 export interface SessionAccess extends CommandStatement {
   readonly params: readonly unknown[];
+  readonly afterContextSwitch?: CommandStatement;
 }
 
 // Builds a CTE prefix, not a database lookup. Append the caller's own live
 // scope predicates to a statement and execute it in the caller's primary batch.
 export async function resolveSession(
-  request: Request, contextId: string | null, now: number, accountId?: string, scopeMode: "active" | "account" = "active",
+  request: Request, contextId: string | null, now: number, accountId?: string, scopeMode: "active" | "account" | "switch" = "active",
 ): Promise<SessionAccess | null> {
-  const authorization = request.headers.get("Authorization");
-  const requiresOrigin = !["GET", "HEAD", "OPTIONS"].includes(request.method)
-    || request.headers.get("Upgrade")?.toLowerCase() === "websocket";
-  if (requiresOrigin && (authorization === null || request.headers.has("Origin")) && !isTrustedOrigin(request)) return null;
+  const credential = requestSessionCredential(request);
+  if (!credential) return null;
+  const usesCookie = !request.headers.has("Authorization");
+  const write = request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS";
 
-  let credential: string | undefined;
-  if (authorization !== null) {
-    credential = /^Bearer ([^ ]+)$/i.exec(authorization)?.[1];
-  } else {
-    for (const part of request.headers.get("Cookie")?.split(";") ?? []) {
-      const cookie = part.trim();
-      if (!cookie.startsWith(`${sessionCookieName}=`)) continue;
-      if (credential !== undefined) return null;
-      credential = cookie.slice(sessionCookieName.length + 1);
-    }
+  let fence: CookieFence | undefined;
+  const expectedSession = request.headers.get(expectedSessionHeader);
+  const expectedContext = request.headers.get(expectedContextHeader);
+  const fenced = usesCookie && (write || expectedSession !== null || expectedContext !== null);
+  if (fenced && (!idSchema.safeParse(expectedSession).success ||
+    (expectedContext !== noExpectedContext && !idSchema.safeParse(expectedContext).success))) {
+    cookieFences.set(request, "missing");
+    return null;
   }
-  if (!credential || !authTokenPattern.test(credential)) return null;
+  const hash = await hashSessionCredential(credential);
+  if (fenced) {
+    fence = { hash, now, sessionId: expectedSession!, contextId: expectedContext === noExpectedContext ? null : expectedContext };
+    cookieFences.set(request, fence);
+  }
 
-  return {
-    sql: `WITH acting_session AS MATERIALIZED (
-      SELECT s.id AS session_id, s.account_id, s.device_id, s.active_context_id AS context_id, s.expires_at
-      FROM sessions s JOIN accounts a ON a.id = s.account_id
-      WHERE s.secret_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ? AND a.state = 'active'
-    ), live_scope AS MATERIALIZED (
-      SELECT s.session_id, c.account_id, c.id AS context_id, c.role, c.business_id
-      FROM acting_session s JOIN account_contexts c ON c.account_id = s.account_id
-        AND ${scopeMode === "account" ? "c.role = 'customer'" : "c.id = s.context_id"}
-      WHERE (? IS NULL OR c.id = ?) AND ${liveContextPredicate}${accountId === undefined ? "" : " AND c.account_id = ?"}
-    )`,
-    params: [await hashSessionCredential(credential), now, contextId, contextId, ...(accountId === undefined ? [] : [accountId])],
-  };
+  const prefix = (check: string) => `WITH acting_session AS MATERIALIZED (
+    SELECT s.id AS session_id, s.account_id, s.device_id, s.active_context_id AS context_id, s.expires_at, session_input.at
+    ${validSession}${check}
+  ), live_scope AS MATERIALIZED (
+    SELECT s.session_id, c.account_id, c.id AS context_id, c.role, c.business_id
+    FROM acting_session s JOIN account_contexts c ON c.account_id = s.account_id
+      AND ${scopeMode === "account" ? "c.role = 'customer'" : "c.id = s.context_id"}
+    WHERE (? IS NULL OR c.id = ?) AND ${liveContextAt("s.at")}${accountId === undefined ? "" : " AND c.account_id = ?"}
+  )`;
+  const scopeParams = [contextId, contextId, ...(accountId === undefined ? [] : [accountId])];
+  return fence ? {
+    sql: prefix(` AND s.id = ? AND ${effectiveContext} IS ?`),
+    params: [hash, now, fence.sessionId, fence.contextId, ...scopeParams],
+    ...(scopeMode === "switch" ? { afterContextSwitch: {
+      sql: prefix(" AND s.id = ?"), params: [hash, now, fence.sessionId, ...scopeParams],
+    } } : {}),
+  } : { sql: prefix(""), params: [hash, now, ...scopeParams] };
 }
 
 const contextOrder = `ORDER BY c.role <> 'customer', c.role, c.business_id, c.id`;
-export const defaultContextSql = `(SELECT c.id FROM account_contexts c
-  WHERE c.account_id = a.id AND ${liveContextPredicate} ${contextOrder} LIMIT 1)`;
+export const defaultContextSql = (time: string) => `(SELECT c.id FROM account_contexts c
+  WHERE c.account_id = a.id AND ${liveContextAt(time)} ${contextOrder} LIMIT 1)`;
 
 const sessionsCapability = `CASE
   WHEN active.role = 'customer' THEN (
     SELECT CASE WHEN count(*) > 0 THEN json_object('areaIds', json_group_array(area_id)) END
     FROM (SELECT DISTINCT p.area_id FROM place_people pp JOIN places p ON p.id = pp.place_id
-      WHERE pp.account_id = s.account_id AND p.state = 'in_area'
-        AND ${currentPerson("pp")} AND ${placeViewer("p", "pp.account_id")}
-        AND EXISTS (SELECT 1 FROM feature_flags f WHERE f.key = '${SESSIONS_FEATURE_FLAG}' AND f.enabled = 1
-          AND f.scope_key > p.area_id || ':' AND f.scope_key < p.area_id || ';')
+      WHERE ${sessionsCustomerPlace("p", "pp", "s.account_id")} AND ${sessionsMarketEnabled("p.area_id")}
       ORDER BY p.area_id)
   )
-  WHEN active.granted_at <= ${at} AND EXISTS (
-    SELECT 1 FROM feature_flags f WHERE f.key = '${SESSIONS_FEATURE_FLAG}' AND f.enabled = 1 AND f.scope_key = active.business_id
-  ) THEN json_object('businessId', active.business_id)
+  WHEN active.granted_at <= ${at} AND ${sessionsBusinessEnabled("active.business_id")}
+    THEN json_object('businessId', active.business_id)
 END`;
 
 export function sessionProjection(prefix: CommandStatement, now: number): CommandStatement {
@@ -101,7 +119,7 @@ export function sessionProjection(prefix: CommandStatement, now: number): Comman
       LEFT JOIN membership_roles g ON g.id = c.role_grant_id
       LEFT JOIN memberships m ON m.id = g.membership_id
       LEFT JOIN businesses b ON b.id = m.business_id
-      WHERE c.role = 'customer' OR (${liveStaffGrant})
+      WHERE c.role = 'customer' OR (${liveStaffGrant} AND g.granted_at <= ${at})
     )
       SELECT s.session_id, s.expires_at, s.context_id, a.id AS account_id, a.email_normalized,
              a.display_name, a.setup_at, p.ui_locale, p.reading_locale, p.display_zone,

@@ -1,6 +1,6 @@
 import {
   accountSettingsRoute, emailResendRoute, emailStartRoute, emailStatusRoute, emailVerifyRoute,
-  sessionContextRoute, sessionEndRoute, sessionRoute,
+  sessionContextRoute, sessionEndRoute, sessionRevokeRoute, sessionRoute,
 } from "@bookbuddy/api-contract";
 import type { ErrorBody, ErrorEnvelope, SuccessEnvelope } from "@bookbuddy/api-contract";
 import { enabledLocales } from "@bookbuddy/i18n/locales";
@@ -13,6 +13,7 @@ import { changeSettings, endSession, readSession, switchContext } from "./comman
 import { loadOtpKey } from "./crypto";
 import { getOtpStatus, sendOtp, verifyOtp } from "./otp";
 import type { SendResult } from "./otp";
+import { revokeDeviceSession } from "./revocation";
 import { clearSessionCookie, isTrustedOrigin, resolveSession, sessionCookie } from "./session";
 
 export const authRoutes = new Hono<ApiEnv>();
@@ -154,7 +155,7 @@ authRoutes.post(sessionContextRoute.path, async (c) => {
   const input = sessionContextRoute.input.safeParse({ body: await body(c) });
   if (!input.success) return fail(c, { code: "VALIDATION_FAILED" });
   const ctx = openRequestScope(c.env.DB, c.var.requestId);
-  const access = await resolveSession(c.req.raw, null, ctx.now);
+  const access = await resolveSession(c.req.raw, null, ctx.now, undefined, "switch");
   if (!access) return fail(c, { code: "UNAUTHENTICATED" });
   const { operationId, payload: { contextId } } = input.data.body;
   const result = await switchContext(ctx, access, operationId, contextId);
@@ -171,6 +172,22 @@ authRoutes.post(sessionEndRoute.path, async (c) => {
   if (!c.req.header("Authorization")) c.header("Set-Cookie", clearSessionCookie);
   return ok(c, { ended: true as const }, ctx.now);
 });
+
+authRoutes.post(sessionRevokeRoute.path,
+  (c, next) => !allowsChallengeTransport(c.req.raw, "native") || c.req.header("Authorization")
+    ? fail(c, { code: "UNAUTHENTICATED" }) : next(),
+  async (c) => {
+    const input = sessionRevokeRoute.input.safeParse({ body: await body(c, 1024) });
+    if (!input.success) return fail(c, { code: "VALIDATION_FAILED" });
+    const ctx = openRequestScope(c.env.DB, c.var.requestId);
+    const result = await revokeDeviceSession(ctx, input.data.body);
+    if (!result) return fail(c, { code: "UNAUTHENTICATED" });
+    if (result.newlyRevokedSessionId) {
+      const close = closeRevokedSession(c.env.LIVE, result.newlyRevokedSessionId).catch(() => undefined);
+      try { c.executionCtx.waitUntil(close); } catch { await close; }
+    }
+    return ok(c, { ended: true as const }, ctx.now);
+  });
 
 authRoutes.patch(accountSettingsRoute.path, async (c) => {
   const input = accountSettingsRoute.input.safeParse({ body: await body(c) });

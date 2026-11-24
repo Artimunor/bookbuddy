@@ -1,16 +1,15 @@
-import { createApiClient } from "@bookbuddy/api-client";
-import { useMemo } from "react";
 import { useSession } from "../session";
 import { usePortal } from "../now/common";
+import { PendingReceiptNotice } from "../session/pending-receipt";
+import type { PendingOperationState } from "../session/pending-operation";
 import { formatPortalTime } from "../time";
 import { Button } from "../../ui";
 
 export function useCloseout() {
   const portal = usePortal();
-  const api = useMemo(() => createApiClient({ baseUrl: "/api/v1", getSession: () => null, getLocale: () => portal.locale }), [portal.locale]);
   const viewerZone = portal.preferences?.twoClock ? portal.preferences.displayZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
   const time = (at: number, zone: string) => { const clock = formatPortalTime(at, zone, portal.locale, viewerZone); return [clock?.site, clock?.viewer].filter(Boolean).join(" · "); };
-  return { ...portal, api, time };
+  return { ...portal, time };
 }
 
 type AuthoredValue = { original: { text: string; language: string }; reading: { status: "ready"; language: string; text: string } | { status: "pending" | "unavailable" } | null };
@@ -20,11 +19,11 @@ export function Authored({ value }: { value: AuthoredValue }) {
 }
 
 
-export function CommandState({ status, check }: { status: string; check: () => void }) {
+export function CommandState({ status, check }: { status: PendingOperationState; check: () => void }) {
   const { t } = usePortal();
   if (status === "checking") return <div role="alert"><p>{t("web.portal.closeout.checking")}</p><Button onClick={check}>{t("web.portal.closeout.checkAgain")}</Button></div>;
   if (status === "failed") return <p role="alert">{t("web.portal.closeout.failed")}</p>;
-  return null;
+  return <PendingReceiptNotice state={status} />;
 }
 export function useScopeKey() {
   const { account, activeContext } = useSession();

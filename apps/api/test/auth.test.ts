@@ -1,5 +1,6 @@
 import { afterEach, expect, mock, spyOn, test } from "bun:test";
-import type { EmailAttempt, Result, SessionBootstrap } from "@bookbuddy/api-contract";
+import { expectedContextHeader, expectedSessionHeader, noExpectedContext } from "@bookbuddy/api-contract";
+import type { EmailAttempt, OperationStatus, PlaceDetails, Result, SessionBootstrap } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { runEffectBatch } from "../src/effects/index";
@@ -75,6 +76,11 @@ async function error(response: Response, status: number) {
 
 const start = "/auth/email/start";
 const auth = (credential: string) => ({ Authorization: `Bearer ${credential}` });
+
+const boundCookie = (Cookie: string, session: SessionBootstrap) => ({
+  Cookie, Origin: origin, [expectedSessionHeader]: session.sessionId,
+  [expectedContextHeader]: session.activeContext?.contextId ?? noExpectedContext,
+});
 
 test("neutral start is possession-bound and replays a preallocated attempt without another send", async () => {
   const { db, req, wakes } = await fixture();
@@ -284,19 +290,27 @@ test("context switching uses current grant authority and cannot replay a revoked
   ]);
   const worker = { operationId: "switch-worker", payload: { contextId: "worker-context" } };
   const switchTo = (input: unknown) => req("/session/context", "POST", input, headers);
-  const before = db.calls.batch;
-  expect(await data<SessionBootstrap>(await switchTo(worker))).toMatchObject({
+  const cookie = `${sessionCookieName}=${credential}`;
+  const before = { ...db.calls };
+  const switched = await data<SessionBootstrap>(await req("/session/context", "POST", worker, boundCookie(cookie, session)));
+  expect(switched).toMatchObject({
     activeContext: { role: "worker", businessName: "Public Name", membershipId: "membership" },
     capabilities: { sessions: { businessId: "business" } },
   });
-  expect(db.calls.batch).toBe(before + 1);
+  expect(db.calls.batch).toBe(before.batch + 1);
+  expect(db.calls.query).toBe(before.query);
+  expect((await error(await req("/account/settings", "PATCH", { operationId: "stale-context", expectedRevision: 0,
+    payload: { uiLocale: "pt-PT" } }, boundCookie(cookie, session)), 409)).current).toEqual({ kind: "session_changed" });
+  expect((await data<SessionBootstrap>(await req("/session", "GET", undefined, headers))).preferences.revision).toBe(0);
   await db.prepare("UPDATE membership_roles SET revoked_at = ?, revoked_by = ? WHERE id = 'grant'").bind(now, id).run();
   await error(await switchTo(worker), 404);
   const revoked = await data<SessionBootstrap>(await req("/session", "GET", undefined, headers));
   expect(revoked.activeContext).toBeNull();
   expect(revoked.capabilities).toEqual({ sessions: null });
   expect(revoked.contexts).toEqual(session.contexts);
-  expect((await data<SessionBootstrap>(await switchTo({ operationId: "switch-customer", payload: { contextId: session.activeContext!.contextId } }))).activeContext?.role).toBe("customer");
+  expect((await data<SessionBootstrap>(await req("/session/context", "POST", {
+    operationId: "switch-customer", payload: { contextId: session.activeContext!.contextId },
+  }, boundCookie(cookie, revoked)))).activeContext?.role).toBe("customer");
 });
 
 test("web verification uses an HttpOnly cookie and cookie writes require the same origin", async () => {
@@ -309,14 +323,54 @@ test("web verification uses an HttpOnly cookie and cookie writes require the sam
   const cookie = response.headers.get("Set-Cookie")!;
   expect(cookie).toStartWith(`${sessionCookieName}=`);
   expect(cookie).toContain("Path=/; HttpOnly; Secure; SameSite=Lax");
-  expect((await data<Verified>(response)).credential).toBeUndefined();
+  const verified = await data<Verified>(response);
+  expect(verified.credential).toBeUndefined();
   const Cookie = cookie.split(";", 1)[0]!;
   await data(await req("/session", "GET", undefined, { Cookie }));
-  await error(await req("/session/end", "POST", undefined, { Cookie }), 401);
-  await error(await req("/session/end", "POST", undefined, { Cookie, Origin: "https://untrusted.test" }), 401);
-  const ended = await req("/session/end", "POST", undefined, { Cookie, Origin: origin });
+  const headers = boundCookie(Cookie, verified.session);
+  const noOrigin = new Headers(headers); noOrigin.delete("Origin");
+  await error(await req("/session/end", "POST", undefined, noOrigin), 401);
+  await error(await req("/session/end", "POST", undefined, { ...headers, Origin: "https://untrusted.test" }), 401);
+  expect((await error(await req("/session/end", "POST", undefined, { Cookie, Origin: origin }), 409)).current)
+    .toEqual({ kind: "session_changed" });
+  const ended = await req("/session/end", "POST", undefined, headers);
   expect(ended.headers.get("Set-Cookie")).toContain("Max-Age=0");
   await data(ended);
+  await error(await req("/session", "GET", undefined, { Cookie }), 401);
+});
+
+test("a place command requires the rendering session and context; receipts expose only an opted-in readable reference", async () => {
+  const { db, req, code } = await fixture();
+  async function signIn(email: string, deviceId: string) {
+    const web = { email, deviceId, transport: "web" as const };
+    const { attemptId } = await data<EmailAttempt>(await req(start, "POST", web, { Origin: origin }));
+    const response = await req(emailPath(attemptId, "verify"), "POST", verify(await code(), `verify-${deviceId}`, web), { Origin: origin });
+    const cookie = response.headers.get("Set-Cookie")!.split(";", 1)[0]!;
+    return { cookie, session: (await data<Verified>(response)).session };
+  }
+  const first = await signIn("first@example.test", "first-browser");
+  const second = await signIn("second@example.test", "second-browser");
+  const rendered = boundCookie(first.cookie, first.session);
+  const moved = { ...rendered, Cookie: second.cookie };
+  const request = { operationId: "new-place", payload: { alias: "Studio", address: "Example Lane" } };
+  const create = (headers: typeof rendered) => req("/places", "POST", request, { ...headers, "X-Operation-Id": request.operationId });
+  for (const headers of [moved, { ...rendered, [expectedSessionHeader]: second.session.sessionId }]) {
+    expect((await error(await create(headers), 409)).current).toEqual({ kind: "session_changed" });
+  }
+  expect(await db.prepare("SELECT count(*) FROM places").first<number>("count(*)")).toBe(0);
+  const before = { ...db.calls };
+  const place = await data<PlaceDetails>(await create(rendered));
+  expect({ batch: db.calls.batch - before.batch, query: db.calls.query - before.query }).toEqual({ batch: 1, query: 0 });
+  expect(await data<OperationStatus>(await req("/operations/new-place", "GET", undefined, rendered))).toEqual({
+    operationId: request.operationId, status: "committed", committedAt: now,
+  });
+  const receiptPath = "/operations/new-place?resource=1";
+  expect((await data<OperationStatus>(await req(receiptPath, "GET", undefined, rendered))).resource)
+    .toEqual({ kind: "place", id: place.id });
+  expect((await error(await req(receiptPath, "GET", undefined, moved), 409)).current).toEqual({ kind: "session_changed" });
+  await error(await req(receiptPath, "GET", undefined, boundCookie(second.cookie, second.session)), 404);
+  await db.prepare("UPDATE places SET state = 'restricted' WHERE id = ?").bind(place.id).run();
+  expect((await data<OperationStatus>(await req(receiptPath, "GET", undefined, rendered))).resource).toBeUndefined();
 });
 
 test("OTP mail claims encrypted payload once, batches delivery, and scrubs settled secrets", async () => {
@@ -382,4 +436,53 @@ test("Worker mail fails closed with a dev flag even when Postmark is configured"
   expect(db.calls.query - query).toBe(0);
   expect(provider).not.toHaveBeenCalled();
   expect((await data<EmailAttempt>(await req(emailPath(attemptId, "status")))).delivery).toBe("failed");
+});
+
+test("native revocation proof cannot authenticate, expires independently and acknowledges a lost response", async () => {
+  const { db, req, code } = await fixture();
+  const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
+  const input = verify(await code());
+  const { credential, session } = await data<Verified>(await req(emailPath(attemptId, "verify"), "POST", input));
+  const proof = session.revocationProof!;
+  expect(proof).toStartWith("r1.");
+  expect((await data<Verified>(await req(emailPath(attemptId, "verify"), "POST", input))).session.revocationProof).toBe(proof);
+  expect((await data<SessionBootstrap>(await req("/session", "GET", undefined, auth(credential!)))).revocationProof).toBeUndefined();
+  const beforeRejection = { ...db.calls };
+  await error(await req("/session", "GET", undefined, auth(proof)), 401);
+  await error(await req("/session", "GET", undefined, auth(proof.slice(3))), 401);
+  await error(await req("/session/revoke", "POST", { sessionId: session.sessionId, proof: proof.repeat(90) }), 422);
+  await error(await req("/session/revoke", "POST", { sessionId: session.sessionId, proof }, { Origin: origin }), 401);
+  expect({ batch: db.calls.batch - beforeRejection.batch, query: db.calls.query - beforeRejection.query })
+    .toEqual({ batch: 0, query: 1 }); // Only the structurally valid bearer reaches D1.
+  await error(await req("/session/revoke", "POST", { sessionId: "wrong-session", proof }), 401);
+  await data(await req("/push/installations/this-installation", "PUT", {
+    operationId: "register-before-sign-out", expectedRevision: 0, payload: { token: "ExpoPushToken[this_device]", platform: "ios" },
+  }, { ...auth(credential!), "X-Operation-Id": "register-before-sign-out" }));
+  now = session.expiresAt + 1;
+  const body = { sessionId: session.sessionId, proof };
+  const before = db.calls.batch;
+  expect(await data(await req("/session/revoke", "POST", body))).toEqual({ ended: true });
+  expect(await data(await req("/session/revoke", "POST", body))).toEqual({ ended: true });
+  expect(db.calls.batch - before).toBe(2);
+  expect(await db.prepare("SELECT id, state, token_epoch FROM push_installations").first()).toEqual({
+    id: "this-installation", state: "revoked", token_epoch: 1,
+  });
+  expect(await db.prepare("SELECT count(*) AS count FROM account_security_events WHERE kind = 'session_revoked'").first()).toEqual({ count: 1 });
+});
+
+test("native revocation proof does not deactivate a replacement session's push", async () => {
+  const { db, req, code } = await fixture();
+  const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
+  const { credential, session } = await data<Verified>(await req(emailPath(attemptId, "verify"), "POST", verify(await code())));
+  await data(await req("/push/installations/installation", "PUT", {
+    operationId: "push", expectedRevision: 0, payload: { token: "ExpoPushToken[this_device]", platform: "ios" },
+  }, { ...auth(credential!), "X-Operation-Id": "push" }));
+  now++;
+  await db.prepare(`INSERT INTO sessions (id, account_id, secret_hash, device_id, issued_at, expires_at)
+    SELECT 'replacement', account_id, 'replacement-hash', device_id, ?, expires_at FROM sessions WHERE id = ?`)
+    .bind(now, session.sessionId).run();
+  expect(await data(await req("/session/revoke", "POST", { sessionId: session.sessionId, proof: session.revocationProof })))
+    .toEqual({ ended: true });
+  expect(await db.prepare("SELECT state FROM push_installations").first()).toEqual({ state: "active" });
+  await error(await req("/session", "GET", undefined, auth(credential!)), 401);
 });

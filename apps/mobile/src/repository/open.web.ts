@@ -1,16 +1,17 @@
 import { uuid } from "expo";
 import { transferFiles } from "../media/files";
-import { createMemoryExecutor } from "./memory.web";
+import { createMemoryExecutor } from "./memory";
 import { MobileRepository } from "./repository";
 
 let repository: MobileRepository | undefined;
 
-export async function openMobileRepository(): Promise<MobileRepository> {
-  return repository ??= new MobileRepository(createMemoryExecutor(), uuid.v4);
+export async function openMobileRepository(_promptMessage: string): Promise<MobileRepository> {
+  return repository ??= new MobileRepository(createMemoryExecutor(), uuid.v4, Date.now, transferFiles.erase);
 }
 
-// The preview has a memory-only file adapter and no private native directory.
-export function stagedMediaDirectory(): string | null { return null; }
+export async function openSignOutRepository(_persistent: boolean): Promise<MobileRepository> {
+  return repository ??= new MobileRepository(createMemoryExecutor(), uuid.v4, Date.now, transferFiles.erase);
+}
 export async function removeStagedFiles(uris: readonly string[]) {
   await Promise.all(uris.map(transferFiles.erase));
 }

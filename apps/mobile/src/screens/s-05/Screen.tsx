@@ -12,13 +12,13 @@ import { useCommand, useRemote, useSeedRemote } from "../../api";
 import { useApiAccess } from "../../api/provider";
 import type { RemoteStatus } from "../../api/requests";
 import { useFormat, useT } from "../../i18n";
-import { usePendingDrafts, usePendingSends, useStagedMediaCount } from "../../repository/hooks";
 import { useSession } from "../../session";
 import { Button, Card, Dock, Screen } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { useBeaconTheme } from "../../ui/theme";
 import { authFlow } from "../s-02/flow";
 import { isolated, roleLabel, roleRoots } from "../s-06/account";
+import { SignOutSheet } from "../s-06/SignOutSheet";
 import { confirmAction } from "../s-17/confirmAction";
 import { OfferView } from "../w-03/Screen";
 
@@ -114,7 +114,7 @@ export default function LinkScreen({ invitationOnly = false }: { invitationOnly?
   const { opaque: raw, notificationId: rawNotification } = useLocalSearchParams<{ opaque?: string; notificationId?: string }>();
   const parsed = linkTokenSchema.safeParse(raw);
   const opaque = parsed.success ? parsed.data : undefined;
-  const { session, bootstrap, status, signOut, acceptBootstrap } = useSession();
+  const { session, bootstrap, status, acceptBootstrap } = useSession();
   const { offline } = useApiAccess();
   const remote = useRemote(openLinkRoute, { params: { opaque: opaque ?? "" } }, { enabled: !!session && !!opaque });
   const seed = useSeedRemote();
@@ -130,9 +130,7 @@ export default function LinkScreen({ invitationOnly = false }: { invitationOnly?
     markedNotification.current = id.data;
     void markNotification.run({ body: { contextId, payload: { mode: "ids", ids: [id.data] } } });
   }, [rawNotification, session?.activeContext?.contextId, remote.status, remote.data, markNotification.run]);
-  const drafts = usePendingDrafts(true);
-  const sends = usePendingSends();
-  const media = useStagedMediaCount();
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [newlyAccepted, setNewlyAccepted] = useState<Accepted>();
   const [navigationFailed, setNavigationFailed] = useState(false);
   const navigating = useRef(false);
@@ -229,24 +227,16 @@ export default function LinkScreen({ invitationOnly = false }: { invitationOnly?
   }
   if (link && !invitation) return <Redirect href={help()} />;
   const busy = [accept.state, decline.state].some((state) => state === "sending" || state === "checking");
-  return <InvitationView invitation={newlyAccepted ?? invitation} email={bootstrap?.account.email} status={remote.status} busy={busy}
+  return <><InvitationView invitation={newlyAccepted ?? invitation} email={bootstrap?.account.email} status={remote.status} busy={busy}
     checking={accept.state === "checking" || decline.state === "checking" || navigationFailed} offline={offline}
     onBack={safeRoot} onRetry={() => { void remote.refresh(); }} onHelp={() => router.push(help(invitation?.status === "unavailable" ? invitation.reason : undefined))}
-    onDifferentAccount={() => {
-      confirmAction(router, { title: t("mobile.you.confirmTitle"), actionLabel: t("mobile.you.confirmAction"), actionLabelKey: "mobile.you.confirmAction",
-        item: t("mobile.you.confirmItem"), actor: isolated(bootstrap?.account.email ?? t("mobile.invitation.title")), role: t("mobile.you.device"),
-        effects: [t("mobile.you.confirmOtherDevices"), t("mobile.you.confirmWipe"),
-          ...(drafts ? [t("mobile.you.drafts", { count: drafts })] : []),
-          ...(sends?.waiting ? [t("mobile.you.waiting", { count: sends.waiting })] : []),
-          ...(sends?.checking ? [t("mobile.you.checking", { count: sends.checking })] : []),
-          ...(media ? [t("mobile.you.media", { count: media })] : []),
-          ...(drafts || sends?.waiting || sends?.checking || media ? [t("mobile.you.confirmUnknown")] : [])],
-        serverAction: false, destructive: true,
-        onReview: () => {}, onConfirm: async () => { authFlow.keepLink(opaque); await signOut(); return "confirmed"; } });
-    }}
+    onDifferentAccount={() => setConfirmingSignOut(true)}
     onAccept={() => { if (invitation?.status === "pending") decide(invitation, "accept"); }}
     onDecline={() => { if (invitation?.status === "pending") decide(invitation, "decline"); }}
     onSetup={() => { authFlow.keepLink(opaque); router.replace("/setup"); }} />;
+    <SignOutSheet visible={confirmingSignOut} onClose={() => setConfirmingSignOut(false)}
+      onSignOut={() => authFlow.keepLink(opaque)} />
+  </>;
 }
 
 export function InvitationRoute() { return <LinkScreen invitationOnly />; }

@@ -76,8 +76,6 @@ test("stores only the allowlisted fields, with independent account and context p
     expect(rows).toHaveLength(2);
     expect(JSON.parse(rows[0]!.value)).toEqual({ id: "notice", kind: "offer", createdAt: 789, readAt: null });
     expect(await other.getProjection("notification", "notice")).toBeNull();
-    await mobile.saveLocalePreferences(accountId, { uiLocale: "pt-PT", readingLocale: null });
-    expect(await mobile.getLocalePreferences("other-account")).toBeNull();
     await repository.saveDraft("request:expiring", true);
     expect(await repository.getDraft("request:expiring")).toMatchObject({ warnAt: clock.now + draftWarnAfter, expiresAt: clock.now + draftExpiresAfter });
     clock.now += snapshotWindow;
@@ -87,7 +85,6 @@ test("stores only the allowlisted fields, with independent account and context p
     expect(database.query("SELECT * FROM drafts").all()).toHaveLength(0);
     repository.close();
     await mobile.wipeAccount(accountId, async () => { throw new Error("No staged files to remove"); });
-    expect(await mobile.getLocalePreferences(accountId)).toBeNull();
     expect(database.query("SELECT * FROM projection").all()).toHaveLength(1);
   } finally { database.close(); }
 });
@@ -210,29 +207,5 @@ test("migrates only the active context's legacy draft once, preserving age and n
     await expect(repository.saveDraft("request:new", true)).rejects.toThrow("stable");
     clock.now = 900 + draftExpiresAfter;
     expect(await repository.listPendingDrafts("request")).toEqual([{ draftId: "second", updatedAt: 1000, summary: "Second request" }]);
-  } finally { database.close(); }
-});
-
-test("bootstrap restores identity and role labels without retaining a credential and wipes with its account", async () => {
-  const { database, mobile } = await testRepository();
-  try {
-    const bootstrap = {
-      sessionId: "session", expiresAt: 100_000, setup: "complete", account: { id: accountId, email: "test@example.test", displayName: "Test Profile" },
-      preferences: { uiLocale: "pt-PT", readingLocale: null, revision: 2, theme: "system", fieldMode: null, twoClock: false },
-      activeContext: { contextId: "staff", role: "foreman", businessId: "business", businessName: "Test Provider" },
-      contexts: [{ contextId: "staff", role: "foreman", businessId: "business", businessName: "Test Provider" }],
-      capabilities: { sessions: { businessId: "business" } },
-      credential: "discard-me",
-    } as const;
-    await mobile.saveSessionBootstrap(bootstrap);
-    const restored = await mobile.getSessionBootstrap(accountId);
-    expect(restored?.account.displayName).toBe("Test Profile");
-    expect(restored?.activeContext?.businessName).toBe("Test Provider");
-    expect(restored?.capabilities).toEqual({ sessions: { businessId: "business" } });
-    expect(restored?.preferences.uiLocale).toBe("pt-PT");
-    expect(await mobile.getSessionBootstrap("another-account")).toBeNull();
-    expect(database.query<{ value: string }, []>("SELECT value FROM local_settings").get()!.value).not.toContain("discard-me");
-    await mobile.wipeAccount(accountId, async () => { throw new Error("No staged files to remove"); });
-    expect(await mobile.getSessionBootstrap(accountId)).toBeNull();
   } finally { database.close(); }
 });

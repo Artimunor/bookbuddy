@@ -39,6 +39,7 @@ export const sessions = sqliteTable("sessions", {
   id: text().notNull().primaryKey(),
   accountId: text("account_id").notNull().references(() => accounts.id),
   secretHash: text("secret_hash").notNull().unique(),
+  revocationHash: text("revocation_hash"),
   activeContextId: text("active_context_id"),
   deviceId: text("device_id").notNull(),
   issuedAt: integer("issued_at").notNull(),

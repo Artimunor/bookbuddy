@@ -1,4 +1,4 @@
-import { createApiClient, createPlacesClient } from "@bookbuddy/api-client";
+import { createPlacesClient } from "@bookbuddy/api-client";
 import { attachmentIdSchema, operationIdSchema, type PlaceDetails, type PlaceList, type RequestReceipt, type SubmitRequest } from "@bookbuddy/api-contract";
 import { looksLikeAccessCode } from "@bookbuddy/domain";
 import { useEffect, useMemo, useState } from "react";
@@ -7,11 +7,13 @@ import { Button, TextField } from "../../ui";
 import { Frame, usePortal } from "../now/common";
 import { takeCheckedOpening } from "../notifications/handoff";
 import { usePendingOperation, type PendingOperation } from "../session/pending-operation";
+import { PendingReceiptNotice } from "../session/pending-receipt";
 import { formatPortalTime } from "../time";
 import { MediaPicker, type SelectedMedia } from "../media";
 
 type Draft = { text: string; place: PlaceDetails | null; arrangement: "nobody" | "requester" | "someone_else"; contact: string; note: string; media: SelectedMedia[]; mediaStage: string };
-type Flow = { draft: Draft; setDraft: React.Dispatch<React.SetStateAction<Draft>>; command: PendingOperation<SubmitRequest>; receipt: RequestReceipt | null };
+type Receipt = RequestReceipt | { jobId: string | null };
+type Flow = { draft: Draft; setDraft: React.Dispatch<React.SetStateAction<Draft>>; command: PendingOperation<SubmitRequest>; receipt: Receipt | null };
 export function RequestLayout() {
   const { bootstrap, activeContext } = usePortal();
   return <RequestScope key={`${bootstrap?.sessionId}:${activeContext?.contextId}`} />;
@@ -19,8 +21,11 @@ export function RequestLayout() {
 function RequestScope() {
   const [draft,setDraft] = useState<Draft>(() => ({ text:"",place:null,arrangement:"requester",contact:"",note:"",media:[],mediaStage:crypto.randomUUID() }));
   const { jobs } = usePortal();
-  const [receipt,setReceipt] = useState<RequestReceipt | null>(null);
-  const command = usePendingOperation("submit-request", "POST /requests", (body: SubmitRequest) => jobs.submitRequest(body), setReceipt);
+  const [receipt,setReceipt] = useState<Receipt | null>(null);
+  const command = usePendingOperation("submit-request", "POST /requests", (body: SubmitRequest) => jobs.submitRequest(body), setReceipt, undefined, {
+    includeResource: true, resourceIds: input => [input.payload.placeId],
+    onCommitted: status => setReceipt({ jobId: status.resource?.kind === "job" ? status.resource.id : null }),
+  });
   return <Outlet context={{draft,setDraft,command,receipt} satisfies Flow}/>;
 }
 export function Describe() {
@@ -29,8 +34,8 @@ export function Describe() {
   return <Frame><h1 className="text-page-title">{t("web.portal.ps.describe")}</h1><p>{t("web.portal.ps.anyLanguage")}</p><label className="block">{t("web.portal.ps.description")}<textarea className="block w-full rounded-lg border p-3" dir="auto" rows={7} maxLength={16000} value={draft.text} onChange={e=>setDraft({...draft,text:e.target.value})}/></label><p>{t("web.portal.ps.noCodes")}</p><p>{t("web.portal.ps.memoryOnly")}</p><Link aria-disabled={!draft.text.trim()} onClick={e=>{if(!draft.text.trim()) e.preventDefault();}} to="/portal/new/place">{t("web.portal.auth.continue")}</Link></Frame>;
 }
 export function RequestPlace() {
-  const { draft,setDraft,command } = useOutletContext<Flow>(); const { t,locale,bootstrap,activeContext } = usePortal(); const navigate = useNavigate(); const location = useLocation();
-  const api = useMemo(()=>createPlacesClient(createApiClient({baseUrl:"/api/v1",getSession:()=>null,getLocale:()=>locale})),[locale]);
+  const { draft,setDraft,command } = useOutletContext<Flow>(); const { t,api: portalApi,bootstrap,activeContext } = usePortal(); const navigate = useNavigate(); const location = useLocation();
+  const api = useMemo(() => createPlacesClient(portalApi), [portalApi]);
   const [list,setList] = useState<PlaceList | null>(null); const [failed,setFailed] = useState(false); const [loading,setLoading] = useState(false); const [mediaBusy,setMediaBusy] = useState(false);
   const hasPending = !!command.pending;
   useEffect(()=>{ if (hasPending) return; const c = new AbortController(); void api.listPlaces(undefined,{signal:c.signal}).then(r=>{if(!c.signal.aborted) r.ok ? setList(r.data) : setFailed(true);}); return ()=>c.abort(); },[api, hasPending]);
@@ -51,8 +56,8 @@ export function ReviewRequest() {
   const { draft,command,receipt } = useOutletContext<Flow>(); const { t,locale,preferences } = usePortal();
   const checking = command.state === "checking";
   const busy = command.state === "sending";
-  const pending = command.pending?.payload;
-  const arrangement = pending?.arrivalArrangement ?? draft.arrangement;
+  const pending = command.pending !== null;
+  const arrangement = draft.arrangement;
   const ready = draft.place?.state === "in_area" && !!draft.text.trim() && !looksLikeAccessCode(draft.note) &&
     (draft.arrangement !== "nobody" || !!draft.note.trim()) && (draft.arrangement !== "someone_else" || !!draft.contact.trim());
   function send() {
@@ -60,11 +65,13 @@ export function ReviewRequest() {
     command.start({ operationId:operationIdSchema.parse(crypto.randomUUID()), expectedRevision:draft.place.revision, payload:{placeId:draft.place.id,originalText:draft.text,arrivalArrangement:draft.arrangement,...(draft.media.length ? {attachmentIds:draft.media.map(item=>attachmentIdSchema.parse(item.id))} : {}),...(draft.arrangement === "someone_else" ? {arrivalContactName:draft.contact.trim()} : {}),...(draft.note.trim() ? {safeNote:draft.note.trim()} : {})} });
   }
   const viewerZone = preferences?.twoClock ? preferences.displayZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
-  const receiptTime = receipt ? formatPortalTime(receipt.submittedAt,receipt.siteZone,locale,viewerZone) : null;
-  return <Frame>{receipt ? <><h1 className="text-page-title">{t("web.portal.ps.requestSent")}</h1><p>{t("web.portal.ps.notBooking")}</p><p>{receipt.reference} · {receiptTime?.site ?? "—"}</p>{receiptTime?.viewer && <p>{receiptTime.viewer}</p>}<Link to={`/portal/jobs/${encodeURIComponent(receipt.jobId)}`}>{t("web.portal.ps.openJob")}</Link></> : <>
+  const detail = receipt && "siteZone" in receipt ? receipt : null;
+  const receiptTime = detail ? formatPortalTime(detail.submittedAt, detail.siteZone, locale, viewerZone) : null;
+  return <Frame>{receipt ? <><h1 className="text-page-title">{t("web.portal.ps.requestSent")}</h1><p>{t("web.portal.ps.notBooking")}</p>{detail && <p>{detail.reference} · {receiptTime?.site ?? "—"}</p>}{receiptTime?.viewer && <p>{receiptTime.viewer}</p>}{receipt.jobId && <Link to={`/portal/jobs/${encodeURIComponent(receipt.jobId)}`}>{t("web.portal.ps.openJob")}</Link>}</> : <>
     <h1 className="text-page-title">{t("web.portal.ps.review")}</h1><p>{t("web.portal.ps.notBooking")}</p>
-    <section><h2>{t("web.portal.ps.description")}</h2><p dir="auto">{pending?.originalText ?? draft.text}</p>{!pending && <Link to="/portal/new/describe">{t("web.portal.ps.edit")}</Link>}</section>
-    <section><h2>{t("web.portal.ps.placeAccess")}</h2>{draft.place && <p>{draft.place.alias} · {draft.place.address}</p>}<p dir="auto">{pending?.safeNote ?? draft.note}</p><p>{arrangement === "nobody" ? t("web.portal.ps.nobody") : arrangement === "requester" ? t("web.portal.ps.me") : `${t("web.portal.ps.someoneElse")} · ${pending?.arrivalContactName ?? draft.contact}`}</p>{!pending && <Link to="/portal/new/place">{t("web.portal.ps.edit")}</Link>}</section>
+    <PendingReceiptNotice state={command.state} />
+    {(!pending || draft.text) && <section><h2>{t("web.portal.ps.description")}</h2><p dir="auto">{draft.text}</p>{!pending && <Link to="/portal/new/describe">{t("web.portal.ps.edit")}</Link>}</section>}
+    {(!pending || draft.place) && <section><h2>{t("web.portal.ps.placeAccess")}</h2>{draft.place && <p>{draft.place.alias} · {draft.place.address}</p>}<p dir="auto">{draft.note}</p><p>{arrangement === "nobody" ? t("web.portal.ps.nobody") : arrangement === "requester" ? t("web.portal.ps.me") : `${t("web.portal.ps.someoneElse")} · ${draft.contact}`}</p>{!pending && <Link to="/portal/new/place">{t("web.portal.ps.edit")}</Link>}</section>}
     <p>{t("web.portal.ps.noPayment")}</p>{command.state === "failed" && <p role="alert">{t("web.portal.work.failed")}</p>}{checking && <p role="status">{t("web.portal.ps.requestChecking")}</p>}
     <Button pending={busy} disabled={busy || (!checking && !ready)} onClick={checking ? command.check : send}>{checking ? t("web.portal.work.checkAgain") : t("web.portal.ps.sendRequest")}</Button></>}</Frame>;
 }

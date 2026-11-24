@@ -1,19 +1,19 @@
-import { createApiClient, createCommercialClient, createJobsClient } from "@bookbuddy/api-client";
+import { createCommercialClient, createJobsClient } from "@bookbuddy/api-client";
 import type { HomeProjection } from "@bookbuddy/api-contract";
 import type { Translator } from "@bookbuddy/i18n";
 import { createWebTranslator } from "@bookbuddy/i18n/web";
 import { useMemo, type ReactNode } from "react";
-import { BookingCard, PortalShell, TwoClock, type JobLineProps } from "../../ui";
+import { BookingCard, Button, PortalShell, TwoClock, type JobLineProps } from "../../ui";
 import { useSession } from "../session";
 import { formatPortalClock, formatPortalTime } from "../time";
 
 export function usePortal() {
   const session = useSession();
   const t = createWebTranslator(session.locale).t;
-  const clients = useMemo(() => {
-    const api = createApiClient({ baseUrl: "/api/v1", getSession: () => null, getLocale: () => session.locale });
-    return { jobs: createJobsClient(api), commercial: createCommercialClient(api) };
-  }, [session.locale]);
+  const clients = useMemo(() => ({
+    jobs: createJobsClient(session.api),
+    commercial: createCommercialClient(session.api),
+  }), [session.api]);
   return { ...session, t, ...clients };
 }
 export type T = Translator<"web">["t"];
@@ -75,6 +75,17 @@ export function usePortalViewerZone() {
 export function money(locale: string, minor: number, currency = "EUR") {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(minor / 100);
 }
+export function SignOutControl() {
+  const { account, locale, signOut, signOutStatus } = useSession();
+  const { t } = createWebTranslator(locale);
+  if (!account) return null;
+  const sending = signOutStatus === "sending";
+  return <>
+    <Button variant="text" disabled={sending} pending={sending} onClick={signOut}>{t("web.portal.auth.signOut")}</Button>
+    {signOutStatus === "failed" && <p role="alert">{t("web.portal.auth.signOutFailed")}</p>}
+  </>;
+}
+
 export function Frame({ current, children }: { current?: "now" | "bookings"; children: ReactNode }) {
   const { account, t } = usePortal();
   const name = account?.displayName ?? account?.email ?? "";
@@ -85,7 +96,7 @@ export function Frame({ current, children }: { current?: "now" | "bookings"; chi
     places: { label: t("web.portal.work.places"), to: "/portal/places" },
     settings: { label: t("web.portal.work.settings"), to: "/portal/settings" },
   };
-  return <PortalShell identity={{ name, initials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), to: "/portal/settings" }} nav={nav} current={current} navLabel={t("web.portal.work.navigation")} skipLabel={t("web.portal.work.skip")}><div className="space-y-6">{children}</div></PortalShell>;
+  return <PortalShell identity={{ name, initials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), to: "/portal/settings" }} accountActions={account ? <SignOutControl /> : undefined} nav={nav} current={current} navLabel={t("web.portal.work.navigation")} skipLabel={t("web.portal.work.skip")}><div className="space-y-6">{children}</div></PortalShell>;
 }
 type CustomerCard = Extract<HomeProjection, { audience: "customer" }>["upcoming"][number];
 export function Booking({ item, viewerZone }: { item: CustomerCard; viewerZone?: string }) {

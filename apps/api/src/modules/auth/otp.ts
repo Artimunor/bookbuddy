@@ -201,8 +201,14 @@ export async function verifyOtp(ctx: RequestScope, key: CryptoKey, token: string
     mailboxKey(key, payload.email),
   ]);
   const verified = await mac(key, "otp-verify", proof.id, proof.email, proof.device, payload.transport, operationId, code);
-  const [sessionId, credential] = await Promise.all([mac(key, "otp-session-id", verified), mac(key, "otp-session-secret", verified)]);
-  const secretHash = await hashSessionCredential(credential);
+  const [sessionId, credential, revocationSecret] = await Promise.all([
+    mac(key, "otp-session-id", verified), mac(key, "otp-session-secret", verified),
+    payload.transport === "native" ? mac(key, "otp-session-revoke", verified) : null,
+  ]);
+  const revocationProof = revocationSecret && `r1.${revocationSecret}`;
+  const [secretHash, revocationHash] = await Promise.all([
+    hashSessionCredential(credential), revocationProof ? hashSessionCredential(revocationProof) : null,
+  ]);
   const claimed = `${verified}.${crypto.randomUUID()}`;
   const accountId = crypto.randomUUID();
   const prefix = otpPrefix(now, proof.id, proof.source, proof);
@@ -262,10 +268,10 @@ export async function verifyOtp(ctx: RequestScope, key: CryptoKey, token: string
         params: [crypto.randomUUID(), accountId, proof.id, claimed],
       },
       {
-        sql: `INSERT INTO sessions (id, account_id, secret_hash, active_context_id, device_id, issued_at, expires_at)
-          SELECT ?, a.id, ?, ${defaultContextSql}, ?, ?, ? FROM accounts a
+        sql: `INSERT INTO sessions (id, account_id, secret_hash, revocation_hash, active_context_id, device_id, issued_at, expires_at)
+          SELECT ?, a.id, ?, ?, ${defaultContextSql("?")}, ?, ?, ? FROM accounts a
           WHERE a.email_normalized = ? AND a.state = 'active' AND ${consumed}`,
-        params: [sessionId, secretHash, proof.device, now, now + sessionLifetime, payload.email, proof.id, claimed],
+        params: [sessionId, secretHash, revocationHash, now, proof.device, now, now + sessionLifetime, payload.email, proof.id, claimed],
       },
       sessionProjection(scope, now),
       {
@@ -276,7 +282,7 @@ export async function verifyOtp(ctx: RequestScope, key: CryptoKey, token: string
     ],
     decode(results) {
       const session = decodeSession(results.at(-2));
-      if (session) return { kind: "verified", session, credential };
+      if (session) return { kind: "verified", session: revocationProof ? { ...session, revocationProof } : session, credential };
       const row = results.at(-1)?.results[0] as Pick<AttemptRow, "state" | "expires_at" | "lock_until" | "wrong"> | undefined;
       if (!row) return { kind: "missing" };
       if (results[2]?.results.length) return { kind: "denied" };

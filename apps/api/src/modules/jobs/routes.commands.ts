@@ -57,16 +57,18 @@ post(declineJobHandoffRoute, (ctx, access, { params, body }) => planHandoffDecis
 post(withdrawJobHandoffRoute, (ctx, access, { params, body }) => planHandoffDecision(ctx, access, params.j, params.h, body, "withdrawn"));
 
 jobsCommandRoutes.get(getOperationRoute.path, async (c) => {
-  const input = getOperationRoute.input.safeParse({ params: c.req.param() });
+  const input = getOperationRoute.input.safeParse({ params: c.req.param(), query: c.req.query() });
   if (!input.success) return transportFailure(c, "VALIDATION_FAILED");
   const ctx = openRequestScope(c.env.DB, c.var.requestId);
   const access = await resolveSession(c.req.raw, null, ctx.now);
   if (!access) return transportFailure(c, "UNAUTHENTICATED");
   const operationId = input.data.params.id;
-  const result = await commitCommand(ctx, prepareCommand(ctx, readOperation(access, operationId)));
+  const result = await commitCommand(ctx, prepareCommand(ctx, readOperation(access, operationId, ctx.now, input.data.query?.resource === "1")));
   if (!result) return transportFailure(c, "UNAUTHENTICATED");
   if (!result.context_id || result.committedAt === null) return transportFailure(c, "NOT_FOUND");
-  return transportSuccess(c, getOperationRoute.output.parse({ operationId, status: "committed", committedAt: result.committedAt }), ctx.now);
+  return transportSuccess(c, getOperationRoute.output.parse({ operationId, status: "committed", committedAt: result.committedAt,
+    ...(result.resourceKind && result.resourceId ? { resource: { kind: result.resourceKind, id: result.resourceId } } : {}),
+  }), ctx.now);
 });
 
 jobsCommandRoutes.post(submitSupportRoute.path, async (c) => {

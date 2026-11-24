@@ -1,14 +1,18 @@
-import { accountSettingsSchema, errorBodySchema, mediaStageIdSchema, operationIdSchema, sessionBootstrapSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
-import type { ErrorBody, LocalePreferences, OpOutcome, OperationId, ProgressPhotoOutcome, SessionBootstrap, SyncOp, SyncPage } from "@bookbuddy/api-contract";
+import { errorBodySchema, mediaLimits, mediaStageIdSchema, operationIdSchema, submitRequestRoute, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
+import type { ActiveContext, ErrorBody, LocalePreferences, OpOutcome, OperationId, ProgressPhotoOutcome, SessionBootstrap, SubmitRequest, SyncOp, SyncPage } from "@bookbuddy/api-contract";
 import { fitsDraft } from "../media/types";
 import type { AttachmentId, MediaTransfer, NewMediaTransfer, RecoveryProbe, TransferProgress, TransferQuery } from "../media/types";
+import { offlineBootstrapIsFresh, offlineBootstrapSchema } from "../session/offline-bootstrap";
+import type { OfflineBootstrap } from "../session/offline-bootstrap";
 import { attendanceProgress } from "./attendance";
 import type { AttendanceCapture, AttendanceEventKind, AttendanceOperation, AttendanceSnapshot, LocalAttendance } from "./attendance";
 import { cacheableValue, draftExpiresAfter, draftWarnAfter, snapshotWindow } from "./cache";
 import type { CachedProjections, CachedWorkerFieldShift, ProjectionKind } from "./cache";
+import { cachePolicy, withVolatileCache } from "./cache-policy";
 import { legacyRequestMarker, mediaOmittedFromDraft, ownedMediaStages } from "./draft-media";
 import type { Executor, Rows } from "./executor";
 import { decodeTransfer, encodeTransfer } from "./media-transfers";
+import { createMemoryExecutor } from "./memory";
 import { pendingAge, pendingHoldAfter, pendingReviewAfter } from "./pending-work";
 import { cacheRemoteResponse, decodeRemoteSnapshot } from "./remote-cache";
 import type { CachedRead, RemoteCacheKind } from "./remote-cache";
@@ -16,12 +20,10 @@ import { attendanceReceipts, drafts, localSettings, mediaTransfers, outbox, pend
 import { requestReconciliations } from "./schema";
 import type { OutboxStatus, ProgressReceiptState } from "./schema";
 
-const devicePreferencesSchema = accountSettingsSchema.omit({ revision: true }).partial({
-  theme: true, fieldMode: true, twoClock: true,
-});
 export type DevicePreferences = LocalePreferences & Partial<Pick<SessionBootstrap["preferences"], "theme" | "fieldMode" | "twoClock">>;
 
 export type Scope = { accountId: string; contextId: string };
+export type PendingWork = { drafts: number; waiting: number; checking: number; media: number };
 export type DraftKey = `${string}:${string}`;
 const draftKeyPattern = /^[a-z][a-z0-9_-]*:[A-Za-z0-9_-]+$/;
 const legacyRequestDraft = "request:new";
@@ -113,11 +115,24 @@ export interface SyncBatch {
 export type RepositoryTopic = "projection" | "drafts" | "outbox" | "media" | "receipts" | "attendance" | "progress";
 interface RepositoryEvent { revision: number; listeners: Set<() => void> }
 
-export class MobileRepository {
-  constructor(private readonly db: Executor, private readonly newId: () => string, readonly now = Date.now) {}
+const offlineBootstrapKey = "offline-bootstrap";
+async function clearCachedAccount(db: Rows, account: { account_id: string }) {
+  await db.remove(projection, account);
+  await db.remove(syncState, account);
+  await db.remove(localSettings, account);
+}
 
-  openScope(scope: Scope) {
-    return new ScopedRepository(this.db, { ...scope }, this.newId, this.now);
+export class MobileRepository {
+  private volatileCache: Executor | undefined;
+  private split: Executor | undefined;
+
+  constructor(private readonly db: Executor, private readonly newId: () => string, readonly now = Date.now,
+    private readonly eraseMedia: EraseMedia, readonly persistentAuthoring = false) {}
+
+  openScope(scope: Scope, role?: ActiveContext["role"]) {
+    const db = this.persistentAuthoring && cachePolicy(role, true) === "memory"
+      ? (this.split ??= withVolatileCache(this.db, this.volatileCache ??= createMemoryExecutor())) : this.db;
+    return new ScopedRepository(db, { ...scope }, this.newId, this.now, this.eraseMedia, this.persistentAuthoring);
   }
 
   async reconcileStagedFiles(list: () => readonly string[], erase: (uris: readonly string[]) => Promise<void>): Promise<void> {
@@ -158,30 +173,47 @@ export class MobileRepository {
     });
   }
 
-  async getLocalePreferences(accountId: string): Promise<DevicePreferences | null> {
-    const [row] = await this.db.read((db) => db.select(localSettings, { account_id: accountId, key: "locale" }));
-    return row ? devicePreferencesSchema.parse(JSON.parse(row.value)) : null;
+  async getOfflineBootstrap(accountId: string, sessionId: string, contextId: string): Promise<OfflineBootstrap | null> {
+    if (!this.persistentAuthoring) return null;
+    const [row] = await this.db.read((db) => db.select(localSettings, { account_id: accountId, key: offlineBootstrapKey }));
+    if (!row) return null;
+    try {
+      const cached = offlineBootstrapSchema.safeParse(JSON.parse(row.value));
+      return cached.success && cached.data.sessionId === sessionId && cached.data.activeContext.contextId === contextId
+        && cachePolicy(cached.data.activeContext.role, true) === "persistent" && offlineBootstrapIsFresh(cached.data, this.now())
+        ? cached.data : null;
+    } catch { return null; }
   }
 
-  async saveLocalePreferences(accountId: string, value: DevicePreferences) {
-    const preferences = devicePreferencesSchema.parse(value);
+  async saveOfflineBootstrap(accountId: string, bootstrap: OfflineBootstrap): Promise<void> {
+    if (cachePolicy(bootstrap.activeContext.role, this.persistentAuthoring) !== "persistent") return;
     await this.db.transaction((db) => db.put(localSettings, {
-      account_id: accountId, key: "locale", value: JSON.stringify(preferences),
+      account_id: accountId, key: offlineBootstrapKey, value: JSON.stringify(offlineBootstrapSchema.parse(bootstrap)),
     }));
   }
 
-  async getSessionBootstrap(accountId: string): Promise<SessionBootstrap | null> {
-    const [row] = await this.db.read((db) => db.select(localSettings, { account_id: accountId, key: "bootstrap" }));
-    const cached = row && sessionBootstrapSchema.safeParse(JSON.parse(row.value));
-    return cached?.success && cached.data.account.id === accountId ? cached.data : null;
+  pendingWork(accountId: string): Promise<PendingWork> {
+    const account = { account_id: accountId };
+    return this.db.read(async (db) => {
+      const checking = new Set<string>();
+      let waiting = 0;
+      for (const row of await db.select(outbox, account)) {
+        if (row.status === "checking") checking.add(`${row.context_id}\0${row.operation_id}`);
+        else waiting++;
+      }
+      for (const row of await db.select(pendingOnlineReceipts, account)) checking.add(`${row.context_id}\0${row.operation_id}`);
+      for (const row of await db.select(requestReconciliations, account)) checking.add(`${row.context_id}\0${row.operation_id}`);
+      const draftsCount = await db.count(drafts, account);
+      const older = await db.count(stagedMedia, account);
+      const transfers = await db.count(mediaTransfers, { ...account, file_uri: { op: ">", value: "" } });
+      return { drafts: draftsCount, waiting, checking: checking.size, media: older + transfers };
+    });
   }
 
-  async saveSessionBootstrap(bootstrap: SessionBootstrap): Promise<SessionBootstrap> {
-    const cached = sessionBootstrapSchema.parse(bootstrap);
-    await this.db.transaction((db) => db.put(localSettings, {
-      account_id: cached.account.id, key: "bootstrap", value: JSON.stringify(cached),
-    }));
-    return cached;
+  async sealAccount(accountId: string): Promise<void> {
+    const account = { account_id: accountId };
+    await this.db.transaction((db) => clearCachedAccount(db, account));
+    await this.volatileCache?.transaction((db) => clearCachedAccount(db, account));
   }
 
   async wipeAccount(accountId: string, eraseFiles: (uris: readonly string[]) => Promise<void>): Promise<void> {
@@ -192,8 +224,7 @@ export class MobileRepository {
         if (file_uri) files.push(file_uri);
       }
       if (files.length) await eraseFiles(files);
-      await db.remove(projection, account);
-      await db.remove(syncState, account);
+      await clearCachedAccount(db, account);
       await db.remove(drafts, account);
       await db.remove(outbox, account);
       await db.remove(attendanceReceipts, account);
@@ -201,8 +232,9 @@ export class MobileRepository {
       await db.remove(stagedMedia, account);
       await db.remove(mediaTransfers, account);
       await db.remove(pendingOnlineReceipts, account);
-      await db.remove(localSettings, account);
+      await db.remove(requestReconciliations, account);
     });
+    await this.volatileCache?.transaction((db) => clearCachedAccount(db, account));
   }
 }
 
@@ -217,7 +249,8 @@ export class ScopedRepository {
   private readonly progressReadyListeners = new Set<(ids: ReadonlySet<AttachmentId>) => void>();
   private readonly partition: { account_id: string; context_id: string };
 
-  constructor(private readonly db: Executor, readonly scope: Scope, private readonly newId: () => string, readonly now: () => number) {
+  constructor(private readonly db: Executor, readonly scope: Scope, private readonly newId: () => string, readonly now: () => number,
+    private readonly eraseMedia: EraseMedia, readonly persistentAuthoring: boolean) {
     this.partition = { account_id: scope.accountId, context_id: scope.contextId };
   }
 

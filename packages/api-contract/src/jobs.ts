@@ -352,9 +352,15 @@ export const withdrawJobHandoffRoute = defineRoute({
 });
 export const getOperationRoute = defineRoute({
   method: "GET", path: "/operations/:id", auth: "context",
-  input: z.object({ params: z.object({ id: operationIdSchema }) }),
+  input: z.object({
+    params: z.object({ id: operationIdSchema }),
+    query: z.object({ resource: z.literal("1").optional() }).optional(),
+  }),
   // Return only a committed receipt for this actor and live scope; absent or unavailable stays reason-safe 404.
-  output: z.strictObject({ operationId: operationIdSchema, status: z.literal("committed"), committedAt: timestampSchema }),
+  output: z.strictObject({
+    operationId: operationIdSchema, status: z.literal("committed"), committedAt: timestampSchema,
+    resource: z.strictObject({ kind: z.enum(["place", "job", "case"]), id: idSchema }).optional(),
+  }),
 });
 
 export type HomeProjection = z.output<typeof homeProjectionSchema>;

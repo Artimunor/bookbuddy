@@ -1,4 +1,4 @@
-import { livePath, liveTopicName, localeTagSchema, operationIdHeader, operationIdSchema, parseResult } from "@bookbuddy/api-contract";
+import { expectedContextHeader, expectedSessionHeader, idSchema, livePath, liveTopicName, localeTagSchema, noExpectedContext, operationIdHeader, operationIdSchema, parseResult } from "@bookbuddy/api-contract";
 import type {
   LiveTopicKey,
   RequestParts,
@@ -13,9 +13,12 @@ import type {
 type TransportRequest = RequestInit & { redirect?: "error" | "follow" | "manual" };
 export type ApiFetch = (url: string, init: TransportRequest) => Promise<Response>;
 
+type ExpectedCookieIdentity = { sessionId: string; contextId: string | null };
+
 export type ApiClientOptions = {
   baseUrl: string;
   getSession: () => string | null | Promise<string | null>;
+  getExpectedCookieIdentity?: () => ExpectedCookieIdentity | null;
   getLocale: () => string;
   fetch?: ApiFetch;
 };
@@ -26,7 +29,7 @@ export type ClientError =
   | { code: "INVALID_RESPONSE"; delivery: "unknown"; status: number };
 
 export type ApiResult<T> = Result<T> | { ok: false; error: ClientError; meta?: never };
-export type RequestOptions = { signal?: NonNullable<RequestInit["signal"]> };
+export type RequestOptions = { signal?: NonNullable<RequestInit["signal"]>; expectedCookieIdentity?: ExpectedCookieIdentity };
 
 type LiveSocketOptions = {
   /** A browser supplies its origin; native supplies a connector that can set headers. */
@@ -79,7 +82,7 @@ function requestUrl(base: string, path: string, { params, query }: RequestParts)
 
 const defaultFetch: ApiFetch = (url, init) => globalThis.fetch(url, init);
 
-export function createApiClient({ baseUrl, getSession, getLocale, fetch: transport = defaultFetch }: ApiClientOptions): ApiClient {
+export function createApiClient({ baseUrl, getSession, getExpectedCookieIdentity, getLocale, fetch: transport = defaultFetch }: ApiClientOptions): ApiClient {
   const base = normalizeBaseUrl(baseUrl);
 
   async function request<Input extends RequestSchema, Output extends ResponseSchema>(
@@ -120,11 +123,15 @@ export function createApiClient({ baseUrl, getSession, getLocale, fetch: transpo
       const locale = localeTagSchema.parse(getLocale());
       headers["Accept-Language"] = locale;
       if (route.auth !== "public" && route.auth !== "challenge") {
+        const identity = options?.expectedCookieIdentity ?? (route.method === "GET" ? null : getExpectedCookieIdentity?.());
         const session = await getSession();
         if (session !== null) {
           if (!/^[A-Za-z0-9._~+\/-]+=*$/.test(session)) throw new TypeError("Invalid bearer credential");
           headers.Authorization = `Bearer ${session}`;
           credentials = "omit";
+        } else if (identity) {
+          headers[expectedSessionHeader] = idSchema.parse(identity.sessionId);
+          headers[expectedContextHeader] = identity.contextId === null ? noExpectedContext : idSchema.parse(identity.contextId);
         }
       }
     } catch {

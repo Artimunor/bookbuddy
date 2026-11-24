@@ -43,6 +43,8 @@ function ThreadPage({ id }: { id: string }) {
   }, (receipt, input) => {
     setSent(items => [...items, { id: input.payload.id, text: input.payload.originalText, at: receipt.receivedAt }]);
     setDraft("");
+  }, undefined, {
+    onCommitted: () => { setDraft(""); setPage(null); setGeneration(n => n + 1); },
   });
   const busy = command.state === "sending" || command.state === "checking";
   function send() { if (!draft.trim() || !details?.canSend || busy || !navigator.onLine) return; const messageId = crypto.randomUUID(); command.start({ operationId: crypto.randomUUID(), payload: { id: messageId, originalText: draft, sourceLanguage: details.members.find(member => member.isViewer)?.writingLanguage ?? locale } }); }

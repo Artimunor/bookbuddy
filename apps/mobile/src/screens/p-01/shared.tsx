@@ -6,9 +6,10 @@ import { Button, IdentityChip, Screen } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 
 export function useProvider() {
-  const { session, bootstrap } = useSession();
+  const { session, bootstrap, offlineBootstrap } = useSession();
   const context = session?.activeContext;
-  return { businessId: context?.role === "provider_admin" ? context.businessId : "", actor: bootstrap?.account.displayName ?? bootstrap?.account.email ?? "" };
+  return { businessId: context?.role === "provider_admin" ? context.businessId ?? "" : "",
+    actor: bootstrap?.account.displayName ?? offlineBootstrap?.account.displayName ?? bootstrap?.account.email ?? "" };
 }
 
 export function ProviderScreen({ title, business, children, dock }: { title: string; business?: string; children: ReactNode; dock?: ReactNode }) {

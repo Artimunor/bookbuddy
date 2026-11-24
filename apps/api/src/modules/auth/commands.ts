@@ -2,7 +2,7 @@ import type { AccountSettingsPatch, ErrorBody, SessionBootstrap } from "@bookbud
 import { commitCommand, prepareCommand } from "../../db/commit";
 import type { CommandStatement } from "../../db/commit";
 import type { RequestScope } from "../../db/scope";
-import { decodeSession, hashSessionCredential, liveContextPredicate, sessionProjection } from "./session";
+import { decodeSession, hashSessionCredential, liveContextAt, sessionProjection } from "./session";
 import type { SessionAccess } from "./session";
 
 type SessionCommand = { session: SessionBootstrap } | { error: ErrorBody };
@@ -21,8 +21,11 @@ export async function switchContext(ctx: RequestScope, access: SessionAccess, op
   const target = `${access.sql}, target AS MATERIALIZED (
     SELECT s.session_id, s.account_id, s.context_id AS old_context_id, c.id AS context_id
     FROM acting_session s JOIN account_contexts c ON c.account_id = s.account_id
-    WHERE c.id = ? AND ${liveContextPredicate}
+    WHERE c.id = ? AND ${liveContextAt("s.at")}
   )`;
+  // Only the context-selection statements use the old context. The receipt
+  // marker and the same cookie's session ID bind the post-switch statements.
+  const updated = access.afterContextSwitch ?? access;
   return commitCommand(ctx, prepareCommand<SessionCommand>(ctx, {
     statements: [
       {
@@ -33,27 +36,31 @@ export async function switchContext(ctx: RequestScope, access: SessionAccess, op
         params: [...access.params, contextId, operationId, hash, marker, ctx.now],
       },
       {
+        sql: `${target} SELECT
+          t.context_id IS NOT NULL AS can_switch, r.input_hash, r.command, r.result_ref
+          FROM acting_session s LEFT JOIN target t ON t.session_id = s.session_id
+          LEFT JOIN operation_receipts r ON r.account_id = t.account_id AND r.context_id = t.context_id AND r.operation_id = ?`,
+        params: [...access.params, contextId, operationId],
+      },
+      {
         sql: `${target} UPDATE sessions SET active_context_id = ?
           WHERE id = (SELECT session_id FROM target) AND EXISTS (SELECT 1 FROM operation_receipts WHERE result_ref = ?)`,
         params: [...access.params, contextId, contextId, marker],
       },
       {
-        sql: `${access.sql} UPDATE operation_receipts SET result_ref = (SELECT session_id FROM acting_session) WHERE result_ref = ?`,
-        params: [...access.params, marker],
+        sql: `${updated.sql} UPDATE operation_receipts SET result_ref = (SELECT session_id FROM acting_session) WHERE result_ref = ?`,
+        params: [...updated.params ?? [], marker],
       },
-      sessionProjection(access, ctx.now),
-      {
-        sql: `${target} SELECT r.input_hash, r.command, r.result_ref FROM target t LEFT JOIN operation_receipts r
-          ON r.account_id = t.account_id AND r.context_id = t.context_id AND r.operation_id = ?`,
-        params: [...access.params, contextId, operationId],
-      },
+      sessionProjection(updated, ctx.now),
     ],
     decode(results) {
-      const session = decodeSession(results[3]);
+      const target = results[1]?.results[0] as (Receipt & { can_switch: number }) | undefined;
+      if (!target) return unauthenticated;
+      if (!target.can_switch) return missing;
+      const session = decodeSession(results[4]);
       if (!session) return unauthenticated;
-      const target = results[4]?.results[0] as Receipt | undefined;
-      if (!target) return missing;
-      if (target.input_hash !== null && (target.command !== "session.context" || target.input_hash !== hash || target.result_ref !== session.sessionId)) return reused;
+      if (target.input_hash !== null && (target.command !== "session.context" || target.input_hash !== hash ||
+        (target.result_ref !== marker && target.result_ref !== session.sessionId))) return reused;
       return { session };
     },
   }));

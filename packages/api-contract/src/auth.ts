@@ -9,6 +9,8 @@ import { defineRoute } from "./route";
 // A canonical, unpadded base64url encoding of 256 bits.
 export const authTokenPattern = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/;
 const authToken = z.string().regex(authTokenPattern);
+export const sessionRevocationProofSchema = z.string().refine((value) =>
+  value.startsWith("r1.") && authTokenPattern.test(value.slice(3)));
 const email = z.string().trim().max(254).transform((value) => value.toLowerCase()).pipe(z.email());
 const transport = z.enum(["web", "native"]);
 const device = z.object({ email, deviceId: idSchema, transport });
@@ -49,6 +51,8 @@ export const sessionBootstrapSchema = z.object({
   contexts: z.array(activeContextSchema),
   // Optional for previously cached bootstraps; current responses always include it.
   capabilities: z.object({ sessions: sessionsCapabilitySchema.nullable() }).optional(),
+  // Issued only with a native sign-in. This capability cannot authenticate reads or writes.
+  revocationProof: sessionRevocationProofSchema.optional(),
 });
 
 export const accountSettingsPatchSchema = z.strictObject({
@@ -109,6 +113,12 @@ export const sessionContextRoute = defineRoute({
 export const sessionEndRoute = defineRoute({
   method: "POST", path: "/session/end", auth: "session",
   input: z.object({}), output: z.object({ ended: z.literal(true) }),
+});
+
+export const sessionRevokeRoute = defineRoute({
+  method: "POST", path: "/session/revoke", auth: "public",
+  input: z.object({ body: z.strictObject({ sessionId: idSchema, proof: sessionRevocationProofSchema }) }),
+  output: z.object({ ended: z.literal(true) }),
 });
 
 export const sessionRoute = defineRoute({
