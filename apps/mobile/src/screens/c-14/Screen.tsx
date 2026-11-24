@@ -2,7 +2,7 @@ import { changePlaceApproverRoute, createPlaceRoute, getPlaceRoute, invitePlaceP
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useCommand, useRemote } from "../../api";
-import { useLocale, useT } from "../../i18n";
+import { useFormat, useT } from "../../i18n";
 import { useSession } from "../../session";
 import { Badge, BookingCard, Button, Card, Dock, ListRow, Screen, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
@@ -115,7 +115,7 @@ export function PlaceView({ place, isNew, status, mode, draft, setDraft, email, 
   onBack: () => void; onRetry: () => void; onEdit: () => void; onCancel: () => void; onSave: () => void; onInvite: () => void; onSend: () => void;
   onChangeApprover: (person: PlaceDetails["people"][number]) => void; onInvitation: (id: string, action: "reissue" | "withdraw") => void; onBooking: (id: string) => void;
 }) {
-  const { locale } = useLocale();
+  const format = useFormat();
   const t = useT();
   const capabilities = { view: t("mobile.places.view"), message: t("mobile.places.message"), request: t("mobile.places.request"), book: t("mobile.places.book"), approve: t("mobile.places.approve"), sign_off: t("mobile.places.signOff"), bill_view: t("mobile.places.billView"), delegate: t("mobile.places.delegate") };
   const stages = [t("mobile.places.requested"), t("mobile.places.quoted"), t("mobile.places.booked"), t("mobile.places.visit"), t("mobile.places.signedOff"), t("mobile.places.paid")] as const;
@@ -139,7 +139,7 @@ export function PlaceView({ place, isNew, status, mode, draft, setDraft, email, 
         <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.places.people")}</Copy>
         <Card>{[...place.people].sort((a,b) => Number(b.isOwner || b.isNamedApprover) - Number(a.isOwner || a.isNamedApprover)).map((person) => <ListRow key={person.accountId} label={person.displayName} description={[person.isOwner ? t("mobile.places.owner") : null, person.isNamedApprover ? t("mobile.places.approver") : null, ...person.capabilities.map((c) => capabilities[c])].filter(Boolean).join(" · ")}
           trailing={place.actions.changeApprover && !person.isNamedApprover ? <Button variant="quiet" label={t("mobile.places.changeApprover")} onPress={() => onChangeApprover(person)} disabled={busy} /> : undefined} />)}
-          {place.pendingInvitations?.map((invitation) => <Card key={invitation.id}><ListRow label={invitation.email} description={t("mobile.places.sent", { date: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: invitation.siteZone ?? "UTC" }).format(invitation.issuedAt) })} onPress={() => setSelectedInvite(selectedInvite === invitation.id ? null : invitation.id)} /><Badge label={t("mobile.places.pending")} />
+          {place.pendingInvitations?.map((invitation) => <Card key={invitation.id}><ListRow label={invitation.email} description={t("mobile.places.sent", { date: format.lines(invitation.issuedAt, invitation.siteZone)?.site ?? "" })} onPress={() => setSelectedInvite(selectedInvite === invitation.id ? null : invitation.id)} /><Badge label={t("mobile.places.pending")} />
             {selectedInvite === invitation.id && <>{invitation.reissue.status === "available" && <Button variant="quiet" label={t("mobile.places.resend")} onPress={() => onInvitation(invitation.id, "reissue")} disabled={busy} />}{invitation.canWithdraw && <Button variant="quiet" label={t("mobile.places.withdraw")} onPress={() => onInvitation(invitation.id, "withdraw")} disabled={busy} />}</>}</Card>)}
         </Card>
         <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.places.bookings")}</Copy>

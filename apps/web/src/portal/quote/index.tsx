@@ -2,7 +2,8 @@ import type { QuoteVersion, QuoteVersionList } from "@bookbuddy/api-contract";
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ActionLink, Badge, Button, Card, Dialog, Dock, QuoteTable, StatusBanner, TwinCard } from "../../ui";
-import { date, Frame, money, usePortal } from "../now/common";
+import { Frame, money, usePortal } from "../now/common";
+import { formatPortalTime } from "../time";
 
 type QuoteData = Extract<QuoteVersion, { audience: "customer" }>;
 type List = Extract<QuoteVersionList, { audience: "customer" }>;
@@ -30,7 +31,7 @@ export function Quote() {
   return <QuoteView key={`${id}:${version}`} id={id} version={version} />;
 }
 function QuoteView({ id, version }: { id: string; version: string }) {
-  const { jobs, commercial, locale, account, t } = usePortal();
+  const { jobs, commercial, locale, account, preferences, t } = usePortal();
   const [quote, setQuote] = useState<QuoteData | null>(null);
   const [versions, setVersions] = useState<List | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -93,6 +94,10 @@ function QuoteView({ id, version }: { id: string; version: string }) {
   const reading = quote?.readingAid;
   const status = quote?.state === "approved" ? t("web.portal.work.approved") : quote?.state === "declined" ? t("web.portal.work.declined") : quote?.state === "expired" ? t("web.portal.work.expired") : quote?.state === "superseded" ? t("web.portal.work.replaced") : quote?.state === "withdrawn" ? t("web.portal.work.withdrawn") : t("web.portal.work.current");
   const blocked = outcome === "processing" || outcome === "checking" || outcome === "changed";
+  const viewerZone = preferences?.twoClock ? preferences.displayZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
+  const sentClock = quote ? formatPortalTime(quote.issuedAt, quote.job.siteZone, locale, viewerZone) : null;
+  const expiryClock = quote ? formatPortalTime(quote.expiresAt, quote.job.siteZone, locale, viewerZone) : null;
+  const decisionClock = quote?.decision ? formatPortalTime(quote.decision.at, quote.job.siteZone, locale, viewerZone) : null;
   return <Frame><Link to={`/portal/jobs/${encodeURIComponent(id)}`}>{t("web.portal.work.untitled")}</Link>
     {!quote && !loadFailed && <p role="status">{t("web.portal.work.loading")}</p>}
     {loadFailed && <StatusBanner title={t("web.portal.work.failed")} tone="critical" action={<Button onClick={() => setGeneration((n) => n + 1)}>{t("web.portal.work.retry")}</Button>} />}
@@ -102,7 +107,7 @@ function QuoteView({ id, version }: { id: string; version: string }) {
       {outcome === "changed" && <StatusBanner title={t("web.portal.work.changed")} tone="attention" announce="polite" />}
       {outcome === "failed" && <StatusBanner title={t("web.portal.work.notRecorded")} tone="critical" announce="assertive" />}
       {!quote.viewerIsNamedApprover && <StatusBanner title={t("web.portal.work.notApprover")} />}
-      <Card><div className="space-y-3"><p>{quote.job.providerDisplayName}</p><Badge label={`${t("web.portal.work.version", { version: quote.no })} · ${status}`} tone={quote.state === "approved" ? "success" : "neutral"} /><p className="text-page-title"><bdi>{amount}</bdi></p><p>{t("web.portal.work.sent", { name: quote.publisherDisplayName, date: date(locale, quote.issuedAt, quote.job.siteZone) })}</p><p>{t("web.portal.work.expiry", { date: date(locale, quote.expiresAt, quote.job.siteZone) })}</p>{quote.decision && <p>{t("web.portal.work.decision", { decision: quote.decision.decision === "approve" ? t("web.portal.work.approved") : t("web.portal.work.declined"), name: quote.decision.actorDisplayName, date: date(locale, quote.decision.at, quote.job.siteZone) })}</p>}</div></Card>
+      <Card><div className="space-y-3"><p>{quote.job.providerDisplayName}</p><Badge label={`${t("web.portal.work.version", { version: quote.no })} · ${status}`} tone={quote.state === "approved" ? "success" : "neutral"} /><p className="text-page-title"><bdi>{amount}</bdi></p><p>{t("web.portal.work.sent", { name: quote.publisherDisplayName, date: sentClock?.site ?? "" })}{sentClock?.viewer && <><br />{sentClock.viewer}</>}</p><p>{t("web.portal.work.expiry", { date: expiryClock?.site ?? "" })}{expiryClock?.viewer && <><br />{expiryClock.viewer}</>}</p>{quote.decision && <p>{t("web.portal.work.decision", { decision: quote.decision.decision === "approve" ? t("web.portal.work.approved") : t("web.portal.work.declined"), name: quote.decision.actorDisplayName, date: decisionClock?.site ?? "" })}{decisionClock?.viewer && <><br />{decisionClock.viewer}</>}</p>}</div></Card>
       <QuoteTable caption={t("web.portal.work.items")} labels={{ item: t("web.portal.work.item"), quantity: t("web.portal.work.quantity"), amount: t("web.portal.work.amount"), missing: "—" }} lines={quote.items.map((item) => { const translated = reading?.status === "ready" ? reading.items.find((entry) => entry.lineNo === item.lineNo)?.label : undefined; return { id: String(item.lineNo), label: translated ?? item.originalLabel, ...(translated ? { description: { text: item.originalLabel, lang: quote.originalLocale } } : {}), current: { quantity: String(item.quantity), amount: money(locale, item.netMinor + item.taxMinor, quote.currency) } }; })} totals={[{ id: "total", label: t("web.portal.work.total"), current: amount, emphasis: true }]} />
       <TwinCard title={t("web.portal.work.scope")} original={{ text: quote.scope, lang: quote.originalLocale }} reading={reading?.status === "ready" ? { state: "translated", passage: { text: reading.scope, lang: reading.locale }, originalLabel: t("web.portal.work.original"), translationLabel: t("web.portal.work.translation") } : reading?.status === "pending" || reading?.status === "unavailable" ? { state: reading.status, label: t("web.portal.work.translationPending") } : { state: "original" }} />
       {quote.exclusions && <TwinCard title={t("web.portal.work.exclusions")} original={{ text: quote.exclusions, lang: quote.originalLocale }} reading={reading?.status === "ready" && reading.exclusions ? { state: "translated", passage: { text: reading.exclusions, lang: reading.locale }, originalLabel: t("web.portal.work.original"), translationLabel: t("web.portal.work.translation") } : { state: "original" }} />}

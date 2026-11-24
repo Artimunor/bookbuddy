@@ -1,9 +1,11 @@
 import { emailStartRoute, type AccountSettingsPatch, type EmailAttempt, type RouteRequest, type SessionBootstrap } from "@bookbuddy/api-contract";
+import { formatTwoClock } from "@bookbuddy/domain";
 import { createWebTranslator } from "@bookbuddy/i18n/web";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { Button, Card, CodeField, SwitchRow, TextField } from "../../ui";
 import { authClient, useSession } from "../session";
+import { formatViewerTime, zoneLabel } from "../time";
 import "./styles.css";
 
 type Device = Omit<RouteRequest<typeof emailStartRoute.input>["body"], "attemptId">;
@@ -58,7 +60,7 @@ function useOffline() {
 function Frame({ children }: { children: ReactNode }) {
   return <main className="auth-page"><div className="auth-brand">BookBuddy</div><div className="auth-panel">{children}</div></main>;
 }
-function viewerTime(locale: string, at: number) { return new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(at); }
+function viewerTime(locale: string, at: number) { return formatViewerTime(at, locale); }
 function unknown(error: { code: string; delivery?: string }) {
   return error.delivery === "unknown" || error.code === "INTERNAL_ERROR";
 }
@@ -235,15 +237,13 @@ function SetupForm({ session, next, accept, locale }: { session: SessionBootstra
       else { pending.current = null; setIssue("unavailable"); }
     } finally { inFlight.current = false; setBusy(false); }
   }
-  const time = (zone: string) => {
-    const formatter = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone: zone });
-    return `${formatter.format(new Date(Date.UTC(2026, 10, 24, 8)))}–${formatter.format(new Date(Date.UTC(2026, 10, 24, 9)))}`;
-  };
+  const start = formatTwoClock(Date.UTC(2026, 10, 24, 8), "Europe/Madrid", twoClock ? viewerZone : undefined, locale);
+  const end = formatTwoClock(Date.UTC(2026, 10, 24, 9), "Europe/Madrid", twoClock ? viewerZone : undefined, locale);
   const names = new Intl.DisplayNames([locale], { type: "language" });
   return <Frame><h1>{t("web.portal.auth.setupTitle")}</h1><form onSubmit={save}>
     <TextField label={t("web.portal.auth.name")} hint={t("web.portal.auth.nameHint")} value={name} maxLength={100} readOnly={!!pending.current} onChange={(event) => setName(event.target.value)} />
     <label className="auth-select">{t("web.portal.auth.reading")}<select value={reading} disabled={!!pending.current} onChange={(event) => setReading(event.target.value)}><option value="">{t("web.portal.auth.original")}</option>{readingLanguages.map((tag) => <option key={tag} value={tag}>{names.of(tag)}</option>)}</select></label>
-    <p>{t("web.portal.auth.originalHint")}</p><Card><SwitchRow label={t("web.portal.auth.twoClock")} checked={twoClock} disabled={!!pending.current} onCheckedChange={setTwoClock} /><p>{t("web.portal.auth.example", { site: time("Europe/Madrid") })}</p>{twoClock && <p>{t("web.portal.auth.yourTime", { time: time(viewerZone) })}</p>}</Card>
+    <p>{t("web.portal.auth.originalHint")}</p><Card><SwitchRow label={t("web.portal.auth.twoClock")} checked={twoClock} disabled={!!pending.current} onCheckedChange={setTwoClock} />{start.kind === "available" && end.kind === "available" && <><p>{start.site.date} · {start.site.time}–{end.site.time} · {zoneLabel("Europe/Madrid", start.site, locale)}</p>{start.viewer && end.viewer && <p>{start.viewer.date && `${start.viewer.date} · `}{start.viewer.time}–{end.viewer.time} {zoneLabel(viewerZone, start.viewer, locale)}</p>}</>}</Card>
     <p>{t("web.portal.auth.permissions")}</p>{offline && <p role="status">{t("web.portal.auth.offline")}</p>}{issue && <p role="alert">{issue === "uncertain" ? t("web.portal.auth.uncertain") : t("web.portal.auth.notSaved")}</p>}
     <Button type="submit" disabled={busy || offline || !name.trim()}>{pending.current ? t("web.portal.auth.check") : t("web.portal.auth.continue")}</Button>
   </form></Frame>;

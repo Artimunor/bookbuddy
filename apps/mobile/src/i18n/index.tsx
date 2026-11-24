@@ -9,6 +9,7 @@ import { useApiAccess } from "../api/provider";
 import { useRepository } from "../repository/hooks";
 import { useSession } from "../session";
 import { localPreferenceStorage } from "./storage";
+import { zoneLabel } from "./time";
 
 const signedOutKey = "bookbuddy.ui-locale.v1";
 const accountKey = (id: string) => `${signedOutKey}.${id}`;
@@ -158,6 +159,15 @@ export function useFormat() {
     siteTime: (instant: number, zone: string | null | undefined) => formatSiteDateTime(instant, zone, locale),
     twoClock: (instant: number, siteZone: string | null | undefined, viewerZone: string | null | undefined) =>
       formatTwoClock(instant, siteZone, viewerZone, locale),
+    zoneLabel: (zone: string | null | undefined, parts: Parameters<typeof zoneLabel>[1]) => zoneLabel(zone, parts, locale),
+    lines: (instant: number, siteZone: string | null | undefined, viewerZone?: string | null) => {
+      const clock = formatTwoClock(instant, siteZone, viewerZone, locale);
+      if (clock.kind !== "available") return null;
+      return {
+        site: [clock.site.date, clock.site.time, zoneLabel(siteZone, clock.site, locale)].filter(Boolean).join(" · "),
+        viewer: clock.viewer ? `${clock.viewer.date ? `${clock.viewer.date} · ` : ""}${clock.viewer.time} ${zoneLabel(viewerZone, clock.viewer, locale)}` : null,
+      };
+    },
     syncAge: (lastSyncedAt: number, now: number) => formatSyncAge(lastSyncedAt, now, locale),
   }), [locale]);
 }

@@ -9,7 +9,7 @@ import { Button, Card, Dock, ListRow, Screen, Sheet, StatusBanner, SwitchRow, Te
 import { Copy } from "../../ui/controls/shared";
 import { TwoClock } from "../../ui/live/TwoClock";
 import { useBeaconTheme } from "../../ui/theme";
-import { afterAuthentication, useAuthClient, useOffline, viewerTime } from "../s-02/flow";
+import { afterAuthentication, useAuthClient, useOffline } from "../s-02/flow";
 
 const siteZone = "Europe/Madrid";
 const exampleStart = Date.UTC(2026, 10, 24, 8);
@@ -123,7 +123,6 @@ export function SetupView({ email, viewerZone, draft, onChange, busy, status, re
   email: string; viewerZone: string; draft: Draft; onChange: (draft: Draft) => void;
   busy?: boolean; status?: Status; readOnly?: boolean; onSave: () => void;
 }) {
-  const { locale } = useLocale();
   const format = useFormat();
   const t = useT();
   const { color, radius, space } = useBeaconTheme();
@@ -145,14 +144,11 @@ export function SetupView({ email, viewerZone, draft, onChange, busy, status, re
       default: return tag;
     }
   }
-  const date = (zone: string) => new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", timeZone: zone }).format(exampleStart);
-  const window = (zone: string) => `${viewerTime(locale, exampleStart, zone)}–${viewerTime(locale, exampleEnd, zone)}`;
-  const siteLine = t("mobile.auth.setup.exampleWindow", { date: date(siteZone), time: window(siteZone) });
-  const viewerLine = hasViewerZone && draft.twoClock && clock.kind === "available" ? t("mobile.auth.setup.viewerWindow", {
-    time: clock.viewerDateDiffers ? t("mobile.auth.setup.exampleWindow", { date: date(viewerZone), time: window(viewerZone) }) : window(viewerZone),
-  }) : undefined;
-  const zone = hasViewerZone ? new Intl.DateTimeFormat(locale, { timeZone: viewerZone, timeZoneName: "longGeneric" })
-    .formatToParts(exampleStart).find(({ type }) => type === "timeZoneName")?.value ?? viewerZone : viewerZone;
+  const endClock = format.twoClock(exampleEnd, siteZone, viewerZone);
+  const siteLine = clock.kind === "available" && endClock.kind === "available" ? `${clock.site.date} · ${clock.site.time}–${endClock.site.time}` : "";
+  const viewerLine = hasViewerZone && draft.twoClock && clock.kind === "available" && clock.viewer && endClock.kind === "available" && endClock.viewer
+    ? `${clock.viewer.date ? `${clock.viewer.date} · ` : ""}${clock.viewer.time}–${endClock.viewer.time} ${format.zoneLabel(viewerZone, clock.viewer)}` : undefined;
+  const zone = clock.kind === "available" ? clock.viewer?.zoneName ?? viewerZone : viewerZone;
   const context = status === "offline" ? t("mobile.auth.setup.offline")
     : !draft.name.trim() ? t("mobile.auth.setup.nameRequired") : t("mobile.auth.setup.later");
 
@@ -175,7 +171,7 @@ export function SetupView({ email, viewerZone, draft, onChange, busy, status, re
           onValueChange={(twoClock) => onChange({ ...draft, twoClock })} />
         <Copy variant="caption" style={mute}>{t("mobile.auth.setup.example")}</Copy>
         <View style={{ padding: space.grid[3], borderRadius: radius.input, backgroundColor: color.subtle }}>
-          <TwoClock siteTime={siteLine} siteZone={t("mobile.auth.setup.siteZone")} viewerLine={viewerLine} />
+          <TwoClock siteTime={siteLine} siteZone={clock.kind === "available" ? `· ${format.zoneLabel(siteZone, clock.site)}` : ""} viewerLine={viewerLine} />
         </View>
       </Card>
       <Copy variant="supporting" style={mute}>{t("mobile.auth.setup.permissions")}</Copy>

@@ -5,6 +5,7 @@ import { createWebTranslator } from "@bookbuddy/i18n/web";
 import { useMemo, type ReactNode } from "react";
 import { BookingCard, PortalShell, type JobLineProps } from "../../ui";
 import { useSession } from "../session";
+import { formatPortalTime } from "../time";
 
 export function usePortal() {
   const session = useSession();
@@ -60,7 +61,7 @@ export function line(t: T, journey: Journey): JobLineProps {
   return { stages, currentId: journey.step, ariaLabel: t("web.portal.work.journey", { stage: label }), quiet: journey.cancelled || journey.complete };
 }
 export function date(locale: string, at: number, zone: string) {
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: zone, timeZoneName: undefined }).format(at) + ` (${zone})`;
+  return formatPortalTime(at, zone, locale)?.site ?? "";
 }
 export function money(locale: string, minor: number, currency = "EUR") {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(minor / 100);

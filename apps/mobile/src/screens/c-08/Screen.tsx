@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ComponentRef } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useCommand, useRemote } from "../../api";
 import type { CommandStatus, RemoteStatus } from "../../api/requests";
-import { useFormat, useLocale, useT } from "../../i18n";
+import { useFormat, useT } from "../../i18n";
 import { useSession } from "../../session";
 import { Badge, Button, Card, Dock, Screen } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
@@ -18,11 +18,11 @@ export function currentVisit(data: JobWindows | null, visitId?: string): VisitSc
 }
 
 export function WindowTime({ start, end, zone, twoClock, viewerZone }: { start: number; end: number; zone: string; twoClock: boolean; viewerZone?: string }) {
-  const t = useT(); const format = useFormat();
+  const format = useFormat();
   const viewer = twoClock ? (viewerZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone) : undefined;
   const a = format.twoClock(start, zone, viewer); const b = format.twoClock(end, zone, viewer);
   if (a.kind !== "available" || b.kind !== "available") return null;
-  return <TwoClock siteTime={`${a.siteTime} – ${b.siteTime}`} siteZone={t("mobile.visitWindow.siteTime")} viewerLine={a.viewerTime && b.viewerTime ? t("mobile.visitWindow.yourTime", { time: `${a.viewerTime} – ${b.viewerTime}` }) : undefined} />;
+  return <TwoClock siteTime={`${a.site.date} · ${a.site.time} – ${b.site.date === a.site.date ? b.site.time : b.siteTime}`} siteZone={`· ${format.zoneLabel(zone, a.site)}`} viewerLine={a.viewer && b.viewer ? `${a.viewer.date ? `${a.viewer.date} · ` : ""}${a.viewer.time} – ${b.viewer.date && b.viewer.date !== a.viewer.date ? `${b.viewer.date} · ` : ""}${b.viewer.time} ${format.zoneLabel(viewer, a.viewer)}` : undefined} />;
 }
 
 export default function WindowScreen() {
@@ -54,19 +54,19 @@ export default function WindowScreen() {
       return "invalidated";
     } });
   }
-  return <WindowView data={data} visitId={visitId} status={remote.status} selection={selection} taken={taken} commandState={command.state} twoClock={preferences?.twoClock ?? false} onSelect={id => { setTaken(false); setSelection(id); }} onConfirm={confirm} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} onManage={() => router.push({ pathname: "/c/jobs/[jobId]/cancel", params: { jobId: jobId ?? "", ...(visit ? { visitId: visit.id } : {}) } } as Href)} onMessage={() => setOpeningChat(true)} />;
+  return <WindowView data={data} visitId={visitId} status={remote.status} selection={selection} taken={taken} commandState={command.state} twoClock={preferences?.twoClock ?? false} viewerZone={preferences?.displayZone ?? undefined} onSelect={id => { setTaken(false); setSelection(id); }} onConfirm={confirm} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} onManage={() => router.push({ pathname: "/c/jobs/[jobId]/cancel", params: { jobId: jobId ?? "", ...(visit ? { visitId: visit.id } : {}) } } as Href)} onMessage={() => setOpeningChat(true)} />;
 }
 
 export function WindowView({ data, visitId, status, selection, taken = false, commandState = "idle", twoClock, viewerZone, onSelect, onConfirm, onBack, onRetry, onManage, onMessage }: { data: JobWindows | null; visitId?: string; status: RemoteStatus; selection: string | null; taken?: boolean; commandState?: CommandStatus; twoClock: boolean; viewerZone?: string; onSelect: (id: string) => void; onConfirm: () => void; onBack: () => void; onRetry: () => void; onManage: () => void; onMessage: () => void }) {
   const t = useT(); const format = useFormat(); const { color, radius, space } = useBeaconTheme();
   const visit = currentVisit(data, visitId); const windows = visit?.offeredWindows ?? []; const selected = windows.find(w => w.id === selection); const booked = visit?.bookedWindow;
   const agenda = useRef<ComponentRef<typeof ScrollView>>(null); const offsets = useRef<Record<string, number>>({});
-  const { locale } = useLocale();
   const days = new Map<string, typeof windows>();
   if (data) {
-    const date = new Intl.DateTimeFormat(locale, { timeZone: data.siteZone, weekday: "long", day: "numeric", month: "long", year: "numeric" });
     for (const window of [...windows].sort((a, b) => a.startsAt - b.startsAt)) {
-      const day = date.format(window.startsAt);
+      const clock = format.siteTime(window.startsAt, data.siteZone);
+      if (clock.kind !== "available") continue;
+      const day = clock.site.date;
       const list = days.get(day) ?? [];
       list.push(window);
       days.set(day, list);

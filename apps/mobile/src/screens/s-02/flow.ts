@@ -1,5 +1,6 @@
 import { createAuthClient } from "@bookbuddy/api-client";
 import { emailStartRoute, type EmailAttempt, type RouteRequest, type SessionBootstrap } from "@bookbuddy/api-contract";
+import { formatSiteDateTime } from "@bookbuddy/domain";
 import { uuid } from "expo";
 import { useNetworkState } from "expo-network";
 import { type Href } from "expo-router";
@@ -107,7 +108,6 @@ export function useDeadline(deadline: number, offset = 0, tick = false): number 
 }
 
 export function viewerTime(locale: string, at: number, zone?: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    hour: "2-digit", minute: "2-digit", hourCycle: "h23", ...(zone && { timeZone: zone }),
-  }).format(at);
+  const clock = formatSiteDateTime(at, zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone, locale);
+  return clock.kind === "available" ? clock.site.time : "";
 }

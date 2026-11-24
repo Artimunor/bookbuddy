@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useRef, useState } from "react";
 import { View } from "react-native";
 import { useApiClient } from "../../api";
-import { useLocale, useT } from "../../i18n";
+import { useFormat, useT } from "../../i18n";
 import { useSession } from "../../session";
 import { Button, Card, Dock, ListRow, Screen, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
@@ -19,13 +19,14 @@ export default function HelpScreen() {
   const router = useRouter();
   const { session } = useSession();
   const client = useApiClient();
-  const { locale } = useLocale();
+  const format = useFormat();
   const requestedReason = params.reason;
   const reason: Reason = requestedReason === "expired" || requestedReason === "removed" ? requestedReason
     : requestedReason === "pending" || requestedReason === "pending-eligibility" ? "pending" : "generic";
   const reference = typeof params.reference === "string" && idSchema.safeParse(params.reference).success ? params.reference : undefined;
   const date = typeof params.lastConfirmed === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.lastConfirmed) ? new Date(`${params.lastConfirmed}T00:00:00Z`) : null;
-  const lastConfirmed = date && Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" }).format(date) : undefined;
+  const confirmedClock = date && Number.isFinite(date.getTime()) ? format.siteTime(date.getTime(), "UTC") : null;
+  const lastConfirmed = confirmedClock?.kind === "available" ? confirmedClock.site.date : undefined;
   const role = session?.activeContext?.role;
   const [form, setForm] = useState(false);
   const [message, setMessage] = useState("");
