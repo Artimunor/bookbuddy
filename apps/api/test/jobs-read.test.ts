@@ -1,10 +1,11 @@
 import { expect, spyOn, test } from "bun:test";
-import { getBusinessOverviewRoute, getHomeRoute, getJobRoute, getJobsRoute, resultSchema, syncRoute } from "@bookbuddy/api-contract";
+import { getBusinessOverviewRoute, getHandoffRoute, getHomeRoute, getJobRoute, getJobsRoute, resultSchema, syncRoute } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { randomToken } from "../src/modules/auth/crypto";
 import { hashSessionCredential } from "../src/modules/auth/session";
 import { createTestD1 } from "./d1";
+import type { TestD1 } from "./d1";
 
 const now = Date.UTC(2026, 10, 24, 23, 45);
 const minute = 60_000;
@@ -14,12 +15,12 @@ const base = "https://bookbuddy.test/api/v1";
 const execution = { waitUntil() {}, passThroughOnException() {} };
 const noAccess = { ok: false, error: { code: "NOT_FOUND" } };
 
-const users = ["owner", "other", "viewer", "foreman", "recipient", "admin", "backup", "worker"] as const;
+const users = ["owner", "other", "viewer", "foreman", "recipient", "admin", "backup", "worker", "helper"] as const;
 type User = typeof users[number];
 
 async function fixture() {
   const db = await createTestD1();
-  const app = createApp();
+  const app = createApp().onError((error) => { throw error; });
   const env = { DB: db, SYNC_CURSOR_HMAC_KEY: "test-job-sync-cursor-key-more-than-32-chars" } as unknown as Bindings;
   const credentials = new Map<User, string>();
   try {
@@ -33,6 +34,7 @@ async function fixture() {
       ...users.map((id) => db.prepare("INSERT INTO account_contexts(id,account_id,role) VALUES (?,?,'customer')").bind(`${id}-customer`, id)),
       ...([
         ["foreman", "foreman"], ["recipient", "foreman"], ["admin", "provider_admin"], ["backup", "provider_admin"], ["worker", "worker"],
+        ["helper", "worker"],
       ] as const).flatMap(([id, role]) => [
         db.prepare("INSERT INTO memberships VALUES (?,'business',?,'active')").bind(`${id}-member`, id),
         db.prepare(`INSERT INTO membership_roles(id,membership_id,business_id,account_id,role,granted_at)
@@ -150,6 +152,16 @@ test("staff reads separate accountability, active intake, business oversight, an
     const intake = await f.request("/jobs/unassigned?view=intake", "recipient");
     expect(resultSchema(getJobRoute.output).parse(intake.body)).toMatchObject({ data: { job: { reply: "available", request: { originalText: "A new repair" } } } });
     expect(JSON.stringify(intake.body)).not.toMatch(/Private alias|Private Street|Private arrival note/);
+    const byHandoff = await f.request("/handoffs/offer", "recipient");
+    expect(byHandoff.status).toBe(200);
+    const direct = resultSchema(getHandoffRoute.output).parse(byHandoff.body);
+    const legacy = resultSchema(getJobRoute.output).parse(intake.body);
+    if (!direct.ok || !legacy.ok) throw new Error("Expected both intake views");
+    expect(direct.data).toEqual(legacy.data);
+    for (const reader of ["foreman", "admin", "owner", "worker"] as const) {
+      expect(await f.request("/handoffs/offer", reader)).toMatchObject({ status: 404, body: noAccess });
+    }
+    expect(await f.request("/handoffs/unknown", "recipient")).toMatchObject({ status: 404, body: noAccess });
     const admin = await f.request("/jobs", "admin");
     expect(resultSchema(getJobsRoute.output).parse(admin.body)).toMatchObject({ data: { audience: "provider_admin", activeCount: 3 } });
     expect((await f.request("/jobs?segment=needs_you", "admin")).body).toMatchObject({ data: { needsYouCount: 1, items: [{ jobId: "unassigned" }] } });
@@ -167,6 +179,7 @@ test("staff reads separate accountability, active intake, business oversight, an
     expect(await f.request("/jobs/mine", "worker")).toMatchObject({ status: 404, body: noAccess });
     date.mockReturnValue(expiry);
     expect(await f.request("/jobs/unassigned?view=intake", "recipient")).toMatchObject({ status: 404, body: noAccess });
+    expect(await f.request("/handoffs/offer", "recipient")).toMatchObject({ status: 404, body: noAccess });
     expect((await f.request("/home", "admin")).body).toMatchObject({ data: { overview: { handoffs: { offeredCount: 0,
       stuck: [{ jobId: "unassigned", since: expiry, offeredTo: "recipient" }] } } } });
   } finally { f.db.close(); date.mockRestore(); }
@@ -226,5 +239,167 @@ test("bookings cursor advances within scope without dropping the live capsule", 
     expect(second.data.page).toEqual({ cursor: null, hasMore: false });
     expect(second.data.live?.jobId).toBe("mine");
     expect(new Set([...first.data.items, ...second.data.items].map((job) => job.jobId)).size).toBe(52);
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
+test("handoff lookup permits the accountable foreman without granting a reply belonging to the recipient", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO job_handoffs(id,job_id,business_id,incumbent_id,recipient_id,issuer_id,policy,offered_at,expires_at,state)
+        VALUES ('transfer','mine','business','foreman-member','recipient-member','admin','standard',?,?,'offered')`).bind(old, expiry),
+      f.db.prepare(`INSERT INTO job_grants(job_id,context_id,capability,valid_from,valid_until)
+        VALUES ('mine','recipient-staff','intake',?,?)`).bind(old, expiry),
+      f.db.prepare(`INSERT INTO link_targets(token,kind,resource_id,required_scope,expires_at)
+        VALUES ('transfer-token','job_handoff','transfer','recipient-staff',?)`).bind(expiry),
+    ]);
+    const incumbent = await f.request("/handoffs/transfer", "foreman");
+    expect(incumbent).toMatchObject({ status: 200, body: { data: { job: { jobId: "mine", reply: "closed_elsewhere",
+      handoff: { handoffId: "transfer", state: "offered" }, request: { originalText: "Door needs repair" } } } } });
+    expect(JSON.stringify(incumbent.body)).not.toMatch(/Private alias|Private Street|Private arrival note/);
+    expect((await f.request("/handoffs/transfer", "recipient")).body).toMatchObject({ data: { job: { reply: "available" } } });
+    expect((await f.request("/links/transfer-token", "recipient")).body).toMatchObject({
+      data: { kind: "job", record: { job: { reply: "available" } } },
+    });
+    await f.db.prepare("UPDATE job_grants SET revoked_at = ? WHERE job_id = 'mine' AND capability = 'intake'").bind(now).run();
+    expect(await f.request("/handoffs/transfer", "recipient")).toMatchObject({ status: 404, body: noAccess });
+    await f.db.batch([
+      f.db.prepare("UPDATE job_handoffs SET state = 'accepted', ended_at = ? WHERE id = 'transfer'").bind(now),
+      f.db.prepare("UPDATE jobs SET accountable_foreman_membership_id = 'recipient-member' WHERE id = 'mine'"),
+    ]);
+    expect(await f.request("/handoffs/transfer", "foreman")).toMatchObject({ status: 404, body: noAccess });
+    expect((await f.request("/handoffs/transfer", "recipient")).body).toMatchObject({
+      data: { job: { reply: "closed", handoff: { state: "accepted" } } },
+    });
+    expect((await f.request("/links/transfer-token", "recipient")).body).toMatchObject({
+      data: { kind: "unavailable", reason: "removed" },
+    });
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
+async function approveMine(db: TestD1) {
+  await db.batch([
+    db.prepare("INSERT INTO quotes VALUES ('mine-quote','mine')"),
+    db.prepare(`INSERT INTO quote_versions(id,quote_id,job_id,business_id,no,author_id,terms_id,original_locale,scope,exclusions,
+      net_minor,tax_minor,total_minor,currency,state) VALUES
+      ('mine-base','mine-quote','mine','business',1,'foreman','terms','en','Scope','',100,20,120,'EUR','draft')`),
+    db.prepare(`UPDATE quote_versions SET state='issued', publisher_id='admin', issued_at=?, expires_at=? WHERE id='mine-base'`)
+      .bind(old + 4, expiry),
+    db.prepare(`INSERT INTO approvals(id,quote_version_id,account_id,grant_id,terms_hash,decision,at)
+      VALUES ('mine-approval','mine-base','owner','owner-approve','hash','approve',?)`).bind(old + 5),
+    db.prepare("UPDATE quote_versions SET state='approved' WHERE id='mine-base'"),
+  ]);
+}
+
+test("whole job exposes attributed decisions and only confirmed crew facts to the customer", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await approveMine(f.db);
+    const start = now + 5 * minute, end = now + 45 * minute;
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO shifts(id,visit_id,starts_at,ends_at,skill,briefing_language,state)
+        VALUES ('shift','visit',?,?,'door repair','en','planned')`).bind(start, end),
+      f.db.prepare(`INSERT INTO shift_slots(id,shift_id,number,is_lead)
+        VALUES ('lead-slot','shift',1,1), ('helper-slot','shift',2,0)`),
+      f.db.prepare(`INSERT INTO assignment_offers(id,slot_id,recipient_id,issued_by,issued_at,expires_at,state)
+        VALUES ('lead-offer','lead-slot','worker-member','foreman',?,?,'offered')`).bind(old, start),
+      f.db.prepare(`INSERT INTO change_proposals VALUES ('change','mine','mine-base')`),
+      f.db.prepare(`INSERT INTO change_versions(id,proposal_id,job_id,business_id,no,author_id,terms_id,original_locale,original_text,
+        delta_minor,total_minor,timing,affected_items,created_at,state) VALUES
+        ('private-change','change','mine','business',1,'foreman','terms','en','Private revision',10,130,'Same visit','Door',?,'draft')`).bind(old + 7),
+      f.db.prepare("UPDATE change_versions SET state = 'in_review' WHERE id = 'private-change'"),
+      f.db.prepare(`INSERT INTO commercial_reviews(id,change_version_id,reviewer_id,backup_id,submitted_at,due_at,state)
+        VALUES ('change-review','private-change','admin','backup',?,?,'pending')`).bind(old + 8, expiry),
+    ]);
+    const before = await f.request("/jobs/mine", "owner");
+    expect(before.body).toMatchObject({ data: { job: { crew: null, foremanName: null, cancellation: null, change: null,
+      quote: { versionId: "mine-base", state: "approved", sent: { at: old + 4, by: "admin" }, approved: { at: old + 5, by: "owner" } },
+    } } });
+    expect(JSON.stringify(before.body)).not.toMatch(/worker|helper|private-change|Private revision|lead-slot|change_in_review/);
+    const shifts = [{ shiftId: "shift", slotIds: ["lead-slot", "helper-slot"] }];
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: {
+      visits: [{ visitId: "visit", shifts }], nextStep: { kind: "assign_crew", recordId: "shift" },
+      quote: { versionId: "mine-base", state: "approved" }, change: { versionId: "private-change", state: "in_review" },
+      bill: { state: "none", total: null }, history: { items: expect.arrayContaining([
+        { jobId: "mine", recordId: "private-change", kind: "change_in_review", at: old + 8, by: "foreman" },
+      ]) },
+    } } });
+    expect((await f.request("/jobs/mine?view=today", "foreman")).body).toMatchObject({ data: { job: {
+      visit: { visitId: "visit", shifts }, nextStep: { kind: "assign_crew", recordId: "shift" },
+    } } });
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO assignments(id,slot_id,worker_membership_id,source,state,confirmed_by,confirmed_at,starts_at,ends_at)
+        VALUES ('lead-assignment','lead-slot','worker-member','ordinary','confirmed','worker',?,?,?),
+          ('helper-assignment','helper-slot','helper-member','ordinary','confirmed','helper',?,?,?)`).bind(now, start, end, now, start, end),
+      f.db.prepare(`UPDATE assignment_offers SET state = 'confirmed', assignment_id = 'lead-assignment', resolved_at = ? WHERE id = 'lead-offer'`).bind(now),
+    ]);
+    const confirmed = await f.request("/jobs/mine", "owner");
+    expect(confirmed.body).toMatchObject({ data: { job: { crew: { leadName: "worker", count: 2 } } } });
+    expect(JSON.stringify(confirmed.body)).not.toMatch(/helper|lead-slot|lead-assignment|private-change/);
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: { nextStep: { kind: "visit", recordId: "visit" } } } });
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
+test("whole-job history uses a stable cursor at tied timestamps for customers and foremen", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await f.db.prepare(`WITH RECURSIVE seq(n) AS (VALUES (1) UNION ALL SELECT n + 1 FROM seq WHERE n < 51)
+      INSERT INTO visits(id,job_id,kind,state,cancelled_at,cancelled_by)
+      SELECT 'cancel-' || n, 'mine', 'assessment', 'cancelled', ?, 'owner' FROM seq`).bind(now - 1).run();
+    for (const actor of ["owner", "foreman"] as const) {
+      const first = resultSchema(getJobRoute.output).parse((await f.request("/jobs/mine", actor)).body);
+      if (!first.ok || first.data.audience === "worker" || first.data.audience === "provider_admin"
+        || first.data.job.view !== "whole" || !first.data.job.history?.page.cursor) throw new Error("Missing job history cursor");
+      const history = first.data.job.history;
+      expect(history.items).toHaveLength(50);
+      expect(history.page.hasMore).toBe(true);
+      expect(history.items[0]).toMatchObject({ kind: "cancelled", at: now - 1, by: "owner" });
+      if (first.data.audience === "customer") expect(first.data.job).toMatchObject({ cancellation: { at: now - 1, by: "owner" } });
+      const second = resultSchema(getJobRoute.output).parse((await f.request(`/jobs/mine?cursor=${history.page.cursor}`, actor)).body);
+      if (!second.ok || second.data.audience === "worker" || second.data.audience === "provider_admin"
+        || second.data.job.view !== "whole" || !second.data.job.history) throw new Error("Missing remaining job history");
+      expect(second.data.job.history.page).toEqual({ hasMore: false, cursor: null });
+      const all = [...history.items, ...second.data.job.history.items];
+      expect(new Set(all.map(({ kind, recordId }) => `${kind}:${recordId}`)).size).toBe(53);
+      expect(all).toHaveLength(53);
+    }
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
+test("foreman bill status follows the current invoice and attributed payment corrections", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await approveMine(f.db);
+    const total = { minor: 120, currency: "EUR" };
+    await f.db.prepare(`INSERT INTO completions(id,job_id,base_quote_version_id,no,submitter_id,finished_at,submitted_at,bill_reference_hint,state)
+      VALUES ('wrap','mine','mine-base',1,'foreman',?,?,'Private bill draft reference','submitted')`).bind(old + 6, old + 7).run();
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: { bill: { state: "draft", total } } } });
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO bills(id,job_id,business_id,number,version,net_minor,tax_minor,total_minor,currency,provider_document_ref,
+        payment_instructions,line_items,issued_at,due_at,state) VALUES ('bill','mine','business','INV-1',1,100,20,120,'EUR','private-document',
+        '{"instructions":"private-transfer"}','[{"originalLabel":"Door","originalLanguage":"en","netMinor":100,"taxMinor":20}]',?,?,'issued')`).bind(old + 8, expiry),
+      f.db.prepare(`INSERT INTO business_grants(id,business_id,membership_id,capability,issuer_id,valid_from)
+        VALUES ('records-payment','business','admin-member','record_paid','admin',1)`),
+    ]);
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: { bill: { state: "sent", total }, flags: ["unpaid_bill"] } } });
+    await f.db.prepare(`INSERT INTO paid_records(id,bill_id,actor_id,kind,amount_minor,verified_reference,at)
+      VALUES ('matched','bill','admin','matched',120,'private-bank-reference',?)`).bind(old + 9).run();
+    const paid = await f.request("/jobs/mine", "foreman");
+    expect(paid.body).toMatchObject({ data: { job: { bill: { state: "paid_recorded", total }, flags: [], history: { items: expect.arrayContaining([
+      { jobId: "mine", recordId: "matched", kind: "paid", at: old + 9, by: "admin" },
+    ]) } } } });
+    expect(JSON.stringify(paid.body)).not.toMatch(/Private bill draft reference|private-document|private-transfer|private-bank-reference/);
+    await f.db.prepare(`INSERT INTO paid_records(id,bill_id,actor_id,kind,prior_id,reason,at)
+      VALUES ('correction','bill','admin','corrected','matched','Wrong transfer',?)`).bind(old + 10).run();
+    expect((await f.request("/jobs/mine", "foreman")).body).toMatchObject({ data: { job: { bill: { state: "sent", total },
+      history: { items: expect.arrayContaining([{ jobId: "mine", recordId: "correction", kind: "payment_corrected", at: old + 10, by: "admin" }]) },
+    } } });
+    const publicJob = await f.request("/jobs/mine", "owner");
+    expect(publicJob.body).toMatchObject({ data: { job: { bill: null } } });
+    expect(JSON.stringify(publicJob.body)).not.toMatch(/private-bank-reference|private-transfer|payment_corrected|bill_issued/);
   } finally { f.db.close(); date.mockRestore(); }
 });

@@ -6,6 +6,7 @@ import type { SessionAccess } from "../auth/session";
 import { routedReviewer } from "../commercial/policy";
 import { readyAttachmentSql } from "../media/policy";
 import { placeCapability } from "../places/policy";
+import { approvedVersion, noWithdrawal } from "../schedule/policy";
 import { workerHomeOffers } from "../schedule/shifts";
 import {
   booking, businessCapability, currentMembership, customerPlaces, handoffJson, headingSql, journey, journeySql,
@@ -40,6 +41,8 @@ const jsonRows = (projection: string, query: string) => `(SELECT json_group_arra
 const placePacket = (p: string) => `json_object('placeId', ${p}.id, 'alias', ${p}.alias, 'siteZone', ${p}.site_zone)`;
 const position = (r: string) => `json_object('rank', ${r}.rank, 'time', ${r}.time, 'id', ${r}.id)`;
 const after = (r: string) => `(${r}.rank, ${r}.time, ${r}.id) > (SELECT rank, time, cursor_id FROM input)`;
+const nameOf = (account: string) => `(SELECT ${displayName("named")} FROM accounts named WHERE named.id = ${account})`;
+const stamp = (time: string, account: string) => `json_object('at', ${time}, 'by', ${nameOf(account)})`;
 
 const latestQuote = `SELECT q.id FROM quote_versions q WHERE q.job_id = j.id AND q.issued_at <= ${at}
   ORDER BY q.state IN ('issued', 'approved') DESC, q.no DESC LIMIT 1`;
@@ -68,22 +71,80 @@ const nextProposal = `SELECT w.id FROM visits v JOIN visit_windows w ON w.visit_
   AND (w.replaces_window_id IS NULL OR EXISTS (SELECT 1 FROM visit_windows old WHERE old.id = w.replaces_window_id AND old.state = 'confirmed'))
   ORDER BY w.replaces_window_id IS NOT NULL DESC, w.expires_at, w.id LIMIT 1`;
 
-const quotePacket = `json_object('versionId', q.id, 'version', q.no, 'state', q.state, 'minor', q.total_minor,
-  'issuedAt', q.issued_at, 'expiresAt', q.expires_at, 'by', (SELECT ${displayName("a")} FROM accounts a WHERE a.id = q.publisher_id),
-  'canApprove', ${canApprove("q")})`;
+const quotePacket = (whole: boolean) => `json_object('versionId', q.id, 'version', q.no, 'state', q.state, 'minor', q.total_minor,
+  'issuedAt', q.issued_at, 'expiresAt', q.expires_at, 'by', ${nameOf("q.publisher_id")}, 'canApprove', ${canApprove("q")}
+  ${whole ? `, 'approved', json((SELECT ${stamp("a.at", "a.account_id")} FROM approvals a
+    WHERE a.quote_version_id = q.id AND a.decision = 'approve' AND a.at <= ${at}))` : ""})`;
 const changePacket = `json_object('versionId', ch.id, 'state', ch.state, 'minor', ch.delta_minor,
-  'issuedAt', ch.issued_at, 'expiresAt', ch.expires_at, 'by', (SELECT ${displayName("a")} FROM accounts a WHERE a.id = ch.publisher_id),
+  'issuedAt', ch.issued_at, 'expiresAt', ch.expires_at, 'by', ${nameOf("ch.publisher_id")},
   'canApprove', ${canApprove("ch")})`;
 const proposalPacket = `json_object('id', offered.id, 'proposedAt', offered.proposed_at, 'expiresAt', offered.expires_at,
   'revised', offered.replaces_window_id IS NOT NULL, 'canBook', ${canBook},
-  'by', (SELECT ${displayName("a")} FROM accounts a WHERE a.id = offered.proposed_by))`;
+  'by', ${nameOf("offered.proposed_by")})`;
 const jobFrom = `JOIN places p ON p.id = j.place_id JOIN businesses b ON b.id = j.business_id
   JOIN operating_areas area ON area.id = b.catchment_id JOIN accounts customer ON customer.id = j.requester_id`;
-const todayVisits = (linked: boolean) => jsonRows(visitJson("v", "w"), `FROM visits v JOIN visit_windows w ON w.visit_id = v.id AND w.state = 'confirmed'
+const cancelledVisit = `(SELECT ${stamp("cancelled.cancelled_at", "cancelled.cancelled_by")} FROM visits cancelled
+  WHERE cancelled.job_id = j.id AND cancelled.state = 'cancelled' AND cancelled.cancelled_at <= ${at}
+  ORDER BY cancelled.cancelled_at DESC, cancelled.id DESC LIMIT 1)`;
+// A visit's confirmed assignments select the crew. An offer or provisional cover reply never selects a name.
+const customerCrew = `(WITH crew_visit AS (
+  SELECT coalesce(v.id, (SELECT done.id FROM visits done JOIN visit_windows w ON w.visit_id = done.id AND w.state = 'confirmed'
+    WHERE done.job_id = j.id AND done.state = 'finished' AND w.confirmed_at <= ${at}
+    ORDER BY w.ends_at DESC, done.id LIMIT 1)) AS id
+), confirmed AS MATERIALIZED (
+  SELECT a.worker_membership_id, slot.is_lead, sh.starts_at, slot.number, a.id, nullif(trim(worker.display_name), '') AS name
+  FROM crew_visit selected JOIN visits cv ON cv.id = selected.id
+  JOIN shifts sh ON sh.visit_id = cv.id AND sh.state <> 'cancelled'
+  JOIN shift_slots slot ON slot.shift_id = sh.id JOIN assignments a ON a.slot_id = slot.id
+  JOIN memberships m ON m.id = a.worker_membership_id AND m.business_id = j.business_id AND m.state = 'active'
+  JOIN accounts worker ON worker.id = m.account_id AND worker.state = 'active'
+  WHERE a.confirmed_at <= ${at} AND (a.state = 'confirmed' OR (cv.state = 'finished' AND a.state = 'completed'))
+) SELECT json_object('leadName', (SELECT name FROM confirmed WHERE is_lead = 1 ORDER BY starts_at, number, id LIMIT 1),
+  'count', count(DISTINCT worker_membership_id)) FROM confirmed HAVING count(*) > 0)`;
+const shiftSlots = (visit: string) => jsonRows(`json_object('shiftId', sh.id, 'slotIds', json((
+    SELECT json_group_array(id) FROM (SELECT slot.id FROM shift_slots slot WHERE slot.shift_id = sh.id ORDER BY slot.number))))`,
+  `FROM shifts sh WHERE sh.visit_id = ${visit}.id ORDER BY sh.starts_at, sh.id`);
+const foremanVisits = jsonRows(`json_object('visitId', v.id, 'shifts', json(${shiftSlots("v")}))`,
+  "FROM visits v WHERE v.job_id = j.id ORDER BY v.id");
+const assignableShift = (visit: string) => `CASE WHEN j.state = 'open' AND p.state = 'in_area' AND b.state = 'approved'
+  AND ${visit}.state = 'booked' AND EXISTS (SELECT 1 FROM quote_versions q WHERE ${approvedVersion("j")} AND ${noWithdrawal()}) THEN (
+    SELECT sh.id FROM shifts sh WHERE sh.visit_id = ${visit}.id AND sh.state = 'planned' AND sh.starts_at > ${at}
+      AND EXISTS (SELECT 1 FROM shift_slots slot WHERE slot.shift_id = sh.id
+        AND NOT EXISTS (SELECT 1 FROM assignments a WHERE a.slot_id = slot.id AND a.state = 'confirmed')
+        AND NOT EXISTS (SELECT 1 FROM cover_gaps cg WHERE cg.slot_id = slot.id AND cg.state IN ('open', 'accepted_pending_confirmation'))
+        AND NOT EXISTS (SELECT 1 FROM assignment_offers o WHERE o.slot_id = slot.id AND o.state = 'offered' AND o.expires_at > ${at}))
+    ORDER BY sh.starts_at, sh.id LIMIT 1) END`;
+// Match commercial detail visibility: private authored revisions do not transfer with accountability.
+const foremanVersionVisible = (version: string) => `((j.accountable_foreman_membership_id = s.membership_id
+  AND (${version}.issued_at <= ${at} OR ${version}.author_id = s.account_id)) OR ${routedReviewer("s", "review")})`;
+const foremanVersion = (kind: "quote" | "change") => `(SELECT json_object('versionId', ver.id, 'state', ver.state)
+  FROM ${kind}_versions ver LEFT JOIN commercial_reviews review ON review.${kind}_version_id = ver.id
+  WHERE ver.job_id = j.id AND ${foremanVersionVisible("ver")}${kind === "change" ? ` AND ver.created_at <= ${at}` : ""}
+  ORDER BY ${kind === "change" ? "ver.created_at DESC, " : ""}ver.no DESC, ver.id DESC LIMIT 1)`;
+// There's no issued draft invoice. A stored wrap-up bill reference is the draft signal.
+const foremanBill = `coalesce(
+  (SELECT json_object('state', CASE WHEN EXISTS (SELECT 1 FROM paid_records r WHERE r.bill_id = bill.id AND r.kind = 'matched'
+      AND r.at <= ${at} AND NOT EXISTS (SELECT 1 FROM paid_records successor WHERE successor.prior_id = r.id AND successor.at <= ${at}))
+    THEN 'paid_recorded' ELSE 'sent' END, 'total', json_object('minor', bill.total_minor, 'currency', bill.currency))
+    FROM bills bill WHERE bill.job_id = j.id AND bill.state = 'issued' AND bill.issued_at <= ${at}),
+  (SELECT json_object('state', 'draft', 'total', json_object('minor', base.total_minor + coalesce((
+      SELECT sum(ch.delta_minor) FROM change_proposals cp JOIN change_versions ch ON ch.proposal_id = cp.id AND ch.state = 'approved'
+      JOIN approvals decision ON decision.change_version_id = ch.id AND decision.decision = 'approve' AND decision.at <= c.submitted_at
+      WHERE cp.base_quote_version_id = base.id AND cp.job_id = j.id), 0), 'currency', base.currency))
+    FROM completions c JOIN quote_versions base ON base.id = c.base_quote_version_id AND base.state = 'approved'
+    WHERE c.job_id = j.id AND c.state IN ('submitted', 'signed_off') AND c.bill_reference_hint IS NOT NULL AND c.submitted_at <= ${at}),
+  json_object('state', 'none', 'total', NULL))`;
+const todayVisits = (linked: boolean, whole: boolean) => {
+  const visit = visitJson("v", "w");
+  const staff = whole ? linked ? "s.role = 'foreman' AND (SELECT visit_id FROM input) IS NOT NULL" : "0" : "s.role = 'foreman'";
+  const packet = staff === "0" ? visit : `CASE WHEN ${staff} THEN json_set(${visit},
+    '$.shifts', json(${shiftSlots("v")}), '$.assignableShift', ${assignableShift("v")}) ELSE ${visit} END`;
+  return jsonRows(packet, `FROM visits v JOIN visit_windows w ON w.visit_id = v.id AND w.state = 'confirmed'
   WHERE v.job_id = j.id AND v.state IN ('booked', 'finished') AND w.confirmed_at <= ${at}
     AND (${linked ? "v.id = (SELECT visit_id FROM input) OR ((SELECT visit_id FROM input) IS NULL AND " : ""}
       (w.starts_at < ${at} + ${visitDayMargin} AND w.ends_at > ${at} - ${visitDayMargin})${linked ? ")" : ""})
   ORDER BY v.state = 'finished', w.starts_at, v.id LIMIT ${pageSize}`);
+};
 
 function jobPacket(mode: ReadMode, linked = false): string {
   const detail = mode === "whole" || mode === "today";
@@ -94,7 +155,7 @@ function jobPacket(mode: ReadMode, linked = false): string {
     'finalAt', CASE WHEN j.state <> 'open' THEN (SELECT max(cancelled_at) FROM visits WHERE job_id = j.id) END,
     'foreman', json(${memberJson("j.accountable_foreman_membership_id")}),
     'handoff', json(CASE WHEN s.role = 'provider_admin' AND h.id IS NOT NULL THEN ${handoffJson("h", at)} END),
-    'quote', json(CASE WHEN s.role = 'customer' AND q.id IS NOT NULL THEN ${quotePacket} END),
+    'quote', json(CASE WHEN s.role = 'customer' AND q.id IS NOT NULL THEN ${quotePacket(mode === "whole")} END),
     'change', json(CASE WHEN s.role = 'customer' AND ch.id IS NOT NULL THEN ${changePacket} END),
     'proposal', json(CASE WHEN s.role = 'customer' AND offered.id IS NOT NULL THEN ${proposalPacket} END),
     'approver', CASE WHEN s.role = 'customer' THEN (SELECT ${displayName("a")} FROM accounts a WHERE a.id = p.named_approver_id) END,
@@ -103,8 +164,15 @@ function jobPacket(mode: ReadMode, linked = false): string {
       WHERE ch.job_id = j.id AND ch.state = 'issued' AND ch.issued_at <= ${at} AND ch.expires_at > ${at})
     ${mode === "whole" ? `, 'attachmentIds', json(CASE WHEN s.role = 'customer' THEN (
       SELECT json_group_array(attachment_id) FROM (
-        SELECT attachment_id FROM request_attachments WHERE job_id = j.id ORDER BY attachment_id)) END)` : ""}
-    ${detail ? `, 'today', json(${todayVisits(linked)}),
+        SELECT attachment_id FROM request_attachments WHERE job_id = j.id ORDER BY attachment_id)) END),
+      'crew', json(CASE WHEN s.role = 'customer' AND j.state <> 'cancelled' THEN ${customerCrew} END),
+      'cancellation', json(CASE WHEN s.role = 'customer' THEN ${cancelledVisit} END),
+      'visits', json(CASE WHEN s.role = 'foreman' THEN ${foremanVisits} END),
+      'assignableShift', CASE WHEN s.role = 'foreman' THEN ${assignableShift("v")} END,
+      'foremanQuote', json(CASE WHEN s.role = 'foreman' THEN ${foremanVersion("quote")} END),
+      'foremanChange', json(CASE WHEN s.role = 'foreman' THEN ${foremanVersion("change")} END),
+      'foremanBill', json(CASE WHEN s.role = 'foreman' THEN ${foremanBill} END)` : ""}
+    ${detail ? `, 'today', json(${todayVisits(linked, mode === "whole")}),
       'review', json(CASE WHEN s.role = 'provider_admin' AND j.state = 'open' THEN (
         SELECT json_object('kind', candidate.kind, 'versionId', candidate.version_id, 'version', candidate.no,
           'submitted', json_object('at', candidate.submitted_at, 'by', ${displayName("author")}))
@@ -118,11 +186,11 @@ function jobPacket(mode: ReadMode, linked = false): string {
         'contactName', r.arrival_contact_name, 'safeNote', r.safe_note) END)` : ""})`;
 }
 
-function intakePacket(detail: boolean): string {
+function intakePacket(detail: boolean, reply = "'available'"): string {
   return `json_object(${headingSql("j", placeZone)}, ${journeySql("j", at)},
     'position', json_object('rank', 0, 'time', h.expires_at, 'id', h.id),
     'revision', j.revision, 'town', area.name, 'customerName', ${displayName("customer")}, 'handoff', ${handoffJson("h", at)}
-    ${detail ? `, 'request', json(CASE WHEN r.job_id IS NOT NULL THEN json_object(
+    ${detail ? `, 'reply', ${reply}, 'request', json(CASE WHEN r.job_id IS NOT NULL THEN json_object(
       'submitted', json_object('at', r.submitted_at, 'by', ${displayName("customer")}),
       'originalText', r.original_text, 'originalLanguage', r.original_language,
       'attachments', json(${jsonRows(`json_object('attachmentId', a.id, 'durationMs', a.duration_ms,
@@ -137,7 +205,28 @@ const jobRowFrom = `JOIN reader s ON 1 ${jobFrom}
   LEFT JOIN quote_versions q ON q.id = j.quote_id LEFT JOIN change_versions ch ON ch.id = j.change_id
   LEFT JOIN visit_windows offered ON offered.id = j.proposal_id LEFT JOIN job_handoffs h ON h.id = j.handoff_id`;
 const intakeRowFrom = `JOIN job_handoffs h ON h.id = k.id JOIN jobs j ON j.id = h.job_id ${jobFrom}`;
-const historySql = `history_events(job_id, record_id, kind, stamp_at, actor_id) AS (
+// Each compound SELECT stays within D1's five-term limit. Foreman-only
+// sources are empty for customers, even when sharing the same history cursor.
+const foremanHistory = `foreman_jobs AS MATERIALIZED (
+  SELECT j.* FROM visible_jobs j JOIN reader s ON s.role = 'foreman'
+), visible_reviews(job_id, version_id, kind, author_id, submitted_at, returned_at, returned_by) AS MATERIALIZED (
+  SELECT j.id, q.id, 'quote', q.author_id, review.submitted_at,
+    CASE WHEN review.state = 'returned' THEN review.resolved_at END, review.resolved_by_id
+    FROM foreman_jobs j CROSS JOIN reader s JOIN quote_versions q ON q.job_id = j.id
+    JOIN commercial_reviews review ON review.quote_version_id = q.id WHERE ${foremanVersionVisible("q")}
+  UNION ALL
+  SELECT j.id, ch.id, 'change', ch.author_id, review.submitted_at,
+    CASE WHEN review.state = 'returned' THEN review.resolved_at END, review.resolved_by_id
+    FROM foreman_jobs j CROSS JOIN reader s JOIN change_versions ch ON ch.job_id = j.id
+    JOIN commercial_reviews review ON review.change_version_id = ch.id WHERE ${foremanVersionVisible("ch")}
+), closeout_events AS (
+  SELECT j.id, c.id, 'completion_submitted', c.submitted_at, c.submitter_id FROM foreman_jobs j JOIN completions c ON c.job_id = j.id
+  UNION ALL SELECT j.id, so.id, 'signed_off', so.at, so.approver_id FROM foreman_jobs j JOIN sign_offs so ON so.job_id = j.id
+  UNION ALL SELECT j.id, b.id, 'bill_issued', b.issued_at, NULL FROM foreman_jobs j JOIN bills b ON b.job_id = j.id
+  UNION ALL SELECT j.id, r.id, CASE WHEN r.kind = 'matched' THEN 'paid' ELSE 'payment_corrected' END, r.at, r.actor_id
+    FROM foreman_jobs j JOIN bills b ON b.job_id = j.id JOIN paid_records r ON r.bill_id = b.id AND r.kind IN ('matched', 'corrected')
+),`;
+const historySql = (whole: boolean) => `${whole ? foremanHistory : ""} history_events(job_id, record_id, kind, stamp_at, actor_id) AS (
   SELECT * FROM (
     SELECT j.id, j.id, 'requested', r.submitted_at, j.requester_id FROM visible_jobs j JOIN requests r ON r.job_id = j.id
     UNION ALL SELECT j.id, q.id, 'quote_issued', q.issued_at, q.publisher_id FROM visible_jobs j JOIN quote_versions q ON q.job_id = j.id
@@ -148,6 +237,13 @@ const historySql = `history_events(job_id, record_id, kind, stamp_at, actor_id) 
   UNION ALL SELECT j.id, w.id, CASE WHEN w.replaces_window_id IS NULL THEN 'visit_booked' ELSE 'visit_revised' END,
     w.confirmed_at, w.confirmed_by FROM visible_jobs j JOIN visits v ON v.job_id = j.id JOIN visit_windows w ON w.visit_id = v.id
   UNION ALL SELECT j.id, v.id, 'cancelled', v.cancelled_at, v.cancelled_by FROM visible_jobs j JOIN visits v ON v.job_id = j.id
+  ${whole ? `UNION ALL SELECT job_id, version_id, kind || '_in_review', submitted_at, author_id FROM visible_reviews
+  UNION ALL SELECT * FROM (
+    SELECT job_id, version_id, kind || '_returned', returned_at, returned_by FROM visible_reviews
+    UNION ALL SELECT j.id, ch.id, 'change_approved', a.at, a.account_id FROM foreman_jobs j
+      JOIN change_versions ch ON ch.job_id = j.id JOIN approvals a ON a.change_version_id = ch.id AND a.decision = 'approve'
+    UNION ALL SELECT * FROM closeout_events
+  )` : ""}
 ), history AS (
   SELECT job_id, record_id, kind, stamp_at, actor_id, 0 AS rank, -stamp_at AS time, (kind || '-' || record_id) AS id
   FROM history_events WHERE stamp_at <= ${at}
@@ -262,7 +358,7 @@ function read(access: SessionAccess, mode: ReadMode, options: {
           : segment === "needs_you" ? "coalesce(CASE WHEN offered_live OR handoff_stuck THEN reply_at END, review_due, submitted_at, 0)"
           : "coalesce(visit_starts, nullif(decision_sort, 9007199254740991), submitted_at, 0)"} AS time
       FROM job_order
-    )${history ? `, ${historySql}` : ""}
+    )${history ? `, ${historySql(mode === "whole")}` : ""}
     SELECT (SELECT json_object(
       'audience', s.role, 'businessName', s.business_name, 'siteZone', s.site_zone,
       'place', json((SELECT ${placePacket("p")} FROM job_places p WHERE p.id = s.selected_place)),
@@ -280,7 +376,7 @@ function read(access: SessionAccess, mode: ReadMode, options: {
         'writeQuote', (SELECT count(*) FROM sorted_jobs WHERE state = 'open' AND write_quote)),
       'live', json(${mode !== "list" || (segment === "active" && cursor.rank < 0) ? "null" : `(SELECT ${jobPacket("list")} FROM sorted_jobs j ${jobRowFrom}
         WHERE j.visit_starts <= ${at} ORDER BY j.visit_starts, j.id LIMIT 1)`}),
-      'history', json(${history ? `CASE WHEN s.role = 'customer' THEN ${jsonRows(historyPacket,
+      'history', json(${history ? `CASE WHEN s.role ${mode === "whole" ? "IN ('customer', 'foreman')" : "= 'customer'"} THEN ${jsonRows(historyPacket,
         `FROM history e LEFT JOIN accounts a ON a.id = e.actor_id WHERE ${after("e")} ORDER BY e.time, e.id LIMIT ${pageSize + 1}`)} ELSE '[]' END` : "'[]'"}),
       'overview', json(${isOverview ? `CASE WHEN s.role = 'provider_admin' THEN ${overviewPacket} END` : "null"})
     ) FROM reader s${link ? " WHERE EXISTS (SELECT 1 FROM visible_jobs)" : ""}) AS value FROM acting_session`,
@@ -303,11 +399,25 @@ export function projectJobLinkSql(job: string, scope: string, visit: string): st
   }, "whole", { link: { job, visit } }).sql}))`;
 }
 
+// Notification tokens open only the still-live offer. The authenticated
+// resource lookup can also show a closed handoff to the accountable foreman.
 export function projectIntakeLinkSql(handoff: string, scope: string): string {
   return `(WITH intake_scope AS (SELECT ${scope}.context_id AS context_id, ${scope}.role AS role, ${scope}.business_id AS business_id)
     SELECT ${intakePacket(true)} FROM (SELECT resource_id AS id FROM (
       ${scopedIntakeIds("intake_scope", at, `h.id = ${handoff}`)}
     )) k ${intakeRowFrom} LEFT JOIN requests r ON r.job_id = j.id)`;
+}
+
+export function readHandoff(access: SessionAccess, id: string): CommandStatement {
+  const reply = `CASE WHEN offered.resource_id IS NOT NULL THEN 'available'
+    WHEN ${liveHandoff} THEN 'closed_elsewhere' ELSE 'closed' END`;
+  return scopedStatement(access, `,
+    handoff_input(id) AS (VALUES (?)),
+    offered AS MATERIALIZED (${scopedIntakeIds("live_scope", at, "h.id = (SELECT id FROM handoff_input)")})
+    SELECT (SELECT ${intakePacket(true, reply)} FROM handoff_input k ${intakeRowFrom}
+      CROSS JOIN live_scope s LEFT JOIN offered ON offered.resource_id = h.id LEFT JOIN requests r ON r.job_id = j.id
+      WHERE s.role = 'foreman' AND s.business_id = j.business_id AND h.offered_at <= ${at} AND (offered.resource_id IS NOT NULL
+        OR j.accountable_foreman_membership_id = ${currentMembership("s", at)})) AS value FROM acting_session`, id);
 }
 
 export const readJobsBusinessOverview = (access: SessionAccess, businessId: string) =>
@@ -322,17 +432,26 @@ interface Proposed {
 interface Heading { jobId: string; reference: string; title: string | null; siteZone: string }
 interface Member { membershipId: string; displayName: string }
 interface Handoff { handoffId: string; expiresAt: number }
+interface Stamp { at: number; by: string | null }
+interface ShiftSlots { shiftId: string; slotIds: string[] }
+interface StaffedVisit extends VisitRow { shifts?: ShiftSlots[]; assignableShift?: string | null }
 interface Job extends Heading, JourneyRow {
   position: Position; revision: number; place: { placeId: string; alias: string }; providerName: string; customerName: string;
   next: VisitRow | null; finalAt: number | null; foreman: Member | null; handoff: Handoff | null;
-  quote: (Published & { version: number; state: QuoteVersionState }) | null;
+  quote: (Published & { version: number; state: QuoteVersionState; approved?: Stamp | null }) | null;
   change: (Published & { state: ChangeVersionState }) | null; proposal: Proposed | null;
-  approver: string | null; writeQuote: number; openChange: number; today?: VisitRow[];
+  approver: string | null; writeQuote: number; openChange: number; today?: StaffedVisit[];
   attachmentIds?: string[] | null;
+  crew?: { leadName: string | null; count: number } | null; cancellation?: Stamp | null;
+  visits?: { visitId: string; shifts: ShiftSlots[] }[]; assignableShift?: string | null;
+  foremanQuote?: { versionId: string; state: QuoteVersionState } | null;
+  foremanChange?: { versionId: string; state: ChangeVersionState } | null;
+  foremanBill?: { state: "none" | "draft" | "sent" | "paid_recorded"; total: { minor: number; currency: "EUR" } | null };
   address?: string; arrival?: unknown; review?: unknown; canWithdrawHandoff?: number | null;
 }
 interface Intake extends Heading, JourneyRow {
   position: Position; town: string; customerName: string; handoff: Handoff; revision: number;
+  reply: "available" | "closed_elsewhere" | "closed";
   request?: {
     submitted: { at: number; by: string }; originalText: string | null; originalLanguage: string | null;
     attachments: { attachmentId: string; durationMs: number | null; availability: "available" | "unavailable" }[];
@@ -406,13 +525,18 @@ function customerDecisions(job: Job, now: number) {
   ];
 }
 
-const foremanStep = (job: Job) => job.state !== "open" ? null : job.next ? action("visit", job.next.visitId, job.next.startsAt)
-  : job.writeQuote ? action("write_quote", job.jobId) : null;
+function foremanStep(job: Job, visit = job.next, assignableShift = job.assignableShift) {
+  if (job.state !== "open") return null;
+  if (assignableShift) return action("assign_crew", assignableShift, visit?.startsAt);
+  if (visit) return action("visit", visit.visitId, visit.startsAt);
+  return job.writeQuote ? action("write_quote", job.jobId) : null;
+}
 const card = (job: Job) => ({ ...heading(job), state: job.state, place: job.place, journey: journey(job),
   nextVisit: job.next && booking(job.next), finalAt: job.finalAt });
 const customerCard = (job: Job, now: number) => ({ ...card(job), providerName: job.providerName, nextStep: customerStep(job, now), live: isLive(job.next, now) });
 const foremanCard = (job: Job, now: number) => ({ ...card(job), customerName: job.customerName,
-  nextStep: foremanStep(job), live: isLive(job.next, now), flags: job.openChange ? ["open_change"] : [] });
+  nextStep: foremanStep(job), live: isLive(job.next, now),
+  flags: [...job.openChange ? ["open_change"] : [], ...job.foremanBill?.state === "sent" ? ["unpaid_bill"] : []] });
 const providerCard = (job: Job) => ({ ...card(job), accountableForeman: job.foreman, handoff: job.handoff });
 function providerLive(job: Job, now: number) {
   const next = job.next;
@@ -426,6 +550,10 @@ const foremanLive = (job: Job, visit: VisitRow) => ({ ...heading(job), place: jo
 const incomingCard = (row: Intake) => ({ ...heading(row), town: row.town, customerName: row.customerName,
   handoff: row.handoff, journey: journey(row) });
 const moment = ({ at, by, jobId, recordId, kind }: Moment) => ({ at, by, jobId, recordId, kind });
+function projectHistory(items: Moment[]) {
+  const pagination = page(items);
+  return { items: items.map(moment), page: pagination };
+}
 
 export function projectJobsBusinessOverview(rows: ReadRows, now: number) {
   if (!rows.overview) return null;
@@ -499,8 +627,10 @@ export function projectIntake(row: Intake | undefined) {
       photos: request.attachments.flatMap(({ attachmentId, durationMs, availability }) => durationMs === null ? [{ attachmentId, availability }] : []),
       originalVoice: voice ? { ...voice, language: request.originalLanguage } : null,
     } : null,
-    reply: "available", chatThreadId: null } };
+    reply: row.reply, chatThreadId: null } };
 }
+
+export const projectHandoff = (value: string) => projectIntake(JSON.parse(value) as Intake);
 
 export function projectJob(rows: ReadRows, view: View, now: number, exactVisit = false) {
   const { audience } = rows;
@@ -514,19 +644,27 @@ export function projectJob(rows: ReadRows, view: View, now: number, exactVisit =
       const { quote, change } = job;
       if (view === "today") return today ? { audience, job: { ...customerLive(job, today), view,
         nextStep: customerStep(job, now), crewNames: [] } } : null;
-      const pagination = page(rows.history);
       return { audience, job: { ...customerCard(job, now), view, revision: job.revision, hasTodayView: !!today,
         attachmentIds: job.attachmentIds ?? [],
-        quote: quote && { versionId: quote.versionId, version: quote.version, state: quote.state, total: { minor: quote.minor, currency: "EUR" } },
+        quote: quote && { versionId: quote.versionId, version: quote.version, state: quote.state, total: { minor: quote.minor, currency: "EUR" },
+          sent: { at: quote.issuedAt, by: quote.by }, approved: quote.approved ?? null },
         change: change && { versionId: change.versionId, state: change.state, delta: { minor: change.minor, currency: "EUR" } },
-        foremanName: job.foreman?.displayName ?? null, chatThreadId: null, openCase: null, bill: null,
-        history: { items: rows.history.map(moment), page: pagination },
+        foremanName: job.crew ? job.foreman?.displayName ?? null : null, crew: job.crew, cancellation: job.cancellation,
+        chatThreadId: null, openCase: null, bill: null, history: projectHistory(rows.history),
       } };
     }
-    case "foreman": return view === "today" ? today && { audience, job: { ...foremanLive(job, today), view,
-      revision: job.revision, gap: null, nextStep: foremanStep(job) } } : { audience, job: {
-      ...foremanCard(job, now), view, revision: job.revision, address: job.address, arrival: job.arrival, chatThreadId: null,
-    } };
+    case "foreman": {
+      if (view === "today") {
+        if (!today) return null;
+        const live = foremanLive(job, today);
+        return { audience, job: { ...live, view, revision: job.revision, gap: null,
+          visit: { ...live.visit, shifts: today.shifts }, nextStep: foremanStep(job, today, today.assignableShift) } };
+      }
+      return { audience, job: {
+        ...foremanCard(job, now), view, revision: job.revision, address: job.address, arrival: job.arrival, chatThreadId: null,
+        visits: job.visits, quote: job.foremanQuote, change: job.foremanChange, bill: job.foremanBill, history: projectHistory(rows.history),
+      } };
+    }
     case "provider_admin": return view === "today" ? today && { audience, job: { ...providerCard(job), view, live: providerLive(job, now) } }
       : { audience, job: { ...providerCard(job), view, revision: job.revision, bill: null, commercialReview: job.review,
         canWithdrawHandoff: Boolean(job.canWithdrawHandoff), handoffPreview: null } };

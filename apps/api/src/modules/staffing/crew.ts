@@ -2,6 +2,7 @@ import type { CrewMember, CrewRoster } from "@bookbuddy/api-contract";
 import type { CommandStatement } from "../../db/commit";
 import { accessClock, at, checkPriority, displayName, eligibilityCutoff, eligibilityStatus, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { chatParticipants, chatTargets } from "../chat/policy";
 import { currentMembership } from "../jobs/projections";
 import { availabilityWeekFilter, intervalsJson, weekBounds } from "../schedule/availability";
 import { calendarDay, calendarWeek, dayBoundsByZone, intersect, mergeSpans } from "../schedule/calendar";
@@ -241,7 +242,9 @@ export function projectCrew(value: unknown): CrewRoster {
 export function readCrewMember(session: SessionAccess, now: number, memberId: string, shiftId: string | null, weekOf: string | null): CommandStatement {
   const day = "input.week_of";
   const { start, end } = weekBounds(at, day);
-  const shiftFit = `(SELECT (SELECT json_object('shift', ${shiftNeed("g")}, 'fit', ${fitJson("f", "g")}, 'crewThreadId', NULL)
+  const crewThread = `(WITH member_chat_targets AS MATERIALIZED (${chatTargets("t.job_id = g.id AND t.audience = 'crew'")})
+    SELECT thread.id FROM (${chatParticipants("c.id = s.context_id", "member_chat_targets")}) thread)`;
+  const shiftFit = `(SELECT (SELECT json_object('shift', ${shiftNeed("g")}, 'fit', ${fitJson("f", "g")}, 'crewThreadId', ${crewThread})
       FROM (${ordinaryFitRows("g", "m.id = crew.id")}) f)
     FROM (${shiftTarget("sh.id = input.shift_id")}) g
     WHERE ${staffingForeman("s", "g")} AND ${jobOpen("g")} AND ${approvedJob("g")})`;

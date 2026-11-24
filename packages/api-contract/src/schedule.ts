@@ -123,6 +123,7 @@ const rosterAssignment = z.discriminatedUnion("state", [
 const slot = z.object({
   id: idSchemaFor<"shift_slot">(), number: z.int().positive(), isLead: z.boolean(),
   assignments: z.array(rosterAssignment),
+  coverGapId: idSchemaFor<"cover_gap">().nullable().optional(),
   pendingOffer: z.object({
     recipientName: displayName, replyBy: timestampSchema, state: z.enum(["offered", "awaiting_confirmation"]),
   }).nullable(),

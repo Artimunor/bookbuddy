@@ -64,6 +64,12 @@ const customerMoment = stamp.extend({
     "completion_submitted", "signed_off", "bill_issued", "paid", "case_opened", ...CUSTOMER_UPDATE_KINDS,
   ]),
 });
+const foremanMoment = customerMoment.extend({
+  kind: customerMoment.shape.kind.or(z.enum([
+    "quote_in_review", "quote_returned", "change_in_review", "change_returned", "change_approved", "payment_corrected",
+  ])),
+});
+const historyPage = z.object({ items: z.array(customerMoment), page: paginationSchema });
 const customerCard = jobCard.extend({ providerName: displayText, nextStep: customerNextStep.nullable(), live: z.boolean() });
 const customerLive = jobHeading.extend({
   journey: jobJourneySchema, providerName: displayText, crewName: displayText.nullable(), visit,
@@ -174,6 +180,7 @@ export const jobsPageSchema = z.discriminatedUnion("audience", [
 const quoteSummary = z.object({
   versionId: idSchemaFor<"quote_version">(), version: z.int().positive(), total: money,
   state: z.enum(QUOTE_VERSION_STATES).extract(["issued", "approved", "declined", "superseded", "withdrawn"]),
+  sent: stamp.optional(), approved: stamp.nullable().optional(),
 });
 const attachment = evidenceReferenceSchema.extend({ availability: z.enum(["available", "unavailable"]) });
 const voicedRequest = attachment.extend({ durationMs: z.int().positive().max(90_000), language: localeTagSchema.nullable() });
@@ -187,6 +194,15 @@ const intakeRequest = z.object({
   attachmentIds: requestAttachmentIds, translation: translation.nullable(), photos: z.array(attachment).max(5), originalVoice: voicedRequest.nullable(),
 });
 const arrival = z.object({ arrangement: arrivalArrangement, contactName: displayText.nullable(), safeNote: displayText.nullable() });
+const foremanIntake = foremanIncoming.extend({
+  view: z.literal("intake"), revision: revisionSchema, request: intakeRequest.nullable(),
+  reply: z.enum(["available", "authority_missing", "closed_elsewhere", "closed"]), chatThreadId: idSchemaFor<"chat_thread">().nullable(),
+});
+const shiftSlots = z.array(z.object({ shiftId: idSchemaFor<"shift">(), slotIds: z.array(idSchemaFor<"shift_slot">()) }));
+const foremanJobBill = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("none"), total: z.null() }),
+  z.object({ state: z.enum(["draft", "sent", "paid_recorded"]), total: money }),
+]);
 
 export const jobDetailSchema = z.discriminatedUnion("audience", [
   z.object({ audience: z.literal("customer"), job: z.discriminatedUnion("view", [
@@ -198,19 +214,26 @@ export const jobDetailSchema = z.discriminatedUnion("audience", [
         delta: z.object({ minor: z.int(), currency: z.enum(CURRENCIES) }) }).nullable(),
       openCase: z.object({ caseId: idSchemaFor<"case">(), state: z.enum(PROBLEM_CASE_STATES).extract(["open", "awaiting_plan"]) }).nullable(),
       bill: z.object({ billId: idSchemaFor<"bill">(), total: money, status: z.enum(["due", "checking", "paid"]) }).nullable(),
-      history: z.object({ items: z.array(customerMoment), page: paginationSchema }),
+      crew: z.object({ leadName: displayText.nullable(), count: z.int().positive() }).nullable().optional(),
+      cancellation: stamp.nullable().optional(),
+      history: historyPage,
     }),
     customerLive.extend({ view: z.literal("today"), nextStep: customerNextStep.nullable(), crewNames: z.array(displayText) }),
   ]) }),
   z.object({ audience: z.literal("foreman"), job: z.discriminatedUnion("view", [
-    foremanIncoming.extend({
-      view: z.literal("intake"), revision: revisionSchema, request: intakeRequest.nullable(),
-      reply: z.enum(["available", "authority_missing", "closed_elsewhere", "closed"]), chatThreadId: idSchemaFor<"chat_thread">().nullable(),
-    }),
+    foremanIntake,
     foremanCard.extend({
       view: z.literal("whole"), revision: revisionSchema, address: displayText, arrival, chatThreadId: idSchemaFor<"chat_thread">().nullable(),
+      visits: z.array(z.object({ visitId: idSchemaFor<"visit">(), shifts: shiftSlots })).optional(),
+      quote: z.object({ versionId: idSchemaFor<"quote_version">(), state: z.enum(QUOTE_VERSION_STATES) }).nullable().optional(),
+      change: z.object({ versionId: idSchemaFor<"change_version">(), state: z.enum(CHANGE_VERSION_STATES) }).nullable().optional(),
+      bill: foremanJobBill.optional(),
+      history: historyPage.extend({ items: z.array(foremanMoment) }).optional(),
     }),
-    foremanLive.extend({ view: z.literal("today"), revision: revisionSchema, gap: crewGap.nullable(), nextStep: foremanNextStep.nullable() }),
+    foremanLive.extend({
+      view: z.literal("today"), revision: revisionSchema, gap: crewGap.nullable(), nextStep: foremanNextStep.nullable(),
+      visit: visit.extend({ shifts: shiftSlots.optional() }),
+    }),
   ]) }),
   z.object({ audience: z.literal("worker"), job: z.discriminatedUnion("view", [
     workerCard.extend({ view: z.literal("whole") }),
@@ -285,6 +308,11 @@ export const getJobRoute = defineRoute({
   method: "GET", path: "/jobs/:j", auth: "context",
   input: z.object({ params: jobParams, query: z.object({ view: jobViewSchema.default("whole"), cursor: cursorSchema.optional() }).prefault({}) }),
   output: jobDetailSchema,
+});
+export const getHandoffRoute = defineRoute({
+  method: "GET", path: "/handoffs/:h", auth: "context",
+  input: z.object({ params: z.object({ h: jobHandoffIdSchema }) }),
+  output: z.object({ audience: z.literal("foreman"), job: foremanIntake }),
 });
 export const submitRequestRoute = defineRoute({
   method: "POST", path: "/requests", auth: "context", command: true,

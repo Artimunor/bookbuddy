@@ -176,6 +176,45 @@ test("publishes exactly the approved checklist with ready evidence and no invent
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
+test("foreman wrap-up projects the stored VAT basis and rechecks the viewer's named billing authority", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO business_grants (id, business_id, membership_id, capability, issuer_id, valid_from)
+        VALUES ('can-issue', 'business', 'foreman-member', 'issue_bill', 'admin', 1)`),
+      f.db.prepare(`INSERT INTO change_proposals VALUES ('later-change', 'job', 'quote-v1'), ('private-change', 'job', 'quote-v1')`),
+      f.db.prepare(`INSERT INTO change_versions (id, proposal_id, job_id, business_id, no, author_id, terms_id, original_locale,
+        original_text, delta_minor, total_minor, timing, affected_items, created_at, state) VALUES
+        ('late-version', 'later-change', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Añadido', 600, 25800, 'Same visit', 'Carril', 7, 'draft'),
+        ('private-version', 'private-change', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Private revision', 8400, 34200, 'Same visit', 'Carril', 7, 'draft')`),
+      f.db.prepare(`INSERT INTO change_items (version_id, line_no, original_label, quantity, net_minor, tax_minor, evidence_rule)
+        VALUES ('late-version', 1, 'Pieza', 1, 500, 50, 'Foto'), ('late-version', 2, 'Mano de obra', 1, 50, 0, 'Foto'),
+          ('private-version', 1, 'Private', 1, 7000, 1400, 'Foto')`),
+      f.db.prepare(`UPDATE change_versions SET publisher_id = 'admin', issued_at = 8, expires_at = 50, state = 'issued' WHERE id = 'late-version'`),
+      f.db.prepare(`INSERT INTO approvals (id, change_version_id, account_id, grant_id, terms_hash, decision, at)
+        VALUES ('later-approved', 'late-version', 'customer', 'approve', ?, 'approve', 9)`).bind(termsHash),
+      f.db.prepare("UPDATE change_versions SET state = 'approved' WHERE id = 'late-version'"),
+    ]);
+    expect(await f.request(completionPath, "foreman")).toMatchObject({ status: 200, body: { data: {
+      approvedScope: { netMinor: 21_550, taxMinor: 4_250, totalMinor: 25_800, currency: "EUR" },
+      actions: { canIssueBill: false },
+    } } });
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at)
+        VALUES ('foreman-admin-role', 'foreman-member', 'business', 'foreman', 'provider_admin', 1)`),
+      f.db.prepare(`INSERT INTO account_contexts (id, account_id, role, business_id, role_grant_id)
+        VALUES ('foreman-admin-context', 'foreman', 'provider_admin', 'business', 'foreman-admin-role')`),
+    ]);
+    expect(await f.request(completionPath, "foreman")).toMatchObject({ body: { data: { actions: { canIssueBill: true } } } });
+    const customer = await f.request(completionPath, "customer");
+    expect(customer).toMatchObject({ status: 200, body: { data: { approvedScope: { totalMinor: 25_800 } } } });
+    expect(JSON.stringify(customer.body)).not.toMatch(/canIssueBill|netMinor|taxMinor|private-version|Private revision/);
+    await f.db.prepare("UPDATE business_grants SET revoked_at = ? WHERE id = 'can-issue'").bind(now).run();
+    expect(await f.request(completionPath, "foreman")).toMatchObject({ body: { data: { actions: { canIssueBill: false } } } });
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
 test("requires the current named online approver, immutable version and terms; return preserves the superseded history", async () => {
   const clock = spyOn(Date, "now").mockReturnValue(now);
   const f = await fixture();

@@ -1,6 +1,6 @@
 import {
-  acceptJobHandoffRoute, declineJobHandoffRoute, getBusinessOverviewRoute, getHomeRoute, getJobRoute, getJobsRoute,
-  getOperationRoute, offerJobHandoffRoute, submitRequestRoute, submitSupportRoute, withdrawJobHandoffRoute,
+  acceptJobHandoffRoute, declineJobHandoffRoute, getBusinessOverviewRoute, getHandoffRoute, getHomeRoute, getJobRoute,
+  getJobsRoute, getOperationRoute, offerJobHandoffRoute, submitRequestRoute, submitSupportRoute, withdrawJobHandoffRoute,
 } from "@bookbuddy/api-contract";
 import type { RouteRequest } from "@bookbuddy/api-contract";
 import type { ApiClient, RequestOptions } from "./client";
@@ -13,6 +13,7 @@ export function createJobsClient(api: ApiClient) {
       api.request(getJobsRoute, { query }, options),
     getJob: (j: string, query?: RouteRequest<typeof getJobRoute.input>["query"], options?: RequestOptions) =>
       api.request(getJobRoute, { params: { j }, query }, options),
+    getHandoff: (h: string, options?: RequestOptions) => api.request(getHandoffRoute, { params: { h } }, options),
     getBusinessOverview: (b: string, options?: RequestOptions) => api.request(getBusinessOverviewRoute, { params: { b } }, options),
     submitRequest: (body: RouteRequest<typeof submitRequestRoute.input>["body"], options?: RequestOptions) =>
       api.request(submitRequestRoute, { body }, options),

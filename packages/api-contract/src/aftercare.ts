@@ -97,10 +97,15 @@ export const customerCompletionSchema = z.strictObject({
 });
 export const foremanCompletionSchema = z.strictObject({
   audience: z.literal("foreman"), ...completionFields,
+  approvedScope: approvedScope.extend({ netMinor: z.int().optional(), taxMinor: z.int().optional() }),
   submission: completionSubmission.extend({ billReferenceHint: shortText.nullable() }).nullable(),
   work: z.strictObject({ finishedAt: timestampSchema, crewCheckedOutAt: timestampSchema.nullable() }).nullable(),
   correction: stamp.extend({ caseId: caseIdSchema, reason: authored }).nullable(),
-  actions: z.strictObject({ submit: z.boolean(), messageApprover: z.boolean() }),
+  actions: z.strictObject({
+    submit: z.boolean(), messageApprover: z.boolean(),
+    // Billing uses a separate provider-admin context, not this foreman context.
+    canIssueBill: z.boolean().optional(),
+  }),
 });
 export const completionProjectionSchema = z.discriminatedUnion("audience", [customerCompletionSchema, foremanCompletionSchema]);
 

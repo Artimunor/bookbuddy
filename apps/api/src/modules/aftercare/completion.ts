@@ -11,7 +11,7 @@ import type { SessionAccess } from "../auth/session";
 import { withSiteClock } from "../commercial/deadlines";
 import { customer, foreman } from "../commercial/policy";
 import { readyPhotoSql } from "../field/attendance";
-import { currentMembership } from "../jobs/projections";
+import { businessCapability, currentMembership } from "../jobs/projections";
 import { createLinkedNotifications } from "../links/notifications";
 
 export const dayMs = 86_400_000;
@@ -75,17 +75,25 @@ const crewAttendance = `FROM shifts sh JOIN shift_slots slot ON slot.shift_id = 
 const checkout = `(SELECT CASE WHEN sum(kind = 'arrival') = sum(kind = 'departure') THEN max(actual_at) FILTER (WHERE kind = 'departure') END
   FROM (SELECT e.kind, e.actual_at ${crewAttendance}))`;
 
+// Issuance requires a separate provider-admin context and a live named grant.
+// This only advertises the viewer's authority; it does not authorize a bill command in foreman scope.
+const hasBillingAuthority = (scope: string) => `${businessCapability(`${scope}.membership_id`, "issue_bill", at)}
+  AND EXISTS (SELECT 1 FROM account_contexts c JOIN membership_roles r ON r.id = c.role_grant_id
+    WHERE c.role = 'provider_admin' AND c.account_id = ${scope}.account_id AND c.business_id = j.business_id
+      AND r.role = c.role AND r.membership_id = ${scope}.membership_id AND r.revoked_at IS NULL AND r.granted_at <= ${at})`;
+
 const returnedOrEmpty = `NOT EXISTS (SELECT 1 FROM completions WHERE job_id = j.id AND state IN ('submitted', 'signed_off'))`;
 export const awaitingSignOff = (completion: string) => `${completion}.state = 'submitted' AND ${completion}.submitted_at <= ${at}
   AND j.state <> 'cancelled' AND j.place_state IN ('in_area', 'out_of_area')`;
 
 // All lines are selected from one approved base and its approved change records, never the submitted IDs.
 const approvedLines = (quote: string, cutoff: string, job = "j.id") => `SELECT qi.version_id AS quote_version_id, NULL AS change_version_id,
-    qi.line_no, qi.original_label, qi.evidence_rule, qi.evidence_alternative, base.original_locale, 0 AS change_at, 0 AS delta_minor
+    qi.line_no, qi.original_label, qi.evidence_rule, qi.evidence_alternative, base.original_locale, 0 AS change_at, 0 AS delta_minor,
+    0 AS delta_net, 0 AS delta_tax
   FROM quote_versions base JOIN quote_items qi ON qi.version_id = base.id WHERE base.id = ${quote}
   UNION ALL
   SELECT NULL, ci.version_id, ci.line_no, ci.original_label, ci.evidence_rule, ci.evidence_alternative,
-    cv.original_locale, a.at, cv.delta_minor
+    cv.original_locale, a.at, cv.delta_minor, ci.net_minor, ci.tax_minor
   FROM change_proposals cp JOIN change_versions cv ON cv.proposal_id = cp.id AND cv.job_id = cp.job_id AND cv.state = 'approved'
   JOIN approvals a ON a.change_version_id = cv.id AND a.decision = 'approve' AND a.at <= ${cutoff}
   JOIN change_items ci ON ci.version_id = cv.id WHERE cp.job_id = ${job} AND cp.base_quote_version_id = ${quote}`;
@@ -152,11 +160,15 @@ export function completionValue(scope: string, version: string, receiptState?: "
         AND ${caseVisible} ORDER BY pc.opened_at DESC, pc.id))),
       'submission', json(CASE WHEN chosen.id IS NOT NULL THEN ${submitted} END)) AS value,
       chosen.bill_reference_hint AS hint,
+      CASE WHEN NOT (${customerView}) THEN (SELECT json_object(
+        'netMinor', base.net_minor + coalesce(sum(delta_net), 0),
+        'taxMinor', base.tax_minor + coalesce(sum(delta_tax), 0)) FROM approved_lines) END AS invoice_basis,
       CASE WHEN ${customerView} THEN json_object('signOff', ${flag(isSignOffRecipient(scope, "chosen"))},
         'seeBill', ${flag("chosen.state = 'signed_off'")}, 'reportProblem', ${flag("chosen.id IS NOT NULL AND j.state <> 'cancelled'")})
       ELSE json_object('submit', ${flag(`j.state = 'open' AND j.place_state IN ('in_area', 'out_of_area')
         AND work.finished_at IS NOT NULL AND ${returnedOrEmpty}`)},
-        'messageApprover', ${flag("chosen.state = 'submitted'")}) END AS actions,
+        'messageApprover', ${flag("chosen.state = 'submitted'")},
+        'canIssueBill', ${flag(hasBillingAuthority(scope))}) END AS actions,
       CASE WHEN NOT (${customerView}) AND work.finished_at IS NOT NULL THEN json_object('finishedAt', work.finished_at,
         'crewCheckedOutAt', ${checkout}) END AS work,
       CASE WHEN NOT (${customerView}) AND chosen.state = 'returned' THEN (SELECT json_object('at', e.at,
@@ -166,6 +178,7 @@ export function completionValue(scope: string, version: string, receiptState?: "
     WHERE j.named_approver_id IS NOT NULL AND (${version} IS NULL OR chosen.id IS NOT NULL))
   SELECT CASE WHEN ${customerView} THEN json_set(value, '$.actions', json(actions))
     ELSE json_set(value, '$.submission.billReferenceHint', hint, '$.actions', json(actions),
+      '$.approvedScope', json_patch(value -> '$.approvedScope', invoice_basis),
       '$.work', json(work), '$.correction', json(correction)) END FROM section)`;
 }
 

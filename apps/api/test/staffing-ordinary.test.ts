@@ -181,6 +181,28 @@ test("roster and fit are provider-scoped; cutoff and a new overlap reject issue 
   } finally { f.close(); }
 });
 
+test("crew member shift fit reveals only the crew thread this viewer may open", async () => {
+  const f = await fixture();
+  try {
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO chat_threads (id, job_id, audience, write_state)
+        VALUES ('job-thread', 'job', 'job', 'open'), ('crew-thread', 'job', 'crew', 'open')`),
+      f.db.prepare(`INSERT INTO business_grants (id, business_id, membership_id, capability, issuer_id, valid_from)
+        VALUES ('rival-backup', 'provider', 'rival-member', 'backup_foreman', 'admin', 1)`),
+      f.db.prepare(`INSERT INTO job_grants (job_id, context_id, capability, valid_from, valid_until)
+        VALUES ('job', 'rival-context', 'backup', 1, ?)`).bind(start),
+    ]);
+    const path = "/crew/worker-member?shiftId=shift";
+    expect((await f.call("foreman", path)).body).toMatchObject({ data: { shiftFit: { crewThreadId: "crew-thread" } } });
+    expect((await f.call("foreman", "/crew/worker-member")).body).toMatchObject({ data: { shiftFit: null } });
+    expect((await f.call("rival", path)).body).toMatchObject({ data: { shiftFit: { crewThreadId: null } } });
+    expect((await f.call("customer", path)).status).toBe(404);
+    await f.db.prepare(`INSERT INTO chat_members (thread_id, context_id, can_send, visible_from, revoked_at)
+      VALUES ('crew-thread', 'foreman-context', 1, 1, ?)`).bind(base).run();
+    expect((await f.call("foreman", path)).body).toMatchObject({ data: { shiftFit: { crewThreadId: null } } });
+  } finally { f.close(); }
+});
+
 test("expiry, rejection, withdrawal and decline leave slots unassigned and may be followed by a fresh offer", async () => {
   const f = await fixture();
   try {

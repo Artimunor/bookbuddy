@@ -60,9 +60,10 @@ END`;
 function pendingOffer() {
   return `json(coalesce(
     (SELECT json_object('recipientName', ${displayName("a")}, 'replyBy', cr.confirm_by, 'state', 'awaiting_confirmation')
-     FROM cover_gaps cg JOIN cover_rounds cr ON cr.gap_id = cg.id AND cr.round_no = cg.current_round_no
+     FROM cover_rounds cr
      JOIN cover_offers co ON co.id = cr.winner_offer_id JOIN memberships m ON m.id = co.recipient_id JOIN accounts a ON a.id = m.account_id
-     WHERE cg.slot_id = slot.id AND cg.state = 'accepted_pending_confirmation' AND cr.state = 'accepted_pending_confirmation'
+     WHERE cr.gap_id = cg.id AND cr.round_no = cg.current_round_no
+       AND cg.state = 'accepted_pending_confirmation' AND cr.state = 'accepted_pending_confirmation'
        AND m.business_id = j.business_id AND cr.confirm_by > ${at} LIMIT 1),
     (SELECT json_object('recipientName', ${displayName("a")}, 'replyBy', o.expires_at, 'state', 'offered')
      FROM assignment_offers o JOIN memberships m ON m.id = o.recipient_id JOIN accounts a ON a.id = m.account_id
@@ -78,7 +79,9 @@ export function readShift(session: SessionAccess, now: number, shift: string): C
     WHERE a.slot_id = slot.id AND a.confirmed_at <= ${at} ORDER BY a.confirmed_at, a.id`);
   const slots = array(`SELECT json_object('id', slot.id, 'number', slot.number, 'isLead',
     json(CASE WHEN slot.is_lead = 1 THEN 'true' ELSE 'false' END), 'assignments', json(${assignments}),
-    'pendingOffer', ${pendingOffer()}) AS value FROM shift_slots slot WHERE slot.shift_id = sh.id ORDER BY slot.number`);
+    'coverGapId', cg.id, 'pendingOffer', ${pendingOffer()}) AS value FROM shift_slots slot
+    LEFT JOIN cover_gaps cg ON cg.slot_id = slot.id AND cg.state IN ('open', 'accepted_pending_confirmation')
+    WHERE slot.shift_id = sh.id ORDER BY slot.number`);
   const rosterHolds = holdsJson(`EXISTS (SELECT 1 FROM assignments a JOIN shift_slots slot ON slot.id = a.slot_id
     JOIN memberships m ON m.id = a.worker_membership_id AND m.business_id = j.business_id
     WHERE slot.shift_id = sh.id AND a.id = h.assignment_id AND a.state = 'confirmed')`, true);

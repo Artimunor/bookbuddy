@@ -1,4 +1,4 @@
-import { getHomeRoute, getJobRoute, getJobsRoute } from "@bookbuddy/api-contract";
+import { getHandoffRoute, getHomeRoute, getJobRoute, getJobsRoute } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
 import { Hono } from "hono";
 import type { Context } from "hono";
@@ -10,15 +10,14 @@ import { accessClock } from "../access/policy";
 import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { transportFailure, transportSuccess } from "../sync/http";
-import { decodeJobRows, jobPosition, projectHome, projectJob, projectJobs, readHome, readJob, readJobs } from "./read";
-import type { ReadRows } from "./read";
+import { decodeJobRows, jobPosition, projectHandoff, projectHome, projectJob, projectJobs, readHandoff, readHome, readJob, readJobs } from "./read";
 
 export const jobsReadRoutes = new Hono<ApiEnv>();
 
 async function readResponse(
   c: Context<ApiEnv>,
   plan: (access: SessionAccess) => CommandStatement,
-  project: (rows: ReadRows, now: number) => unknown,
+  project: (value: string, now: number) => unknown,
   schema: ResponseSchema,
 ) {
   const ctx = openRequestScope(c.env.DB, c.var.requestId);
@@ -31,14 +30,15 @@ async function readResponse(
   }));
   if (!row) return transportFailure(c, "UNAUTHENTICATED");
   if (row.value === null) return transportFailure(c, "NOT_FOUND");
-  const data = project(decodeJobRows(row.value), ctx.now);
+  const data = project(row.value, ctx.now);
   return data ? transportSuccess(c, schema.parse(data), ctx.now) : transportFailure(c, "NOT_FOUND");
 }
 
 jobsReadRoutes.get(getHomeRoute.path, (c) => {
   const input = getHomeRoute.input.safeParse({ query: c.req.query() });
   if (!input.success) return transportFailure(c, "VALIDATION_FAILED");
-  return readResponse(c, (access) => readHome(access, input.data.query.placeId), projectHome, getHomeRoute.output);
+  return readResponse(c, (access) => readHome(access, input.data.query.placeId),
+    (value, now) => projectHome(decodeJobRows(value), now), getHomeRoute.output);
 });
 
 jobsReadRoutes.get(getJobsRoute.path, (c) => {
@@ -48,7 +48,7 @@ jobsReadRoutes.get(getJobsRoute.path, (c) => {
   const position = jobPosition(cursor);
   if (!position) return transportFailure(c, "VALIDATION_FAILED");
   return readResponse(c, (access) => readJobs(access, segment, position, placeId),
-    (rows, now) => projectJobs(rows, segment, now), getJobsRoute.output);
+    (value, now) => projectJobs(decodeJobRows(value), segment, now), getJobsRoute.output);
 });
 
 jobsReadRoutes.get(getJobRoute.path, (c) => {
@@ -58,5 +58,11 @@ jobsReadRoutes.get(getJobRoute.path, (c) => {
   const position = jobPosition(cursor);
   if (!position) return transportFailure(c, "VALIDATION_FAILED");
   return readResponse(c, (access) => readJob(access, j, view, position),
-    (rows, now) => projectJob(rows, view, now), getJobRoute.output);
+    (value, now) => projectJob(decodeJobRows(value), view, now), getJobRoute.output);
+});
+
+jobsReadRoutes.get(getHandoffRoute.path, (c) => {
+  const input = getHandoffRoute.input.safeParse({ params: c.req.param() });
+  if (!input.success) return transportFailure(c, "VALIDATION_FAILED");
+  return readResponse(c, (access) => readHandoff(access, input.data.params.h), projectHandoff, getHandoffRoute.output);
 });

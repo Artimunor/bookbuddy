@@ -374,3 +374,36 @@ test("worker reads only their confirmed shift, their named offer, and an address
     ] } });
   } finally { f.db.close(); clock.mockRestore(); }
 });
+
+test("shift detail gives the foreman only the current cover gap for each slot", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(at);
+  const f = await fixture();
+  try {
+    const start = at + 3 * hour, end = start + hour;
+    await f.job("alpha");
+    await book(f, "alpha", start);
+    const shift = await f.db.prepare(`SELECT sh.id, slot.id AS slot FROM shifts sh
+      JOIN shift_slots slot ON slot.shift_id = sh.id WHERE sh.visit_id = 'alpha-visit'`).first<{ id: string; slot: string }>();
+    if (!shift) throw new Error("Expected a booked shift");
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO shift_slots (id, shift_id, number) VALUES ('second-slot', ?, 2)`).bind(shift.id),
+      f.db.prepare(`INSERT INTO assignments (id, slot_id, worker_membership_id, source, state, confirmed_by,
+        confirmed_at, starts_at, ends_at, dropped_at, dropout_reported_by, dropout_source)
+        VALUES ('dropped', ?, 'crew-member', 'ordinary', 'dropped', 'crew', ?, ?, ?, ?, 'crew', 'self'),
+          ('remaining', 'second-slot', 'second-member', 'ordinary', 'confirmed', 'second', ?, ?, ?, NULL, NULL, NULL)`)
+        .bind(shift.slot, at, start, end, at, at, start, end),
+      f.db.prepare(`INSERT INTO cover_gaps (id, slot_id, prior_assignment_id, safe_cutoff, state)
+        VALUES ('gap', ?, 'dropped', ?, 'open')`).bind(shift.slot, start),
+    ]);
+    const path = `/shifts/${shift.id}`;
+    expect((await f.call("foreman", path)).body).toMatchObject({ data: {
+      nextAction: "find_cover", slots: [{ id: shift.slot, coverGapId: "gap" }, { id: "second-slot", coverGapId: null }],
+    } });
+    const worker = await f.call("second", path);
+    expect(worker.body).toMatchObject({ data: { view: "worker" } });
+    expect(JSON.stringify(worker.body)).not.toContain("coverGapId");
+    expect((await f.call("customer", path)).status).toBe(404);
+    await f.db.prepare("UPDATE cover_gaps SET state = 'closed', closed_at = ? WHERE id = 'gap'").bind(at).run();
+    expect((await f.call("foreman", path)).body.data.slots[0]).toMatchObject({ coverGapId: null });
+  } finally { f.db.close(); clock.mockRestore(); }
+});
