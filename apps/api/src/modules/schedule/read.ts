@@ -103,7 +103,8 @@ export function readBusinessSchedule(session: SessionAccess, now: number, busine
       'lanes', json(CASE WHEN ${jobOpen()} THEN ${lanesJson(at)} END))
     FROM live_scope scope JOIN schedule_job j ON j.business_id = ? AND (${foreman("scope")} OR ${provider("scope")})
     ${approvedQuoteJoin()} LEFT JOIN visits v ON v.id = (SELECT v2.id FROM visits v2 WHERE v2.job_id = j.id
-      AND (vi.id IS NULL OR vi.id = v2.id) ORDER BY CASE v2.state WHEN 'booked' THEN 0 WHEN 'planned' THEN 1 ELSE 2 END, v2.id LIMIT 1)
+      AND (v2.id = vi.id OR (vi.id IS NULL AND v2.state IN ('booked', 'planned')))
+      ORDER BY v2.state = 'booked' DESC, v2.id LIMIT 1)
     ${confirmedWindow("v")} WHERE vi.id IS NULL OR v.id IS NOT NULL) AS value FROM acting_session CROSS JOIN visit_input vi`, weekOf, visit, business);
 }
 
