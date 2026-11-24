@@ -139,6 +139,10 @@ test("named offer is private and accepts atomically once; replays do not add a h
       (SELECT count(*) FROM safety_holds WHERE state = 'active') AS holds,
       (SELECT count(*) FROM operation_receipts) AS receipts,
       (SELECT count(*) FROM effect_outbox) AS effects`).first()).toEqual({ assignments: 1, holds: 1, receipts: 2, effects: 2 });
+    expect((await f.db.prepare(`SELECT resource_id, partition_key, op FROM sync_changes
+      WHERE kind = 'worker_field_shift'`).all()).results).toEqual([
+      { resource_id: accepted.body.data.assignmentId, partition_key: "worker-context", op: "upsert" },
+    ]);
     expect(f.wakeKeys.map((keys) => keys.length)).toEqual([1, 1]);
   } finally { f.close(); }
 });
@@ -227,6 +231,10 @@ test("worker dropout opens one private gap and phone reports are attributed to t
     expect(await f.db.prepare("SELECT prior_assignment_id, state FROM cover_gaps").all()).toMatchObject({ results: [
       { prior_assignment_id: first, state: "open" },
     ] });
+    expect((await f.db.prepare(`SELECT partition_key, op FROM sync_changes
+      WHERE kind = 'worker_field_shift' AND resource_id = ? ORDER BY seq`).bind(first).all()).results).toEqual([
+      { partition_key: "worker-context", op: "upsert" }, { partition_key: "worker-context", op: "upsert" },
+    ]);
     expect((await f.offer("try-bypass-cover", "second-member")).status).toBe(409);
     expect((await f.offer("phone-offer", "second-member", undefined, "other-slot")).status).toBe(200);
     const second = (await f.call("second", "/offers/phone-offer/accept", "accept-second")).body.data.assignmentId;

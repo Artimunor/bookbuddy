@@ -7,6 +7,7 @@ import type { OperationResult, OperationSpec, OperationWrites } from "../../db/o
 import type { RequestScope } from "../../db/scope";
 import { accessClock, at, displayName, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { workerFieldShiftChangeRows } from "../field/attendance";
 import { currentMembership } from "../jobs/projections";
 import { createLinkTarget, linkTokenFor, registerLinkResolver } from "../links";
 import { calendarDay } from "../schedule/calendar";
@@ -108,9 +109,9 @@ const offerRecipient = (offer: string) => `(SELECT recipient_id FROM assignment_
 
 function transitionSignals(access: OrdinaryAccess, guard: CommandStatement, options: {
   kind: string; resource: string; link: "assignment_offer" | "job_update" | "cover"; recipient: string;
-  member: string; offerExpiry?: string; assignmentChanged?: boolean;
+  member: string; offerExpiry?: string; changedAssignments?: string;
 }): OperationWrites {
-  const { kind, resource, link, recipient, member, offerExpiry, assignmentChanged } = options;
+  const { kind, resource, link, recipient, member, offerExpiry, changedAssignments } = options;
   const id = crypto.randomUUID();
   const destinations = scopedStatement(access, `SELECT '${link}' AS kind, ${resource} AS resource_id, c.id AS required_scope,
     max(${at} + ${calendarDay}, ${offerExpiry ?? at}) AS expires_at ${recipient}`);
@@ -123,8 +124,9 @@ function transitionSignals(access: OrdinaryAccess, guard: CommandStatement, opti
     }],
     changes: scopedStatement(access, `SELECT 'notification' AS kind, n.id AS resource_id, n.context_id AS partition_key, 'upsert' AS op, ${at} AS at
       FROM notifications n WHERE n.id = ? UNION ALL
-      SELECT '${workerAgendaKind}', m.id, c.id, 'upsert', ${at} ${workerContext(member, biz)}${assignmentChanged ? ` UNION ALL
-      SELECT '${crewAvailabilityKind}', m.id, c.id, 'upsert', ${at} ${workerContext(member, biz)}` : ""}`, id),
+      SELECT '${workerAgendaKind}', m.id, c.id, 'upsert', ${at} ${workerContext(member, biz)}${changedAssignments ? ` UNION ALL
+      SELECT '${crewAvailabilityKind}', m.id, c.id, 'upsert', ${at} ${workerContext(member, biz)} UNION ALL
+      ${workerFieldShiftChangeRows(changedAssignments)}` : ""}`, id),
     effects: scopedStatement(access, `SELECT 'push-' || n.id AS id, 'notification_push' AS kind,
       'notification_push:' || n.id AS dedupe_key, n.id AS resource_ref, ${at} AS due_at,
       ${offerExpiry ?? `${at} + ${calendarDay}`} AS expires_at FROM notifications n WHERE n.id = ?`, id),
@@ -165,7 +167,8 @@ function accept(access: OrdinaryAccess): Transition {
     eligible: { sql: offerFront(`${canAnswer("o", "g")} AND ${canStaff("g", "o.recipient_id")}`) },
     writes(guard) {
       const notice = transitionSignals(access, guard, { kind: "assignment_confirmed", link: "job_update", resource: jobResource,
-        recipient: accountableContext, member: offerRecipient(inputId), assignmentChanged: true });
+        recipient: accountableContext, member: offerRecipient(inputId),
+        changedAssignments: `SELECT assignment_id AS id FROM assignment_offers WHERE id = ${inputId}` });
       return { ...notice, statements: [
         scopedStatement(access, `INSERT INTO assignments (id, slot_id, worker_membership_id, source, state,
           confirmed_by, confirmed_at, starts_at, ends_at) SELECT ?, g.slot_id, o.recipient_id, 'ordinary', 'confirmed',
@@ -208,7 +211,8 @@ function dropout(access: OrdinaryAccess, assignmentId: string, payload: Bodies["
     writes(guard) {
       const gapRef = `(SELECT id FROM cover_gaps WHERE prior_assignment_id = ${inputId})`;
       const notice = transitionSignals(access, guard, { kind: "assignment_dropped", link: "cover", resource: gapRef,
-        recipient: accountableContext, member: `(SELECT worker_membership_id FROM assignments WHERE id = ${inputId})`, assignmentChanged: true });
+        recipient: accountableContext, member: `(SELECT worker_membership_id FROM assignments WHERE id = ${inputId})`,
+        changedAssignments: `SELECT ${inputId} AS id` });
       return { ...notice, statements: [
         scopedStatement(access, `UPDATE assignments SET state = 'dropped', dropped_at = ${at},
           dropout_reported_by = (SELECT account_id FROM live_scope), dropout_source = ?, dropout_reason = ?
