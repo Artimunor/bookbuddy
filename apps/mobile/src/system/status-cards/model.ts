@@ -1,4 +1,4 @@
-import type { CustomerLiveVisit, ForemanCover } from "@bookbuddy/api-contract";
+import type { CustomerLiveVisit, CustomerSessionBooking, ForemanCover } from "@bookbuddy/api-contract";
 import { projectStatusCard, STATUS_CARD_MAX_AGE_MS, statusCardText, type StatusCardCopy, type StatusCardFacts, type StatusCardModel, type StatusCardText } from "@bookbuddy/domain";
 import type { Translator } from "@bookbuddy/i18n";
 import type { AttendanceStatus } from "../../repository/attendance";
@@ -29,6 +29,25 @@ export function visitCardSource(visit: CustomerLiveVisit): StatusCardSource {
     },
     zone: visit.siteZone,
     terminal: live.status === "finished" || live.step === "finished",
+  };
+}
+
+export function sessionCardSource(booking: CustomerSessionBooking): StatusCardSource {
+  const { agreement, day, host } = booking;
+  const terminal = booking.state !== "booked" || day?.stage === "done";
+  return {
+    target: { kind: "session", id: booking.id, path: `/c/session-bookings/${encodeURIComponent(booking.id)}` },
+    zone: agreement.version.venue.siteZone,
+    terminal,
+    facts: {
+      kind: "session", stage: terminal ? "ended" : day?.stage === "doors_open" || day?.stage === "in_session" ? day.stage :
+        day?.stage === "today" ? "starts_in" : "last_confirmed",
+      startsAt: agreement.startsAt, endsAt: agreement.endsAt, confirmedAt: day?.at ?? booking.bookedAt,
+      providerName: booking.provider.name, reference: booking.reference,
+      hostUpdate: host.status === "confirmed" && host.isSubstitute ? {
+        name: host.host.name, confirmedBy: host.host.confirmed.byName, confirmedAt: host.host.confirmed.at,
+      } : null,
+    },
   };
 }
 
@@ -75,7 +94,7 @@ export function coverCardSource(cover: ForemanCover): StatusCardSource {
 }
 
 type T = Translator<"mobile">["t"];
-export type CardCopy = { t: T; locale: string };
+export type CardCopy = { t: T; locale: string; displayZone?: string | null };
 type Surface = StatusCardText & {
   symbol: string;
   accent: "quiet" | "lime" | "amber";
@@ -120,12 +139,21 @@ function surface(model: StatusCardModel, words: StatusCardCopy): Surface {
   if (model.kind === "worker_shift") {
     return { ...quiet, symbol: model.safetyHold ? "hand.raised.fill" : "mappin.circle.fill", accent: model.safetyHold ? "amber" : "lime", timerFrom: model.safetyHold ? null : model.checkedInAt };
   }
+  if (model.kind === "session") {
+    if (model.stage === "last_confirmed") return quiet;
+    return {
+      ...quiet, symbol: "calendar", accent: "lime", steps: 5,
+      progress: model.stage === "in_session" ? 4 : model.stage === "doors_open" ? 3 : 2,
+      timerUntil: model.stage === "in_session" ? null : model.startsAt,
+    };
+  }
   return { ...quiet, symbol: "person.2.fill", accent: model.deadline ? "lime" : "quiet", progress: model.stage === "offers_out" ? 2 : model.stage === "confirmed" ? 4 : 3, steps: 4, timerUntil: model.deadline };
 }
 
 export function cardExpiry(source: StatusCardSource, now: number, sessionEndsAt: number) {
   const checkIn = source.facts?.kind === "worker_shift" ? source.facts.checkedInAt : null;
-  return Math.min(sessionEndsAt, (checkIn ?? now) + STATUS_CARD_MAX_AGE_MS, now + STATUS_CARD_MAX_AGE_MS);
+  const bookingEnd = source.facts?.kind === "session" ? source.facts.endsAt : Infinity;
+  return Math.min(sessionEndsAt, bookingEnd, (checkIn ?? now) + STATUS_CARD_MAX_AGE_MS, now + STATUS_CARD_MAX_AGE_MS);
 }
 
 export function nativeCard(source: StatusCardSource, copy: CardCopy, hideDetails: boolean, now: number, expiresAt: number): NativeCard | null {
@@ -140,6 +168,13 @@ export function nativeCard(source: StatusCardSource, copy: CardCopy, hideDetails
       clock ??= new Intl.DateTimeFormat(locale, { timeZone: source.zone, hour: "numeric", minute: "2-digit" });
       return clock.format(at);
     } catch { return ""; } // Never substitute the device zone for an invalid site clock.
+  }
+  let viewerClock: Intl.DateTimeFormat | undefined;
+  function viewerTime(at: number) {
+    try {
+      viewerClock ??= new Intl.DateTimeFormat(locale, { timeZone: copy.displayZone ?? undefined, hour: "numeric", minute: "2-digit" });
+      return viewerClock.format(at);
+    } catch { return time(at); }
   }
   const words: StatusCardCopy = {
     appTitle: t("mobile.statusCards.app"), visitTitle: t("mobile.statusCards.visit"), shiftTitle: t("mobile.statusCards.shift"), open: t("mobile.statusCards.open"),
@@ -170,6 +205,22 @@ export function nativeCard(source: StatusCardSource, copy: CardCopy, hideDetails
     },
     coverDeadline: (stage, at) => { const value = time(at); return value ? stage === "offers_out" ? t("mobile.cover.replyBy", { time: value }) : t("mobile.cover.confirmBy", { time: value }) : t("mobile.statusCards.open"); },
     coverCounts: ({ offersOut, accepted, confirmed, noCover }) => t("mobile.statusCards.coverCounts", { out: offersOut, accepted, confirmed, closed: noCover }),
+    sessionTitle: t("mobile.sessionCard.title"),
+    sessionStage: (stage, at) => {
+      switch (stage) {
+        case "starts_in": return t("mobile.sessionCard.startsIn");
+        case "doors_open": return t("mobile.sessionCard.doorsOpen");
+        case "in_session": return t("mobile.sessionCard.inSession");
+        case "last_confirmed": return t("mobile.sessionCard.lastConfirmed", { time: viewerTime(at) });
+      }
+    },
+    sessionDetails: (name, reference, start, end) => {
+      const a = viewerTime(start), b = viewerTime(end), siteA = time(start), siteB = time(end);
+      return siteA && siteB && (a !== siteA || b !== siteB)
+        ? t("mobile.sessionCard.twoClocks", { name, reference, start: a, end: b, venueStart: siteA, venueEnd: siteB })
+        : t("mobile.sessionCard.oneClock", { name, reference, start: a, end: b });
+    },
+    sessionHostUpdate: ({ name, confirmedBy, confirmedAt }) => t("mobile.sessionCard.hostChanged", { name, confirmedBy, time: viewerTime(confirmedAt) }),
   };
   const preview = surface(generic, words);
   const detailed = hideDetails ? null : projectStatusCard(facts, now, "details");
@@ -185,6 +236,9 @@ export function nativeCard(source: StatusCardSource, copy: CardCopy, hideDetails
     const title = t("mobile.cover.search"), summary = t("mobile.statusCards.coverResult");
     staleDetails = { ...preview, title, summary, accessibilityLabel: `${title}, ${summary}` };
     if (now >= staleAt) details = staleDetails;
+  } else if (detailed?.kind === "session" && detailed.preview === "details" && (detailed.stage === "starts_in" || detailed.stage === "doors_open")) {
+    staleAt = Math.min(expiresAt, detailed.startsAt);
+    staleDetails = surface({ ...detailed, stage: "last_confirmed" }, words);
   }
   return { url: `bookbuddy://${source.target.path}`, expiresAt, staleAt, openLabel: words.open, preview, details, stalePreview, staleDetails };
 }

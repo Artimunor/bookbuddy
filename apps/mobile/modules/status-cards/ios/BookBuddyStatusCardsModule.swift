@@ -71,7 +71,8 @@ private struct CardLink: Decodable { let url: URL }
 private func cardURL(_ json: String) -> URL? {
   guard let url = try? JSONDecoder().decode(CardLink.self, from: Data(json.utf8)).url,
         url.scheme == "bookbuddy", url.host == nil || url.host == "",
-        url.path.hasPrefix("/c/jobs/") || url.path.hasPrefix("/w/shifts/") || url.path.hasPrefix("/f/cover/") else { return nil }
+        url.path.hasPrefix("/c/jobs/") || url.path.hasPrefix("/c/session-bookings/") ||
+        url.path.hasPrefix("/w/shifts/") || url.path.hasPrefix("/f/cover/") else { return nil }
   return url
 }
 

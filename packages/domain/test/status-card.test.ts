@@ -9,6 +9,10 @@ const copy: StatusCardCopy = {
   onSite: "On site", safetyHold: "Safety hold", openBeforeWorking: "Attendance only",
   coverStage: stage => stage, coverDeadline: (stage, at) => `${stage} until ${at}`,
   coverCounts: ({ offersOut, accepted, confirmed, noCover }) => `${offersOut} out / ${accepted} accepted / ${confirmed} confirmed / ${noCover} no cover`,
+  sessionTitle: "BookBuddy session",
+  sessionStage: (stage, at) => `${stage} ${at}`,
+  sessionDetails: (name, reference, start, end) => `${name} ${reference} ${start}–${end}`,
+  sessionHostUpdate: ({ name, confirmedBy, confirmedAt }) => `${name}, confirmed by ${confirmedBy} at ${confirmedAt}`,
 };
 const neverVisible = {
   address: "PRIVATE_ADDRESS", access: "PRIVATE_CODE", position: "PRIVATE_LOCATION", price: "PRIVATE_PRICE",
@@ -56,6 +60,25 @@ describe("status cards", () => {
     expect(statusCardText(details, copy).accessibilityLabel).toBe(`accepted, accepted until ${facts.deadline}, 1 out / 1 accepted / 0 confirmed / 1 no cover`);
     expect(JSON.stringify([details, statusCardText(details, copy)])).not.toContain("PRIVATE_");
     expect(projectStatusCard({ ...facts, stage: "confirmed" }, now, "details")).toMatchObject({ deadline: null });
+  });
+
+  test("session only exposes confirmed customer-visible facts with details enabled", () => {
+    const facts = { ...neverVisible, kind: "session", stage: "starts_in",
+      startsAt: now + 2_400_000, endsAt: now + 5_100_000, confirmedAt: now - 5_000,
+      reference: "BB-S1042", providerName: "Estudi Mar Pilates",
+      hostUpdate: { name: "Lucía Vidal", confirmedBy: "Marina Serra", confirmedAt: now - 1_000, reason: "PRIVATE_REASON" },
+    } as const;
+    const generic = projectStatusCard(facts, now)!;
+    expect(generic).toEqual({ kind: "session", preview: "generic" });
+    expect(projectStatusCard({ ...facts, hostUpdate: null, stage: "in_session" }, now)).toEqual(generic);
+    expect(statusCardText(generic, copy)).toEqual({ title: "BookBuddy session", summary: "Open app", expanded: null, accessibilityLabel: "BookBuddy session, Open app" });
+    const details = projectStatusCard(facts, now, "details")!;
+    expect(statusCardText(details, copy).expanded).toBe(`Lucía Vidal, confirmed by Marina Serra at ${now - 1_000}`);
+    expect(JSON.stringify([details, statusCardText(details, copy)])).not.toContain("PRIVATE_");
+    expect(projectStatusCard(facts, facts.startsAt, "details")).toMatchObject({ stage: "last_confirmed" });
+    expect(projectStatusCard({ ...facts, stage: "in_session" }, facts.startsAt, "details")).toMatchObject({ stage: "in_session" });
+    expect(projectStatusCard(facts, facts.endsAt)).toBeNull();
+    expect(projectStatusCard({ ...facts, stage: "ended" }, now, "details")).toBeNull();
   });
 
   test("runtime values cannot smuggle hidden data through an enumerated stage", () => {

@@ -90,7 +90,8 @@ class BookBuddyStatusCardsModule : Module() {
     if (!manager.areNotificationsEnabled() || (manager.getNotificationChannel(CHANNEL)?.importance ?: 0) == NotificationManager.IMPORTANCE_NONE) return false
     val url = Uri.parse(card.getString("url"))
     val path = url.path ?: return false
-    if (url.scheme != "bookbuddy" || !url.host.isNullOrEmpty() || !(path.startsWith("/c/jobs/") || path.startsWith("/w/shifts/") || path.startsWith("/f/cover/"))) return false
+    if (url.scheme != "bookbuddy" || !url.host.isNullOrEmpty() || !(path.startsWith("/c/jobs/") ||
+        path.startsWith("/c/session-bookings/") || path.startsWith("/w/shifts/") || path.startsWith("/f/cover/"))) return false
     val launcher = context.packageManager.getLaunchIntentForPackage(context.packageName)?.component ?: return false
     val open = Intent(Intent.ACTION_VIEW, url).setComponent(launcher)
       .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)

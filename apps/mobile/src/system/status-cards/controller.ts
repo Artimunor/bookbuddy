@@ -160,7 +160,7 @@ async function allowAndroidCard(channelName: string) {
 
 function authorized(target: StatusCardTarget, expected: string | undefined) {
   if (!scope || scope.key !== expected || scope.expiresAt <= Date.now()) return false;
-  return scope.role === (target.kind === "customer_visit" ? "customer" : target.kind === "worker_shift" ? "worker" : "foreman");
+  return scope.role === (target.kind === "customer_visit" || target.kind === "session" ? "customer" : target.kind === "worker_shift" ? "worker" : "foreman");
 }
 
 export function startStatusCard(source: StatusCardSource, copy: CardCopy, expected: string | undefined) {

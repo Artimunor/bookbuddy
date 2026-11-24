@@ -26,12 +26,15 @@ export function visitLabel(t: T, status: Home["liveVisits"][number]["visit"]["st
 const capsuleState: Record<Home["liveVisits"][number]["visit"]["status"], LiveCapsuleState> = { confirmed: "crewConfirmed", on_the_way: "onTheWay", on_site: "onSite", working: "working", finished: "finished", cover_arranging: "coverBeingArranged", paused: "paused" };
 export default function ForemanHome() {
   const remote = useRemote(getHomeRoute, { query: {} }, { cache: { kind: "home" } });
-  const router = useRouter(); const { bootstrap } = useSession();
+  const router = useRouter(); const { session, bootstrap } = useSession();
+  const scope = bootstrap?.capabilities?.sessions;
+  const context = session?.activeContext;
+  const sessionsAvailable = context?.role === "foreman" && !!scope && "businessId" in scope && scope.businessId === context.businessId;
   const data = remote.status === "ready" && remote.data?.audience === "foreman" ? remote.data : null;
   const cached = remote.status === "offline" && remote.data?.audience === "foreman" ? remote.data : null;
-  return <HomeView data={data} cached={cached} lastConfirmedAt={remote.status === "offline" ? remote.lastConfirmedAt : null} status={remote.status} name={bootstrap?.account.displayName ?? ""} onRetry={() => { void remote.refresh(); }} onNavigate={(path) => router.push(path as Href)} />;
+  return <HomeView data={data} cached={cached} lastConfirmedAt={remote.status === "offline" ? remote.lastConfirmedAt : null} status={remote.status} name={bootstrap?.account.displayName ?? ""} sessionsAvailable={sessionsAvailable} onRetry={() => { void remote.refresh(); }} onNavigate={(path) => router.push(path as Href)} />;
 }
-export function HomeView({ data, cached, lastConfirmedAt, status, name, onRetry, onNavigate }: { data: Home | null; cached?: CachedHome | null; lastConfirmedAt?: number | null; status: Status; name: string; onRetry: () => void; onNavigate: (path: string) => void }) {
+export function HomeView({ data, cached, lastConfirmedAt, status, name, sessionsAvailable, onRetry, onNavigate }: { data: Home | null; cached?: CachedHome | null; lastConfirmedAt?: number | null; status: Status; name: string; sessionsAvailable?: boolean; onRetry: () => void; onNavigate: (path: string) => void }) {
   const t = useT(); const format = useFormat();
   const actionPath = (item: Home["needsYou"][number]) => {
     const id = item.action.recordId;
@@ -64,6 +67,7 @@ export function HomeView({ data, cached, lastConfirmedAt, status, name, onRetry,
       {data.liveVisits.map(job => { const gap = data.gaps.some(item => item.jobId === job.jobId); const label = gap ? t("mobile.foremanHome.gap") : visitLabel(t, job.visit.status); const band = job.visit.arrival ?? job.visit.window; const time = `${siteTime(format, band.startsAt, job.siteZone)} – ${siteTime(format, band.endsAt, job.siteZone)}`; const provenance = job.customerStatus ? t("mobile.foremanHome.customerSees", { status: visitLabel(t, job.customerStatus.status) }) : t("mobile.foremanHome.customerUnknown"); return <LiveCapsule key={job.jobId} state={gap ? "coverBeingArranged" : capsuleState[job.visit.status]} stateLabel={label} source={job.title ?? job.reference} reference={job.reference} time={time} zoneLine={job.place.alias} provenance={provenance} accessibilityLabel={[job.title, job.reference, label, time, job.place.alias, provenance, ...job.crew.map(p => `${p.displayName}, ${crewLabel(p, job.siteZone)}`)].filter(Boolean).join(", ")} onPress={() => onNavigate(`/f/jobs/${job.jobId}`)} crew={{ audience: "foreman", people: job.crew.map(p => ({ id: p.membershipId, name: p.displayName, initials: p.displayName.split(/\s+/).map(x => x[0]).join("").slice(0,2), status: p.state === "dropped" ? "gap" : p.briefing === "hold" ? "hold" : p.state === "on_the_way" ? "onTheWay" : p.state === "on_site" || p.state === "working" ? "onSite" : "confirmed", statusLabel: crewLabel(p, job.siteZone) })) }} />; })}
       {!data.liveVisits.length && !data.laterVisits.length && <Copy>{t("mobile.foremanHome.quiet")}</Copy>}
       {!!data.needsYou.length && <><Copy variant="sectionTitle">{t("mobile.foremanHome.needsYou", { count: data.needsYouCount })}</Copy>{data.needsYou.map((item, i) => <NeedsYouCard key={`${item.jobId}-${i}`} label={item.reference} title={item.title ?? t("mobile.foremanHome.untitled")} description={item.action.at ? siteTime(format, item.action.at, item.siteZone) : undefined} action={{ label: t("mobile.foremanHome.open"), onPress: () => onNavigate(actionPath(item)) }} />)}</>}
+      {sessionsAvailable && <Card accessibilityLabel={t("mobile.sessionSetup.sessions")} onPress={() => onNavigate("/f/sessions")}><Copy>{t("mobile.sessionSetup.sessions")}</Copy></Card>}
       {data.laterVisits.map(job => <BookingCard key={job.jobId} title={job.title ?? t("mobile.foremanHome.untitled")} place={`${job.reference} · ${job.place.alias} · ${job.customerName}`} stage={stageLabel(t, job.journey.step, job.journey.cancelled)} next={job.nextVisit ? siteTime(format, job.nextVisit.window.startsAt, job.siteZone) : undefined} accessibilityLabel={[job.title ?? job.reference, job.place.alias, stageLabel(t, job.journey.step, job.journey.cancelled)].join(", ")} onPress={() => onNavigate(`/f/jobs/${job.jobId}`)} />)}
     </>}
   </Screen>;
