@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useState, useSyncExt
 import type { ReactNode } from "react";
 import { snapshotWindow } from "./cache";
 import type { CachedProjections, ProjectionKind } from "./cache";
-import type { Draft, DraftValue, NewOperation, OutboxEntry, ProjectionQuery, RepositoryTopic, Scope, ScopedRepository } from "./repository";
+import type { RemoteCacheKind } from "./remote-cache";
+import type { Draft, DraftKey, DraftValue, NewOperation, OutboxEntry, ProjectionQuery, RepositoryTopic, Scope, ScopedRepository } from "./repository";
 
 const RepositoryContext = createContext<ScopedRepository | null>(null);
 const empty: readonly never[] = [];
@@ -12,6 +13,12 @@ export function RepositoryProvider({ children, repository }: { children: ReactNo
 }
 
 export function useRepository(): ScopedRepository | null { return useContext(RepositoryContext); }
+
+export function useVisibilityGeneration(repo: ScopedRepository | null): number {
+  const subscribe = useCallback((listener: () => void) => repo?.subscribe("projection", listener) ?? (() => {}), [repo]);
+  const snapshot = useCallback(() => repo?.visibilityGeneration ?? 0, [repo]);
+  return useSyncExternalStore(subscribe, snapshot, snapshot);
+}
 
 function useRead<T>(topic: RepositoryTopic, read: (repo: ScopedRepository) => Promise<T>) {
   const repo = useRepository();
@@ -56,6 +63,13 @@ function useSnapshotVisible(expiresAt: number | undefined) {
   return expiresAt !== undefined && now >= expiresAt - snapshotWindow && now < expiresAt;
 }
 
+export function useCachedRead<Kind extends RemoteCacheKind>(kind: Kind | undefined, key: string | null) {
+  const cached = useRead("projection", useCallback((repo: ScopedRepository) => kind && key !== null
+    ? repo.getCachedRead(kind, key).catch(() => null)
+    : Promise.resolve(null), [kind, key]));
+  return useSnapshotVisible(cached?.expiresAt) ? cached : null;
+}
+
 export function useProjection<Kind extends ProjectionKind>(kind: Kind, id: string): CachedProjections[Kind] | null {
   const result = useRead("projection", useCallback((repo: ScopedRepository) => repo.getProjection(kind, id), [kind, id]));
   return useSnapshotVisible(result?.expiresAt) ? result?.data ?? null : null;
@@ -87,7 +101,19 @@ export function useOutbox(): { entries: readonly OutboxEntry[]; enqueueOperation
   return { entries, enqueueOperation };
 }
 
-export function useDraft<Value extends DraftValue = DraftValue>(key: string): {
+export function usePendingDrafts(kindOrAllRoles?: string | boolean): number | null {
+  return useRead("drafts", useCallback((repo: ScopedRepository) => repo.countPendingDrafts(kindOrAllRoles), [kindOrAllRoles]));
+}
+
+export function usePendingSends() {
+  return useRead("outbox", useCallback((repo: ScopedRepository) => repo.countPendingSends(), []));
+}
+
+export function useStagedMediaCount() {
+  return useRead("media", useCallback((repo: ScopedRepository) => repo.countStagedMedia(), []));
+}
+
+export function useDraft<Value extends DraftValue = DraftValue>(key: DraftKey): {
   draft: Draft<Value> | null; warn: boolean; save: (value: Value) => Promise<void>; remove: () => Promise<void>;
 } {
   const repo = useRepository();

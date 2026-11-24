@@ -13,6 +13,7 @@ function matches(row: RecordRow, where: object) {
     const value = row[column] ?? null;
     if (condition === null || typeof condition !== "object") return value === condition;
     if (condition.op === "in") return value !== null && condition.value.includes(value);
+    if (condition.op === "prefix") return typeof value === "string" && value.startsWith(condition.value);
     if (value === null || condition.value === null) return false;
     return condition.op === ">" ? compare(value, condition.value) > 0 : compare(value, condition.value) <= 0;
   });
@@ -35,6 +36,11 @@ function memoryRows(store: Store): Rows {
         return 0;
       });
       return (limit === undefined ? found : found.slice(0, limit)).map((row) => ({ ...row }) as Row);
+    },
+    async count(table, where) {
+      let total = 0;
+      for (const row of tableRows(table.name).values()) if (matches(row, where)) total++;
+      return total;
     },
     async put(table, row) {
       const record = row as RecordRow;

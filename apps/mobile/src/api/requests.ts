@@ -1,13 +1,18 @@
-import type { ApiResult } from "@bookbuddy/api-client";
+import type { ApiResult, RequestOptions } from "@bookbuddy/api-client";
 import type { AuthScope } from "@bookbuddy/api-contract";
 
 export type ApiError = Extract<ApiResult<never>, { ok: false }>["error"];
 export type RemoteStatus = "idle" | "loading" | "ready" | "error" | "offline";
 export type CommandStatus = "idle" | "sending" | "done" | "conflict" | "checking" | "failed";
-export type ReadSnapshot<Data> = { status: RemoteStatus; data: Data | null; error: ApiError | null };
+export type ReadSnapshot<Data> =
+  | { status: "ready"; data: Data; error: null; lastConfirmedAt: number }
+  | { status: "idle" | "loading" | "error"; data: null; error: ApiError | null; lastConfirmedAt: null }
+  | typeof offlineRead;
 export type CommandSnapshot<Data> = { state: CommandStatus; result: Data | null; error: ApiError | null };
-export const idleRead: ReadSnapshot<never> = { status: "idle", data: null, error: null };
-export const offlineRead: ReadSnapshot<never> = { status: "offline", data: null, error: null };
+export const idleRead = { status: "idle", data: null, error: null, lastConfirmedAt: null } as const;
+export const offlineRead = { status: "offline", data: null, error: null, lastConfirmedAt: null } as const;
+// Online again, but the prior authorization proof is no longer usable.
+const unconfirmedRead = { status: "error", data: null, error: null, lastConfirmedAt: null } as const;
 export const idleCommand: CommandSnapshot<never> = { state: "idle", result: null, error: null };
 export const invalidRequest = { ok: false, error: { code: "INVALID_INPUT", delivery: "not_sent" } } as const;
 export const requestNotSent = { ok: false, error: { code: "REQUEST_SETUP_FAILED", delivery: "not_sent" } } as const;
@@ -15,7 +20,23 @@ const requestUncertain = { ok: false, error: { code: "NETWORK_ERROR", delivery: 
 const readFreshFor = 30_000;
 const maxReadKeys = 32;
 
-type Call<Data> = () => Promise<ApiResult<Data>>;
+type Call<Data> = (signal: NonNullable<RequestOptions["signal"]>) => Promise<ApiResult<Data>>;
+
+export type ReadConnection = { readonly offline: boolean; readonly generation: number };
+export type ReadFence = ReadConnection & { readonly visibility?: number };
+export const initialReadConnection: ReadConnection = { offline: false, generation: 0 };
+
+export function observeReadConnection(previous: ReadConnection, { isConnected, isInternetReachable }: {
+  isConnected?: boolean; isInternetReachable?: boolean;
+}): ReadConnection {
+  const offline = isConnected === false || isInternetReachable === false;
+  if (offline === previous.offline || (!offline && isConnected !== true && isInternetReachable !== true)) return previous;
+  return { offline, generation: previous.generation + (offline ? 1 : 0) };
+}
+
+function sameReadGeneration(a: ReadFence, b: ReadFence) {
+  return a.generation === b.generation && a.visibility === b.visibility;
+}
 
 // Object identity has no wire meaning; array order and non-default values do.
 export function requestKey(input: unknown): string | null {
@@ -32,12 +53,17 @@ export function requestKey(input: unknown): string | null {
 export class RemoteRead<Data> {
   private snapshot: ReadSnapshot<Data> = idleRead;
   private confirmedAt: number | null = null;
-  private inFlight: Promise<void> | null = null;
+  private fence: ReadFence | null = null;
+  private inFlight: { fence: ReadFence; promise: Promise<void>; abort: AbortController } | null = null;
   private readonly listeners = new Set<() => void>();
 
   constructor(private readonly now = Date.now) {}
 
-  readonly getSnapshot = () => this.snapshot;
+  getSnapshot(fence: ReadFence): ReadSnapshot<Data> {
+    if (fence.offline) return offlineRead;
+    if (this.snapshot.status === "offline" || (this.fence && !sameReadGeneration(fence, this.fence))) return unconfirmedRead;
+    return this.snapshot;
+  }
   get stale() {
     if (this.confirmedAt === null || this.snapshot.status !== "ready") return false;
     const elapsed = this.now() - this.confirmedAt;
@@ -54,25 +80,41 @@ export class RemoteRead<Data> {
     for (const listener of this.listeners) listener();
   }
 
-  load(call: Call<Data>, { refresh = false, isOffline }: { refresh?: boolean; isOffline: () => boolean }): Promise<void> {
-    if (this.inFlight) return this.inFlight;
-    if (!refresh && this.snapshot.status === "ready" && !this.stale) return Promise.resolve();
-    if (isOffline()) {
+  load(call: Call<Data>, { refresh = false, getConnection }: { refresh?: boolean; getConnection: () => ReadFence }): Promise<void> {
+    const fence = getConnection();
+    if (this.inFlight && sameReadGeneration(this.inFlight.fence, fence)) return this.inFlight.promise;
+    if (fence.offline) {
+      this.confirmedAt = null;
       this.publish(offlineRead);
       return Promise.resolve();
     }
-    const flight = Promise.resolve().then(call).catch(() => requestUncertain).then((outcome) => {
-      this.inFlight = null;
-      if (outcome.ok) {
-        this.confirmedAt = this.now();
-        this.publish({ status: "ready", data: outcome.data, error: null });
-      } else {
-        this.confirmedAt = null;
-        this.publish({ status: isOffline() ? "offline" : "error", data: null, error: outcome.error });
-      }
-    });
-    this.inFlight = flight;
-    this.publish({ status: "loading", data: null, error: null });
+    if (!refresh && this.fence && sameReadGeneration(this.fence, fence) && this.snapshot.status === "ready" && !this.stale) return Promise.resolve();
+    this.inFlight?.abort.abort();
+    const abort = new AbortController();
+    const stillConnected = () => {
+      const current = getConnection();
+      return !current.offline && sameReadGeneration(current, fence);
+    };
+    const flight = Promise.resolve()
+      .then(() => stillConnected() ? call(abort.signal) : requestNotSent)
+      .catch(() => requestUncertain)
+      .then((outcome) => {
+        if (this.inFlight?.promise !== flight) return;
+        this.inFlight = null;
+        if (!stillConnected()) {
+          this.confirmedAt = null;
+          this.publish(offlineRead);
+        } else if (outcome.ok) {
+          this.confirmedAt = this.now();
+          this.publish({ status: "ready", data: outcome.data, error: null, lastConfirmedAt: outcome.meta.serverTime });
+        } else {
+          this.confirmedAt = null;
+          this.publish({ status: "error", data: null, error: outcome.error, lastConfirmedAt: null });
+        }
+      });
+    this.fence = fence;
+    this.inFlight = { fence, promise: flight, abort };
+    this.publish({ status: "loading", data: null, error: null, lastConfirmedAt: null });
     return flight;
   }
 }

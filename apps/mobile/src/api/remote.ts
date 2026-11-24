@@ -1,37 +1,59 @@
 import type { RequestSchema, ResponseSchema, RouteDefinition, RouteRequest, RouteResponse } from "@bookbuddy/api-contract";
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
-import { useRepository } from "../repository/hooks";
+import { useCachedRead, useRepository, useVisibilityGeneration } from "../repository/hooks";
+import { remoteReadKey } from "../repository/remote-cache";
+import type { CachedRead, RemoteCacheKind } from "../repository/remote-cache";
 import { useApiAccess } from "./provider";
 import { idleRead, invalidRequest, offlineRead, requestKey, requestNotSent } from "./requests";
 import type { ReadSnapshot } from "./requests";
 
-export type RemoteAccess<Data> = ReadSnapshot<Data> & { refresh: () => Promise<void> };
+export type RemoteAccess<Data, Cached = never> = (Exclude<ReadSnapshot<Data>, { status: "offline" }> | {
+  status: "offline"; data: Cached | null; error: null; lastConfirmedAt: number | null;
+}) & { refresh: () => Promise<void> };
 
-export function useRemote<Input extends RequestSchema, Output extends ResponseSchema>(
+export function useRemote<Input extends RequestSchema, Output extends ResponseSchema, Kind extends RemoteCacheKind = never>(
   route: RouteDefinition<Input, Output> & { method: "GET" },
   input: NoInfer<RouteRequest<Input>>,
-  { enabled = true }: { enabled?: boolean } = {},
-): RemoteAccess<RouteResponse<Output>> {
-  const { client, requests, offline, isOffline } = useApiAccess();
+  { enabled = true, cache }: { enabled?: boolean; cache?: { kind: Kind } } = {},
+): RemoteAccess<RouteResponse<Output>, CachedRead<Kind>> {
+  const { client, requests, connection, getConnection } = useApiAccess();
   const repo = useRepository();
-  const allowed = enabled && !!client && requests.allows(route.auth, repo);
-  const key = allowed ? requestKey(input) : null;
-  const entry = useMemo(() => key !== null ? requests.read<RouteResponse<Output>>(repo ?? requests, route, key) : null,
-    [requests, repo, route, key, client]);
+  const allowed = enabled && requests.allows(route.auth, repo);
+  const key = allowed && client ? requestKey(input) : null;
+  const kind = cache?.kind;
+  const cacheKey = useMemo(() => kind && key !== null ? remoteReadKey(kind, route, input) : null, [kind, route, key]);
+  const cached = useCachedRead(kind, allowed && connection.offline ? cacheKey : null);
+  const visibility = useVisibilityGeneration(repo);
+  const getFence = useCallback(() => ({ ...getConnection(), visibility: repo?.visibilityGeneration ?? 0 }), [getConnection, repo]);
+  const entry = useMemo(() => key !== null ? requests.read<RouteResponse<Output>>(repo ?? requests, route, `${kind ?? ""}:${key}`) : null,
+    [requests, repo, route, key, client, kind]);
   const subscribe = useCallback((listener: () => void) => entry?.subscribe(listener) ?? (() => {}), [entry]);
-  const snapshot = useCallback(() => entry?.getSnapshot() ?? idleRead, [entry]);
+  const snapshot = useCallback(() => entry?.getSnapshot({ ...connection, visibility }) ?? idleRead, [entry, connection, visibility]);
   const current = useSyncExternalStore(subscribe, snapshot, snapshot);
 
   const read = useCallback((refresh: boolean) => {
     if (!entry || !client || !requests.allows(route.auth, repo)) return Promise.resolve();
-    return entry.load(() => requests.allows(route.auth, repo)
-      ? client.request(route, input)
-      : Promise.resolve(requestNotSent), { refresh, isOffline });
+    return entry.load(async (signal) => {
+      if (!requests.allows(route.auth, repo)) return requestNotSent;
+      const started = getFence();
+      const result = await client.request(route, input, { signal });
+      const now = getFence();
+      if (repo && kind && cacheKey !== null && requests.allows(route.auth, repo) &&
+        !signal.aborted && now.generation === started.generation && now.visibility === started.visibility) {
+        if (result.ok) await repo.saveCachedRead(kind, cacheKey, result.data, result.meta.serverTime, started.visibility).catch(() => undefined);
+        else if (result.error.code === "NOT_FOUND" || result.error.code === "UNAUTHENTICATED") {
+          await repo.removeCachedRead(kind, cacheKey).catch(() => undefined);
+        }
+      }
+      return result;
+    }, { refresh, getConnection: getFence });
     // `entry` changes with the canonical input, not with a freshly allocated equivalent object.
-  }, [entry, client, requests, repo, route, isOffline]);
+  }, [entry, client, requests, repo, route, getFence, kind, cacheKey]);
   useEffect(() => { void read(false); }, [read]);
   const refresh = useCallback(() => read(true), [read]);
-  if (allowed && offline) return { ...offlineRead, refresh };
-  if (allowed && key === null) return { status: "error", data: null, error: invalidRequest.error, refresh };
+  if (allowed && connection.offline) {
+    return { ...offlineRead, data: cached?.data ?? null, lastConfirmedAt: cached?.confirmedAt ?? null, refresh };
+  }
+  if (allowed && client && key === null) return { status: "error", data: null, error: invalidRequest.error, lastConfirmedAt: null, refresh };
   return { ...current, refresh };
 }

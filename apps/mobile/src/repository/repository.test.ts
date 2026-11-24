@@ -1,5 +1,7 @@
+import { getHomeRoute, getJobRoute, notificationsRoute } from "@bookbuddy/api-contract";
 import { expect, test } from "bun:test";
 import { draftExpiresAfter, draftWarnAfter, snapshotWindow } from "./cache";
+import { remoteReadKey } from "./remote-cache";
 import { accountId, context, notification, page, testRepository } from "./sqlite.test-kit";
 
 const read = { kind: "notification_read_mark", payload: { ids: ["notice"] } } as const;
@@ -31,13 +33,13 @@ test("applies individual removals and whole-scope barriers before same-page upse
       removals: [{ kind: "notification", resourceId: "replace" }], upserts: [notification("replace", 950)],
     }), 955);
     expect((await repository.getProjection("notification", "replace"))?.data.readAt).toBe(950);
-    await repository.saveDraft("authored", { text: "Keep me" });
+    await repository.saveDraft("request:authored", { text: "Keep me" });
     const operationId = await repository.enqueueOperation(operation());
     await repository.applySyncPage(page("after", { mode: "reset",
       removals: [{ kind: "scope", resourceId: context.contextId }], upserts: [notification("replace", 975)],
     }), 995);
     expect(await repository.listProjections("notification")).toMatchObject({ data: [{ id: "replace", readAt: 975 }] });
-    expect(await repository.getDraft("authored")).not.toBeNull();
+    expect(await repository.getDraft("request:authored")).not.toBeNull();
     expect(await repository.listOutbox()).toMatchObject([{ operation: { operationId } }]);
   } finally { database.close(); }
 });
@@ -76,8 +78,8 @@ test("stores only the allowlisted fields, with independent account and context p
     expect(await other.getProjection("notification", "notice")).toBeNull();
     await mobile.saveLocalePreferences(accountId, { uiLocale: "pt-PT", readingLocale: null });
     expect(await mobile.getLocalePreferences("other-account")).toBeNull();
-    await repository.saveDraft("expiring", true);
-    expect(await repository.getDraft("expiring")).toMatchObject({ warnAt: clock.now + draftWarnAfter, expiresAt: clock.now + draftExpiresAfter });
+    await repository.saveDraft("request:expiring", true);
+    expect(await repository.getDraft("request:expiring")).toMatchObject({ warnAt: clock.now + draftWarnAfter, expiresAt: clock.now + draftExpiresAfter });
     clock.now += snapshotWindow;
     expect(await repository.getProjection("notification", "notice")).toBeNull();
     clock.now += draftExpiresAfter - snapshotWindow;
@@ -98,5 +100,87 @@ test("a known scope denial hides cached values even if the purge rolls back", as
     await expect(repository.recordSyncFailure([], true)).rejects.toThrow("failed purge");
     expect(await repository.getProjection("notification", "notice")).toBeNull();
     expect(await repository.getLastConfirmed()).toBeNull();
+  } finally { database.close(); }
+});
+
+test("stores only allowlisted GET fields and rejects a detail route as a cache source", async () => {
+  const { database, repository } = await testRepository();
+  try {
+    const input = { query: { placeId: "place1", address: "drop-address" } };
+    expect(remoteReadKey("home", getJobRoute, input)).toBeNull();
+    const key = remoteReadKey("home", getHomeRoute, input)!;
+    expect(key).not.toContain("drop-address");
+    await repository.saveCachedRead("home", key, { audience: "customer", unreadCount: 1,
+      place: { placeId: "place1", alias: "drop-address", siteZone: "Europe/Lisbon" },
+      upcoming: [], liveVisits: [], recent: [], decisions: [],
+      paymentInstructions: "drop-iban", receivedMedia: [{ url: "drop-media" }],
+    }, 990, repository.visibilityGeneration);
+    expect(await repository.getCachedRead("home", key)).toMatchObject({
+      confirmedAt: 990, data: { audience: "customer", place: { placeId: "place1", siteZone: "Europe/Lisbon" } },
+    });
+    const saved = database.query<{ value: string }, []>("SELECT value FROM projection").get()!.value;
+    expect(saved).not.toContain("drop-");
+    expect(saved).not.toContain("alias");
+  } finally { database.close(); }
+});
+
+test("cached GET expiry and scope barriers cannot be bypassed by late old replies", async () => {
+  const { database, repository, mobile, clock } = await testRepository();
+  try {
+    const key = remoteReadKey("notification", notificationsRoute, { query: { contextId: context.contextId } })!;
+    const value = { items: [{ id: "note", kind: "offer", createdAt: 980, readAt: null, linkToken: null }],
+      page: { cursor: null, hasMore: false } };
+    const initial = repository.visibilityGeneration;
+    await repository.saveCachedRead("notification", key, value, 990, initial);
+    expect(await mobile.openScope({ accountId, contextId: "different" }).getCachedRead("notification", key)).toBeNull();
+    expect(await repository.getCachedRead("notification", key)).toMatchObject({ confirmedAt: 990,
+      data: { items: [{ id: "note", kind: "offer", createdAt: 980, readAt: null }] } });
+    clock.now += snapshotWindow;
+    await repository.applySyncPage(page("fresh-sync"), clock.now);
+    expect(await repository.getCachedRead("notification", key)).toBeNull();
+    await repository.applySyncPage(page("reset", { mode: "reset", removals: [{ kind: "scope", resourceId: context.contextId }],
+      upserts: [notification("safe", null)] }), clock.now);
+    await repository.saveCachedRead("notification", key, value, clock.now, initial);
+    expect(database.query("SELECT * FROM projection WHERE kind = 'read:notification'").all()).toHaveLength(0);
+    await repository.saveCachedRead("notification", key, value, clock.now, repository.visibilityGeneration);
+    expect(await repository.getCachedRead("notification", key)).not.toBeNull();
+    await repository.recordSyncFailure([], true);
+    expect(await repository.getCachedRead("notification", key)).toBeNull();
+  } finally { database.close(); }
+});
+
+test("draft counts filter by exact kind and by scope while account totals remain available", async () => {
+  const { database, repository, mobile } = await testRepository();
+  try {
+    const sameAccount = mobile.openScope({ accountId, contextId: "other-role" });
+    await repository.saveDraft("request:new", { step: "place" });
+    await repository.saveDraft("request_revision:edit", true);
+    await sameAccount.saveDraft("request:other", true);
+    expect(await repository.countPendingDrafts("request")).toBe(1);
+    expect(await repository.countPendingDrafts()).toBe(2);
+    expect(await repository.countPendingDrafts(true)).toBe(3);
+    expect((await repository.getDraft("request:new"))?.value).toEqual({ step: "place" });
+  } finally { database.close(); }
+});
+
+test("bootstrap restores identity and role labels without retaining a credential and wipes with its account", async () => {
+  const { database, mobile } = await testRepository();
+  try {
+    const bootstrap = {
+      sessionId: "session", expiresAt: 100_000, setup: "complete", account: { id: accountId, email: "test@example.test", displayName: "Test Profile" },
+      preferences: { uiLocale: "pt-PT", readingLocale: null, revision: 2, theme: "system", fieldMode: null, twoClock: false },
+      activeContext: { contextId: "staff", role: "foreman", businessId: "business", businessName: "Test Provider" },
+      contexts: [{ contextId: "staff", role: "foreman", businessId: "business", businessName: "Test Provider" }],
+      credential: "discard-me",
+    } as const;
+    await mobile.saveSessionBootstrap(bootstrap);
+    const restored = await mobile.getSessionBootstrap(accountId);
+    expect(restored?.account.displayName).toBe("Test Profile");
+    expect(restored?.activeContext?.businessName).toBe("Test Provider");
+    expect(restored?.preferences.uiLocale).toBe("pt-PT");
+    expect(await mobile.getSessionBootstrap("another-account")).toBeNull();
+    expect(database.query<{ value: string }, []>("SELECT value FROM local_settings").get()!.value).not.toContain("discard-me");
+    await mobile.wipeAccount(accountId, async () => { throw new Error("No staged files to remove"); });
+    expect(await mobile.getSessionBootstrap(accountId)).toBeNull();
   } finally { database.close(); }
 });

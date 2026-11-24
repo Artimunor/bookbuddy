@@ -12,12 +12,16 @@ function predicate<Row>(where: Partial<Row>, bindings: SqlValue[]): string {
   const conditions = Object.entries(where).map(([column, condition]) => {
     if (condition === null) return `${column} IS NULL`;
     if (typeof condition === "object") {
-      const { op, value } = condition as { op: ">" | "<=" | "in"; value: SqlValue | SqlValue[] };
+      const { op, value } = condition as { op: ">" | "<=" | "in" | "prefix"; value: SqlValue | SqlValue[] };
       if (op === "in") {
         const values = value as SqlValue[];
         if (values.length === 0) return "0";
         bindings.push(...values);
         return `${column} IN (${values.map(() => "?").join(", ")})`;
+      }
+      if (op === "prefix") {
+        bindings.push(value as string, value as string);
+        return `substr(${column}, 1, length(?)) = ?`;
       }
       bindings.push(value as SqlValue);
       return `${column} ${op} ?`;
@@ -36,6 +40,11 @@ export async function createSqliteExecutor(connection: SqliteConnection): Promis
       const filter = predicate(where, bindings);
       if (limit !== undefined) bindings.push(limit);
       return connection.all(`SELECT * FROM ${table.name} WHERE ${filter}${order ? ` ORDER BY ${order.join(", ")}` : ""}${limit !== undefined ? " LIMIT ?" : ""}`, bindings);
+    },
+    async count(table, where) {
+      const values: SqlValue[] = [];
+      const [row] = await connection.all<{ count: number }>(`SELECT COUNT(*) AS count FROM ${table.name} WHERE ${predicate(where, values)}`, values);
+      return row?.count ?? 0;
     },
     put(table, row) {
       const columns = Object.keys(row);

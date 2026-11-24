@@ -1,8 +1,10 @@
-import { accountSettingsSchema, errorBodySchema, operationIdSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
+import { accountSettingsSchema, errorBodySchema, operationIdSchema, sessionBootstrapSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
 import type { ErrorBody, LocalePreferences, OperationId, SessionBootstrap, SyncOp, SyncPage } from "@bookbuddy/api-contract";
 import { cacheableValue, draftExpiresAfter, draftWarnAfter, snapshotWindow } from "./cache";
 import type { CachedProjections, ProjectionKind } from "./cache";
 import type { Executor, Rows } from "./executor";
+import { cacheRemoteResponse, decodeRemoteSnapshot } from "./remote-cache";
+import type { CachedRead, RemoteCacheKind } from "./remote-cache";
 import { drafts, localSettings, outbox, pendingOnlineReceipts, projection, stagedMedia, syncState } from "./schema";
 import type { OutboxStatus } from "./schema";
 
@@ -12,6 +14,8 @@ const devicePreferencesSchema = accountSettingsSchema.omit({ revision: true }).p
 export type DevicePreferences = LocalePreferences & Partial<Pick<SessionBootstrap["preferences"], "theme" | "fieldMode" | "twoClock">>;
 
 export type Scope = { accountId: string; contextId: string };
+export type DraftKey = `${string}:${string}`;
+const draftKeyPattern = /^[a-z][a-z0-9_-]*:[A-Za-z0-9_-]+$/;
 export type DraftValue = null | boolean | number | string | DraftValue[] | { [key: string]: DraftValue };
 export type Draft<Value extends DraftValue = DraftValue> = { value: Value; updatedAt: number; warnAt: number; expiresAt: number };
 export type ProjectionQuery = { afterId?: string; limit?: number };
@@ -31,6 +35,7 @@ export interface StagedMedia {
 }
 export interface OnlineReceipt { operationId: string; kind: string; resourceId: string; createdAt: number }
 export interface Confirmation { confirmedAt: number; expiresAt: number }
+export type CachedRemoteSnapshot<Kind extends RemoteCacheKind> = Confirmation & { data: CachedRead<Kind> };
 export interface SyncBatch {
   cursor: string | null;
   operations: SyncOp[];
@@ -60,6 +65,20 @@ export class MobileRepository {
     }));
   }
 
+  async getSessionBootstrap(accountId: string): Promise<SessionBootstrap | null> {
+    const [row] = await this.db.read((db) => db.select(localSettings, { account_id: accountId, key: "bootstrap" }));
+    const cached = row && sessionBootstrapSchema.safeParse(JSON.parse(row.value));
+    return cached?.success && cached.data.account.id === accountId ? cached.data : null;
+  }
+
+  async saveSessionBootstrap(bootstrap: SessionBootstrap): Promise<SessionBootstrap> {
+    const cached = sessionBootstrapSchema.parse(bootstrap);
+    await this.db.transaction((db) => db.put(localSettings, {
+      account_id: cached.account.id, key: "bootstrap", value: JSON.stringify(cached),
+    }));
+    return cached;
+  }
+
   async wipeAccount(accountId: string, eraseFiles: (uris: readonly string[]) => Promise<void>): Promise<void> {
     const account = { account_id: accountId };
     await this.db.transaction(async (db) => {
@@ -79,6 +98,7 @@ export class MobileRepository {
 export class ScopedRepository {
   private active = true;
   private snapshotHidden = false;
+  private visibility = 0;
   private readonly events = new Map<RepositoryTopic, RepositoryEvent>();
   private readonly partition: { account_id: string; context_id: string };
 
@@ -87,6 +107,7 @@ export class ScopedRepository {
   }
 
   get isActive() { return this.active; }
+  get visibilityGeneration() { return this.visibility; }
 
   private event(topic: RepositoryTopic): RepositoryEvent {
     let event = this.events.get(topic);
@@ -156,7 +177,39 @@ export class ScopedRepository {
     });
   }
 
-  getDraft<Value extends DraftValue = DraftValue>(key: string): Promise<Draft<Value> | null> {
+  getCachedRead<Kind extends RemoteCacheKind>(kind: Kind, id: string): Promise<CachedRemoteSnapshot<Kind> | null> {
+    return this.db.read(async (db) => {
+      if (!this.active || this.snapshotHidden) return null;
+      const generation = this.visibility;
+      const [row] = await db.select(projection, { ...this.partition, kind: `read:${kind}`, id });
+      if (!row || !this.active || this.snapshotHidden || generation !== this.visibility) return null;
+      const saved = JSON.parse(row.value) as { data: unknown; authorizedAt: number; confirmedAt: number };
+      const now = this.now();
+      const expiresAt = saved.authorizedAt + snapshotWindow;
+      return Number.isSafeInteger(saved.confirmedAt) && Number.isSafeInteger(saved.authorizedAt) && now >= saved.authorizedAt && now < expiresAt
+        ? { data: decodeRemoteSnapshot(kind, saved.data), confirmedAt: saved.confirmedAt, expiresAt } : null;
+    });
+  }
+
+  async saveCachedRead(kind: RemoteCacheKind, id: string, value: unknown, confirmedAt: number, generation: number) {
+    if (!this.active || this.snapshotHidden || generation !== this.visibility) return;
+    const data = cacheRemoteResponse(kind, value);
+    if (!data) return;
+    const saved = JSON.stringify({ data, confirmedAt, authorizedAt: this.now() });
+    await this.write(async (db) => {
+      if (!this.snapshotHidden && generation === this.visibility) {
+        await db.put(projection, { ...this.partition, kind: `read:${kind}`, id, value: saved });
+      }
+    });
+    this.notify("projection");
+  }
+
+  async removeCachedRead(kind: RemoteCacheKind, id: string) {
+    await this.write((db) => db.remove(projection, { ...this.partition, kind: `read:${kind}`, id }));
+    this.notify("projection");
+  }
+
+  getDraft<Value extends DraftValue = DraftValue>(key: DraftKey): Promise<Draft<Value> | null> {
     return this.db.read(async (db) => {
       const [row] = await db.select(drafts, { ...this.partition, key });
       if (!this.active || !row || this.now() >= row.updated_at + draftExpiresAfter) return null;
@@ -164,7 +217,41 @@ export class ScopedRepository {
     });
   }
 
-  async saveDraft(key: string, value: DraftValue) {
+  countPendingDrafts(kindOrAllRoles?: string | boolean): Promise<number> {
+    return this.db.read(async (db) => {
+      if (!this.active) return 0;
+      const kind = typeof kindOrAllRoles === "string" ? kindOrAllRoles : null;
+      const partition = kindOrAllRoles === true ? { account_id: this.scope.accountId } : this.partition;
+      const count = await db.count(drafts, { ...partition, updated_at: { op: ">", value: this.now() - draftExpiresAfter },
+        ...(kind !== null && { key: { op: "prefix", value: `${kind}:` } }) });
+      return this.active ? count : 0;
+    });
+  }
+
+  countPendingSends(): Promise<{ waiting: number; checking: number }> {
+    return this.db.read(async (db) => {
+      const counts = { waiting: 0, checking: 0 };
+      if (!this.active) return counts;
+      const rows = await db.select(outbox, { account_id: this.scope.accountId });
+      if (!this.active) return counts;
+      for (const row of rows) {
+        if (row.status === "checking") counts.checking += 1;
+        else counts.waiting += 1;
+      }
+      return counts;
+    });
+  }
+
+  countStagedMedia(): Promise<number> {
+    return this.db.read(async (db) => {
+      if (!this.active) return 0;
+      const rows = await db.select(stagedMedia, { account_id: this.scope.accountId });
+      return this.active ? rows.length : 0;
+    });
+  }
+
+  async saveDraft(key: DraftKey, value: DraftValue) {
+    if (!draftKeyPattern.test(key)) throw new Error("Draft keys use kind:id");
     const where = { ...this.partition, key };
     const text = JSON.stringify(value);
     const changed = await this.write(async (db) => {
@@ -176,7 +263,7 @@ export class ScopedRepository {
     if (changed) this.notify("drafts");
   }
 
-  async removeDraft(key: string) {
+  async removeDraft(key: DraftKey) {
     await this.write((db) => db.remove(drafts, { ...this.partition, key }));
     this.notify("drafts");
   }
@@ -243,8 +330,9 @@ export class ScopedRepository {
   async recordSyncFailure(newlyChecking: readonly OperationId[], hideSnapshot: boolean) {
     if (!newlyChecking.length && !hideSnapshot) return;
     // A known denial must hide the old snapshot even when the disk write fails.
-    if (hideSnapshot && !this.snapshotHidden) {
+    if (hideSnapshot) {
       this.snapshotHidden = true;
+      this.visibility++;
       this.notify("projection");
     }
     await this.write(async (db) => {
@@ -263,8 +351,9 @@ export class ScopedRepository {
     if (page.context.contextId !== this.scope.contextId) throw new Error("Wrong sync scope");
     const barrier = page.removals.some((row) => row.kind === "scope");
     if (page.removals.some((row) => row.kind === "scope" && row.resourceId !== this.scope.contextId)) throw new Error("Wrong scope removal");
-    if (barrier && !this.snapshotHidden) {
+    if (barrier) {
       this.snapshotHidden = true;
+      this.visibility++;
       this.notify("projection");
     }
     // A signed revocation is an empty, terminal reset; do not renew visibility.

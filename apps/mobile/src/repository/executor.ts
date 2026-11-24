@@ -8,20 +8,21 @@ export interface Table<Row extends Record<keyof Row, SqlValue>> {
 }
 
 export type Where<Row> = Partial<{ [K in keyof Row]: Row[K] | {
-  op: ">" | "<=" | "in";
+  op: ">" | "<=" | "in" | "prefix";
   value: Row[K] | readonly Row[K][];
 } }>;
 export type Select<Row> = { order?: readonly Column<Row>[]; limit?: number };
 
 export interface Rows {
   select<Row extends Record<keyof Row, SqlValue>>(table: Table<Row>, where: Where<NoInfer<Row>>, options?: Select<NoInfer<Row>>): Promise<Row[]>;
+  count<Row extends Record<keyof Row, SqlValue>>(table: Table<Row>, where: Where<NoInfer<Row>>): Promise<number>;
   put<Row extends Record<keyof Row, SqlValue>>(table: Table<Row>, row: NoInfer<Row>): Promise<void>;
   update<Row extends Record<keyof Row, SqlValue>>(table: Table<Row>, where: Where<NoInfer<Row>>, patch: Partial<NoInfer<Row>>): Promise<void>;
   remove<Row extends Record<keyof Row, SqlValue>>(table: Table<Row>, where: Where<NoInfer<Row>>): Promise<void>;
 }
 
 export interface Executor {
-  read<T>(work: (rows: Pick<Rows, "select">) => Promise<T>): Promise<T>;
+  read<T>(work: (rows: Pick<Rows, "select" | "count">) => Promise<T>): Promise<T>;
   transaction<T>(work: (rows: Rows) => Promise<T>): Promise<T>;
 }
 

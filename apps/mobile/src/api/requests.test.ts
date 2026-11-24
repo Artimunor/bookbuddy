@@ -1,6 +1,6 @@
 import type { ApiResult } from "@bookbuddy/api-client";
 import { expect, test } from "bun:test";
-import { CommandIntents, RemoteRead, RequestBook, commandSnapshot, requestKey, requestNotSent } from "./requests";
+import { CommandIntents, RemoteRead, RequestBook, commandSnapshot, initialReadConnection, observeReadConnection, requestKey, requestNotSent } from "./requests";
 
 const success = (data: string): ApiResult<string> => ({ ok: true, data, meta: { requestId: "request", serverTime: 100 } });
 
@@ -13,34 +13,55 @@ test("a read shares one flight and reuses a fresh result until explicitly refres
     calls++;
     return calls === 1 ? held.promise : success(`value-${calls}`);
   };
-  const isOffline = () => false;
-  const first = read.load(send, { isOffline });
-  expect(read.getSnapshot().status).toBe("loading");
-  expect(read.load(send, { isOffline })).toBe(first);
+  const getConnection = () => initialReadConnection;
+  const first = read.load(send, { getConnection });
+  expect(read.getSnapshot(getConnection()).status).toBe("loading");
+  expect(read.load(send, { getConnection })).toBe(first);
   held.resolve(success("first"));
   await first;
-  await read.load(send, { isOffline });
+  await read.load(send, { getConnection });
   expect(calls).toBe(1);
-  expect(read.getSnapshot()).toEqual({ status: "ready", data: "first", error: null });
-  await read.load(send, { isOffline, refresh: true });
+  expect(read.getSnapshot(getConnection())).toEqual({ status: "ready", data: "first", error: null, lastConfirmedAt: 100 });
+  await read.load(send, { getConnection, refresh: true });
   expect(calls).toBe(2);
   now += 30_000;
-  await read.load(send, { isOffline });
-  expect(read.getSnapshot().data).toBe("value-3");
+  await read.load(send, { getConnection });
+  expect(read.getSnapshot(getConnection()).data).toBe("value-3");
 });
 
-test("offline start and reconnect never make an implicit request", async () => {
-  let offline = true;
+test("a fast disconnect and reconnect hides a fresh ready result without requesting again", async () => {
+  let connection = initialReadConnection;
   let calls = 0;
   const read = new RemoteRead<string>();
-  const send = async () => { calls++; return success("connected"); };
-  const isOffline = () => offline;
-  await read.load(send, { isOffline });
-  expect(read.getSnapshot()).toMatchObject({ status: "offline", data: null });
-  offline = false;
-  expect(calls).toBe(0);
-  await read.load(send, { isOffline, refresh: true });
+  const send = async () => success(`value-${++calls}`);
+  const getConnection = () => connection;
+  await read.load(send, { getConnection });
+  connection = observeReadConnection(connection, { isConnected: false });
+  expect(read.getSnapshot(connection)).toMatchObject({ status: "offline", data: null });
+  connection = observeReadConnection(connection, { isConnected: true });
+  expect(read.getSnapshot(connection)).toMatchObject({ status: "error", data: null });
   expect(calls).toBe(1);
+  await read.load(send, { getConnection, refresh: true });
+  expect(read.getSnapshot(connection)).toMatchObject({ status: "ready", data: "value-2" });
+});
+
+test("an old grant response cannot overwrite a new flight after disconnect or visibility change", async () => {
+  let connection = initialReadConnection;
+  let visibility = 2;
+  const read = new RemoteRead<string>();
+  const stale = Promise.withResolvers<ApiResult<string>>();
+  const announced = Promise.withResolvers<void>();
+  const getConnection = () => ({ ...connection, visibility });
+  const first = read.load(() => { announced.resolve(); return stale.promise; }, { getConnection });
+  await announced.promise;
+  connection = observeReadConnection(connection, { isInternetReachable: false });
+  connection = observeReadConnection(connection, { isInternetReachable: true });
+  await read.load(() => Promise.resolve(success("new grant")), { getConnection, refresh: true });
+  stale.resolve(success("old private projection"));
+  await first;
+  expect(read.getSnapshot(getConnection()).data).toBe("new grant");
+  visibility++;
+  expect(read.getSnapshot(getConnection())).toMatchObject({ status: "error", data: null });
 });
 
 test("equivalent inputs share a root result only for the same route and active scope", () => {

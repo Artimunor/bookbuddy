@@ -50,7 +50,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const repo = useRef<MobileRepository | null>(null);
   const activeScope = useRef<ScopedRepository | null>(null);
   const current = useRef<Extract<StoredSession, { state: "active" }> | null>(null);
-  const currentPreferences = useRef<DevicePreferences | null>(null);
   const ending = useRef<DeviceSession["accountId"] | null>(null);
   const liveClient = useRef(client);
   useEffect(() => { liveClient.current = client; }, [client]);
@@ -80,7 +79,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
     }
     current.current = record;
-    currentPreferences.current = preferences;
     bindSession(record?.credential ?? null, preferences?.uiLocale ?? null);
     setState({ status: "ready", session: next, preferences, bootstrap });
   }, [bindSession, closeScope]);
@@ -99,8 +97,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         await sessionStorage.remove();
         ending.current = null;
       } else if (stored && stored.session.expiresAt > Date.now()) {
-        const preferences = await db.getLocalePreferences(stored.session.accountId);
-        if (live) adopt(stored, preferences, null);
+        const { accountId, sessionId, activeContext, expiresAt, setup } = stored.session;
+        const cached = await db.getSessionBootstrap(accountId);
+        const bootstrap = cached?.sessionId === sessionId && cached.expiresAt === expiresAt && cached.setup === setup
+          && cached.activeContext?.contextId === activeContext?.contextId ? cached : null;
+        const preferences = bootstrap?.preferences ?? await db.getLocalePreferences(accountId);
+        if (live) adopt(stored, preferences, bootstrap);
         return;
       } else if (stored) await sessionStorage.remove();
       if (live) adopt(null, null, null);
@@ -132,22 +134,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const acceptBootstrap = useCallback((bootstrap: SessionBootstrap, credential?: string) => schedule(async () => {
     if (!repo.current || ending.current) throw new Error("Local session storage is unavailable");
-    const { account, activeContext, sessionId, setup, expiresAt, preferences } = bootstrap;
+    const { account, activeContext, sessionId, setup, expiresAt } = bootstrap;
     const previous = current.current;
     if (previous && previous.session.accountId !== account.id) throw new Error("Sign out before changing accounts");
     const token = credential ?? (previous?.session.sessionId === sessionId ? previous.credential : undefined);
     if (!token || !authTokenPattern.test(token) || expiresAt <= Date.now()) throw new Error("A valid native session credential is required");
     const session = deviceSessionSchema.parse({ accountId: account.id, sessionId, setup, expiresAt, activeContext });
     const record: Extract<StoredSession, { state: "active" }> = { state: "active", credential: token, session };
-    const { revision: _revision, ...devicePreferences } = preferences;
-    const prior = currentPreferences.current;
-    if (prior?.uiLocale !== preferences.uiLocale || prior?.readingLocale !== preferences.readingLocale
-      || prior?.theme !== preferences.theme || prior?.fieldMode !== preferences.fieldMode || prior?.twoClock !== preferences.twoClock) {
-      await repo.current.saveLocalePreferences(account.id, devicePreferences);
-    }
+    const cached = await repo.current.saveSessionBootstrap(bootstrap);
     const encoded = JSON.stringify(record);
     if (encoded !== JSON.stringify(previous)) await sessionStorage.save(encoded);
-    adopt(record, devicePreferences, bootstrap);
+    adopt(record, cached.preferences, cached);
   }), [adopt, schedule]);
 
   const signOut = useCallback(() => schedule(async () => {
