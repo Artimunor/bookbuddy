@@ -17,7 +17,7 @@ const exampleEnd = Date.UTC(2026, 10, 24, 9);
 // These are reading preferences, not permissions to machine-translate a pair. No pair is reviewed at launch yet.
 const readingTags = ["en", "es", "de", "ro", "ar", "pt-PT"] as const;
 
-type Draft = { name: string; readingLocale: string | null; twoClock: boolean };
+type Draft = { name: string; readingLocale: string | null; twoClock: boolean; shareDisplayZone: boolean };
 type Status = "offline" | "failed" | "checking" | "local-update";
 
 export default function SetupScreen() {
@@ -65,6 +65,7 @@ function SetupForm({ session }: { session: SessionBootstrap }) {
   const [draft, setDraft] = useState<Draft>(() => ({
     name: session.account.displayName ?? "", readingLocale: session.preferences.readingLocale,
     twoClock: session.preferences.twoClock || (clock.kind === "available" && clock.viewerTime !== null),
+    shareDisplayZone: session.preferences.shareDisplayZone,
   }));
   const [status, setStatus] = useState<Status>();
   const [busy, setBusy] = useState(false);
@@ -82,7 +83,7 @@ function SetupForm({ session }: { session: SessionBootstrap }) {
         if (!auth) { setStatus("failed"); return; }
         const submission = command.current ?? {
           operationId: uuid.v4(), expectedRevision: session.preferences.revision,
-          payload: { displayName: name, readingLocale: draft.readingLocale, twoClock: draft.twoClock,
+          payload: { displayName: name, readingLocale: draft.readingLocale, twoClock: draft.twoClock, shareDisplayZone: draft.shareDisplayZone,
             displayZone: draft.twoClock ? viewerZone ?? null : null,
             ...(session.preferences.uiLocale === null && explicitChoice ? { uiLocale: explicitChoice } : {}) },
         };
@@ -173,6 +174,9 @@ export function SetupView({ email, viewerZone, draft, onChange, busy, status, re
         <View style={{ padding: space.grid[3], borderRadius: radius.input, backgroundColor: color.subtle }}>
           <TwoClock siteTime={siteLine} siteZone={clock.kind === "available" ? format.zoneLabel(siteZone, clock.site) : ""} viewerLine={viewerLine} />
         </View>
+        <SwitchRow label={t("mobile.display.shareZone")} description={t("mobile.display.shareZoneHint")}
+          value={draft.shareDisplayZone} disabled={disableEditing}
+          onValueChange={(shareDisplayZone) => onChange({ ...draft, shareDisplayZone })} />
       </Card>
       <Copy variant="supporting" style={mute}>{t("mobile.auth.setup.permissions")}</Copy>
       {status && status !== "offline" && <StatusBanner state="not-sent"

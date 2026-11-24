@@ -10,7 +10,7 @@ import { localSettings, projection, requestReconciliations, syncState } from "./
 const accountId = "account";
 const bootstrap = sessionBootstrapSchema.parse({
   sessionId: "session", expiresAt: 2_000, setup: "complete", account: { id: accountId, email: "private@example.test", displayName: "Casey" },
-  preferences: { uiLocale: "pt-PT", readingLocale: "de", displayZone: "Europe/Lisbon", revision: 6, theme: "dark", fieldMode: null, twoClock: true },
+  preferences: { uiLocale: "pt-PT", readingLocale: "de", displayZone: "Europe/Lisbon", revision: 6, theme: "dark", fieldMode: null, twoClock: true, shareDisplayZone: true },
   activeContext: { contextId: "staff", role: "worker", businessId: "private-business", businessName: "Test Provider", membershipId: "private-membership" },
   contexts: [{ contextId: "customer", role: "customer", businessId: null }], capabilities: { sessions: { businessId: "private-business" } },
   revocationProof: `r1.${"Q".repeat(42)}A`,
@@ -31,7 +31,7 @@ test("offline bootstrap persists only allowlisted fields and expires independent
   const projected = projectOfflineBootstrap(bootstrap, now)!;
   expect(projected).toEqual({ sessionId: "session", authorizedAt: 1_000, account: { displayName: "Casey" },
     activeContext: { contextId: "staff", role: "worker", businessName: "Test Provider" },
-    preferences: { uiLocale: "pt-PT", readingLocale: "de", displayZone: "Europe/Lisbon", theme: "dark", fieldMode: null, twoClock: true } });
+    preferences: { uiLocale: "pt-PT", readingLocale: "de", displayZone: "Europe/Lisbon", theme: "dark", fieldMode: null, twoClock: true, shareDisplayZone: true } });
   await mobile.saveOfflineBootstrap(accountId, projected);
   const [row] = await disk.read((db) => db.select(localSettings, { account_id: accountId }));
   expect(JSON.parse(row!.value)).toEqual(projected);
@@ -44,6 +44,17 @@ test("offline bootstrap persists only allowlisted fields and expires independent
   expect(await mobile.getOfflineBootstrap(accountId, "session", "staff")).toEqual(projected);
   now++;
   expect(await mobile.getOfflineBootstrap(accountId, "session", "staff")).toBeNull();
+});
+
+test("legacy cached display preferences do not opt the account into sharing", async () => {
+  const disk = createMemoryExecutor();
+  const mobile = new MobileRepository(disk, () => "id", () => 1_000, erase, true);
+  const projected = projectOfflineBootstrap(bootstrap, 1_000)!;
+  await mobile.saveOfflineBootstrap(accountId, projected);
+  const [row] = await disk.read((db) => db.select(localSettings, { account_id: accountId }));
+  const { shareDisplayZone: _, ...legacy } = projected.preferences;
+  await disk.transaction((db) => db.put(localSettings, { ...row!, value: JSON.stringify({ ...projected, preferences: legacy }) }));
+  expect((await mobile.getOfflineBootstrap(accountId, "session", "staff"))?.preferences).toEqual({ ...legacy, shareDisplayZone: false });
 });
 
 test("customer job projections stay volatile; eligible staff projections and authored work persist", async () => {

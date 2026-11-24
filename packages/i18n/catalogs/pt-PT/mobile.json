@@ -773,6 +773,8 @@
   "mobile.display.romanian": "Română",
   "mobile.display.saving": "A guardar na sua conta…",
   "mobile.display.section": "Visualização",
+  "mobile.display.shareZone": "Partilhar o meu fuso horário com a equipa do prestador",
+  "mobile.display.shareZoneHint": "Se mostrar as duas horas, a equipa do seu serviço também pode ver as horas no seu fuso horário. A sua localização não é partilhada.",
   "mobile.display.spanish": "Español",
   "mobile.display.system": "Sistema",
   "mobile.display.title": "Idioma e visualização",

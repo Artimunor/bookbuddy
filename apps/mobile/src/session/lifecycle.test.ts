@@ -13,7 +13,7 @@ const bootstrap = sessionBootstrapSchema.parse({
   account: { id: accountId, email: "person@example.test", displayName: "Worker" },
   activeContext: { contextId: "staff", role: "worker", businessId: "business", businessName: "Provider", membershipId: "member" },
   contexts: [],
-  preferences: { uiLocale: "pt-PT", readingLocale: "en", displayZone: "Europe/Lisbon", revision: 1, theme: "dark", fieldMode: null, twoClock: true },
+  preferences: { uiLocale: "pt-PT", readingLocale: "en", displayZone: "Europe/Lisbon", revision: 1, theme: "dark", fieldMode: null, twoClock: true, shareDisplayZone: false },
 });
 const cached = projectOfflineBootstrap(bootstrap, 1_000)!;
 const record: ActiveSession = { state: "active", requiresUnlock: true, credential: "A".repeat(43), proof: `r1.${"Q".repeat(42)}A`,

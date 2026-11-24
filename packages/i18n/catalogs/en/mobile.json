@@ -773,6 +773,8 @@
   "mobile.display.romanian": "Română",
   "mobile.display.saving": "Saving to your account…",
   "mobile.display.section": "Display",
+  "mobile.display.shareZone": "Share my time zone with my provider’s crew",
+  "mobile.display.shareZoneHint": "If you show both clocks, the crew on your job can also see times in your time zone. This doesn't share your location.",
   "mobile.display.spanish": "Español",
   "mobile.display.system": "System",
   "mobile.display.title": "Language and display",

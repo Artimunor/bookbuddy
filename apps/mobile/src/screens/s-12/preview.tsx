@@ -8,7 +8,7 @@ import type { DisplaySettings } from "./preferences";
 function Fixture({ signedIn = true, pending, originals }: { signedIn?: boolean; pending?: boolean; originals?: boolean }) {
   const { chooseLocale } = useLocale();
   const { scheme, field } = useBeaconTheme();
-  const [settings, setSettings] = useState<DisplaySettings>({ readingLocale: originals ? null : "en", theme: "system", fieldMode: field, twoClock: true });
+  const [settings, setSettings] = useState<DisplaySettings>({ readingLocale: originals ? null : "en", theme: "system", fieldMode: field, twoClock: true, shareDisplayZone: false });
   return <BeaconThemeProvider scheme={settings.theme === "system" ? scheme : settings.theme} field={settings.fieldMode}>
     <DisplayView name="Claire Martin" signedIn={signedIn} viewerZone="Europe/London" settings={settings}
       status={pending ? "pending" : undefined} settingsDisabled={pending} onBack={() => {}}

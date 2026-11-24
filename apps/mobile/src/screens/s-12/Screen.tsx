@@ -103,6 +103,9 @@ export function DisplayView({ signedIn, name, settings, viewerZone, status, sett
         <SwitchRow label={t("mobile.auth.setup.twoClocks")} description={t("mobile.display.clocksHint")}
           value={settings.twoClock} disabled={settingsDisabled} onValueChange={(twoClock) => onSetting({ twoClock })} />
         <ClockExample twoClock={settings.twoClock} zone={viewerZone} />
+        <SwitchRow label={t("mobile.display.shareZone")} description={t("mobile.display.shareZoneHint")}
+          value={settings.shareDisplayZone} disabled={settingsDisabled}
+          onValueChange={(shareDisplayZone) => onSetting({ shareDisplayZone })} />
         <SwitchRow label={t("mobile.display.field")} description={t("mobile.display.fieldHint")}
           value={settings.fieldMode} disabled={settingsDisabled} onValueChange={(fieldMode) => onSetting({ fieldMode })} />
         <ListRow label={appearanceTitle} description={t("mobile.display.appearanceHint")}

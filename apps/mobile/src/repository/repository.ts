@@ -20,7 +20,7 @@ import { attendanceReceipts, drafts, localSettings, mediaCancellations, mediaTra
 import { requestReconciliations } from "./schema";
 import type { OutboxStatus, ProgressReceiptState } from "./schema";
 
-export type DevicePreferences = LocalePreferences & Partial<Pick<SessionBootstrap["preferences"], "theme" | "fieldMode" | "twoClock">>;
+export type DevicePreferences = LocalePreferences & Partial<Pick<SessionBootstrap["preferences"], "theme" | "fieldMode" | "twoClock" | "shareDisplayZone">>;
 
 export type Scope = { accountId: string; contextId: string };
 export type PendingWork = { drafts: number; waiting: number; checking: number; media: number };

@@ -8,7 +8,10 @@ export const offlineBootstrapSchema = sessionBootstrapSchema.pick({ sessionId: t
   authorizedAt: sessionBootstrapSchema.shape.expiresAt,
   account: sessionBootstrapSchema.shape.account.pick({ displayName: true }),
   activeContext: contextSummarySchema,
-  preferences: sessionBootstrapSchema.shape.preferences.omit({ revision: true }),
+  preferences: sessionBootstrapSchema.shape.preferences.omit({ revision: true }).extend({
+    // Legacy cached records predate this separate boolean preference.
+    shareDisplayZone: sessionBootstrapSchema.shape.preferences.shape.twoClock.default(false),
+  }),
 });
 export interface OfflineBootstrap {
   sessionId: SessionBootstrap["sessionId"];
@@ -26,11 +29,11 @@ export function projectOfflineBootstrap(bootstrap: SessionBootstrap, authorizedA
   const { sessionId, account, activeContext, preferences } = bootstrap;
   if (!activeContext) return null;
   const { contextId, role, businessName } = activeContext;
-  const { uiLocale, readingLocale, displayZone, theme, fieldMode, twoClock } = preferences;
+  const { uiLocale, readingLocale, displayZone, theme, fieldMode, twoClock, shareDisplayZone } = preferences;
   // Construct the allowlist instead of persisting or casting a server bootstrap.
   return { sessionId, authorizedAt, account: { displayName: account.displayName },
     activeContext: { contextId, role, ...(businessName === undefined ? {} : { businessName }) },
-    preferences: { uiLocale, readingLocale, displayZone, theme, fieldMode, twoClock } };
+    preferences: { uiLocale, readingLocale, displayZone, theme, fieldMode, twoClock, shareDisplayZone } };
 }
 
 export function offlineBootstrapIsFresh({ authorizedAt }: OfflineBootstrap, now: number): boolean {

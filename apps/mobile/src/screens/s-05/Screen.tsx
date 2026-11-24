@@ -21,6 +21,7 @@ import { isolated, roleLabel, roleRoots } from "../s-06/account";
 import { SignOutSheet } from "../s-06/SignOutSheet";
 import { confirmAction } from "../s-17/confirmAction";
 import { OfferView } from "../w-03/Screen";
+import { shiftLinkDestination } from "./shift-link";
 
 type Pending = Extract<InvitationOpening, { status: "pending" }>;
 type Accepted = Extract<InvitationOpening, { status: "accepted" }>;
@@ -62,10 +63,8 @@ function destination(link: Destination, role: string | undefined, seed: ReturnTy
       return { pathname: "/p/jobs", params: { jobId } } as Href;
     }
     case "shift": {
-      if (role !== link.shift.view) return help();
-      const shiftId = link.shift.shift.id;
-      seed(getShiftRoute, { params: { s: shiftId } }, link.shift, at);
-      return { pathname: role === "worker" ? "/w/shifts/[shiftId]" : "/f/shifts/[shiftId]", params: { shiftId } } as Href;
+      if (role === "foreman" && link.shift.view === "foreman") seed(getShiftRoute, { params: { s: link.shift.shift.id } }, link.shift, at);
+      return shiftLinkDestination(link.shift);
     }
     case "thread": return { pathname: "/threads/[threadId]", params: { threadId: link.threadId } } as Href;
     case "completion": {

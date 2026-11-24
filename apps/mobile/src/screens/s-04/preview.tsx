@@ -3,7 +3,7 @@ import type { ScreenPreview } from "../../preview/screens/types";
 import { SetupView } from "./Screen";
 
 function Fixture({ status, busy, twoClock = true }: Pick<ComponentProps<typeof SetupView>, "status" | "busy"> & { twoClock?: boolean }) {
-  const [draft, setDraft] = useState<ComponentProps<typeof SetupView>["draft"]>({ name: "Claire Martin", readingLocale: "en", twoClock });
+  const [draft, setDraft] = useState<ComponentProps<typeof SetupView>["draft"]>({ name: "Claire Martin", readingLocale: "en", twoClock, shareDisplayZone: false });
   return <SetupView status={status} busy={busy} draft={draft} email="claire@example.com"
     viewerZone="Europe/London" onChange={setDraft} onSave={() => {}} />;
 }

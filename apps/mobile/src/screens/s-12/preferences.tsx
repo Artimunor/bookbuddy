@@ -9,7 +9,7 @@ import { useRepository } from "../../repository/hooks";
 import { useSession } from "../../session";
 import { BeaconThemeProvider, type BeaconAppearance } from "../../ui/theme";
 
-export type DisplaySettings = { readingLocale: string | null; twoClock: boolean; fieldMode: boolean; theme: BeaconAppearance };
+export type DisplaySettings = { readingLocale: string | null; twoClock: boolean; shareDisplayZone: boolean; fieldMode: boolean; theme: BeaconAppearance };
 type DisplayPatch = Partial<DisplaySettings>;
 type Phase = "saving" | "checking" | "unsaved" | "local";
 type SaveIntent = { sessionId: string; operationId: string; expectedRevision: number; patch: AccountSettingsPatch; confirmed?: SessionBootstrap };
@@ -38,6 +38,7 @@ export function DisplaySettingsProvider({ children }: { children: ReactNode }) {
   const settings: DisplaySettings = {
     readingLocale: pending?.readingLocale === undefined ? preferences?.readingLocale ?? null : pending.readingLocale,
     twoClock: pending?.twoClock ?? preferences?.twoClock ?? false,
+    shareDisplayZone: pending?.shareDisplayZone ?? preferences?.shareDisplayZone ?? false,
     fieldMode: pending?.fieldMode ?? preferences?.fieldMode ?? (session?.activeContext?.role === "worker"),
     theme: pending?.theme ?? preferences?.theme ?? "system",
   };
