@@ -15,15 +15,17 @@ export async function hashSessionCredential(credential: string): Promise<string>
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+const liveStaffGrant = `g.id = c.role_grant_id AND g.role = c.role AND g.revoked_at IS NULL
+    AND m.account_id = c.account_id AND m.business_id = c.business_id
+    AND m.state = 'active' AND b.state = 'approved'`;
+
 // Only pick the account's current, live staff roles. Resource authority must
 // still be checked by the calling statement; a context is not a grant.
 export const liveContextPredicate = `(c.role = 'customer' OR EXISTS (
   SELECT 1 FROM membership_roles g
   JOIN memberships m ON m.id = g.membership_id
   JOIN businesses b ON b.id = m.business_id
-  WHERE g.id = c.role_grant_id AND g.role = c.role AND g.revoked_at IS NULL
-    AND m.account_id = c.account_id AND m.business_id = c.business_id
-    AND m.state = 'active' AND b.state = 'approved'
+  WHERE ${liveStaffGrant}
 ))`;
 
 export interface SessionAccess extends CommandStatement {
@@ -80,9 +82,12 @@ export function sessionProjection(prefix: CommandStatement): CommandStatement {
              a.display_name, a.setup_at, p.ui_locale, p.reading_locale, p.theme, p.field_mode, p.two_clock, p.revision,
              (SELECT json_group_array(json(choice)) FROM (
                SELECT json_patch(json_object('contextId', c.id, 'role', c.role, 'businessId', c.business_id),
-                                 json_object('businessName', business.public_name)) AS choice
-               FROM account_contexts c LEFT JOIN businesses business ON business.id = c.business_id
-               WHERE c.account_id = a.id AND ${liveContextPredicate} ${contextOrder}
+                                 json_object('businessName', b.public_name, 'membershipId', g.membership_id)) AS choice
+               FROM account_contexts c
+               LEFT JOIN membership_roles g ON g.id = c.role_grant_id
+               LEFT JOIN memberships m ON m.id = g.membership_id
+               LEFT JOIN businesses b ON b.id = m.business_id
+               WHERE c.account_id = a.id AND (c.role = 'customer' OR (${liveStaffGrant})) ${contextOrder}
              )) AS contexts
       FROM acting_session s JOIN accounts a ON a.id = s.account_id
       JOIN account_preferences p ON p.account_id = a.id`,
