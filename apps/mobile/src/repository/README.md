@@ -1,0 +1,7 @@
+# Mobile offline data
+
+SQLite accepts exactly one server projection kind today: `notification`, registered by Transport. It persists the notification's `id`, `kind`, `createdAt` and `readAt`. It discards the destination `linkToken`, ignores unknown kinds and strips any extra fields. Residential and access details, bills, received media, payment instructions and unrestricted history are not cacheable. Add a kind here and in `cache.ts` only after the server explicitly designates its offline fields.
+
+Only the active account and context can read their snapshot, for up to 72 hours from the last authorized sync. A scope removal clears the snapshot before any replacement rows are written. Authored drafts, stable operation IDs and staged outgoing media metadata are separate from the snapshot. Drafts warn at 11 idle days and expire at 14. Online-only operations have receipt keys, not executable payloads, and are never replayed by sync.
+
+Native uses a device-only SecureStore key and SQLCipher. The iOS config plugin excludes `BookBuddyOffline` from backups before the repository opens; this requires a native build, not Expo Go. Stage outgoing files under `stagedMediaDirectory()` so sign-out can remove them alongside all partitions for the account. The React Native Web gallery uses a preview-only in-memory executor; it does not keep a database between page loads or use the deployment's API URL.

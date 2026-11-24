@@ -24,7 +24,7 @@ export type ClientError =
   | { code: "INVALID_RESPONSE"; delivery: "unknown"; status: number };
 
 export type ApiResult<T> = Result<T> | { ok: false; error: ClientError; meta?: never };
-export type RequestOptions = { signal?: AbortSignal };
+export type RequestOptions = { signal?: NonNullable<RequestInit["signal"]> };
 
 export interface ApiClient {
   request<Input extends RequestSchema, Output extends ResponseSchema>(
@@ -105,7 +105,7 @@ export function createApiClient({ baseUrl, getSession, getLocale, fetch: transpo
       return { ok: false, error: { code: "INVALID_INPUT", delivery: "not_sent" } };
     }
 
-    let credentials: RequestCredentials = "same-origin";
+    let credentials: RequestInit["credentials"] = "same-origin";
     try {
       const locale = localeTagSchema.parse(getLocale());
       headers["Accept-Language"] = locale;
