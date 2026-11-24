@@ -594,8 +594,10 @@ export class ScopedRepository {
       }
       for (const row of page.upserts) {
         const workerOnly = row.kind === "worker_field_shift" || row.kind === "assignment_briefing";
-        if (!workerOnly && row.kind !== "notification") continue;
-        const value = !workerOnly || page.context.role === "worker" ? cacheableValue(row) : null;
+        const booking = row.kind === "session_booking";
+        if (!workerOnly && !booking && row.kind !== "notification") continue;
+        const allowed = workerOnly ? page.context.role === "worker" : !booking || page.context.role === "customer";
+        const value = allowed ? cacheableValue(row) : null;
         const key = { ...this.partition, kind: row.kind, id: row.resourceId };
         if (value) await db.put(projection, { ...key, value: JSON.stringify(value) });
         else await db.remove(projection, key);
