@@ -57,7 +57,7 @@ const hasPacket = `EXISTS (SELECT 1 FROM case_events e WHERE e.case_id = pc.id A
   AND e.audience = pc.provider_audience AND e.at <= ${at})`;
 
 // Upload parents are currently writable records, not untrusted future IDs. New
-// request/completion/report drafts use an existing place/job and their own stage ID.
+// request, completion, case and commercial drafts use a place/job and their own stage ID.
 const writePolicy = {
   request: (id: string) => `EXISTS (SELECT 1 FROM places p JOIN place_people person ON person.place_id = p.id
     AND person.account_id = scope.account_id AND ${currentPerson("person")}
@@ -79,13 +79,12 @@ const writePolicy = {
       AND (${caseReporter} OR ${caseOwner} OR (${caseGrant} AND ${hasPacket}))) OR (
       NOT EXISTS (SELECT 1 FROM problem_cases WHERE id = ${id}) AND EXISTS (SELECT 1 FROM ${job} j
         WHERE j.id = ${id} AND j.state <> 'cancelled' AND ${mayReport})))`,
-  quote: (id: string) => commercialDraft("quote", id),
-  change: (id: string) => commercialDraft("change", id),
+  quote: commercialDraft,
+  change: commercialDraft,
 } satisfies Record<MediaCaller, (id: string) => string>;
 
-function commercialDraft(kind: "quote" | "change", id: string) {
-  return `EXISTS (SELECT 1 FROM ${models[kind].versions} v JOIN ${job} j ON j.id = v.job_id
-    WHERE v.id = ${id} AND ${jobOpen()} AND v.state = 'draft' AND v.author_id = scope.account_id AND ${commercialForeman("scope")})`;
+function commercialDraft(id: string) {
+  return `EXISTS (SELECT 1 FROM ${job} j WHERE j.id = ${id} AND ${jobOpen()} AND ${commercialForeman("scope")})`;
 }
 
 export function uploadAllowed(parent: string, caller?: MediaCaller) {

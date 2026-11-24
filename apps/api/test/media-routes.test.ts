@@ -326,3 +326,26 @@ test("a missing PUT spends no result batch on settle and can be recovered only f
   f.r2.put(grant);
   expect((await f.call("/recover", body, 2, ["head"])).json).toMatchObject({ data: { files: [{ state: "ready" }] } });
 }));
+
+test("commercial evidence can be staged and settled against the accountable job before a version exists", () => withFixture(async (f) => {
+  await f.db.batch([
+    f.db.prepare("INSERT INTO memberships (id, business_id, account_id, state) VALUES ('member', 'provider', 'visitor', 'active')"),
+    f.db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at)
+      VALUES ('foreman-role', 'member', 'provider', 'visitor', 'foreman', 1)`),
+    f.db.prepare(`INSERT INTO account_contexts (id, account_id, role, business_id, role_grant_id)
+      VALUES ('foreman-context', 'visitor', 'foreman', 'provider', 'foreman-role')`),
+    f.db.prepare("UPDATE sessions SET active_context_id = 'foreman-context' WHERE id = 'visitor-session'"),
+    f.db.prepare("UPDATE jobs SET accountable_foreman_membership_id = 'member' WHERE id = 'job'"),
+  ]);
+  for (const caller of ["quote", "change"] as const) {
+    const id = `${caller}-photo`;
+    const body = { stageId: `${caller}-draft`, scope: { caller, parentScopeId: "job" }, files: [attachment(id)] };
+    expect((await f.call("/grants", body, 1)).status).toBe(404);
+    expect((await f.call("/grants", { ...body, scope: { caller, parentScopeId: "other-job" } }, 1, [], "visitor")).status).toBe(404);
+    const result = grantResult.parse((await f.call("/grants", body, 1, [], "visitor")).json);
+    if (!result.ok || result.data.grants[0]?.state !== "uploading" || result.data.grants[0].grant.kind !== "single") throw new Error("Missing commercial grant");
+    f.r2.put(result.data.grants[0].grant);
+    const settled = await f.call("/settle", { stageId: body.stageId, files: [settling(id)] }, 2, ["head"], "visitor");
+    expect(settled.json).toMatchObject({ data: { acknowledgements: [{ attachmentId: id, state: "ready" }] } });
+  }
+}));
