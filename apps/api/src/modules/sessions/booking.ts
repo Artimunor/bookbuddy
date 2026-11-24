@@ -123,7 +123,7 @@ function bookingJson(now: string, projection: "detail" | "sync"): string {
       json_object('status', CASE WHEN b.state = 'booked' AND s.state = 'paused' THEN 'arranging' ELSE 'unconfirmed' END, 'nextUpdateAt', NULL))),
     'coordinatorName', (SELECT ${displayName("coordinator")} FROM memberships team JOIN accounts coordinator ON coordinator.id = team.account_id
       WHERE team.id = s.coordinator_membership_id AND team.state = 'active' AND coordinator.state = 'active'),
-    'threadId', (SELECT thread.id FROM session_threads thread WHERE thread.booking_id = b.id AND thread.audience = 'session'),
+    'threadId', b.thread_id,
     'proposal', json(${proposalJson(now)}),
     'cancellation', json((SELECT json_object('at', b.cancelled_at, 'byName', ${displayName("actor")}) FROM accounts actor
       WHERE actor.id = b.cancelled_by_id)),

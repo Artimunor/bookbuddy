@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import {
-  appendThreadEntriesRoute, getThreadEntriesRoute, getThreadRoute, listThreadsRoute, markThreadReadRoute,
+  appendThreadEntriesRoute, getSessionBookingRoute, getThreadEntriesRoute, getThreadRoute, listThreadsRoute, markThreadReadRoute,
   openLinkRoute, operationIdHeader, reportTranslationRoute, requestTranslationRoute, syncRoute,
 } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
@@ -379,5 +379,76 @@ test("chat append atomically creates recipient-scoped notices, reuses links, and
     });
     await runEffectBatch(f.env, f.wakes[1]!, Date.now(), expo);
     expect(delivered).toHaveLength(1);
+  } finally { f.db.close(); }
+});
+
+test("session chat opens lazily for the exact booking, fences flags and hosts, and sends scoped links", async () => {
+  const f = await fixture();
+  try {
+    const now = Date.now();
+    const start = now + 60 * 60_000;
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO venues (id,business_id,area_id,site_zone,name,locality,address,access_note,arrival_note,state,approved_at)
+        VALUES ('studio','chat-business','chat-area','Europe/Madrid','Studio','Coast','Exact studio address','Step-free','Reception','approved',1)`),
+      f.db.prepare("INSERT INTO session_listings (id,business_id,category) VALUES ('session-listing','chat-business','pilates')"),
+      f.db.prepare(`INSERT INTO session_listing_versions (id,listing_id,business_id,no,venue_id,title,description,original_locale,
+        language,format,duration_ms,price_minor,currency,price_basis,terms_text,terms_locale,terms_hash,cancellation_notice_ms,created_by_id,created_at)
+        VALUES ('session-version','session-listing','chat-business',1,'studio','Mat Pilates','Small group class','en','en','group',2700000,
+          1600,'EUR','per_person','Pay in person','en','session-terms',0,'foreman',1)`),
+      f.db.prepare(`INSERT INTO session_slots (id,listing_id,listing_version_id,business_id,starts_at,ends_at,capacity,hosts_required,
+        coordinator_membership_id,state,updated_at)
+        VALUES ('session-slot','session-listing','session-version','chat-business',?,?,2,1,'foreman-member','published',1)`).bind(start, start + 2700000),
+      f.db.prepare(`INSERT INTO session_host_assignments (id,slot_id,business_id,membership_id,position,role_label,language,state,changed_at,changed_by_id,confirmed_at)
+        VALUES ('session-host','session-slot','chat-business','worker-member',1,'Instructor','en','confirmed',1,'foreman',1)`),
+      ...["customer", "viewer"].flatMap((booker, index) => [
+        f.db.prepare(`INSERT INTO session_holds (id,slot_id,listing_id,listing_version_id,terms_hash,booker_id,places,held_at,expires_at,state)
+          VALUES (?,'session-slot','session-listing','session-version','session-terms',?,1,?,?,'held')`)
+          .bind(`${booker}-hold`, booker, now - 3000, start),
+        f.db.prepare(`INSERT INTO session_bookings (id,reference,booker_id,listing_id,original_hold_id,original_slot_id,original_listing_version_id,
+          original_terms_hash,slot_id,listing_version_id,terms_hash,places,state,booked_at)
+          VALUES (?,?,?,'session-listing',?,'session-slot','session-version','session-terms',
+          'session-slot','session-version','session-terms',1,'booked',?)`)
+          .bind(`${booker}-booking`, `BB-SESSION${index}`, booker, `${booker}-hold`, now - 2000),
+      ]),
+      f.db.prepare("INSERT INTO feature_flags VALUES ('sessions','chat-area:pilates',1,1)"),
+    ]);
+    const booking = data(getSessionBookingRoute.output, await f.request("/session-bookings/customer-booking", "customer"));
+    const threadId = booking.threadId;
+    const otherThread = data(getSessionBookingRoute.output, await f.request("/session-bookings/viewer-booking", "viewer")).threadId;
+    expect(threadId).toMatch(/^session-[a-f0-9]{32}$/);
+    expect(otherThread).not.toBe(threadId);
+    expect(await f.request(entries(threadId), "viewer")).toMatchObject({ status: 404, body: noAccess });
+    await f.db.prepare("UPDATE feature_flags SET enabled=0 WHERE key='sessions'").run();
+    expect(await f.request(entries(threadId), "customer")).toMatchObject({ status: 404, body: noAccess });
+    expect(await f.db.prepare("SELECT count(*) AS total FROM chat_threads WHERE audience='session'").first("total")).toBe(0);
+    await f.db.prepare("UPDATE feature_flags SET enabled=1 WHERE key='sessions'").run();
+
+    const initial = data(getThreadEntriesRoute.output, await f.request(entries(threadId), "customer"));
+    expect(initial).toMatchObject({ audience: "session", entries: [], stamps: [], thread: { id: threadId, canSend: true,
+      session: { id: "customer-booking", title: "Mat Pilates", siteZone: "Europe/Madrid" } } });
+    expect(initial.thread?.members.find((member) => member.isContact)?.displayName).toBe("Mateo Ruiz");
+    expect(await f.db.prepare("SELECT job_id, session_booking_id FROM chat_threads WHERE id=?").bind(threadId).first())
+      .toEqual({ job_id: null, session_booking_id: "customer-booking" });
+    const providerView = data(getThreadRoute.output, await f.request(details(threadId), "admin"));
+    expect(providerView.members.map(({ role }) => role).sort()).toEqual(["customer", "foreman", "provider_admin", "worker"]);
+    expect(JSON.stringify(providerView)).not.toMatch(/Vera Lou|Exact studio address/);
+    const sent = data(appendThreadEntriesRoute.output, await f.request(entries(threadId), "worker",
+      { operations: [entry("session-entry", "We have a mat ready for you")] }));
+    expect(sent.outcomes).toMatchObject([{ status: "committed", receipt: { id: "session-entry", position: 1 } }]);
+    const opened = data(getThreadEntriesRoute.output, await f.request(entries(threadId), "customer"));
+    expect(opened.entries[0]).toMatchObject({ originalText: "We have a mat ready for you", preferredTranslation: { state: "pending" } });
+    expect(data(listThreadsRoute.output, await f.request("/threads", "foreman")).threads)
+      .toContainEqual(expect.objectContaining({ id: threadId, audience: "session" }));
+    const token = await f.db.prepare("SELECT link_token FROM notifications WHERE context_id='customer-ctx' AND event_key='chat_message:session-entry'")
+      .first<string>("link_token");
+    expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "customer"))).toEqual({ kind: "thread", threadId, audience: "session" });
+    expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "viewer"))).toMatchObject({ kind: "unavailable" });
+
+    await f.db.prepare("UPDATE session_host_assignments SET state='released' WHERE id='session-host'").run();
+    expect(await f.request(entries(threadId), "worker")).toMatchObject({ status: 404, body: noAccess });
+    await f.db.prepare("UPDATE feature_flags SET enabled=0 WHERE key='sessions'").run();
+    expect(await f.request(entries(threadId), "customer", { operations: [entry("flag-disabled-message", "Hello")] }))
+      .toMatchObject({ status: 404, body: noAccess });
+    expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "customer"))).toMatchObject({ kind: "unavailable" });
   } finally { f.db.close(); }
 });

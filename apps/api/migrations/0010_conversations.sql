@@ -1,14 +1,21 @@
 CREATE TABLE chat_threads (
   id TEXT PRIMARY KEY NOT NULL,
-  job_id TEXT NOT NULL REFERENCES jobs (id),
-  audience TEXT NOT NULL CONSTRAINT chat_threads_audience CHECK (audience IN ('job', 'crew')),
+  job_id TEXT REFERENCES jobs (id),
+  -- The greenfield session schema creates this referenced table in 0012,
+  -- before the API or seed inserts chat threads.
+  session_booking_id TEXT REFERENCES session_bookings (id),
+  audience TEXT NOT NULL CONSTRAINT chat_threads_audience CHECK (audience IN ('job', 'crew', 'session')),
   write_state TEXT NOT NULL CONSTRAINT chat_threads_write_state CHECK (write_state IN ('open', 'read_only')),
   last_position INTEGER NOT NULL DEFAULT 0 CONSTRAINT chat_threads_last_position CHECK (typeof(last_position) = 'integer' AND last_position >= 0),
-  UNIQUE (job_id, audience)
+  CONSTRAINT chat_threads_parent CHECK (
+    (audience = 'session' AND session_booking_id IS NOT NULL AND job_id IS NULL)
+    OR (audience IN ('job', 'crew') AND job_id IS NOT NULL AND session_booking_id IS NULL)),
+  UNIQUE (job_id, audience),
+  UNIQUE (session_booking_id)
 );
 
 -- visible_from is the first position the context may read, inclusive. A row is
--- not authority on its own: commands and projections recheck the live job grant.
+-- not authority on its own: commands and projections recheck the live audience.
 CREATE TABLE chat_members (
   thread_id TEXT NOT NULL REFERENCES chat_threads (id),
   context_id TEXT NOT NULL REFERENCES account_contexts (id),

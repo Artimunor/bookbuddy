@@ -19,8 +19,9 @@ import {
   appendReceipts, planChatAppend, planChatReadMark, planTranslationReport, planTranslationRetry, readMarkResult, withChatValue,
 } from "./commands";
 import type { CommandValue } from "./commands";
-import { chatScope, ensureChatMember, ensureInboxThreads, threadPageFilter } from "./policy";
+import { chatScope, ensureChatMember, ensureInboxThreads, sessionThreadProvision, threadPageFilter } from "./policy";
 import { entryCursor, inboxCursor, readThread, readThreadEntries, readThreadList } from "./read";
+import { isSessionThread } from "./session";
 
 export const chatRoutes = new Hono<ApiEnv>();
 type ValueRow = { value: string | null };
@@ -39,7 +40,7 @@ chatRoutes.get(listThreadsRoute.path, async (c) => {
   if (!session) return transportFailure(c, "UNAUTHENTICATED");
   const scoped = chatScope(session, ctx.now, threadPageFilter(after));
   const statements = [ensureInboxThreads(session, ctx.now, after), ensureChatMember(scoped, {
-    sql: `id IN (SELECT id FROM chat_scope ORDER BY job_id, audience LIMIT ${syncLimits.changes})`,
+    sql: `id IN (SELECT id FROM chat_scope ORDER BY coalesce(job_id, session_booking_id), audience LIMIT ${syncLimits.changes})`,
   }), readThreadList(session, ctx.now, after, enabledTranslationPairs(c.env))];
   const [, , page] = await ctx.binding.batch<ValueRow>(statements.map(({ sql, params }) => ctx.binding.prepare(sql).bind(...params ?? [])));
   const row = page?.results[0];
@@ -48,7 +49,7 @@ chatRoutes.get(listThreadsRoute.path, async (c) => {
   return transportSuccess(c, listThreadsRoute.output.parse(JSON.parse(row.value)), ctx.now);
 });
 
-function get<Input>(route: Definition<Input>, plan: (session: SessionAccess, now: number, input: Input,
+function get<Input extends { params: { id: string } }>(route: Definition<Input>, plan: (session: SessionAccess, now: number, input: Input,
   pairs: readonly LanguagePair[]) => CommandStatement | null) {
   chatRoutes.get(route.path, async (c) => {
     const input = route.input.safeParse({ params: c.req.param(), ...(route.path === getThreadEntriesRoute.path ? { query: c.req.query() } : {}) });
@@ -58,7 +59,11 @@ function get<Input>(route: Definition<Input>, plan: (session: SessionAccess, now
     if (!session) return transportFailure(c, "UNAUTHENTICATED");
     const statement = plan(session, ctx.now, input.data, enabledTranslationPairs(c.env));
     if (!statement) return transportFailure(c, "VALIDATION_FAILED");
-    const row = await ctx.binding.prepare(statement.sql).bind(...statement.params ?? []).first<ValueRow>();
+    const query = ctx.binding.prepare(statement.sql).bind(...statement.params ?? []);
+    const provision = sessionThreadProvision(session, ctx.now, input.data.params.id);
+    const row = provision ? (await ctx.binding.batch<ValueRow>([
+      ctx.binding.prepare(provision.sql).bind(...provision.params ?? []), query,
+    ]))[1]?.results[0] : await query.first<ValueRow>();
     if (!row) return transportFailure(c, "UNAUTHENTICATED");
     if (row.value === null) return transportFailure(c, "NOT_FOUND");
     return transportSuccess(c, route.output.parse(JSON.parse(row.value)), ctx.now);
@@ -105,6 +110,9 @@ chatRoutes.post(appendThreadEntriesRoute.path, async (c) => {
   });
   if (outcomes.every((outcome) => outcome.status === "rejected" && outcome.error.code === "UNAUTHENTICATED")) {
     return transportFailure(c, "UNAUTHENTICATED");
+  }
+  if (isSessionThread(id) && outcomes.every((outcome) => outcome.status === "rejected" && outcome.error.code === "NOT_FOUND")) {
+    return transportFailure(c, "NOT_FOUND");
   }
   scheduleOperationSignals(c, signals);
   return transportSuccess(c, appendThreadEntriesRoute.output.parse({ outcomes }), ctx.now);

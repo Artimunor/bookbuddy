@@ -122,7 +122,8 @@ async function fixture() {
       db.prepare(`INSERT INTO visit_windows (id,visit_id,starts_at,ends_at,expires_at,provider_authorized,proposed_at,proposed_by,
         confirmed_at,confirmed_by,state) VALUES ('window','visit',?,?,?,1,1,'foreman',2,'customer','confirmed')`)
         .bind(now - 60_000, now + 60_000, now - 120_000),
-      db.prepare(`INSERT INTO chat_threads VALUES ('thread','job','job','open',18),('crew','job','crew','open',0)`),
+      db.prepare(`INSERT INTO chat_threads (id,job_id,audience,write_state,last_position)
+        VALUES ('thread','job','job','open',18),('crew','job','crew','open',0)`),
       db.prepare(`INSERT INTO chat_members VALUES ('thread','customer-scope',1,1,NULL),('thread','foreman-scope',1,1,NULL)`),
       ...Array.from({ length: 18 }, (_, index) => {
         const position = index + 1, id = `message-${position}`;

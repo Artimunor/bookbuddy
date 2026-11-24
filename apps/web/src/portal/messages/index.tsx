@@ -10,7 +10,7 @@ import { usePendingOperation } from "../session/pending-operation";
 type MessageOperation = { operationId: string; payload: { id: string; sourceLanguage: string; originalText: string } };
 export function Messages() { const scope = useScopeKey(); return <MessagesPage key={scope} />; }
 function MessagesPage() {
-  const { api, t, time } = useCloseout(); const [threads, setThreads] = useState<ThreadSummary[] | null>(null); const [cursor, setCursor] = useState<string | null>(null); const [search, setSearch] = useState(""); const [error, setError] = useState(false); const [generation, setGeneration] = useState(0); const [loading, setLoading] = useState(false);
+  const { api, t, time } = useCloseout(); const [threads, setThreads] = useState<Extract<ThreadSummary, { audience: "job" }>[] | null>(null); const [cursor, setCursor] = useState<string | null>(null); const [search, setSearch] = useState(""); const [error, setError] = useState(false); const [generation, setGeneration] = useState(0); const [loading, setLoading] = useState(false);
   useEffect(() => { const controller = new AbortController(); setThreads(null); setError(false); void api.request(listThreadsRoute, {}, { signal: controller.signal }).then(result => { if (controller.signal.aborted) return; if (result.ok) { setThreads(result.data.threads.filter(thread => thread.audience === "job")); setCursor(result.data.page.cursor); } else setError(true); }); return () => controller.abort(); }, [api, generation]);
   async function more() { if (!cursor || loading) return; setLoading(true); const result = await api.request(listThreadsRoute, { query: { cursor } }); if (result.ok) { setThreads(items => [...(items ?? []), ...result.data.threads.filter(thread => thread.audience === "job")]); setCursor(result.data.page.cursor); } else setError(true); setLoading(false); }
   const shown = threads?.filter(item => `${item.contact?.displayName ?? ""} ${item.job.reference} ${item.job.title ?? ""}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
@@ -19,7 +19,7 @@ function MessagesPage() {
 export function Thread() { const { id = "" } = useParams(); const scope = useScopeKey(); return <ThreadPage key={`${scope}:${id}`} id={id} />; }
 function ThreadPage({ id }: { id: string }) {
   const { api, t, locale, time } = useCloseout(); const [page, setPage] = useState<ThreadEntriesPage | null>(null); const [error, setError] = useState(false); const [generation, setGeneration] = useState(0); const [draft, setDraft] = useState(""); const [sent, setSent] = useState<{ id: string; text: string; at: number }[]>([]); const [loading, setLoading] = useState(false);
-  const details = page?.thread ?? null;
+  const details = page?.thread?.audience === "job" ? page.thread : null;
   useEffect(() => {
     const controller = new AbortController();
     setError(false); setPage(null);

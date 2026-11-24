@@ -171,6 +171,7 @@ export const sessionHolds = sqliteTable("session_holds", {
 export const sessionBookings = sqliteTable("session_bookings", {
   id: text().notNull().primaryKey(),
   reference: text().notNull().unique(),
+  threadId: text("thread_id").notNull().unique().default(sql`('session-' || lower(hex(randomblob(16))))`),
   bookerId: text("booker_id").notNull().references(() => accounts.id),
   listingId: text("listing_id").notNull(),
   originalHoldId: text("original_hold_id").notNull().unique().references(() => sessionHolds.id),
@@ -314,17 +315,4 @@ export const sessionBookingFeedback = sqliteTable("session_booking_feedback", {
   check("session_booking_feedback_stars", sql`typeof(${t.stars}) = 'integer' AND ${t.stars} BETWEEN 1 AND 5`),
   check("session_booking_feedback_comment", sql`${t.comment} IS NULL OR (length(${t.comment}) <= 16000 AND length(trim(${t.comment})) > 0)`),
   check("session_booking_feedback_submitted_at", sql`typeof(${t.submittedAt}) = 'integer'`),
-]);
-
-export const sessionThreads = sqliteTable("session_threads", {
-  id: text().notNull().primaryKey(),
-  bookingId: text("booking_id").notNull().references(() => sessionBookings.id),
-  audience: text({ enum: ["session"] }).notNull(),
-  writeState: text("write_state", { enum: ["open", "read_only"] }).notNull(),
-  lastPosition: integer("last_position").notNull().default(0),
-}, (t) => [
-  check("session_threads_audience", sql`${t.audience} = 'session'`),
-  check("session_threads_write_state", sql`${t.writeState} IN ('open', 'read_only')`),
-  check("session_threads_last_position", sql`typeof(${t.lastPosition}) = 'integer' AND ${t.lastPosition} >= 0`),
-  unique().on(t.bookingId, t.audience),
 ]);

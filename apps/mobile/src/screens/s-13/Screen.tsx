@@ -21,7 +21,7 @@ export function ChatDetailsView({ data, onClose, onLanguage, onHelp }: { data: T
   const t = useT();
   return <Sheet visible title={t("mobile.chat.details")} closeLabel={t("mobile.chat.close")} onClose={onClose}>
     {!data ? <Copy>{t("mobile.chat.loading")}</Copy> : <>
-      <Copy variant="supporting">{data.audience === "crew" ? t("mobile.chat.crew") : t("mobile.chat.job")} · {data.job.reference}</Copy>
+      <Copy variant="supporting">{data.audience === "session" ? `${data.session.title} · ${data.session.reference}` : `${data.audience === "crew" ? t("mobile.chat.crew") : t("mobile.chat.job")} · ${data.job.reference}`}</Copy>
       <Copy>{data.audience === "crew" ? t("mobile.chat.audienceCrew") : t("mobile.chat.audienceJob")}</Copy>
       {data.members.map((member, index) => <Card key={`${member.displayName}-${index}`}>
         <Copy variant="label">{member.displayName} {member.isViewer ? `· ${t("mobile.chat.you")}` : ""}</Copy>

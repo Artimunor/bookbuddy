@@ -16,14 +16,16 @@ const inboxPageSize = syncLimits.changes;
 const bool = (condition: string) => `json(CASE WHEN ${condition} THEN 'true' ELSE 'false' END)`;
 const items = (select: string) => `(SELECT json_group_array(json(value)) FROM (${select}))`;
 const threadFields = (t: string) => `'id', ${t}.id, 'audience', ${t}.audience,
-  'job', json_object('id', ${t}.job_id, 'reference', ${t}.reference, 'title', nullif(${t}.trade, ''),
-    'siteZone', (SELECT coalesce(p.site_zone, area.site_zone) FROM places p JOIN businesses b ON b.id = ${t}.business_id
-      JOIN operating_areas area ON area.id = b.catchment_id WHERE p.id = ${t}.place_id)),
-  'writeState', CASE WHEN ${t}.job_state <> 'open' THEN 'read_only' ELSE ${t}.write_state END`;
+  CASE WHEN ${t}.audience = 'session' THEN 'session' ELSE 'job' END,
+  json_object('id', coalesce(${t}.job_id, ${t}.session_booking_id), 'reference', ${t}.reference, 'title', nullif(${t}.title, ''),
+    'siteZone', coalesce(${t}.site_zone, (SELECT coalesce(p.site_zone, area.site_zone)
+      FROM places p JOIN businesses b ON b.id = ${t}.business_id
+      JOIN operating_areas area ON area.id = b.catchment_id WHERE p.id = ${t}.place_id))),
+  'writeState', CASE WHEN NOT ${t}.parent_open THEN 'read_only' ELSE ${t}.write_state END`;
 const actorFields = (account: string, context: string, viewer: string) => `'displayName', ${displayName(account)},
   'role', ${context}.role, 'isViewer', ${bool(`${context}.context_id = ${viewer}.context_id`)}`;
 const contact = (member: string, viewer: string) => `CASE WHEN ${viewer}.role = 'foreman' THEN
-  ${viewer}.audience = 'job' AND ${member}.role = 'customer' AND ${member}.account_id = ${viewer}.requester_id
+  ${viewer}.audience <> 'crew' AND ${member}.role = 'customer' AND ${member}.account_id = ${viewer}.requester_id
   ELSE ${member}.role = 'foreman' END`;
 const authorJoins = `JOIN chat_messages m ON m.id = e.root_id
   JOIN (SELECT id AS context_id, role, account_id FROM account_contexts) author ON author.context_id = m.author_context_id
@@ -31,7 +33,7 @@ const authorJoins = `JOIN chat_messages m ON m.id = e.root_id
 
 export function inboxCursor(cursor?: string): readonly [string, string] | null {
   if (cursor === undefined) return ["", ""];
-  const match = /^([A-Za-z0-9_-]{1,256})~(job|crew)$/.exec(cursor);
+  const match = /^([A-Za-z0-9_-]{1,256})~(job|crew|session)$/.exec(cursor);
   return match ? [match[1]!, match[2]!] : null;
 }
 
@@ -45,7 +47,7 @@ export function entryCursor(cursor?: string): number | null | undefined {
 export function readThreadList(session: SessionAccess, now: number, after: readonly [string, string], pairs: readonly LanguagePair[]) {
   const scope = chatScope(session, now, threadPageFilter(after));
   return scopedStatement(scope, `, translation_config(pairs) AS (VALUES (?)), list AS MATERIALIZED (
-      SELECT * FROM chat_scope ORDER BY job_id, audience LIMIT ${inboxPageSize + 1}),
+      SELECT *, coalesce(job_id, session_booking_id) AS parent_id FROM chat_scope ORDER BY parent_id, audience LIMIT ${inboxPageSize + 1}),
     all_chat_members AS MATERIALIZED (WITH inbox_targets AS (SELECT target.* FROM chat_targets target
       JOIN list page ON page.id = target.id) SELECT * FROM (${chatParticipants("1", "inbox_targets")}))
     SELECT (SELECT json_object('threads', json(${items(`SELECT json_object(${threadFields("t")},
@@ -61,10 +63,10 @@ export function readThreadList(session: SessionAccess, now: number, after: reado
         FROM chat_entries e ${authorJoins} ${bindTranslation("e", "pref.reading_locale")}
         WHERE ${entryVisible("t", "e")} ORDER BY e.position DESC LIMIT 1))) AS value
       FROM list t LEFT JOIN account_preferences pref ON pref.account_id = t.account_id
-      ORDER BY t.job_id, t.audience LIMIT ${inboxPageSize}`)}),
+      ORDER BY t.parent_id, t.audience LIMIT ${inboxPageSize}`)}),
       'page', json_object('hasMore', ${bool(`(SELECT count(*) FROM list) > ${inboxPageSize}`)}, 'cursor',
-        (SELECT job_id || '~' || audience FROM list WHERE (SELECT count(*) FROM list) > ${inboxPageSize}
-          ORDER BY job_id, audience LIMIT 1 OFFSET ${inboxPageSize - 1}))) FROM live_scope) AS value FROM acting_session`, JSON.stringify(pairs));
+        (SELECT parent_id || '~' || audience FROM list WHERE (SELECT count(*) FROM list) > ${inboxPageSize}
+          ORDER BY parent_id, audience LIMIT 1 OFFSET ${inboxPageSize - 1}))) FROM live_scope) AS value FROM acting_session`, JSON.stringify(pairs));
 }
 
 const assignedVisibility = `(t.role = 'foreman' OR a.worker_membership_id = ${currentMembership("t", at)})`;
@@ -80,7 +82,8 @@ const crewHold = `(WITH relevant AS MATERIALIZED (
 
 const allChatMembers = `all_chat_members AS MATERIALIZED (${chatParticipants()})`;
 const threadDetailsJson = `json_patch(json_object(${threadFields("t")}, 'canSend', ${bool("t.can_send")},
-      'readOnlyReason', CASE WHEN t.job_state <> 'open' THEN 'job_closed' WHEN NOT t.can_send THEN 'read_only_grant' END,
+      'readOnlyReason', CASE WHEN NOT t.parent_open THEN CASE WHEN t.audience = 'session' THEN 'session_closed' ELSE 'job_closed' END
+        WHEN NOT t.can_send THEN 'read_only_grant' END,
       'readPosition', ${savedReadPosition("t")}, 'lastPosition', t.last_position, 'readingLocale', pref.reading_locale,
       'members', json(${items(`SELECT json_object(${actorFields("a", "member", "t")}, 'isContact', ${bool(contact("member", "t"))},
         'writingLanguage', (SELECT e.source_language FROM chat_entries e JOIN chat_messages m ON m.id = e.root_id
@@ -143,7 +146,7 @@ const threadEntriesSql = (initial: boolean, pairs: readonly LanguagePair[], incl
           CASE WHEN author.context_id = t.context_id THEN ${readingLocales("e", "t.account_id")} END AS locales
         FROM entries e ${authorJoins} ${bindTranslation("e", "pref.reading_locale")}
         ORDER BY e.position DESC LIMIT ${entryPageSize}) author`)}),
-      'stamps', json(${initial ? `CASE t.audience WHEN 'job' THEN ${jobStamps} ELSE ${crewStamps} END` : "'[]'"}),
+      'stamps', json(${initial ? `CASE t.audience WHEN 'job' THEN ${jobStamps} WHEN 'crew' THEN ${crewStamps} ELSE '[]' END` : "'[]'"}),
       'page', json_object('hasMore', ${bool(`(SELECT count(*) FROM entries) > ${entryPageSize}`)}, 'cursor',
         (SELECT 'before~' || position FROM entries WHERE (SELECT count(*) FROM entries) > ${entryPageSize}
           ORDER BY position DESC LIMIT 1 OFFSET ${entryPageSize - 1})))

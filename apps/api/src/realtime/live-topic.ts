@@ -3,6 +3,7 @@ import { parseLiveTopic } from "@bookbuddy/api-contract";
 import type { LiveFrame } from "@bookbuddy/api-contract";
 import type { Bindings } from "../bindings";
 import { resolveSession } from "../modules/auth/session";
+import { sessionThreadProvision } from "../modules/chat/policy";
 import { liveAccess } from "./access";
 
 const leaseLengthMs = 5 * 60_000;
@@ -30,7 +31,11 @@ export class LiveTopic extends DurableObject<Bindings> {
     // Do not let a concurrent revoke RPC pass between the scope read and attachment.
     return this.ctx.blockConcurrencyWhile(async () => {
       const { sql, params } = liveAccess(session, now, topic, this.env);
-      const row = await this.env.DB.prepare(sql).bind(...params ?? []).first<LiveRow>();
+      const query = this.env.DB.prepare(sql).bind(...params ?? []);
+      const provision = topic.kind === "thread" ? sessionThreadProvision(session, now, topic.opaqueId) : null;
+      const row = provision ? (await this.env.DB.batch<LiveRow>([
+        this.env.DB.prepare(provision.sql).bind(...provision.params ?? []), query,
+      ]))[1]?.results[0] : await query.first<LiveRow>();
       const leaseUntil = Math.min(row?.expires_at ?? 0, now + leaseLengthMs);
       if (!row || leaseUntil <= Date.now()) return new Response(null, { status: 401 });
       if (!row.scope_id || (topic.kind === "thread" && row.value === null)) return new Response(null, { status: 404 });

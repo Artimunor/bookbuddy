@@ -493,7 +493,7 @@ export function publishSession(now: number, session: SessionAccess, input: Publi
           WHERE b.state = 'booked' AND (b.slot_id = ${hostingSlotId} OR ${affected(true)}) AND ${guard.sql}`, ...guard.params ?? []),
         scopedStatement(access, `UPDATE session_change_proposals AS p SET state = 'withdrawn', resolved_at = ${at}, resolved_by_id = ${actor}
           WHERE p.state = 'pending' AND (${proposalAffected}) AND ${guard.sql}`, ...guard.params ?? []),
-        scopedStatement(access, `UPDATE session_threads SET write_state = 'read_only' WHERE write_state = 'open' AND booking_id IN (
+        scopedStatement(access, `UPDATE chat_threads SET write_state = 'read_only' WHERE audience = 'session' AND write_state = 'open' AND session_booking_id IN (
           SELECT id FROM session_bookings WHERE slot_id = ${hostingSlotId} AND state = 'cancelled') AND ${guard.sql}`, ...guard.params ?? []),
       ];
       return { ...notice, statements: writes };

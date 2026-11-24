@@ -45,11 +45,13 @@ export function MessagesView({ threads, status, onOpen, onRetry, onMore, moreBus
       const latest = thread.latest; const translation = latest?.preferredTranslation;
       const text = translation?.state === "ready" ? translation.text : latest?.originalText;
       const lang = latest?.sourceLanguage; const renderedLanguage = translation?.state === "ready" ? translation.targetLocale : lang; const direction = renderedLanguage && /^(ar|he|fa|ur)(-|$)/i.test(renderedLanguage) ? "rtl" : "ltr";
+      const heading = thread.audience === "session" ? thread.session : thread.job;
+      const audienceLabel = thread.audience === "session" ? t("mobile.laterCustomer.bookingPass") : thread.audience === "crew" ? t("mobile.chat.crew") : t("mobile.chat.job");
       return <Pressable key={thread.id} accessibilityRole="button" onPress={() => onOpen(thread.id)}><Card>
-        <Copy variant="sectionTitle">{thread.contact?.displayName ?? (thread.audience === "crew" ? t("mobile.chat.crew") : t("mobile.chat.job"))}</Copy>
-        <Copy variant="supporting">{thread.audience === "crew" ? t("mobile.chat.crew") : t("mobile.chat.job")} · {thread.job.reference}</Copy>
+        <Copy variant="sectionTitle">{thread.contact?.displayName ?? heading.title ?? audienceLabel}</Copy>
+        <Copy variant="supporting">{audienceLabel} · {heading.reference}</Copy>
         {text && <DirectedText dir={direction}>{text}</DirectedText>}
-        {latest && <Copy variant="supporting">{translation?.state === "pending" ? t("mobile.chat.translating") : translation?.state === "unavailable" ? t("mobile.chat.translationUnavailable") : translation?.state === "ready" ? t("mobile.chat.translatedFrom", { language: readingLanguageLabel(t, lang ?? null) }) : t("mobile.chat.asWritten", { language: readingLanguageLabel(t, lang ?? null) })} · {new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone: thread.job.siteZone }).format(latest.receivedAt)}</Copy>}
+        {latest && <Copy variant="supporting">{translation?.state === "pending" ? t("mobile.chat.translating") : translation?.state === "unavailable" ? t("mobile.chat.translationUnavailable") : translation?.state === "ready" ? t("mobile.chat.translatedFrom", { language: readingLanguageLabel(t, lang ?? null) }) : t("mobile.chat.asWritten", { language: readingLanguageLabel(t, lang ?? null) })} · {new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone: heading.siteZone }).format(latest.receivedAt)}</Copy>}
         {thread.unreadCount > 0 && <Copy variant="label">{t("mobile.chat.new", { count: thread.unreadCount })}</Copy>}
       </Card></Pressable>;
     })}

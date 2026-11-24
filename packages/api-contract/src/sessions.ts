@@ -4,6 +4,7 @@ import {
   SESSION_SLOT_STATES,
 } from "@bookbuddy/domain";
 import { z } from "zod";
+import { chatThreadIdSchema } from "./chat";
 import {
   businessIdSchema, commandInputSchema, cursorSchema, idSchemaFor, localeTagSchema, paginationSchema,
   revisionSchema, timestampSchema,
@@ -20,7 +21,6 @@ export const sessionBookingIdSchema = idSchemaFor<"session_booking">();
 export const sessionChangeProposalIdSchema = idSchemaFor<"session_change_proposal">();
 export const sessionHostAssignmentIdSchema = idSchemaFor<"session_host_assignment">();
 export const sessionAttendanceIdSchema = idSchemaFor<"session_attendance">();
-export const sessionThreadIdSchema = idSchemaFor<"session_thread">();
 export const sessionCategorySchema = z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/);
 const areaId = idSchemaFor<"operating_area">();
 const membershipId = idSchemaFor<"membership">();
@@ -87,7 +87,7 @@ export const customerSessionBookingSchema = z.strictObject({
     z.strictObject({ status: z.literal("confirmed"), host: confirmedHost, isSubstitute: z.boolean() }),
     z.strictObject({ status: z.enum(["unconfirmed", "arranging"]), nextUpdateAt: timestampSchema.nullable() }),
   ]),
-  coordinatorName: display.nullable(), threadId: sessionThreadIdSchema.nullable(),
+  coordinatorName: display.nullable(), threadId: chatThreadIdSchema,
   proposal: proposal.nullable(), cancellation: z.strictObject(confirmation).nullable(),
   canGiveFeedback: z.boolean(),
   actions: z.strictObject({ move: z.boolean(), cancel: z.boolean(), respond: z.boolean() }),

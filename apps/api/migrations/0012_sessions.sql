@@ -156,6 +156,8 @@ CREATE INDEX session_holds_slot_deadline ON session_holds (slot_id, expires_at, 
 CREATE TABLE session_bookings (
   id TEXT PRIMARY KEY NOT NULL,
   reference TEXT NOT NULL UNIQUE,
+  -- Reserve the opaque chat address when the booking is made; the thread row is lazy.
+  thread_id TEXT NOT NULL UNIQUE DEFAULT ('session-' || lower(hex(randomblob(16)))),
   booker_id TEXT NOT NULL REFERENCES accounts (id),
   listing_id TEXT NOT NULL,
   original_hold_id TEXT NOT NULL UNIQUE REFERENCES session_holds (id),
@@ -254,7 +256,7 @@ CREATE TRIGGER session_bookings_consume_hold AFTER INSERT ON session_bookings
 BEGIN UPDATE session_holds SET state = 'consumed', resolved_at = NEW.booked_at WHERE id = NEW.original_hold_id; END;
 -- A move or an accepted proposal may update the current snapshot, never the original acceptance.
 CREATE TRIGGER session_bookings_keep_original BEFORE UPDATE ON session_bookings
-WHEN NEW.id IS NOT OLD.id OR NEW.reference IS NOT OLD.reference OR NEW.booker_id IS NOT OLD.booker_id
+WHEN NEW.id IS NOT OLD.id OR NEW.reference IS NOT OLD.reference OR NEW.booker_id IS NOT OLD.booker_id OR NEW.thread_id IS NOT OLD.thread_id
   OR NEW.listing_id IS NOT OLD.listing_id OR NEW.original_hold_id IS NOT OLD.original_hold_id OR NEW.original_slot_id IS NOT OLD.original_slot_id
   OR NEW.original_listing_version_id IS NOT OLD.original_listing_version_id OR NEW.original_terms_hash IS NOT OLD.original_terms_hash
   OR NEW.places IS NOT OLD.places OR NEW.booked_at IS NOT OLD.booked_at
@@ -390,13 +392,3 @@ WHEN NOT EXISTS (
         WHERE result.booking_id = booking.id AND result.recorded_at <= NEW.submitted_at))
 ) OR EXISTS (SELECT 1 FROM session_booking_feedback prior WHERE prior.booking_id = NEW.booking_id)
 BEGIN SELECT RAISE(ABORT, 'session feedback requires an eligible booking without prior feedback'); END;
-
--- Session conversations are booking-scoped, never a construction job or a whole-slot customer chat.
-CREATE TABLE session_threads (
-  id TEXT PRIMARY KEY NOT NULL,
-  booking_id TEXT NOT NULL REFERENCES session_bookings (id),
-  audience TEXT NOT NULL CHECK (audience = 'session'),
-  write_state TEXT NOT NULL CHECK (write_state IN ('open', 'read_only')),
-  last_position INTEGER NOT NULL DEFAULT 0 CHECK (typeof(last_position) = 'integer' AND last_position >= 0),
-  UNIQUE (booking_id, audience)
-);

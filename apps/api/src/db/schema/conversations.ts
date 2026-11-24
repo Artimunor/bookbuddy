@@ -3,18 +3,23 @@ import { check, foreignKey, index, integer, primaryKey, sqliteTable, text, uniqu
 import { accountContexts } from "./access";
 import { changeVersions, quoteVersions } from "./commercial";
 import { jobs } from "./jobs";
+import { sessionBookings } from "./sessions";
 
 export const chatThreads = sqliteTable("chat_threads", {
   id: text().notNull().primaryKey(),
-  jobId: text("job_id").notNull().references(() => jobs.id),
-  audience: text({ enum: ["job", "crew"] }).notNull(),
+  jobId: text("job_id").references(() => jobs.id),
+  sessionBookingId: text("session_booking_id").references(() => sessionBookings.id),
+  audience: text({ enum: ["job", "crew", "session"] }).notNull(),
   writeState: text("write_state", { enum: ["open", "read_only"] }).notNull(),
   lastPosition: integer("last_position").notNull().default(0),
 }, (t) => [
-  check("chat_threads_audience", sql`${t.audience} IN ('job', 'crew')`),
+  check("chat_threads_audience", sql`${t.audience} IN ('job', 'crew', 'session')`),
+  check("chat_threads_parent", sql`(${t.audience} = 'session' AND ${t.sessionBookingId} IS NOT NULL AND ${t.jobId} IS NULL)
+    OR (${t.audience} IN ('job', 'crew') AND ${t.jobId} IS NOT NULL AND ${t.sessionBookingId} IS NULL)`),
   check("chat_threads_write_state", sql`${t.writeState} IN ('open', 'read_only')`),
   check("chat_threads_last_position", sql`typeof(${t.lastPosition}) = 'integer' AND ${t.lastPosition} >= 0`),
   unique().on(t.jobId, t.audience),
+  unique().on(t.sessionBookingId),
 ]);
 
 export const chatMembers = sqliteTable("chat_members", {

@@ -4,7 +4,7 @@ import {
   invitationOpeningSchema, invitationUnavailableSchema,
 } from "./access";
 import { billProjectionSchema, completionProjectionSchema, problemCaseProjectionSchema } from "./aftercare";
-import { chatThreadIdSchema } from "./chat";
+import { chatAudienceSchema, chatThreadIdSchema } from "./chat";
 import { contextIdSchema, idSchemaFor } from "./common";
 import { jobDetailSchema } from "./jobs";
 import { placeDetailsSchema } from "./places";
@@ -54,7 +54,7 @@ export const linkOpeningSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("business_member"), business: businessOverviewSchema.shape.business, member: businessMemberSchema }),
   z.object({ kind: z.literal("business_eligibility"), eligibility: businessEligibilitySchema }),
   z.object({ kind: z.literal("job"), record: jobDetailSchema }),
-  z.object({ kind: z.literal("thread"), threadId: chatThreadIdSchema, audience: z.enum(["job", "crew"]) }),
+  z.object({ kind: z.literal("thread"), threadId: chatThreadIdSchema, audience: chatAudienceSchema }),
   z.object({ kind: z.literal("completion"), completion: completionProjectionSchema }),
   z.object({ kind: z.literal("bill"), bill: billProjectionSchema }),
   z.object({ kind: z.literal("problem_case"), case: problemCaseProjectionSchema }),

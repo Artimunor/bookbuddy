@@ -33,7 +33,7 @@ export function LinkResolver() {
     if(opening.kind === "place") destination = `/portal/places/${encodeURIComponent(opening.place.id)}`;
     else if(opening.kind === "job" && opening.record.audience === "customer" && opening.record.job.view === "whole") destination = `/portal/jobs/${encodeURIComponent(opening.record.job.jobId)}`;
     else if(opening.kind === "thread") {
-      if(opening.audience === "crew") { setStatus("native"); return; }
+      if(opening.audience !== "job") { setStatus("native"); return; }
       destination = `/portal/messages/${encodeURIComponent(opening.threadId)}`;
     }
     else if(opening.kind === "invitation" && opening.invitation.status !== "unavailable") destination = `/portal/invite/${encodeURIComponent(opening.invitation.id)}`;

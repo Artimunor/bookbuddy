@@ -17,15 +17,17 @@ const readPosition = z.int().nonnegative();
 const displayText = z.string().min(1);
 const originalText = displayText.max(16_000).refine((text) => text.trim().length > 0);
 
-const audience = z.enum(["job", "crew"]);
+export const chatAudienceSchema = z.enum(["job", "crew", "session"]);
 const threadHeader = {
   id: chatThreadIdSchema,
-  audience,
-  job: z.strictObject({
-    id: idSchemaFor<"job">(), reference: z.string().regex(/^BB-[A-Z0-9]+$/), title: displayText.nullable(), siteZone: displayText,
-  }),
   writeState: z.enum(["open", "read_only"]),
 };
+const jobHeading = z.strictObject({
+  id: idSchemaFor<"job">(), reference: z.string().regex(/^BB-[A-Z0-9]+$/), title: displayText.nullable(), siteZone: displayText,
+});
+const sessionHeading = z.strictObject({
+  id: idSchemaFor<"session_booking">(), reference: displayText, title: displayText, siteZone: displayText,
+});
 const actor = z.strictObject({ displayName: displayText, role: contextRoleSchema, isViewer: z.boolean() });
 const member = actor.extend({
   isContact: z.boolean(),
@@ -63,7 +65,7 @@ export const chatEntryProjectionSchema = receipt.extend({
 }).refine((entry) => entry.originalText !== null || (entry.attachments.length > 0 && entry.preferredTranslation === null));
 
 // S-08: a scoped inbox row; fetching the list does not mark it read.
-export const threadSummarySchema = z.strictObject({
+const threadSummary = {
   ...threadHeader,
   contact: actor.nullable(),
   unreadCount: readPosition,
@@ -71,21 +73,27 @@ export const threadSummarySchema = z.strictObject({
     ...messageContent, originalText: displayText.max(512).nullable(),
     author: actor, receivedAt: timestampSchema, attachmentKind: z.enum(["photo", "voice"]).nullable(),
   }).refine(({ preferredTranslation }) => preferredTranslation?.state !== "ready" || preferredTranslation.text.length <= 512).nullable(),
-});
+};
+export const threadSummarySchema = z.discriminatedUnion("audience", [
+  z.strictObject({ ...threadSummary, audience: z.literal("job"), job: jobHeading }),
+  z.strictObject({ ...threadSummary, audience: z.literal("crew"), job: jobHeading }),
+  z.strictObject({ ...threadSummary, audience: z.literal("session"), session: sessionHeading }),
+]);
 
 // S-13: current members only, no contact details, profiles or former members.
 const threadDetails = {
   ...threadHeader,
   canSend: z.boolean(),
-  readOnlyReason: z.enum(["job_closed", "read_only_grant"]).nullable(),
+  readOnlyReason: z.enum(["job_closed", "session_closed", "read_only_grant"]).nullable(),
   readPosition,
   lastPosition: readPosition,
   readingLocale: localeTagSchema.nullable(),
   members: z.array(member),
 };
 export const threadDetailsSchema = z.discriminatedUnion("audience", [
-  z.strictObject({ ...threadDetails, audience: z.literal("job") }),
-  z.strictObject({ ...threadDetails, audience: z.literal("crew"), safetyHold: z.boolean() }),
+  z.strictObject({ ...threadDetails, audience: z.literal("job"), job: jobHeading }),
+  z.strictObject({ ...threadDetails, audience: z.literal("crew"), job: jobHeading, safetyHold: z.boolean() }),
+  z.strictObject({ ...threadDetails, audience: z.literal("session"), session: sessionHeading }),
 ]);
 
 const visitId = idSchemaFor<"visit">();
@@ -108,6 +116,7 @@ const entryPage = {
 export const threadEntriesPageSchema = z.discriminatedUnion("audience", [
   z.strictObject({ ...entryPage, audience: z.literal("job"), stamps: z.array(jobStamp).max(syncLimits.changes) }),
   z.strictObject({ ...entryPage, audience: z.literal("crew"), stamps: z.array(crewStamp).max(syncLimits.changes) }),
+  z.strictObject({ ...entryPage, audience: z.literal("session"), stamps: z.tuple([]) }),
 ]).refine(({ thread, threadId, audience: pageAudience }) => !thread || (thread.id === threadId && thread.audience === pageAudience));
 
 export const appendChatPayloadSchema = z.strictObject({

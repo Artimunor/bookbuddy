@@ -42,7 +42,7 @@ export const hold = sessionHoldProjectionSchema.parse({ status: "held", id: "hel
   expiresAt: heldAt + 7 * 60_000, agreement, host, moveFrom: null });
 export const booking = customerSessionBookingSchema.parse({ id: "booked-place", reference: "BB-S1042", listingId: listing.id, provider, revision: 1,
   state: "booked", bookerName: hold.bookerName, bookedAt, original: { slotId: firstSlot.id, listingVersionId: version.id, termsHash: version.terms.hash }, agreement,
-  day: null, host: { status: "confirmed", host, isSubstitute: false }, coordinatorName: "Marina Serra", threadId: null, proposal: null, cancellation: null,
+  day: null, host: { status: "confirmed", host, isSubstitute: false }, coordinatorName: "Marina Serra", threadId: "session-04413edc7996425fadb02bd82f312949", proposal: null, cancellation: null,
   actions: { move: true, cancel: true, respond: false, leaveFeedback: false } });
 export const todayBooking = customerSessionBookingSchema.parse({ ...booking, day: { stage: "today", at: startsAt - 90 * 60_000, byName: host.name } });
 export const substituteBooking = customerSessionBookingSchema.parse({ ...booking, host: { status: "confirmed", isSubstitute: true,
