@@ -20,6 +20,7 @@ import { Bill } from "../portal/bill";
 import { Rating } from "../portal/rating";
 import { Cases } from "../portal/cases";
 import { Messages, Thread } from "../portal/messages";
+import { Help } from "../portal/help";
 import { PortalLayout, ProtectedPortal } from "../portal/session";
 import { publicPaths } from "./public-paths";
 
@@ -53,12 +54,6 @@ function publicRoutes(locale: WebLocale): RouteObject {
   };
 }
 
-const pendingRoute = () => import("../portal/_pending/route");
-
-function pendingPortalRoute(path: string): RouteObject {
-  return { path, caseSensitive: true, lazy: pendingRoute };
-}
-
 export const routes: RouteObject[] = [
   ...enabledLocales.map(publicRoutes),
   {
@@ -71,7 +66,7 @@ export const routes: RouteObject[] = [
       { path: "sign-in", caseSensitive: true, lazy: async () => ({ Component: (await import("../portal/auth")).SignIn }) },
       { path: "verify", caseSensitive: true, lazy: async () => ({ Component: (await import("../portal/auth")).Verify }) },
       { path: "setup", caseSensitive: true, lazy: async () => ({ Component: (await import("../portal/auth")).Setup }) },
-      pendingPortalRoute("help"),
+      { path: "help", caseSensitive: true, Component: Help },
       {
         id: "portal-protected",
         Component: ProtectedPortal,

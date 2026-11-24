@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { expectedContextHeader, expectedSessionHeader, getOperationRoute, sessionEndRoute } from "@bookbuddy/api-contract";
+import { createAuthClient, createJobsClient } from "@bookbuddy/api-client";
+import { expectedContextHeader, expectedSessionHeader, getOperationRoute, operationIdHeader, sessionEndRoute } from "@bookbuddy/api-contract";
 import { createPortalApi } from "./api";
 
 test("a stale response reloads identity once, and a receipt check is bound without a body", async () => {
@@ -29,3 +30,43 @@ test("a stale response reloads identity once, and a receipt check is bound witho
     expect(new Headers(init.headers).get(expectedContextHeader)).toBe("context-a");
   }
 });
+
+const supportBody = { operationId: "support-request", payload: { kind: "access" as const, message: "Help signing in" } };
+
+test("signed-out portal support omits cookies without changing session bootstrap", async () => {
+  const calls: { url: string; init: RequestInit }[] = [];
+  const api = createPortalApi({ identity: null, getLocale: () => "en", isCurrent: () => true, onSessionChanged: () => {},
+    fetch: async (url, init) => {
+      calls.push({ url, init });
+      return url === "/api/v1/support"
+        ? Response.json({ ok: true, data: { reference: "support-ref", receivedAt: 123 }, meta: { requestId: "support", serverTime: 123 } })
+        : unauthenticated();
+    },
+  });
+  expect((await createAuthClient(api).getSession()).ok).toBe(false);
+  expect((await createJobsClient(api).submitSupport(supportBody)).ok).toBe(true);
+  expect(calls.map(({ url, init }) => [url, init.credentials])).toEqual([
+    ["/api/v1/session", "same-origin"], ["/api/v1/support", "omit"],
+  ]);
+  const headers = new Headers(calls[1]?.init.headers);
+  expect(headers.get(expectedSessionHeader)).toBeNull();
+  expect(headers.get(operationIdHeader)).toBe(supportBody.operationId);
+});
+
+test("an authenticated support write is bound to the view and never retried anonymously", async () => {
+  const calls: RequestInit[] = [];
+  const api = createPortalApi({ identity: { sessionId: "session-a", contextId: "context-a" },
+    getLocale: () => "en", isCurrent: () => true, onSessionChanged: () => {},
+    fetch: async (_url, init) => { calls.push(init); return unauthenticated(); },
+  });
+  const result = await createJobsClient(api).submitSupport(supportBody);
+  expect(!result.ok && result.error.code).toBe("UNAUTHENTICATED");
+  expect(calls.map(init => init.credentials)).toEqual(["same-origin"]);
+  const headers = new Headers(calls[0]?.headers);
+  expect(headers.get(expectedSessionHeader)).toBe("session-a");
+  expect(headers.get(expectedContextHeader)).toBe("context-a");
+});
+
+function unauthenticated() {
+  return Response.json({ ok: false, error: { code: "UNAUTHENTICATED" }, meta: { requestId: "auth" } }, { status: 401 });
+}

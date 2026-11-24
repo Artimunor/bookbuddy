@@ -7,6 +7,7 @@ import { ActionLink, Button, Card, Dialog, Dock, SegmentedControl, Select, TextF
 import { Frame, usePortal } from "../now/common";
 import { takeCheckedOpening } from "../notifications/handoff";
 import { usePendingOperation, type PendingOperation } from "../session/pending-operation";
+import { sameRequestIntent } from "../session/pending-request";
 import { formatPortalTime, siteZoneLabel } from "../time";
 import { MediaPicker, type SelectedMedia } from "../media";
 
@@ -23,7 +24,7 @@ function RequestScope() {
   const { jobs } = usePortal();
   const [receipt,setReceipt] = useState<Receipt | null>(null);
   const command = usePendingOperation("submit-request", "POST /requests", (body: SubmitRequest) => jobs.submitRequest(body), setReceipt, undefined, {
-    includeResource: true, resendRequest: true, resourceIds: input => [input.payload.placeId],
+    includeResource: true, sameRequestIntent, resourceIds: input => [input.payload.placeId],
     onCommitted: status => setReceipt({ jobId: status.resource?.kind === "job" ? status.resource.id : null }),
   });
   return <Outlet context={{draft,setDraft,command,receipt} satisfies Flow}/>;
@@ -83,11 +84,11 @@ export function ReviewRequest() {
   const arrangement = draft.arrangement;
   const ready = draft.place?.state === "in_area" && !!draft.text.trim() && !looksLikeAccessCode(draft.note) &&
     (draft.arrangement !== "nobody" || !!draft.note.trim()) && (draft.arrangement !== "someone_else" || !!draft.contact.trim());
-  async function send() {
+  function send() {
     if (!ready || !draft.place || locked || replacement) return;
     const input: SubmitRequest = { operationId:operationIdSchema.parse(command.pending?.operationId ?? crypto.randomUUID()), expectedRevision:draft.place.revision, payload:{placeId:draft.place.id,originalText:draft.text,arrivalArrangement:draft.arrangement,...(draft.media.length ? {attachmentIds:draft.media.map(item=>attachmentIdSchema.parse(item.id))} : {}),...(draft.arrangement === "someone_else" ? {arrivalContactName:draft.contact.trim()} : {}),...(draft.note.trim() ? {safeNote:draft.note.trim()} : {})} };
     if (!retryReady) { command.start(input); return; }
-    const confirm = await command.resend(input);
+    const confirm = command.resend(input);
     if (confirm) setReplacement(() => confirm);
   }
   const viewerZone = preferences?.twoClock ? preferences.displayZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
@@ -107,7 +108,8 @@ export function ReviewRequest() {
       <p className="text-supporting text-muted">{arrangement === "nobody" ? t("web.portal.ps.nobody") : arrangement === "requester" ? t("web.portal.ps.me") : [t("web.portal.ps.someoneElse"),draft.contact].filter(Boolean).join(" · ")}</p>
     </Card>}
     {command.state === "failed" && <p role="alert">{t("web.portal.work.failed")}</p>}{checking && <p role="status">{t("web.portal.ps.requestChecking")}</p>}
-    <Dock context={t("web.portal.ps.noPayment")} primary={{ label:checking ? t("web.portal.work.checkAgain") : retryReady ? t("web.portal.ps.requestSendAgain") : t("web.portal.ps.sendRequest"), pending:busy, disabled:busy || (!checking && !ready), onClick:checking ? command.check : () => void send() }} />
+    <Dock context={t("web.portal.ps.noPayment")} primary={{ label:checking ? t("web.portal.work.checkAgain") : retryReady ? t("web.portal.ps.requestSendAgain") : t("web.portal.ps.sendRequest"), pending:busy, disabled:busy || (!checking && !ready), onClick:checking ? command.check : send }}
+      secondary={retryReady && !busy ? { label:t("web.portal.work.checkAgain"), onClick:command.check } : undefined} />
     <Dialog open={replacement !== null} onOpenChange={open=>{if(!open) setReplacement(null);}} title={t("web.portal.ps.requestSendChanged")} description={t("web.portal.ps.requestSendChangedDetail")} closeLabel={t("web.portal.work.close")}>
       <Button onClick={()=>{setReplacement(null); replacement?.();}}>{t("web.portal.ps.confirm")}</Button>
     </Dialog>

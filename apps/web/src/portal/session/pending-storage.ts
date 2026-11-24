@@ -82,7 +82,7 @@ export type StoredOperation = {
   resourceIds?: readonly string[];
   attemptedAt?: number;
   retryReady?: true;
-  request?: { expectedRevision: number; fingerprint: string };
+  expectedRevision?: number;
 };
 
 function operationMetadata(value: unknown): StoredOperation | null {
@@ -101,13 +101,9 @@ function operationMetadata(value: unknown): StoredOperation | null {
     metadata.attemptedAt = value.attemptedAt;
     if ("retryReady" in value && value.retryReady === true && routeId === "POST /requests") metadata.retryReady = true;
   }
-  if (routeId === "POST /requests" && "request" in value && value.request &&
-    typeof value.request === "object" && "expectedRevision" in value.request && "fingerprint" in value.request) {
-    const { expectedRevision, fingerprint } = value.request;
-    if (typeof expectedRevision === "number" && Number.isSafeInteger(expectedRevision) && expectedRevision >= 0 &&
-      typeof fingerprint === "string" && /^[a-f0-9]{64}$/.test(fingerprint)) {
-      metadata.request = { expectedRevision, fingerprint };
-    }
+  if (routeId === "POST /requests" && "expectedRevision" in value && typeof value.expectedRevision === "number" &&
+    Number.isSafeInteger(value.expectedRevision) && value.expectedRevision >= 0) {
+    metadata.expectedRevision = value.expectedRevision;
   }
   return metadata;
 }

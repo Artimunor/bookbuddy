@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { requestAttempt, requestReplay } from "./pending-request";
+import { submitRequestRoute } from "@bookbuddy/api-contract";
+import { requestReplay, sameRequestIntent } from "./pending-request";
 import {
   activatePendingOperations, clearPendingOperation, clearPendingOperationsForSession, migrateLegacyPendingOperations,
   pendingOperationKey, readPendingOperation, savePendingOperation, settleMissingPendingOperation, suspendPendingOperations,
@@ -70,31 +71,32 @@ test("an early missing receipt keeps the original ID recoverable across remount"
   expect(readPendingOperation(remounted)).toBeNull();
 });
 
-test("post-window missing receipt allows replay of the exact request, not changed input", async () => {
+test("request retries preserve only receipt metadata and require an in-memory intent match", () => {
   activatePendingOperations(identity);
   const key = pendingOperationKey(identity, requestIntent)!;
-  const first = {
+  const first = submitRequestRoute.input.parse({ body: {
     operationId: "first-request",
     expectedRevision: 4,
-    payload: { placeId: "place-id", originalText: "Private request", safeNote: "Private arrival note", attachmentIds: ["photo"] },
-  };
-  const operation = { operationId: first.operationId, routeId: "POST /requests", attemptedAt: 10_000, request: await requestAttempt(first.operationId, first) };
+    payload: { placeId: "place-id", originalText: "Private request", safeNote: "Private arrival note", attachmentIds: ["photo"], arrivalArrangement: "requester" },
+  } }).body;
+  const operation = { operationId: first.operationId, routeId: "POST /requests", attemptedAt: 10_000,
+    expectedRevision: first.expectedRevision, resourceIds: [first.payload.placeId] };
   expect(savePendingOperation(key, operation)).toBe(true);
-  expect(Array.from(entries.values()).join(" ")).not.toContain("Private");
-  expect(await requestReplay(operation, first)).toBeNull();
+  expect(JSON.parse(entries.get(key.key)!)).toEqual(operation);
+  expect(requestReplay(operation, first, first, sameRequestIntent)).toBeNull();
   expect(settleMissingPendingOperation(key, operation, 130_000, true)).toBe(true);
+  const readyInPage = readPendingOperation(key)!;
+  const reentered = { ...first, expectedRevision: 5, payload: { ...first.payload, attachmentIds: [...first.payload.attachmentIds!] } };
+  expect(requestReplay(readyInPage, first, reentered, sameRequestIntent)).toEqual(first);
+  expect(requestReplay(readyInPage, first, { ...reentered, payload: { ...reentered.payload, originalText: "Changed request" } }, sameRequestIntent)).toBeNull();
+  expect(requestReplay(readyInPage, first, { ...reentered, payload: { ...reentered.payload, attachmentIds: [] } }, sameRequestIntent)).toBeNull();
 
   suspendPendingOperations();
   activatePendingOperations(identity);
   const remounted = pendingOperationKey(identity, requestIntent)!;
   const ready = readPendingOperation(remounted)!;
   expect(ready).toEqual({ ...operation, retryReady: true });
-  const reentered = { operationId: "unused-new-id", expectedRevision: 5,
-    payload: { attachmentIds: ["photo"], safeNote: "Private arrival note", originalText: "Private request", placeId: "place-id" } };
-  expect(await requestReplay(ready, reentered)).toEqual(first);
-  expect(await requestReplay(ready, { ...reentered, payload: { ...reentered.payload, originalText: "Changed request" } })).toBeNull();
-  expect(await requestReplay(ready, { ...reentered, payload: { ...reentered.payload, attachmentIds: ["replacement-photo"] } })).toBeNull();
-  expect(await requestReplay({ ...ready, request: undefined }, reentered)).toBeNull();
+  expect(requestReplay(ready, undefined, reentered, sameRequestIntent)).toBeNull();
   expect(readPendingOperation(remounted)).toEqual(ready);
 
   const retried = { ...operation, attemptedAt: 140_000 };
