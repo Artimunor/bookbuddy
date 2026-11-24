@@ -2,9 +2,9 @@ import { ids, sql } from "./cast";
 
 export const checkpoints = ["request-sent", "quote-issued", "quote-approved", "visit-booked", "crew-confirmed", "dropout", "cover-offered", "cover-accepted", "cover-confirmed", "on-the-way", "checked-in", "briefed", "work-started", "work-finished", "checked-out", "completion-submitted", "signed-off", "bill-issued", "paid-recorded"] as const;
 export type Checkpoint = typeof checkpoints[number];
-const t = (value: string) => Date.parse(`2026-11-${value}+01:00`);
-const mon = (time: string) => t(`23T${time}:00`);
-const tue = (time: string) => t(`24T${time}:00`);
+const timestamp = (value: string) => Date.parse(`2026-11-${value}+01:00`);
+const mon = (time: string) => timestamp(`23T${time}:00`);
+const tue = (time: string) => timestamp(`24T${time}:00`);
 const q = sql;
 
 export function constructionSql(until: Checkpoint): string {
@@ -59,7 +59,7 @@ export function constructionSql(until: Checkpoint): string {
       `INSERT INTO completion_items (id,completion_id,quote_version_id,line_no,outcome,original_language,result_note,evidence_alternative) VALUES ('seed-completion-labour','seed-completion',${q(ids.version)},1,'done','es','Ajuste terminado','Inspección presencial'),('seed-completion-rollers','seed-completion',${q(ids.version)},2,'done','es','Rodillos sustituidos','Inspección presencial');`],
     [`INSERT INTO sign_offs (id,job_id,completion_id,approver_id,grant_id,terms_hash,at) VALUES ('seed-signoff',${q(ids.job)},'seed-completion',${q(ids.claire)},${q(`${ids.villa}-sign_off`)},'seed-terms-v1-hash',${tue("10:40")});`],
     [`INSERT INTO bills (id,job_id,business_id,number,version,net_minor,tax_minor,total_minor,currency,provider_document_ref,payment_instructions,line_items,issued_at,due_at,state) VALUES ('seed-bill',${q(ids.job)},${q(ids.business)},'RR-0412',1,24000,0,24000,'EUR','seed-bill-document','{"method":"contact_provider"}','[{"label":"Mano de obra","amount":16000},{"label":"Rodillos","amount":8000}]',${tue("10:42")},${Date.parse("2026-12-08T09:42:00Z")},'issued');`],
-    [`INSERT INTO paid_records (id,bill_id,actor_id,kind,amount_minor,verified_reference,at) VALUES ('seed-paid','seed-bill',${q(ids.mateo)},'matched',24000,'demo-receipt',${t("25T09:05:00")});`],
+    [`INSERT INTO paid_records (id,bill_id,actor_id,kind,amount_minor,verified_reference,at) VALUES ('seed-paid','seed-bill',${q(ids.mateo)},'matched',24000,'demo-receipt',${timestamp("25T09:05:00")});`],
   ];
   return parts.slice(0, checkpoints.indexOf(until) + 1).flat().join("\n");
 }
