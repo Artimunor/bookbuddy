@@ -5,13 +5,14 @@ type WholeJob = Extract<Extract<JobDetail, { audience: "customer" }>["job"], { v
 type Upcoming = CustomerHome["upcoming"][number];
 type Window = NonNullable<Upcoming["nextVisit"]>["window"];
 
-export function liveVisitPath(jobId: string) {
-  return `/portal/jobs/${encodeURIComponent(jobId)}/live`;
+export function liveVisitPath(jobId: string, visitId: string) {
+  return `/portal/jobs/${encodeURIComponent(jobId)}/live?visit=${encodeURIComponent(visitId)}`;
 }
 
-export function jobHomeVisitLinks({ jobId, journey, live, hasTodayView, nextStep }: Pick<WholeJob, "jobId" | "journey" | "live" | "hasTodayView" | "nextStep">) {
+export function jobHomeVisitLinks({ jobId, journey, visit, todayVisitId, nextStep }: Pick<WholeJob, "jobId" | "journey" | "visit" | "todayVisitId" | "nextStep">) {
+  const visitId = visit?.visitId ?? todayVisitId;
   return {
-    live: !journey.cancelled && (hasTodayView || live) ? liveVisitPath(jobId) : null,
+    live: !journey.cancelled && visitId ? liveVisitPath(jobId, visitId) : null,
     windows: !journey.cancelled && (nextStep?.kind === "pick_window" || nextStep?.kind === "review_revised_visit")
       ? `/portal/jobs/${encodeURIComponent(jobId)}/windows` : null,
   };
@@ -40,7 +41,7 @@ export function splitUpcomingVisits({ liveVisits, upcoming }: Pick<CustomerHome,
   const today: Upcoming[] = [];
   const later: Upcoming[] = [];
   for (const item of upcoming) {
-    if (item.nextVisit && !item.journey.cancelled && visitOnSiteDay(item.nextVisit.window, item.siteZone, now)) {
+    if (!item.journey.cancelled && visitOnSiteDay(item.nextVisit.window, item.siteZone, now)) {
       if (!liveVisits.some((live) => live.jobId === item.jobId)) today.push(item);
     } else {
       later.push(item);

@@ -35,14 +35,14 @@ export function Now() {
       <ActionLink className="bb-ask" to="/portal/new/describe" variant="secondary">{t("web.portal.ps.description")}<Glyph name="next" /></ActionLink>
       {data.liveVisits.length > 0 && <section className="space-y-3">
         <h2 className="text-section-title">{t("web.portal.work.live")}</h2>
-        {data.liveVisits.map((item) => <VisitSummaryCard key={item.jobId} item={item} to={liveVisitPath(item.jobId)}
+        {data.liveVisits.map((item) => <VisitSummaryCard key={item.visit.visitId} item={item} to={liveVisitPath(item.jobId, item.visit.visitId)}
           t={t} locale={locale} viewerZone={viewerZone} />)}
       </section>}
       {data.decisions.length > 0 && <section className="space-y-3"><h2 className="text-section-title">{t("web.portal.work.needsYou")}</h2>{data.decisions.map((decision) => <NeedsYouCard key={decision.recordId} title={decision.kind === "review_quote" ? t("web.portal.work.reviewQuote") : t("web.portal.work.open")} detail={[jobTitle(t,decision.title,decision.reference), decision.reference, decision.amount && money(locale, decision.amount.minor, decision.amount.currency)].filter(Boolean).join(" · ")} deadline={decision.dueAt === null ? undefined : <PortalClock at={decision.dueAt} zone={decision.siteZone} locale={locale} viewerZone={viewerZone} />} action={{ label: decision.kind === "review_quote" ? t("web.portal.work.reviewQuote") : t("web.portal.work.open"), to: decision.kind === "review_quote" ? `/portal/jobs/${encodeURIComponent(decision.jobId)}/quote/${encodeURIComponent(decision.recordId)}` : `/portal/jobs/${encodeURIComponent(decision.jobId)}` }} />)}</section>}
       {visits && visits.today.length > 0 && <section className="space-y-3">
         <h2 className="text-section-title">{t("web.portal.work.todayVisits")}</h2>
-        {visits.today.map((item) => <VisitSummaryCard key={item.jobId} item={item} to={liveVisitPath(item.jobId)}
-          t={t} locale={locale} viewerZone={viewerZone} bookedWindow={item.nextVisit?.window} />)}
+        {visits.today.map((item) => <VisitSummaryCard key={item.nextVisit.visitId} item={item} to={liveVisitPath(item.jobId, item.nextVisit.visitId)}
+          t={t} locale={locale} viewerZone={viewerZone} bookedWindow={item.nextVisit.window} />)}
       </section>}
       {visits && visits.later.length > 0 && <section className="space-y-3"><h2 className="text-section-title">{t("web.portal.work.upcoming")}</h2>{visits.later.map((item) => <Booking key={item.jobId} item={item} viewerZone={viewerZone} />)}</section>}
       {data.recent.length > 0 && <Card title={t("web.portal.work.latest")}><div className="bb-moments text-ink [&_.bb-stamp]:animate-none">{data.recent.map((moment) => {

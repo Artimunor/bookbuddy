@@ -1,5 +1,5 @@
 import { createCommercialClient, createJobsClient } from "@bookbuddy/api-client";
-import type { HomeProjection } from "@bookbuddy/api-contract";
+import type { HomeProjection, JobsPage } from "@bookbuddy/api-contract";
 import { VISIT_STEPS, tradeLabelKey } from "@bookbuddy/domain";
 import type { Translator } from "@bookbuddy/i18n";
 import { createWebTranslator } from "@bookbuddy/i18n/web";
@@ -126,7 +126,7 @@ export function Frame({ current, children }: { current?: "now" | "bookings" | "m
   };
   return <PortalShell identity={{ name, initials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), to: "/portal/settings" }} accountActions={account ? <SignOutControl /> : undefined} nav={nav} current={current} navLabel={t("web.portal.work.navigation")} skipLabel={t("web.portal.work.skip")}><div className="bb-portal-frame">{children}</div></PortalShell>;
 }
-type CustomerCard = Extract<HomeProjection, { audience: "customer" }>["upcoming"][number];
+type CustomerCard = Extract<JobsPage, { audience: "customer" }>["items"][number];
 export function Booking({ item, viewerZone }: { item: CustomerCard; viewerZone?: string }) {
   const { t, locale } = usePortal();
   const label = item.journey.cancelled ? t("web.portal.work.cancelled") : stageLabel(t, item.journey.step);
