@@ -36,7 +36,7 @@ async function body(c: Context<ApiEnv>, maxBytes = 16 * 1024): Promise<unknown> 
   const { raw: request } = c.req;
   if (!request.body || Number(request.headers.get("Content-Length")) > maxBytes) return undefined;
   const reader = request.body.getReader();
-  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false });
   let bytes = 0, json = "";
   try {
     while (true) {

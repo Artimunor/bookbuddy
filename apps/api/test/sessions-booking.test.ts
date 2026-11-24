@@ -370,7 +370,7 @@ test("Later browse and booking require both the target provider flag and a curre
         'Other address', 'Private access', 'Private arrival', 'approved', 1)`),
     version(f.db, "v3", 3, "hash-3", 1600, "en", "listing", "other-venue"),
     slot(f.db, "off-market-slot", afternoon + duration, "v3", 1),
-    f.db.prepare("UPDATE place_grants SET revoked_at = ?, revoked_by = 'booker' WHERE id = 'other-view'").bind(now),
+    f.db.prepare("UPDATE place_grants SET revoked_at = ? WHERE id = 'other-view'").bind(now),
   ]);
   status(await f.call("booker", "/sessions?areaId=off-area&category=pilates"), 404, "NOT_FOUND");
   const listing = data(getSessionRoute, await f.call("booker", "/sessions/listing"));
