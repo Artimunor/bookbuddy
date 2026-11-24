@@ -83,15 +83,19 @@ export async function refreshPush(client: ApiClient, accountId: string, devicePu
   });
 }
 
-export function disablePushForSignedOutAccount(accountId: string): Promise<void> {
+export function lockPushForSignedOutAccount(accountId: string) {
   signedOut.add(accountId);
   inFlight?.abort();
+}
+
+export function disablePushForSignedOutAccount(accountId: string): Promise<void> {
+  lockPushForSignedOutAccount(accountId);
   return serialize(async () => {
     const settings = await loadPushSettings();
     if (settings.accountId === accountId || settings.pending?.accountId === accountId) {
       const { pending, ...rest } = settings;
-      await savePushSettings({ ...rest, notifications: false, active: false, requiresReregister: true,
-        ...(pending?.accountId === accountId ? { installationId: undefined, token: undefined, epoch: 0 } : {}) });
+      await savePushSettings({ ...rest, notifications: false, active: false, requiresReregister: true, token: undefined,
+        ...(pending?.accountId === accountId ? { installationId: undefined, epoch: 0 } : {}) });
     }
   });
 }

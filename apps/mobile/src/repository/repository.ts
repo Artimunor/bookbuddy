@@ -99,6 +99,10 @@ export interface StagedMedia {
 export interface OnlineReceipt { operationId: string; kind: string; resourceId: string; createdAt: number }
 export interface Confirmation { confirmedAt: number; expiresAt: number }
 export type CachedRemoteSnapshot<Kind extends RemoteCacheKind> = Confirmation & { data: CachedRead<Kind> };
+export type CardProjectionKind = "worker_field_shift" | "session_booking";
+type CardProjection<Kind extends CardProjectionKind> =
+  | { data: CachedProjections[Kind]; expiresAt: number; removed: false }
+  | { data: null; removed: true };
 export interface SyncBatch {
   cursor: string | null;
   operations: SyncOp[];
@@ -205,6 +209,9 @@ export class MobileRepository {
 export class ScopedRepository {
   private active = true;
   private snapshotHidden = false;
+  private snapshotComplete = false;
+  private projectionDenied = false;
+  private readonly definitivelyRemoved = new Set<string>();
   private visibility = 0;
   private readonly events = new Map<RepositoryTopic, RepositoryEvent>();
   private readonly progressReadyListeners = new Set<(ids: ReadonlySet<AttachmentId>) => void>();
@@ -280,6 +287,19 @@ export class ScopedRepository {
       if (!confirmation) return null;
       const [row] = await db.select(projection, { ...this.partition, kind, id });
       return row && this.active && !this.snapshotHidden ? { data: JSON.parse(row.value) as CachedProjections[Kind], expiresAt: confirmation.expiresAt } : null;
+    });
+  }
+
+  getCardProjection<Kind extends CardProjectionKind>(kind: Kind, id: string): Promise<CardProjection<Kind> | null> {
+    return this.db.read(async (db) => {
+      if (!this.active) return null;
+      if (this.projectionDenied || this.definitivelyRemoved.has(`${kind}:${id}`)) return { data: null, removed: true };
+      const confirmation = await this.confirmation(db);
+      if (!confirmation) return null;
+      const [row] = await db.select(projection, { ...this.partition, kind, id });
+      if (!this.active || this.snapshotHidden) return null;
+      if (row) return { data: JSON.parse(row.value) as CachedProjections[Kind], expiresAt: confirmation.expiresAt, removed: false };
+      return this.snapshotComplete ? { data: null, removed: true } : null;
     });
   }
 
@@ -820,6 +840,8 @@ export class ScopedRepository {
     // A known denial must hide the old snapshot even when the disk write fails.
     if (hideSnapshot) {
       this.snapshotHidden = true;
+      this.projectionDenied = true;
+      this.snapshotComplete = false;
       this.visibility++;
       this.notify("projection", "attendance");
     }
@@ -839,13 +861,23 @@ export class ScopedRepository {
     if (page.context.contextId !== this.scope.contextId) throw new Error("Wrong sync scope");
     const barrier = page.removals.some((row) => row.kind === "scope");
     if (page.removals.some((row) => row.kind === "scope" && row.resourceId !== this.scope.contextId)) throw new Error("Wrong scope removal");
+    // A signed revocation is an empty, terminal reset; a paged reset is not absence.
+    const mayBeRevoked = barrier && page.mode === "reset" && page.upserts.length === 0 && !page.hasMore;
     if (barrier) {
       this.snapshotHidden = true;
+      this.snapshotComplete = false;
+      this.projectionDenied = mayBeRevoked;
       this.visibility++;
-      this.notify("projection", "attendance");
     }
-    // A signed revocation is an empty, terminal reset; do not renew visibility.
-    const mayBeRevoked = barrier && page.mode === "reset" && page.upserts.length === 0 && !page.hasMore;
+    let removed = false;
+    for (const { kind, resourceId } of page.removals) {
+      if (kind !== "worker_field_shift" && kind !== "session_booking") continue;
+      const key = `${kind}:${resourceId}`;
+      if (this.definitivelyRemoved.has(key)) continue;
+      this.definitivelyRemoved.add(key);
+      removed = true;
+    }
+    if (barrier || removed) this.notify("projection", "attendance");
     const progressChanged = await this.write(async (db) => {
       if (barrier) await db.remove(projection, this.partition);
       else for (const removal of page.removals) {
@@ -899,6 +931,11 @@ export class ScopedRepository {
       return progressChanged;
     });
     this.snapshotHidden = mayBeRevoked;
+    this.projectionDenied = mayBeRevoked;
+    if (page.mode !== "delta") this.snapshotComplete = !page.hasMore;
+    for (const row of page.upserts) {
+      if (row.kind === "worker_field_shift" || row.kind === "session_booking") this.definitivelyRemoved.delete(`${row.kind}:${row.resourceId}`);
+    }
     const shiftChanged = barrier || page.upserts.some(({ kind }) => kind === "worker_field_shift") ||
       page.removals.some(({ kind }) => kind === "worker_field_shift");
     this.notify("projection", ...(page.outcomes.length ? ["outbox", "attendance"] as const : shiftChanged ? ["attendance"] as const : []));

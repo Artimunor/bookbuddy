@@ -44,6 +44,7 @@ export default function configureApp({ projectRoot }: ConfigContext): ExpoConfig
         enableBackgroundRecording: false, enableBackgroundPlayback: false,
       }],
       ["expo-localization", { supportedLocales, supportsRTL }],
+      ["expo-local-authentication", { faceIDPermission: "Allow BookBuddy to unlock saved work with Face ID." }],
       ["expo-sqlite", { useSQLCipher: true }],
       "./src/repository/with-ios-offline-directory.cjs",
       "./plugins/with-live-activities/index.cjs",

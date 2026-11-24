@@ -5,7 +5,7 @@ import { useRemote } from "../../api";
 import { useApiAccess } from "../../api/provider";
 import { remoteRequestKey } from "../../api/requests";
 import { useLocale, useT } from "../../i18n";
-import { useAttendanceStatus, useProjection, useRepository } from "../../repository/hooks";
+import { useAttendanceStatus, useCardProjection, useRepository } from "../../repository/hooks";
 import { useSession } from "../../session";
 import { cardScope, getStatusCards, reconcileStatusCards, refreshStatusCard, setStatusCardPreferences, setStatusCardScope, startStatusCard, stopStatusCard, subscribeStatusCards, type ActiveCard, type CardPreferences } from "./controller";
 import { coverCardSource, sessionCardSource, shiftCardSource, visitCardSource, type StatusCardSource } from "./model";
@@ -88,29 +88,25 @@ function VisitStatus({ card }: { card: ActiveCard }) {
   const { refresh, stop } = useStatusCards();
   const foreground = useForeground();
   useEffect(() => {
-    if (!foreground) return;
-    if (read.status === "ready" && "moments" in read.data) void refresh(visitCardSource(read.data)).catch(() => undefined);
-    else if (read.error?.code === "NOT_FOUND" || read.error?.code === "UNAUTHENTICATED") void stop(card.id).catch(() => undefined);
+    if (read.error?.code === "NOT_FOUND" || read.error?.code === "UNAUTHENTICATED") void stop(card.id).catch(() => undefined);
+    else if (foreground && read.status === "ready" && "moments" in read.data) void refresh(visitCardSource(read.data)).catch(() => undefined);
   }, [foreground, card.id, read.status, read.data, read.error, refresh, stop]);
   return null;
 }
 
 function SessionStatus({ card }: { card: ActiveCard }) {
   const read = useRemote(getSessionBookingRoute, { params: { id: card.target.id } }, { loadOnMount: false });
-  const synced = useProjection("session_booking", card.target.id);
+  const { data: synced, removed } = useCardProjection("session_booking", card.target.id);
   const seen = useRef<typeof synced>(null);
   const { refresh, stop } = useStatusCards();
   const foreground = useForeground();
   useEffect(() => {
+    if (removed || (synced && (synced.state !== "booked" || Date.now() >= synced.slotEnd)) ||
+        read.error?.code === "NOT_FOUND" || read.error?.code === "UNAUTHENTICATED") {
+      void stop(card.id).catch(() => undefined);
+      return;
+    }
     if (!foreground) return;
-    if (synced && (synced.state !== "booked" || Date.now() >= synced.slotEnd)) {
-      void stop(card.id).catch(() => undefined);
-      return;
-    }
-    if (read.error?.code === "NOT_FOUND" || read.error?.code === "UNAUTHENTICATED") {
-      void stop(card.id).catch(() => undefined);
-      return;
-    }
     const previous = seen.current;
     const changed = previous && synced && (previous.slotStart !== synced.slotStart || previous.slotEnd !== synced.slotEnd ||
       previous.hostDisplayName !== synced.hostDisplayName || previous.substituteHost !== synced.substituteHost);
@@ -118,19 +114,20 @@ function SessionStatus({ card }: { card: ActiveCard }) {
     // A sync-host change lacks confirmation provenance: reconcile it in one authorised read.
     if (changed || read.status === "idle") { void read.refresh(); return; }
     if (read.status === "ready") void refresh(sessionCardSource(read.data)).catch(() => undefined);
-  }, [foreground, card.id, read.status, read.data, read.error, read.refresh, synced, refresh, stop]);
+  }, [foreground, card.id, read.status, read.data, read.error, read.refresh, synced, removed, refresh, stop]);
   return null;
 }
 
 function ShiftStatus({ card }: { card: ActiveCard }) {
-  const shift = useProjection("worker_field_shift", card.target.id);
+  const { data: shift, removed } = useCardProjection("worker_field_shift", card.target.id);
   const { arrival, departure, lastConfirmedAt } = useAttendanceStatus(card.target.id);
   const { refresh, stop } = useStatusCards();
   const foreground = useForeground();
   useEffect(() => {
-    if (departure && ["saved_on_device", "checking", "sent", "recorded"].includes(departure.status)) void stop(card.id).catch(() => undefined);
-    else if (shift) void refresh(shiftCardSource(shift, { arrival, departure, lastConfirmedAt })).catch(() => undefined);
-  }, [foreground, card.id, shift, arrival, departure, lastConfirmedAt, refresh, stop]);
+    if (removed || (departure && ["saved_on_device", "checking", "sent", "recorded"].includes(departure.status))) {
+      void stop(card.id).catch(() => undefined);
+    } else if (foreground && shift) void refresh(shiftCardSource(shift, { arrival, departure, lastConfirmedAt })).catch(() => undefined);
+  }, [foreground, card.id, shift, removed, arrival, departure, lastConfirmedAt, refresh, stop]);
   return null;
 }
 
@@ -139,9 +136,8 @@ function CoverStatus({ card }: { card: ActiveCard }) {
   const { refresh, stop } = useStatusCards();
   const foreground = useForeground();
   useEffect(() => {
-    if (!foreground) return;
-    if (read.status === "ready" && read.data.audience === "foreman") void refresh(coverCardSource(read.data)).catch(() => undefined);
-    else if (read.error?.code === "NOT_FOUND" || read.error?.code === "UNAUTHENTICATED") void stop(card.id).catch(() => undefined);
+    if (read.error?.code === "NOT_FOUND" || read.error?.code === "UNAUTHENTICATED") void stop(card.id).catch(() => undefined);
+    else if (foreground && read.status === "ready" && read.data.audience === "foreman") void refresh(coverCardSource(read.data)).catch(() => undefined);
   }, [foreground, card.id, read.status, read.data, read.error, refresh, stop]);
   return null;
 }

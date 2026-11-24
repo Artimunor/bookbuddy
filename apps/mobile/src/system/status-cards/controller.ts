@@ -2,7 +2,7 @@ import { requireOptionalNativeModule } from "expo-modules-core";
 import * as Notifications from "expo-notifications";
 import { uuid } from "expo";
 import { AppState, Platform } from "react-native";
-import type { DeviceSession } from "../../session/provider";
+import type { DeviceSession } from "../../session";
 import { localPreferenceStorage } from "../../i18n/storage";
 import { cardExpiry, nativeCard, type CardCopy, type StatusCardSource, type StatusCardTarget } from "./model";
 
