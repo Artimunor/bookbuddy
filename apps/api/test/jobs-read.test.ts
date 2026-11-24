@@ -147,7 +147,7 @@ test("implicit customer home prioritizes only readable booked visits without cha
         ('a-idle','owner','Alternate','Alternate Street','pending_verification'),
         ('b-history','owner','History cutoff','History Street','pending_verification')`),
       f.db.prepare(`INSERT INTO place_people(place_id,account_id,verified_from,history_from) VALUES
-        ('a-idle','owner',1,1), ('b-history','owner',1,?)`).bind(now - minute),
+        ('a-idle','owner',1,1), ('b-history','owner',1,?), ('b-history','other',1,1)`).bind(now - minute),
       f.db.prepare(`UPDATE places SET state='in_area', area_id='area', site_zone='Europe/Madrid',
         named_approver_id=owner_id, pin='{"latitude":0,"longitude":0}' WHERE id IN ('a-idle','b-history')`),
       f.db.prepare(`INSERT INTO jobs(id,reference,business_id,place_id,requester_id,origin,state) VALUES
