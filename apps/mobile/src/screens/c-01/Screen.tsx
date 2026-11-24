@@ -8,8 +8,10 @@ import { useDraft, usePendingDrafts, useRepository } from "../../repository/hook
 import type { CachedRead } from "../../repository/remote-cache";
 import { useSession } from "../../session";
 import { Button, Card, EmptyState, Screen } from "../../ui/controls";
+import { ListRow } from "../../ui/controls/rows";
 import { Copy } from "../../ui/controls/shared";
 import { Bell, Booking, CachedBooking, CachedVisit, DecisionLabel, HeaderIdentity, Journey, Live, OfflineNotice, Section, decisionAction, type Decision } from "./common";
+import { browseHref } from "../l-01/common";
 import { requestDraftHref, savedRequestHref, type RequestDraft } from "../c-02/draft";
 
 type Home = Extract<HomeProjection, { audience: "customer" }>;
@@ -31,10 +33,12 @@ export default function CustomerNowScreen() {
   };
   const ask = (mode?: "voice" | "photo") => router.push(requestDraftHref("describe", uuid.v4(), mode ? { mode } : undefined));
   const description = latest?.summary;
+  const sessions = bootstrap?.capabilities?.sessions;
   if (remote.status === "offline") return <CachedNowView home={remote.data?.audience === "customer" ? remote.data : null} confirmed={remote.lastConfirmedAt} name={bootstrap?.account.displayName ?? null} draftCount={count} draftDescription={description} onResume={resume} onAsk={ask} onIdentity={() => router.push("/you" as Href)} onBell={() => router.push("/notifications" as Href)} />;
   return <NowView home={remote.data?.audience === "customer" ? remote.data : null} status={remote.status} confirmed={null} name={bootstrap?.account.displayName ?? null} twoClock={preferences?.twoClock ?? false} draftCount={count} draftDescription={description}
     onAsk={ask}
     onResume={resume}
+    onSessions={sessions && "areaIds" in sessions ? () => router.push(browseHref) : undefined}
     onIdentity={() => router.push("/you" as Href)} onBell={() => router.push("/notifications" as Href)} onRetry={() => { void remote.refresh(); }}
     onJob={(id) => router.push(`/c/jobs/${id}` as Href)} onDecision={(decision) => {
       const root = `/c/jobs/${decision.jobId}`;
@@ -43,10 +47,11 @@ export default function CustomerNowScreen() {
     }} />;
 }
 
-export function NowView({ home, status, confirmed, name, twoClock = false, draftCount = 0, draftDescription, onAsk, onResume, onIdentity, onBell, onRetry, onJob, onDecision }: {
+export function NowView({ home, status, confirmed, name, twoClock = false, draftCount = 0, draftDescription, onAsk, onResume, onIdentity, onBell, onRetry, onJob, onDecision, onSessions }: {
   home: Home | null; status: Status; confirmed: number | null; name: string | null; twoClock?: boolean; draftCount?: number; draftDescription?: string;
   onAsk: (mode?: "voice" | "photo") => void; onResume: () => void; onIdentity: () => void; onBell: () => void; onRetry: () => void;
   onJob: (id: string) => void; onDecision: (decision: Decision) => void;
+  onSessions?: () => void;
 }) {
   const t = useT(); const offline = status === "offline";
   const live = home?.liveVisits ?? [], decisions = home?.decisions ?? [], upcoming = home?.upcoming ?? [];
@@ -62,6 +67,7 @@ export function NowView({ home, status, confirmed, name, twoClock = false, draft
     {!!upcoming.length && <Section title={t("mobile.customerHome.comingUp")}>{upcoming.map((item) => <Booking key={item.jobId} item={item} quiet={offline} onPress={() => onJob(item.jobId)} />)}</Section>}
     {home && !live.length && (decisions.length > 0 || upcoming.length > 0) && <EmptyState title={t("mobile.customerHome.nothingLive")} description={t("mobile.customerHome.lightsUp")} />}
     {!!home?.recent.length && <Section title={t("mobile.customerHome.latest")}>{home.recent.map((moment) => <RecentMoment key={`${moment.recordId}-${moment.kind}`} moment={moment} zone={[...live, ...decisions, ...upcoming].find((item) => item.jobId === moment.jobId)?.siteZone ?? null} onPress={() => onJob(moment.jobId)} />)}</Section>}
+    {onSessions && <ListRow label={t("mobile.laterCustomer.entry")} onPress={onSessions} />}
     {home && !live.length && !decisions.length && !upcoming.length && !home.recent.length && <EmptyState title={t("mobile.customerHome.firstTitle")} description={t("mobile.customerHome.firstBody")} />}
   </Screen>;
 }

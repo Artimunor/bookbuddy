@@ -1,8 +1,14 @@
-import { acceptInvitationRoute, declineInvitationRoute, idSchema, linkTokenSchema, notificationReadRoute, openLinkRoute, sessionContextRoute, type InvitationOpening, type LinkOpening } from "@bookbuddy/api-contract";
+import {
+  acceptInvitationRoute, declineInvitationRoute, getBusinessEligibilityRoute, getBusinessOverviewRoute, getCoverRoute,
+  getCrewAvailabilityRoute, getHandoffRoute, getJobBillRoute, getJobCompletionRoute, getJobRoute, getOfferRoute,
+  getPlaceRoute, getProblemCaseRoute, idSchema, linkTokenSchema, notificationReadRoute, openLinkRoute, sessionContextRoute,
+  type InvitationOpening, type LinkOpening,
+} from "@bookbuddy/api-contract";
+import { getSessionBookingRoute } from "@bookbuddy/api-contract";
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
-import { useCommand, useRemote } from "../../api";
+import { useCommand, useRemote, useSeedRemote } from "../../api";
 import { useApiAccess } from "../../api/provider";
 import type { RemoteStatus } from "../../api/requests";
 import { useFormat, useT } from "../../i18n";
@@ -25,33 +31,80 @@ function help(reason?: string): Href {
 }
 
 type Destination = Exclude<LinkOpening, { kind: "invitation" | "switch_context" | "unavailable" }>;
-function destination(link: Destination, role: string | undefined, opaque: string): Href {
+function destination(link: Destination, role: string | undefined, seed: ReturnType<typeof useSeedRemote>, at: number): Href {
   switch (link.kind) {
-    case "place": return { pathname: "/c/places/[placeId]", params: { placeId: link.place.id } } as Href;
-    case "business_overview": return "/p/now" as Href;
+    case "place":
+      seed(getPlaceRoute, { params: { p: link.place.id } }, link.place, at);
+      return { pathname: "/c/places/[placeId]", params: { placeId: link.place.id } } as Href;
+    case "business_overview":
+      seed(getBusinessOverviewRoute, { params: { b: link.business.business.id } }, link.business, at);
+      return "/p/now" as Href;
     case "business_member": return "/p/people" as Href;
-    case "business_eligibility": return (role === "provider_admin" ? "/p/eligibility" : "/f/crew") as Href;
+    case "business_eligibility":
+      if (link.eligibility.audience !== "provider_admin") return "/f/crew" as Href;
+      seed(getBusinessEligibilityRoute, { params: { b: link.eligibility.business.id }, query: {} }, link.eligibility, at);
+      return "/p/eligibility" as Href;
     case "job": {
-      const record = link.record;
-      if (record.audience === "customer") return { pathname: "/c/jobs/[jobId]", params: { jobId: record.job.jobId, view: record.job.view } } as Href;
-      if (record.audience === "foreman") return record.job.view === "intake"
-        ? { pathname: "/f/intake/[handoffId]", params: { handoffId: record.job.handoff.handoffId, jobId: record.job.jobId, opaque } } as Href
-        : { pathname: "/f/jobs/[jobId]", params: { jobId: record.job.jobId, view: record.job.view } } as Href;
+      const { record } = link;
+      const jobId = record.job.jobId;
+      if (record.audience === "foreman" && record.job.view === "intake") {
+        const handoffId = record.job.handoff.handoffId;
+        seed(getHandoffRoute, { params: { h: handoffId } }, { audience: record.audience, job: record.job }, at);
+        return { pathname: "/f/intake/[handoffId]", params: { handoffId } } as Href;
+      }
+      // Today and worker field screens request different projections. Do not seed
+      // a linked visit or a worker job summary under those broader read keys.
+      if (record.job.view === "whole" && record.audience !== "worker")
+        seed(getJobRoute, { params: { j: jobId }, query: { view: "whole" } }, record, at);
+      if (record.audience === "customer") return { pathname: "/c/jobs/[jobId]", params: { jobId, view: record.job.view } } as Href;
+      if (record.audience === "foreman") return { pathname: "/f/jobs/[jobId]", params: { jobId, view: record.job.view } } as Href;
       if (record.audience === "worker") return { pathname: "/w/shifts/[shiftId]", params: { shiftId: record.job.assignment.shiftId } } as Href;
-      return "/p/jobs" as Href;
+      return { pathname: "/p/jobs", params: { jobId } } as Href;
     }
     case "thread": return { pathname: "/threads/[threadId]", params: { threadId: link.threadId } } as Href;
-    case "completion": return link.completion.audience === "customer"
-      ? { pathname: "/c/jobs/[jobId]/completion", params: { jobId: link.completion.job.jobId } } as Href
-      : { pathname: "/f/jobs/[jobId]/wrap-up", params: { jobId: link.completion.job.jobId } } as Href;
-    case "cover": return link.cover.audience === "foreman"
-      ? { pathname: "/f/cover/[gapId]", params: { gapId: link.cover.gapId } } as Href
-      : "gapId" in link.cover.offer
-        ? { pathname: "/w/offers/[offerId]", params: { offerId: link.cover.offer.offerId, gapId: link.cover.offer.gapId } } as Href
-        : help();
-    case "assignment_offer": return { pathname: "/w/offers/[offerId]", params: { offerId: link.offer.offerId } } as Href;
-    case "crew_availability": return { pathname: "/w/availability", params: { date: link.date, opaque } } as Href;
-    case "session_booking": return help();
+    case "completion": {
+      const jobId = link.completion.job.jobId;
+      seed(getJobCompletionRoute, { params: { j: jobId } }, link.completion, at);
+      return { pathname: link.completion.audience === "customer" ? "/c/jobs/[jobId]/completion" : "/f/jobs/[jobId]/wrap-up", params: { jobId } } as Href;
+    }
+    case "bill": {
+      const jobId = link.bill.job.jobId;
+      if (link.bill.audience === "customer") {
+        // An older exact bill link cannot stand in for the current issued bill.
+        if (link.bill.bill?.state === "issued") seed(getJobBillRoute, { params: { j: jobId } }, link.bill, at);
+        return { pathname: "/c/jobs/[jobId]/bill", params: { jobId } } as Href;
+      }
+      return { pathname: link.bill.audience === "foreman" ? "/f/jobs/[jobId]" : "/p/jobs", params: { jobId } } as Href;
+    }
+    case "problem_case": {
+      const jobId = link.case.job.jobId;
+      if (link.case.audience === "reporter") {
+        const caseId = link.case.receipt.id;
+        seed(getProblemCaseRoute, { params: { id: caseId } }, link.case, at);
+        return { pathname: "/c/jobs/[jobId]/case/[caseId]", params: { jobId, caseId } } as Href;
+      }
+      return { pathname: role === "foreman" ? "/f/jobs/[jobId]" : "/p/jobs", params: { jobId } } as Href;
+    }
+    case "cover": {
+      const cover = link.cover;
+      if (cover.audience === "foreman") {
+        seed(getCoverRoute, { params: { g: cover.gapId } }, cover, at);
+        return { pathname: "/f/cover/[gapId]", params: { gapId: cover.gapId } } as Href;
+      }
+      if (!("gapId" in cover.offer)) return help();
+      const { gapId, offerId } = cover.offer;
+      seed(getCoverRoute, { params: { g: gapId } }, cover, at);
+      return { pathname: "/w/offers/[offerId]", params: { offerId, gapId } } as Href;
+    }
+    case "assignment_offer":
+      seed(getOfferRoute, { params: { id: link.offer.offerId } }, link.offer, at);
+      return { pathname: "/w/offers/[offerId]", params: { offerId: link.offer.offerId } } as Href;
+    case "crew_availability":
+      seed(getCrewAvailabilityRoute, { params: { member: link.availability.membershipId }, query: { weekOf: link.date } }, link.availability, at);
+      return { pathname: "/w/availability", params: { date: link.date } } as Href;
+    case "session_booking":
+      seed(getSessionBookingRoute, { params: { id: link.booking.id } }, link.booking, at);
+      return { pathname: "/c/session-bookings/[id]", params: { id: link.booking.id } } as Href;
   }
 }
 
@@ -64,6 +117,7 @@ export default function LinkScreen({ invitationOnly = false }: { invitationOnly?
   const { session, bootstrap, status, signOut, acceptBootstrap } = useSession();
   const { offline } = useApiAccess();
   const remote = useRemote(openLinkRoute, { params: { opaque: opaque ?? "" } }, { enabled: !!session && !!opaque });
+  const seed = useSeedRemote();
   const accept = useCommand(acceptInvitationRoute);
   const decline = useCommand(declineInvitationRoute);
   const switchContext = useCommand(sessionContextRoute);
@@ -137,6 +191,15 @@ export default function LinkScreen({ invitationOnly = false }: { invitationOnly?
   }
   const [declined, setDeclined] = useState(false);
   useFocusEffect(useCallback(() => { if (declined) safeRoot(); }, [declined, active?.role]));
+  const link = remote.status === "ready" ? remote.data : null;
+  const terminalCover = link?.kind === "cover" && link.cover.audience === "worker" && !("gapId" in link.cover.offer);
+  const opened = useRef<Destination | null>(null);
+  useFocusEffect(useCallback(() => {
+    if (invitationOnly || !session || !opaque || !link || remote.lastConfirmedAt === null || terminalCover
+      || link.kind === "invitation" || link.kind === "switch_context" || link.kind === "unavailable" || opened.current === link) return;
+    opened.current = link;
+    router.replace(destination(link, active?.role, seed, remote.lastConfirmedAt));
+  }, [invitationOnly, session, opaque, link, remote.lastConfirmedAt, terminalCover, router, active?.role, seed]));
 
   if (status === "loading") return null;
   if (!session) {
@@ -145,7 +208,6 @@ export default function LinkScreen({ invitationOnly = false }: { invitationOnly?
   }
   if (!opaque) return <Redirect href={help()} />;
   if (!invitationOnly && remote.status === "error" && (remote.error?.code === "NOT_FOUND" || remote.error?.code === "UNAUTHENTICATED")) return <Redirect href={help()} />;
-  const link = remote.status === "ready" ? remote.data : null;
   if (!invitationOnly && link?.kind === "cover" && link.cover.audience === "worker" && !("gapId" in link.cover.offer)) {
     return <OfferView data={link.cover.offer} status="ready" now={Date.now()} busy={false} checking={false} failed={false}
       acceptOpen={false} decision={null} onBack={safeRoot} onRetry={() => { void remote.refresh(); }}
@@ -156,7 +218,7 @@ export default function LinkScreen({ invitationOnly = false }: { invitationOnly?
     if (link.kind === "invitation") return <Redirect href={{ pathname: "/invite/[opaque]", params: { opaque } }} />;
     if (link.kind === "switch_context") return <Redirect href={{ pathname: "/switch-role", params: { opaque } }} />;
     if (link.kind === "unavailable") return <Redirect href={help(link.reason)} />;
-    return <Redirect href={destination(link, active?.role, opaque)} />;
+    return null;
   }
   let invitation: InvitationOpening | null = null;
   if (link?.kind === "invitation") invitation = link.invitation;

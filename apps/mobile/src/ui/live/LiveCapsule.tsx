@@ -23,6 +23,8 @@ export type LiveCapsuleProps = {
   /** A single sentence with state, time and zone, and provenance. */
   accessibilityLabel: string;
   line?: JobLineStage & Pick<JobLineProps, "accessibilityLabel" | "compact" | "status">;
+  /** Five session stages with the same rail, semantics and motion as the visit line. */
+  sessionLine?: Pick<Extract<JobLineStage, { kind: "visit" }>, "steps" | "current"> & Pick<JobLineProps, "accessibilityLabel" | "status">;
   crew?: CrewDotsProps;
   /** Glance surfaces open the live record. Omit on the live detail itself. */
   onPress?: () => void;
@@ -35,7 +37,7 @@ const marks: Record<LiveCapsuleState, string> = {
 };
 
 export function LiveCapsule({
-  size = "card", state, pulse, stateLabel, source, reference, time, zoneLine, estimate, provenance, accessibilityLabel, line, crew, onPress,
+  size = "card", state, pulse, stateLabel, source, reference, time, zoneLine, estimate, provenance, accessibilityLabel, line, sessionLine, crew, onPress,
 }: LiveCapsuleProps) {
   const { scheme, field, color, type, space } = useBeaconTheme();
   const [focused, setFocused] = useState(false);
@@ -75,7 +77,7 @@ export function LiveCapsule({
       <View style={{ gap: space.grid[1] }}>
         <View style={[styles.row, { gap: space.grid[2] }]}>
           <Text style={[time ? type.label : size === "hero" ? type.display : type.sectionTitle, { color: time ? accent : polarity.text.color }, styles.fill]}>{stateLabel}</Text>
-          {estimate && activity === "live" && (
+          {estimate && (activity === "live" || sessionLine) && (
             <Text style={[type.supporting, native.tabularNumbers, styles.estimate, {
               backgroundColor: field ? color.onLive : color.nightLine,
               color: field ? color.live : color.onNight,
@@ -86,7 +88,8 @@ export function LiveCapsule({
         {time && <DirectedText dir="ltr" style={[size === "hero" ? type.display : type.sectionTitle, native.tabularNumbers, polarity.text, styles.leading]}>{time}</DirectedText>}
         {zoneLine && <Text style={[type.supporting, native.tabularNumbers, polarity.supportingText]}>{zoneLine}</Text>}
       </View>
-      {line && <JobLine {...line} pulse={pulse} surface={lineSurface} activity={activity} />}
+      {sessionLine ? <JobLine kind="visit" {...sessionLine} pulse={pulse} surface={lineSurface} activity={activity} />
+        : line && <JobLine {...line} pulse={pulse} surface={lineSurface} activity={activity} />}
       <View style={crew ? [styles.footer, { borderColor: field ? color.livePressed : color.nightLine, gap: space.grid[2] }] : undefined}>
         {crew && <CrewDots {...crew} surface={lineSurface} />}
         <Text style={[type.supporting, native.tabularNumbers, polarity.supportingText]}>{provenance}</Text>
