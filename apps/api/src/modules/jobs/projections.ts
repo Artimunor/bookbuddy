@@ -71,14 +71,18 @@ export function journeySql(job: string, now: string): string {
     'quoted', EXISTS (SELECT 1 FROM quote_versions q WHERE q.job_id = ${job}.id AND q.issued_at <= ${now}),
     'booked', EXISTS (SELECT 1 FROM visits v JOIN visit_windows w ON w.visit_id = v.id
       WHERE v.job_id = ${job}.id AND w.confirmed_at <= ${now}),
-    'reached', EXISTS (SELECT 1 FROM visits v WHERE v.job_id = ${job}.id AND v.state = 'finished')`;
+    'reached', EXISTS (SELECT 1 FROM visits v WHERE v.job_id = ${job}.id AND v.state = 'finished'),
+    'signedOff', EXISTS (SELECT 1 FROM sign_offs s WHERE s.job_id = ${job}.id AND s.at <= ${now}),
+    'paymentMatched', EXISTS (SELECT 1 FROM bills b JOIN paid_records r ON r.bill_id = b.id AND r.kind = 'matched'
+      WHERE b.job_id = ${job}.id AND b.state = 'issued' AND r.at <= ${now}
+      AND NOT EXISTS (SELECT 1 FROM paid_records successor WHERE successor.prior_id = r.id AND successor.at <= ${now}))`;
 }
 
-export interface JourneyRow { state: JobState; quoted: number; booked: number; reached: number }
+export interface JourneyRow { state: JobState; quoted: number; booked: number; reached: number; signedOff: number; paymentMatched: number }
 
-export function journey({ state, quoted, booked, reached }: JourneyRow) {
+export function journey({ state, quoted, booked, reached, signedOff, paymentMatched }: JourneyRow) {
   return projectJourney({ jobState: state, quoteIssued: Boolean(quoted), windowConfirmed: Boolean(booked), visitReached: Boolean(reached),
-    signedOff: false, paymentMatched: false });
+    signedOff: Boolean(signedOff), paymentMatched: Boolean(paymentMatched) });
 }
 
 interface VisitWindow { visitId: string; startsAt: number; endsAt: number }

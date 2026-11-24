@@ -104,10 +104,14 @@ export const completionAttachments = sqliteTable("completion_attachments", {
   completionId: text("completion_id").notNull(),
   completionItemId: text("completion_item_id").notNull(),
   attachmentId: text("attachment_id").notNull().references(() => attachments.id),
+  caption: text(),
+  captionLanguage: text("caption_language"),
 }, (t) => [
   primaryKey({ columns: [t.completionId, t.completionItemId, t.attachmentId] }),
   foreignKey({ columns: [t.completionItemId, t.completionId], foreignColumns: [completionItems.id, completionItems.completionId] }),
   index("completion_attachments_attachment").on(t.attachmentId),
+  check("completion_attachments_caption", sql`(${t.caption} IS NULL) = (${t.captionLanguage} IS NULL)
+    AND (${t.caption} IS NULL OR length(trim(${t.caption}, char(9, 10, 11, 12, 13, 32))) > 0)`),
 ]);
 
 export const caseAttachments = sqliteTable("case_attachments", {

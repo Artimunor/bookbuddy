@@ -79,12 +79,14 @@ export const quoteItems = sqliteTable("quote_items", {
   netMinor: integer("net_minor").notNull(),
   taxMinor: integer("tax_minor").notNull(),
   evidenceRule: text("evidence_rule").notNull(),
+  evidenceAlternative: text("evidence_alternative"),
 }, (t) => [
   primaryKey({ columns: [t.versionId, t.lineNo] }),
   check("quote_items_line", sql`typeof(${t.lineNo}) = 'integer' AND ${t.lineNo} > 0`),
   check("quote_items_quantity", sql`typeof(${t.quantity}) = 'integer' AND ${t.quantity} > 0`),
   check("quote_items_net", sql`typeof(${t.netMinor}) = 'integer' AND ${t.netMinor} >= 0`),
   check("quote_items_tax", sql`typeof(${t.taxMinor}) = 'integer' AND ${t.taxMinor} >= 0`),
+  check("quote_items_evidence_alternative", sql`${t.evidenceAlternative} IS NULL OR length(trim(${t.evidenceAlternative}, char(9, 10, 11, 12, 13, 32))) > 0`),
 ]);
 
 export const changeProposals = sqliteTable("change_proposals", {
@@ -144,12 +146,14 @@ export const changeItems = sqliteTable("change_items", {
   netMinor: integer("net_minor").notNull(),
   taxMinor: integer("tax_minor").notNull(),
   evidenceRule: text("evidence_rule").notNull(),
+  evidenceAlternative: text("evidence_alternative"),
 }, (t) => [
   primaryKey({ columns: [t.versionId, t.lineNo] }),
   check("change_items_line", sql`typeof(${t.lineNo}) = 'integer' AND ${t.lineNo} > 0`),
   check("change_items_quantity", sql`typeof(${t.quantity}) = 'integer' AND ${t.quantity} > 0`),
   check("change_items_net", sql`typeof(${t.netMinor}) = 'integer'`),
   check("change_items_tax", sql`typeof(${t.taxMinor}) = 'integer'`),
+  check("change_items_evidence_alternative", sql`${t.evidenceAlternative} IS NULL OR length(trim(${t.evidenceAlternative}, char(9, 10, 11, 12, 13, 32))) > 0`),
 ]);
 
 export const commercialReviews = sqliteTable("commercial_reviews", {

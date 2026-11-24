@@ -5,7 +5,7 @@ import {
 import { z } from "zod";
 import { changeVersionIdSchema, quoteVersionIdSchema } from "./commercial";
 import {
-  attachmentIdSchema, commandInputSchema, idSchemaFor, localeTagSchema, paginationInputSchema, paginationSchema, timestampSchema,
+  attachmentIdSchema, commandInputSchema, idSchemaFor, localeTagSchema, paginationInputSchema, paginationSchema, revisionSchema, timestampSchema,
 } from "./common";
 import { jobIdSchema } from "./jobs";
 import { defineRoute } from "./route";
@@ -61,7 +61,9 @@ export const approvedScopeLineReferenceSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("quote"), quoteVersionId: quoteVersionIdSchema, lineNo: no }),
   z.strictObject({ kind: z.literal("change"), changeVersionId: changeVersionIdSchema, lineNo: no }),
 ]);
-const scopeLine = z.strictObject({ ref: approvedScopeLineReferenceSchema, label: authored, evidenceRule: shortText });
+const scopeLine = z.strictObject({
+  ref: approvedScopeLineReferenceSchema, label: authored, evidenceRule: shortText, evidenceAlternative: shortText.nullish(),
+});
 const approvedScope = z.strictObject({
   quoteVersionId: quoteVersionIdSchema, version: no, termsHash, totalMinor: minor, currency,
   scope: authored.extend({ original: original.extend({ text: z.string().min(1).max(16_000) }) }),
@@ -285,6 +287,16 @@ export const signOffCompletionRoute = commandRoute("/completions/:id/sign-off", 
     submission: completionSubmission.extend({ state: z.literal("signed_off") }),
     actions: customerCompletionSchema.shape.actions.extend({ signOff: z.literal(false) }),
   }));
+export const returnCompletionRoute = defineRoute({
+  method: "POST", path: "/completions/:id/return", auth: "context", command: true,
+  input: z.strictObject({
+    params: completionParams,
+    body: commandInputSchema(z.strictObject({})).extend({ expectedRevision: revisionSchema }),
+  }),
+  output: foremanCompletionSchema.extend({
+    submission: completionSubmission.extend({ state: z.literal("returned"), billReferenceHint: shortText.nullable() }),
+  }),
+});
 
 export const issueBillPayloadSchema = z.strictObject({
   id: billIdSchema, replacesId: billIdSchema.nullable(), number: shortText, currency, providerDocumentRef,

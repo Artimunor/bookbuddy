@@ -56,11 +56,12 @@ const terms = z.object({
   hash: termsHash,
 });
 
-const itemFields = { originalLabel, quantity: no, evidenceRule: originalLabel };
+const evidenceAlternative = originalLabel.refine((value) => value.trim().length > 0);
+const itemFields = { originalLabel, quantity: no, evidenceRule: originalLabel, evidenceAlternative: evidenceAlternative.optional() };
 const quoteDraftItem = z.strictObject({ ...itemFields, netMinor: minor, taxMinor: minor });
 const changeDraftItem = z.strictObject({ ...itemFields, netMinor: deltaMinor, taxMinor: deltaMinor });
-const quoteItem = quoteDraftItem.extend({ lineNo: no });
-const changeItem = changeDraftItem.extend({ lineNo: no });
+const quoteItem = quoteDraftItem.extend({ lineNo: no, evidenceAlternative: evidenceAlternative.nullish() });
+const changeItem = changeDraftItem.extend({ lineNo: no, evidenceAlternative: evidenceAlternative.nullish() });
 
 const noReadingAid = z.object({ status: z.enum(["original_only", "pending", "unavailable"]) });
 const readyReadingAid = z.object({

@@ -107,6 +107,10 @@ CREATE TABLE completion_attachments (
   completion_id TEXT NOT NULL,
   completion_item_id TEXT NOT NULL,
   attachment_id TEXT NOT NULL REFERENCES attachments (id),
+  caption TEXT,
+  caption_language TEXT,
+  CONSTRAINT completion_attachments_caption CHECK ((caption IS NULL) = (caption_language IS NULL)
+    AND (caption IS NULL OR length(trim(caption, char(9, 10, 11, 12, 13, 32))) > 0)),
   PRIMARY KEY (completion_id, completion_item_id, attachment_id),
   FOREIGN KEY (completion_item_id, completion_id) REFERENCES completion_items (id, completion_id)
 );

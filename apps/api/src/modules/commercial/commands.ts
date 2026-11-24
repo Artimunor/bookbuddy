@@ -42,9 +42,10 @@ function itemTotals(items: QuoteDraft["payload"]["items"] | ChangeDraft["payload
 }
 
 function insertItems(kind: CommercialKind, id: string, items: QuoteDraft["payload"]["items"] | ChangeDraft["payload"]["items"], guard: CommandStatement) {
-  return { sql: `INSERT INTO ${models[kind].items} (version_id, line_no, original_label, quantity, net_minor, tax_minor, evidence_rule)
+  return { sql: `INSERT INTO ${models[kind].items}
+    (version_id, line_no, original_label, quantity, net_minor, tax_minor, evidence_rule, evidence_alternative)
     SELECT ?, CAST(key AS INTEGER) + 1, value ->> 'originalLabel', value ->> 'quantity', value ->> 'netMinor',
-      value ->> 'taxMinor', value ->> 'evidenceRule' FROM json_each(?) WHERE ${guard.sql}`,
+      value ->> 'taxMinor', value ->> 'evidenceRule', value ->> 'evidenceAlternative' FROM json_each(?) WHERE ${guard.sql}`,
   params: [id, JSON.stringify(items), ...guard.params ?? []] };
 }
 

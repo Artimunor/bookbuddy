@@ -41,7 +41,8 @@ async function withJob(run: (db: TestD1) => Promise<void>) {
       db.prepare(`INSERT INTO quote_versions (id, quote_id, job_id, business_id, no, author_id, terms_id, original_locale,
         scope, exclusions, net_minor, tax_minor, total_minor, currency, state)
         VALUES ('quote-v1', 'quote', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Door repair', '', 20000, 4000, 24000, 'EUR', 'draft')`),
-      db.prepare("INSERT INTO quote_items VALUES ('quote-v1', 1, 'Door', 1, 20000, 4000, 'Agreed test report')"),
+      db.prepare(`INSERT INTO quote_items (version_id, line_no, original_label, quantity, net_minor, tax_minor, evidence_rule)
+        VALUES ('quote-v1', 1, 'Door', 1, 20000, 4000, 'Agreed test report')`),
       db.prepare("UPDATE quote_versions SET publisher_id = 'admin', issued_at = 2, expires_at = 50, state = 'issued' WHERE id = 'quote-v1'"),
       db.prepare(`INSERT INTO approvals (id, quote_version_id, account_id, grant_id, terms_hash, decision, at)
         VALUES ('approved-quote', 'quote-v1', 'customer', 'approve-grant', ?, 'approve', 3)`).bind(termsHash),
@@ -51,7 +52,7 @@ async function withJob(run: (db: TestD1) => Promise<void>) {
         original_text, delta_minor, total_minor, timing, affected_items, state) VALUES
         ('change-v1', 'change', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Rail', 1000, 25000, 'Same visit', 'Rail', 'draft'),
         ('pending-v1', 'pending-change', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Lock', 2000, 26000, 'Same visit', 'Lock', 'draft')`),
-      db.prepare(`INSERT INTO change_items VALUES
+      db.prepare(`INSERT INTO change_items (version_id, line_no, original_label, quantity, net_minor, tax_minor, evidence_rule) VALUES
         ('change-v1', 1, 'Rail', 1, 800, 200, 'Result note'), ('pending-v1', 1, 'Lock', 1, 1600, 400, 'Result note')`),
       db.prepare("UPDATE change_versions SET publisher_id = 'admin', issued_at = 4, expires_at = 50, state = 'issued'"),
       db.prepare(`INSERT INTO approvals (id, change_version_id, account_id, grant_id, terms_hash, decision, at)

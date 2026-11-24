@@ -4,6 +4,7 @@ import type { ApiEnv } from "./bindings";
 import { API_BASE_PATH, PRIVATE_CACHE_CONTROL } from "./config";
 import { commercialRoutes } from "./modules/commercial/routes";
 import { accessRoutes } from "./modules/access/routes";
+import { completionRoutes } from "./modules/aftercare";
 import { authRoutes } from "./modules/auth/routes";
 import { assignmentBriefingSyncProjection, attendanceRoutes, attendanceSyncOperation, fieldLiveRoutes, workerFieldShiftSyncProjection } from "./modules/field";
 import { jobSyncProjections } from "./modules/jobs/projections";
@@ -47,6 +48,7 @@ export function createApp() {
   app.route(API_BASE_PATH, staffingRoutes);
   app.route(API_BASE_PATH, attendanceRoutes);
   app.route(API_BASE_PATH, fieldLiveRoutes);
+  app.route(API_BASE_PATH, completionRoutes);
 
   // Mount feature routers here via app.basePath(API_BASE_PATH).route("/", routes).
   // Routers' paths are relative to /api/v1, not each module name (see plan §3).

@@ -27,7 +27,7 @@ function offset(zone: string, instant: number): number {
 function clocks(now: number) {
   const weekOf = Math.floor(now / week) * week;
   if (cached?.weekOf === weekOf) return cached;
-  const from = weekOf - 3 * week, until = weekOf + 4 * week;
+  const from = weekOf - 5 * week, until = weekOf + 6 * week;
   const segments = new Map<string, Segment[]>();
   for (const zone of zones) {
     let starts = from, current = offset(zone, starts);
@@ -66,10 +66,10 @@ export function withQuoteExpiry(access: SessionAccess, now: number): SessionAcce
   )`, params: [...access.params, JSON.stringify(candidates), expiry, clocks(now).json] };
 }
 
-export function withSiteClock(access: SessionAccess, now: number): SessionAccess {
+export function withSiteClock(access: SessionAccess, now: number, jobCte: "commercial_job" | "aftercare_job" = "commercial_job"): SessionAccess {
   return { sql: `${access.sql}, site_clock AS MATERIALIZED (
     SELECT value ->> '$[0]' AS starts, value ->> '$[1]' AS ends, value ->> '$[2]' AS offset_ms
-    FROM commercial_job j CROSS JOIN json_each(? -> ('$.' || json_quote(j.site_zone)))
+    FROM ${jobCte} j CROSS JOIN json_each(? -> ('$.' || json_quote(j.site_zone)))
   )`, params: [...access.params, clocks(now).json] };
 }
 

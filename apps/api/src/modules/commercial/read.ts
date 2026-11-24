@@ -42,7 +42,8 @@ function content(kind: CommercialKind): string {
   return `${field}, 'originalLocale', v.original_locale, 'readingAid', ${originalOnly}, 'evidence', json_array(),
     'terms', json((${terms})), 'items', json((SELECT json_group_array(json_object('lineNo', line_no,
       'originalLabel', original_label, 'quantity', quantity, 'netMinor', net_minor, 'taxMinor', tax_minor,
-      'evidenceRule', evidence_rule)) FROM (SELECT line_no, original_label, quantity, net_minor, tax_minor, evidence_rule
+      'evidenceRule', evidence_rule, 'evidenceAlternative', evidence_alternative))
+      FROM (SELECT line_no, original_label, quantity, net_minor, tax_minor, evidence_rule, evidence_alternative
       FROM ${models[kind].items} WHERE version_id = v.id ORDER BY line_no)))`;
 }
 

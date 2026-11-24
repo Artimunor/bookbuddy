@@ -63,7 +63,8 @@ test("evidence links require an item or event from the stated parent and do not 
     db.prepare(`INSERT INTO quote_versions (id, quote_id, job_id, business_id, no, author_id, terms_id, original_locale,
       scope, exclusions, net_minor, tax_minor, total_minor, currency, state)
       VALUES ('quote-v1', 'quote', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Door', '', 100, 20, 120, 'EUR', 'draft')`),
-    db.prepare("INSERT INTO quote_items VALUES ('quote-v1', 1, 'Door', 1, 100, 20, 'Photo')"),
+    db.prepare(`INSERT INTO quote_items (version_id, line_no, original_label, quantity, net_minor, tax_minor, evidence_rule)
+      VALUES ('quote-v1', 1, 'Door', 1, 100, 20, 'Photo')`),
     db.prepare("UPDATE quote_versions SET publisher_id = 'foreman', issued_at = 2, expires_at = 8, state = 'issued' WHERE id = 'quote-v1'"),
     db.prepare(`INSERT INTO approvals (id, quote_version_id, account_id, grant_id, terms_hash, decision, at)
       VALUES ('approval', 'quote-v1', 'owner', 'approve', 'hash', 'approve', 3)`),
@@ -86,7 +87,8 @@ test("evidence links require an item or event from the stated parent and do not 
     db.prepare("UPDATE attachments SET state = 'verifying', lease_until = 40 WHERE id = 'photo'"),
     db.prepare("UPDATE attachments SET state = 'ready', lease_until = NULL, etag = 'received' WHERE id = 'photo'"),
   ]);
-  const linkCompletion = db.prepare("INSERT INTO completion_attachments VALUES (?, 'first-item', 'photo')");
+  const linkCompletion = db.prepare(`INSERT INTO completion_attachments (completion_id, completion_item_id, attachment_id)
+    VALUES (?, 'first-item', 'photo')`);
   const linkCase = db.prepare("INSERT INTO case_attachments VALUES (?, 'report', 'photo')");
   await expect(linkCompletion.bind("second").run()).rejects.toThrow(/FOREIGN KEY constraint failed/);
   await expect(linkCase.bind("case-two").run()).rejects.toThrow(/FOREIGN KEY constraint failed/);

@@ -60,6 +60,7 @@ CREATE TABLE quote_items (
   net_minor INTEGER NOT NULL CHECK (typeof(net_minor) = 'integer' AND net_minor >= 0),
   tax_minor INTEGER NOT NULL CHECK (typeof(tax_minor) = 'integer' AND tax_minor >= 0),
   evidence_rule TEXT NOT NULL,
+  evidence_alternative TEXT CHECK (evidence_alternative IS NULL OR length(trim(evidence_alternative, char(9, 10, 11, 12, 13, 32))) > 0),
   PRIMARY KEY (version_id, line_no)
 );
 
@@ -115,6 +116,7 @@ CREATE TABLE change_items (
   net_minor INTEGER NOT NULL CHECK (typeof(net_minor) = 'integer'),
   tax_minor INTEGER NOT NULL CHECK (typeof(tax_minor) = 'integer'),
   evidence_rule TEXT NOT NULL,
+  evidence_alternative TEXT CHECK (evidence_alternative IS NULL OR length(trim(evidence_alternative, char(9, 10, 11, 12, 13, 32))) > 0),
   PRIMARY KEY (version_id, line_no)
 );
 

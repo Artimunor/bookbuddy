@@ -1,4 +1,5 @@
 import { invitationMailEffect } from "../modules/access/mail";
+import { completionSweepStatements } from "../modules/aftercare";
 import { loadDeliveryKey } from "../modules/auth/crypto";
 import { otpEmailEffect } from "../modules/auth/mail-effect";
 import { commercialMailEffect } from "../modules/commercial/mail";
@@ -50,7 +51,8 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
   const keyArgs = keys === null ? [] : [JSON.stringify(keys)];
   // Claim + input in one transactional batch. Bound each sweep; pending work
   // left by a missed wake stays in the ledger for the next scheduled pass.
-  const [, , , , , claimed] = await db.batch<ClaimedEffect>([
+  const claimResults = await db.batch<ClaimedEffect>([
+    ...(keys === null ? completionSweepStatements(now).map(({ sql, params }) => db.prepare(sql).bind(...params ?? [])) : []),
     db.prepare(`${effectClock} UPDATE effect_outbox SET state = 'skipped', resource_ref = ${scrub}
       WHERE id IN (SELECT e.id FROM effect_outbox e WHERE e.state = 'pending' AND ${target}
         AND e.due_at <= ? AND (e.expires_at <= ? OR NOT (${eligible})) ORDER BY e.due_at, e.id LIMIT ${maxClaim})`)
@@ -73,6 +75,7 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
     db.prepare(`${effectClock} SELECT e.id, e.kind, ${claimResource} AS resource_ref FROM effect_claims c JOIN effect_outbox e ON e.id = c.effect_id
       WHERE c.claim_id = ? AND e.state = 'claimed' ORDER BY e.due_at, e.id`).bind(now, claim),
   ]);
+  const claimed = claimResults.at(-1);
   if (!claimed?.results.length) return;
 
   const mailJobs: ClaimedEffect[] = [], pushJobs: ClaimedEffect[] = [];
