@@ -118,8 +118,9 @@ export function otherAdmin(member: string): string {
     WHERE peer.business_id = ${member}.business_id AND peer.id <> ${member}.id AND peer.state = 'active')`;
 }
 
-export const accountableForeman = (member: string) => `EXISTS (SELECT 1 FROM businesses b
-  WHERE b.id = ${member}.business_id AND b.default_foreman_id = ${member}.id)`;
+export const accountableForeman = (member: string) => `(EXISTS (SELECT 1 FROM businesses b
+  WHERE b.id = ${member}.business_id AND b.default_foreman_id = ${member}.id)
+  OR EXISTS (SELECT 1 FROM jobs j WHERE j.accountable_foreman_membership_id = ${member}.id AND j.state = 'open'))`;
 
 export function revokedRoleProjection(member: string, grant: string): string {
   return `json_object('memberId', ${member}.id, 'displayName', ${displayName("a")},

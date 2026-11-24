@@ -4,6 +4,7 @@ import type { ApiEnv } from "./bindings";
 import { API_BASE_PATH, PRIVATE_CACHE_CONTROL } from "./config";
 import { accessRoutes } from "./modules/access/routes";
 import { authRoutes } from "./modules/auth/routes";
+import { jobsCommandRoutes } from "./modules/jobs/routes.commands";
 import { transportRoutes } from "./modules/sync/routes";
 
 function failure(requestId: string, code: ErrorCode): ErrorEnvelope {
@@ -22,6 +23,7 @@ export function createApp() {
   });
 
   app.route(API_BASE_PATH, authRoutes);
+  app.route(API_BASE_PATH, jobsCommandRoutes);
   app.route(API_BASE_PATH, transportRoutes);
   app.route(API_BASE_PATH, accessRoutes);
 

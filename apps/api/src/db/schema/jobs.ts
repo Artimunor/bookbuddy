@@ -13,6 +13,7 @@ export const jobs = sqliteTable("jobs", {
   businessId: text("business_id").notNull().references(() => businesses.id),
   placeId: text("place_id").notNull().references(() => places.id),
   requesterId: text("requester_id").notNull().references(() => accounts.id),
+  requestOperationId: text("request_operation_id"),
   accountableForemanMembershipId: text("accountable_foreman_membership_id"),
   trade: text(),
   origin: text({ enum: JOB_ORIGINS }).notNull(),
@@ -30,6 +31,7 @@ export const jobs = sqliteTable("jobs", {
   index("jobs_business_state").on(t.businessId, t.state, t.id),
   index("jobs_place_state").on(t.placeId, t.state, t.id),
   index("jobs_foreman_state").on(t.accountableForemanMembershipId, t.state, t.id),
+  uniqueIndex("jobs_request_operation").on(t.requesterId, t.requestOperationId).where(sql`${t.requestOperationId} IS NOT NULL`),
 ]);
 
 export const requests = sqliteTable("requests", {
@@ -110,6 +112,7 @@ export const jobGrants = sqliteTable("job_grants", {
 export const supportCases = sqliteTable("support_cases", {
   id: text().notNull().primaryKey(),
   reporterId: text("reporter_id").references(() => accounts.id),
+  operationId: text("operation_id"),
   kind: text({ enum: SUPPORT_CASE_KINDS }).notNull(),
   state: text({ enum: SUPPORT_CASE_STATES }).notNull(),
   message: text().notNull(),
@@ -123,4 +126,17 @@ export const supportCases = sqliteTable("support_cases", {
   check("support_cases_received_at", sql`typeof(${t.receivedAt}) = 'integer'`),
   index("support_cases_reporter").on(t.reporterId, t.receivedAt, t.id).where(sql`${t.reporterId} IS NOT NULL`),
   index("support_cases_state_received").on(t.state, t.receivedAt, t.id),
+  uniqueIndex("support_cases_operation").on(t.reporterId, t.operationId).where(sql`${t.operationId} IS NOT NULL`),
+]);
+
+export const anonymousSupportReceipts = sqliteTable("anonymous_support_receipts", {
+  sourceKey: text("source_key").notNull(),
+  operationId: text("operation_id").notNull(),
+  inputHash: text("input_hash").notNull(),
+  caseId: text("case_id").notNull().unique().references(() => supportCases.id),
+  committedAt: integer("committed_at").notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.sourceKey, t.operationId] }),
+  index("anonymous_support_receipts_source_time").on(t.sourceKey, t.committedAt),
+  check("anonymous_support_receipts_committed_at", sql`typeof(${t.committedAt}) = 'integer'`),
 ]);

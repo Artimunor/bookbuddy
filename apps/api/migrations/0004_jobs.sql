@@ -4,6 +4,7 @@ CREATE TABLE jobs (
   business_id TEXT NOT NULL REFERENCES businesses (id),
   place_id TEXT NOT NULL REFERENCES places (id),
   requester_id TEXT NOT NULL REFERENCES accounts (id),
+  request_operation_id TEXT,
   accountable_foreman_membership_id TEXT,
   trade TEXT,
   origin TEXT NOT NULL,
@@ -21,6 +22,7 @@ CREATE TABLE jobs (
 CREATE INDEX jobs_business_state ON jobs (business_id, state, id);
 CREATE INDEX jobs_place_state ON jobs (place_id, state, id);
 CREATE INDEX jobs_foreman_state ON jobs (accountable_foreman_membership_id, state, id);
+CREATE UNIQUE INDEX jobs_request_operation ON jobs (requester_id, request_operation_id) WHERE request_operation_id IS NOT NULL;
 
 CREATE TABLE requests (
   job_id TEXT PRIMARY KEY NOT NULL REFERENCES jobs (id),
@@ -119,6 +121,7 @@ CREATE INDEX job_grants_due ON job_grants (valid_until, job_id, context_id, capa
 CREATE TABLE support_cases (
   id TEXT PRIMARY KEY NOT NULL,
   reporter_id TEXT REFERENCES accounts (id),
+  operation_id TEXT,
   kind TEXT NOT NULL,
   state TEXT NOT NULL,
   message TEXT NOT NULL,
@@ -134,3 +137,16 @@ CREATE TABLE support_cases (
 -- an opaque hint for support, never a job link, lookup credential or authority.
 CREATE INDEX support_cases_reporter ON support_cases (reporter_id, received_at, id) WHERE reporter_id IS NOT NULL;
 CREATE INDEX support_cases_state_received ON support_cases (state, received_at, id);
+CREATE UNIQUE INDEX support_cases_operation ON support_cases (reporter_id, operation_id) WHERE operation_id IS NOT NULL;
+
+-- Signed-out support has no account/context. Keep a separate, HMAC-scoped
+-- receipt so retries and throttling do not persist the caller's address.
+CREATE TABLE anonymous_support_receipts (
+  source_key TEXT NOT NULL,
+  operation_id TEXT NOT NULL,
+  input_hash TEXT NOT NULL,
+  case_id TEXT NOT NULL UNIQUE REFERENCES support_cases (id),
+  committed_at INTEGER NOT NULL CONSTRAINT anonymous_support_receipts_committed_at CHECK (typeof(committed_at) = 'integer'),
+  PRIMARY KEY (source_key, operation_id)
+);
+CREATE INDEX anonymous_support_receipts_source_time ON anonymous_support_receipts (source_key, committed_at);
