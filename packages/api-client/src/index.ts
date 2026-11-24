@@ -6,3 +6,4 @@ export * from "./access";
 export * from "./places";
 export * from "./jobs";
 export * from "./commercial";
+export * from "./schedule";
