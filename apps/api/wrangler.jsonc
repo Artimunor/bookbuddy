@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "bookbuddy-api",
   // Set the BookBuddy Cloudflare account ID here and in the web Worker config.
-  "account_id": "<CLOUDFLARE_ACCOUNT_ID>",
+  "account_id": "95eb2daa756131f49b8427e26a4e5462",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-24",
   "compatibility_flags": [],
@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "bookbuddy-db",
-      "database_id": "<D1_DATABASE_ID>",
+      "database_id": "4c243bdb-46e2-46c4-bf8d-297e3f855af5",
       "migrations_dir": "migrations"
     }
   ],
@@ -30,7 +30,7 @@
   // Production vars; override locally in the ignored .dev.vars.
   "vars": {
     "PUBLIC_APP_ORIGIN": "<PUBLIC_APP_ORIGIN>",
-    "R2_ACCOUNT_ID": "<CLOUDFLARE_ACCOUNT_ID>",
+    "R2_ACCOUNT_ID": "95eb2daa756131f49b8427e26a4e5462",
     "R2_EVIDENCE_BUCKET": "bookbuddy-evidence",
     "POSTMARK_SENDER": "<POSTMARK_SENDER>"
   }

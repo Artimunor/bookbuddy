@@ -2,7 +2,7 @@
   "$schema": "../api/node_modules/wrangler/config-schema.json",
   "name": "bookbuddy-web",
   // Use the same BookBuddy Cloudflare account ID as the API Worker.
-  "account_id": "<CLOUDFLARE_ACCOUNT_ID>",
+  "account_id": "95eb2daa756131f49b8427e26a4e5462",
   "main": "worker/index.ts",
   "compatibility_date": "2026-11-24",
   "workers_dev": false,
