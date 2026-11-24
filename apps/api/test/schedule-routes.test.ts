@@ -348,6 +348,7 @@ test("worker reads only their confirmed shift, their named offer, and an address
     expect(JSON.stringify(cached)).not.toMatch(/Private alias|BB-ALPHA|placeAlias|visitId|second-assignment/);
     expect(snapshot.data.upserts.find(({ kind }) => kind === "worker_field_shift"))
       .toMatchObject({ resourceId: "crew-assignment", value: { state: "confirmed" } });
+    expect(snapshot.data.upserts).toContainEqual(expect.objectContaining({ kind: "assignment_briefing", resourceId: "crew-assignment" }));
     const changeDay = { date: "2026-11-23", kind: "unavailable" };
     const edit = (id: string, basis: unknown[]) => f.call("crew", "/crew/crew-member/availability", {
       method: "PATCH", body: write(id, 0, { ...changeDay, expectedConfirmedShifts: basis }),
@@ -367,6 +368,7 @@ test("worker reads only their confirmed shift, their named offer, and an address
     expect(delta.data.upserts.find(({ kind }) => kind === "shift_agenda")).toMatchObject({ value: { rows: [] } });
     expect(delta.data.upserts.find(({ kind }) => kind === "worker_field_shift"))
       .toMatchObject({ resourceId: "crew-assignment", value: { state: "released", nextAction: null } });
+    expect(delta.data.removals).toContainEqual({ kind: "assignment_briefing", resourceId: "crew-assignment" });
     expect((await f.call("crew", "/shifts?segment=past")).body).toMatchObject({ data: { rows: [
       { shift: { id: own.id, placeAlias: null }, outcome: "cancelled", endedAt: at },
     ] } });

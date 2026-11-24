@@ -2,7 +2,7 @@ import type { CommandStatement } from "../../db/commit";
 import { at, scopedStatement } from "../access/policy";
 import { liveContextPredicate } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
-import { workerFieldShiftChangeRows } from "../field/attendance";
+import { workerFieldChangeRows } from "../field/attendance";
 import { createLinkedNotifications } from "../links/notifications";
 import { placeCapability } from "../places/policy";
 import { calendarDay } from "./calendar";
@@ -58,5 +58,5 @@ export function affectedWorkerKeys(access: SessionAccess, visit: string): Comman
     CROSS JOIN json_each('["${workerAgendaKind}","${crewAvailabilityKind}"]') kind
     WHERE c.role = 'worker' AND ${liveContextPredicate} AND EXISTS (
       SELECT 1 FROM released_assignments a WHERE a.worker_membership_id = m.id)
-    UNION ALL ${workerFieldShiftChangeRows("SELECT id FROM released_assignments")}`);
+    UNION ALL ${workerFieldChangeRows("SELECT id FROM released_assignments", "both")}`);
 }

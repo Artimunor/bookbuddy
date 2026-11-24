@@ -1,5 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
-import { customerLiveVisitSchema, foremanVisitControlSchema, operationIdHeader } from "@bookbuddy/api-contract";
+import {
+  cachedAssignmentBriefingSchema, customerLiveVisitSchema, foremanVisitControlSchema, operationIdHeader, resultSchema, syncRoute,
+} from "@bookbuddy/api-contract";
+import type { SyncPage, SyncRequest } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { randomToken } from "../src/modules/auth/crypto";
@@ -21,6 +24,7 @@ async function fixture() {
   const wakes: (readonly string[])[] = [];
   const env = {
     DB: db,
+    SYNC_CURSOR_HMAC_KEY: "field-live-test-cursor-key-with-more-than-32-bytes",
     LIVE: { getByName: (name: string) => ({ async publishInvalidation() { topics.push(name); } }) },
     EFFECTS: { async send({ workKeys }: { workKeys: readonly string[] }) { wakes.push(workKeys); } },
   } as unknown as Bindings;
@@ -85,13 +89,14 @@ async function fixture() {
     db.close();
     throw error;
   }
-  async function call(actor: Actor, path: string, body?: { operationId: string; payload: unknown; expectedRevision?: number }) {
+  async function call(actor: Actor, path: string, body?: { operationId: string; payload: unknown; expectedRevision?: number } | SyncRequest) {
     const { batch, query } = db.calls;
     const response = await app.request(`${origin}/api/v1${path}`, {
       method: body ? "POST" : "GET",
       headers: {
         Authorization: `Bearer ${credentials.find(({ actor: id }) => id === actor)!.token}`,
-        ...(body ? { "Content-Type": "application/json", [operationIdHeader]: body.operationId } : {}),
+        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(body && "operationId" in body ? { [operationIdHeader]: body.operationId } : {}),
       },
       body: body && JSON.stringify(body),
     }, env, execution);
@@ -100,7 +105,14 @@ async function fixture() {
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
     return { status: response.status, body: await response.json() };
   }
-  return { db, call, wakes, topics };
+  async function sync(actor: Actor, cursor: string | null = null) {
+    const response = await call(actor, "/sync", { contextId: `${actor}-context`, cursor, operations: [] });
+    expect(response.status).toBe(200);
+    const result = resultSchema(syncRoute.output).parse(response.body);
+    if (!result.ok) throw new Error(`Sync failed: ${result.error.code}`);
+    return result.data;
+  }
+  return { db, call, sync, wakes, topics };
 }
 
 const updatePath = "/visits/visit/updates";
@@ -209,8 +221,10 @@ test("work start and resume require the active version's human teach-back and na
     expect((await acknowledge("worker", "wrong-proof", "v2", "proof-v1")).status).toBe(409);
     expect((await acknowledge("worker", "ack-v2", "v2", "proof-v2")).status).toBe(200);
     expect((await f.call("foreman", workPath, resume)).status).toBe(200);
+    const beforeFinish = await f.sync("worker");
     expect((await f.call("foreman", "/visits/visit/finish-work", operation("finish", { id: "finish", bookedWindowId: "window" }, 3))).body)
       .toMatchObject({ data: { revision: 4, published: { kind: "finished" } } });
+    expect((await f.sync("worker", beforeFinish.cursor)).removals).toContainEqual({ kind: "assignment_briefing", resourceId: "assignment" });
     const customer = customerLiveVisitSchema.parse((await f.call("customer", livePath)).body.data);
     expect(customer.live.status).toBe("finished");
     expect(customer.moments.find(({ kind }) => kind === "on_site")).toEqual({ id: "crew-on-site", kind: "on_site", occurredAt: start, recordedAt: start });
@@ -258,5 +272,61 @@ test("photo stamps require a ready attachment with the exact visit scope", async
       { attachmentId: "progress-photo", availability: "available" }, { attachmentId: "ready", availability: "unavailable" },
     ]);
     expect(JSON.stringify(customer)).not.toMatch(/private-object|private-progress|progress-note|Private caption|etag/);
+  } finally { clock.mockRestore(); f.db.close(); }
+});
+
+test("sync only caches the named worker's current safety briefing and removes it on assignment dropout", async () => {
+  const f = await fixture();
+  const clock = spyOn(Date, "now").mockReturnValue(now);
+  try {
+    const arrivalPlan = "Use the unlocked side gate.";
+    await f.db.prepare(`INSERT INTO visit_activity_events (id, visit_id, actor_id, kind, at, safe_detail, detail_language)
+      VALUES ('arrival-plan', 'visit', 'foreman', 'arrival_plan_set', ?, ?, 'en')`).bind(start, arrivalPlan).run();
+    const briefings = (page: SyncPage) => page.upserts.filter(({ kind }) => kind === "assignment_briefing");
+    const briefing = (page: SyncPage) => cachedAssignmentBriefingSchema.parse(briefings(page).find(({ resourceId }) => resourceId === "assignment")?.value);
+    const initial = await f.sync("worker");
+    expect(briefing(initial)).toEqual({
+      assignmentId: "assignment", siteZone: "Europe/Madrid", bookedWindow: { id: "window", startsAt: start, endsAt: end },
+      hasActiveHold: false, instruction: null,
+    });
+    expect(briefings(await f.sync("candidate"))).toEqual([]);
+    expect(briefings(await f.sync("customer"))).toEqual([]);
+    expect(briefings(await f.sync("helper")).map(({ resourceId }) => resourceId)).toEqual(["second-assignment"]);
+    expect((await f.call("worker", briefingPath)).body).toMatchObject({ data: { site: { address: "Private address",
+      arrivalPlan: { original: { text: arrivalPlan } } } } });
+
+    const original = { language: "es", text: "Peligro: polvo. Control: usa la mascarilla. Si falla, avisa al encargado." };
+    const reviewedHumanReadingAid = { language: "en", text: "Dust hazard. Wear a mask. If it fails, alert the foreman." };
+    const issue = (version: string, expectedVersionId: string | null) => f.call("foreman", `${safetyPath}/issue`,
+      operation(`issue-${version}`, { id: version, assignmentId: "assignment", expectedVersionId, original,
+        ...(expectedVersionId === null ? { reviewedHumanReadingAid } : {}) }));
+    expect((await issue("v1", null)).status).toBe(200);
+    const issued = await f.sync("worker", initial.cursor);
+    expect(briefing(issued)).toEqual({
+      assignmentId: "assignment", siteZone: "Europe/Madrid", bookedWindow: { id: "window", startsAt: start, endsAt: end },
+      hasActiveHold: true, instruction: { instructionId: "instruction", state: "awaiting_teach_back", original, reviewedHumanReadingAid,
+        version: { id: "v1", no: 1, issuedAt: now, issuedByName: "foreman name" } },
+    });
+    expect(JSON.stringify(briefings(issued))).not.toMatch(/Private address|Private arrival note|side gate|9876|latitude|longitude/);
+    expect(briefing(await f.sync("worker"))).toEqual(briefing(issued));
+    expect((await f.call("foreman", `${safetyPath}/teach-back`, operation("teach-v1", {
+      id: "private-proof", versionId: "v1", language: "es", outcome: "passed", checklist: { hazard: true, control: true, response: true },
+    }))).status).toBe(200);
+    const taught = await f.sync("worker", issued.cursor);
+    expect(briefing(taught)).toMatchObject({ hasActiveHold: true, instruction: { state: "awaiting_acknowledgement" } });
+    expect(JSON.stringify(briefings(taught))).not.toContain("private-proof");
+    expect((await f.call("worker", `${safetyPath}/acknowledge`, operation("ack-v1", { versionId: "v1", teachBackId: "private-proof" }))).status).toBe(200);
+    const acknowledged = await f.sync("worker", taught.cursor);
+    expect(briefing(acknowledged)).toMatchObject({ hasActiveHold: false, instruction: { state: "acknowledged" } });
+    expect((await issue("v2", "v1")).status).toBe(200);
+    const replaced = await f.sync("worker", acknowledged.cursor);
+    expect(briefing(replaced)).toMatchObject({ hasActiveHold: true, instruction: { version: { id: "v2", no: 2 },
+      state: "awaiting_teach_back", reviewedHumanReadingAid: null } });
+
+    expect((await f.call("worker", "/assignments/assignment/dropout", operation("drop", { source: "self" }))).status).toBe(200);
+    const afterDrop = await f.sync("worker", replaced.cursor);
+    expect(briefings(afterDrop)).toEqual([]);
+    expect(afterDrop.removals).toContainEqual({ kind: "assignment_briefing", resourceId: "assignment" });
+    expect(briefings(await f.sync("worker"))).toEqual([]);
   } finally { clock.mockRestore(); f.db.close(); }
 });

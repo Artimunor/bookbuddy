@@ -1,3 +1,4 @@
+import { cachedAssignmentBriefingSchema } from "@bookbuddy/api-contract";
 import type {
   ErrorBody, RouteResponse, acknowledgeSafetyInstructionRoute, askSafetyQuestionRoute, issueSafetyInstructionRoute,
   recordSafetyTeachBackRoute,
@@ -10,7 +11,8 @@ import { accessClock, at, displayName, scopedStatement } from "../access/policy"
 import type { SessionAccess } from "../auth/session";
 import { currentMembership } from "../jobs/projections";
 import { confirmedWindow, foreman, jobOpen } from "../schedule/policy";
-import { workerFieldShiftChangeRows, workerFieldShiftValue } from "./attendance";
+import type { SyncProjectionReader } from "../sync/registry";
+import { assignmentBriefingKind, workerFieldChangeRows, workerFieldShiftValue } from "./attendance";
 
 export const fieldJobs = `SELECT j.*, p.owner_id, p.named_approver_id, p.state AS place_state, p.alias, p.normalized_address,
   coalesce(p.site_zone, area.site_zone) AS site_zone, b.public_name AS provider_name, b.state AS business_state,
@@ -23,9 +25,10 @@ export const headingSql = (job: string) => `json_object('id', ${job}.id, 'refere
   'title', nullif(${job}.trade, ''), 'placeAlias', ${job}.alias)`;
 export const windowSql = (w: string) => `json_object('id', ${w}.id, 'startsAt', ${w}.starts_at, 'endsAt', ${w}.ends_at)`;
 export const jsonRows = (select: string) => `(SELECT json_group_array(json(value)) FROM (${select}))`;
-export const visitAssignments = `FROM assignments a JOIN shift_slots slot ON slot.id = a.slot_id
+const assignmentJoins = `JOIN shift_slots slot ON slot.id = a.slot_id
   JOIN shifts sh ON sh.id = slot.shift_id JOIN memberships member ON member.id = a.worker_membership_id
   JOIN accounts worker ON worker.id = member.account_id`;
+export const visitAssignments = `FROM assignments a ${assignmentJoins}`;
 
 export const pageSize = 50;
 interface Position { at: number | null; id: string }
@@ -94,17 +97,44 @@ export const briefingReceiptSql = (version: string, assignment: string) => `(SEL
 
 const namedWorker = (scope: string) => `${scope}.role = 'worker' AND ${scope}.business_id = j.business_id
   AND member.id = ${currentMembership(scope, at)} AND worker.id = ${scope}.account_id`;
-const assignmentFrom = `${visitAssignments} JOIN visits v ON v.id = sh.visit_id JOIN (${fieldJobs}) j ON j.id = v.job_id
+const assignmentScopeJoins = `${assignmentJoins} JOIN visits v ON v.id = sh.visit_id JOIN (${fieldJobs}) j ON j.id = v.job_id
   AND j.business_id = member.business_id`;
+const assignmentFrom = `FROM assignments a ${assignmentScopeJoins}`;
 const confirmedAssignment = `a.state = 'confirmed' AND a.confirmed_at <= ${at} AND sh.state IN ('planned', 'active')`;
+const briefingAllowed = `${namedWorker("scope")} AND ${confirmedAssignment} AND ${jobOpen()}
+  AND v.state = 'booked' AND booked.starts_at <= a.starts_at AND booked.ends_at >= a.ends_at`;
+
+// Neither the place address nor the authored arrival plan is an offline field.
+export const assignmentBriefingSyncProjection: SyncProjectionReader = {
+  kind: assignmentBriefingKind,
+  schema: cachedAssignmentBriefingSchema,
+  snapshotIds: (now) => ({ sql: `WITH clock(at) AS (VALUES (?))
+    SELECT a.id AS resource_id FROM snapshot_scope scope JOIN assignments a ON a.worker_membership_id = ${currentMembership("scope", at)}
+      AND a.id > scope.after_id ${assignmentScopeJoins} ${confirmedWindow("v")} WHERE ${briefingAllowed}`, params: [now] }),
+  project: (now) => ({ sql: `WITH clock(at) AS (VALUES (?))
+    SELECT a.id AS resource_id, json_object('assignmentId', a.id, 'siteZone', j.site_zone, 'bookedWindow', ${windowSql("booked")},
+      'hasActiveHold', json(CASE WHEN ${activeHold("a.id", "ver.id")} THEN 'true' ELSE 'false' END),
+      'instruction', json(CASE WHEN ver.id IS NOT NULL THEN json_object('instructionId', ver.instruction_id,
+        'version', ${versionSummary("ver")}, 'original', json_object('language', ver.language, 'text', ver.original),
+        'reviewedHumanReadingAid', json(CASE WHEN ver.reading_aid_language IS NOT NULL THEN
+          json_object('language', ver.reading_aid_language, 'text', ver.reviewed_human_reading_aid) END),
+        'state', CASE WHEN EXISTS (SELECT 1 FROM safety_acknowledgements ack WHERE ack.version_id = ver.id
+          AND ack.assignment_id = a.id AND ack.at <= ${at}) THEN 'acknowledged'
+          WHEN (SELECT proof.outcome FROM teach_backs proof WHERE proof.version_id = ver.id AND proof.assignment_id = a.id
+            AND proof.at <= ${at} ORDER BY proof.at DESC, proof.id DESC LIMIT 1) = 'passed' THEN 'awaiting_acknowledgement'
+          ELSE 'awaiting_teach_back' END) END)) AS value
+    FROM projection_keys k JOIN assignments a ON a.id = k.resource_id CROSS JOIN live_scope scope
+    ${assignmentScopeJoins} ${confirmedWindow("v")}
+    LEFT JOIN safety_versions ver ON ver.id = ${currentSafetyVersion("a.id")} AND ver.issued_at <= ${at}
+    WHERE k.kind = '${assignmentBriefingKind}' AND ${briefingAllowed}`, params: [now] }),
+};
 
 export function readAssignmentBriefing(session: SessionAccess, now: number, assignment: string): CommandStatement {
   const access = accessClock(session, now);
   return scopedStatement(access, `, briefing_target AS MATERIALIZED (
     SELECT a.id, v.id AS visit_id, j.normalized_address, scope.context_id
     ${assignmentFrom} ${confirmedWindow("v")} CROSS JOIN live_scope scope
-    WHERE a.id = ? AND ${namedWorker("scope")} AND ${confirmedAssignment} AND ${jobOpen()}
-      AND v.state = 'booked' AND booked.starts_at <= a.starts_at AND booked.ends_at >= a.ends_at
+    WHERE a.id = ? AND ${briefingAllowed}
   )
   SELECT (SELECT json_object('shift', json(${workerFieldShiftValue("briefed.id", "scope")}),
     'instruction', json(${instructionSql(currentSafetyVersion("briefed.id"))}), 'site',
@@ -219,7 +249,7 @@ export function issueInstruction(ctx: RequestScope, session: SessionAccess, { pa
       scopedStatement(access, `INSERT INTO safety_holds (id, assignment_id, version_id, kind, state)
         SELECT lower(hex(randomblob(16))), j.assignment_id, ?, 'briefing', 'active' FROM safety_target j WHERE ${guard.sql}`,
       payload.id, ...guard.params ?? []),
-    ], changes: scopedStatement(access, workerFieldShiftChangeRows("SELECT assignment_id AS id FROM safety_target")) }),
+    ], changes: scopedStatement(access, workerFieldChangeRows("SELECT assignment_id AS id FROM safety_target", "both")) }),
   }, { sql: safetyProjection("?"), params: [payload.id] });
 }
 
@@ -239,7 +269,10 @@ export function recordTeachBack(ctx: RequestScope, session: SessionAccess, { par
       (id, version_id, assignment_id, verified_by, language, interpreter_ref, checklist, outcome, at)
       SELECT ?, ?, j.assignment_id, scope.account_id, ?, ?, ?, ?, ${at} FROM safety_target j CROSS JOIN live_scope scope WHERE ${guard.sql}`,
     payload.id, payload.versionId, payload.language, payload.interpreterRef ?? null, JSON.stringify(payload.checklist), payload.outcome,
-    ...guard.params ?? [])] }),
+    ...guard.params ?? [])], changes: scopedStatement(access, workerFieldChangeRows(`SELECT j.assignment_id AS id FROM safety_target j
+      WHERE coalesce((SELECT prior.outcome FROM teach_backs prior WHERE prior.version_id = j.current_version_id
+        AND prior.assignment_id = j.assignment_id AND prior.id <> ? ORDER BY prior.at DESC, prior.id DESC LIMIT 1),
+        'not_understood') <> ?`, "briefing"), payload.id, payload.outcome) }),
   }, { sql: safetyProjection("?"), params: [payload.versionId] });
 }
 
@@ -261,7 +294,7 @@ export function acknowledgeInstruction(ctx: RequestScope, session: SessionAccess
       scopedStatement(access, `UPDATE safety_holds SET state = 'cleared', cleared_at = ${at}
         WHERE assignment_id = (SELECT assignment_id FROM safety_target) AND version_id = ? AND kind = 'briefing' AND state = 'active' AND ${guard.sql}`,
       payload.versionId, ...guard.params ?? []),
-    ], changes: scopedStatement(access, workerFieldShiftChangeRows("SELECT assignment_id AS id FROM safety_target")) }),
+    ], changes: scopedStatement(access, workerFieldChangeRows("SELECT assignment_id AS id FROM safety_target", "both")) }),
   }, { sql: safetyProjection("?"), params: [payload.versionId] });
 }
 

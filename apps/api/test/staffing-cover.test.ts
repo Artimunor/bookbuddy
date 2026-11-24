@@ -202,9 +202,13 @@ test("one worker wins the epoch, the rival and replay do not write, and confirma
     expect(f.batchWriteCounts.at(-1)).toBe(0);
     expect(await f.db.prepare(`SELECT count(*) AS count FROM assignments a JOIN safety_holds h ON h.assignment_id = a.id
       WHERE a.cover_gap_id = 'gap' AND a.state = 'confirmed' AND h.kind = 'briefing' AND h.state = 'active'`).first("count")).toBe(1);
-    const fieldChange = await f.db.prepare(`SELECT partition_key, op FROM sync_changes s
-      JOIN assignments a ON a.id = s.resource_id WHERE s.kind = 'worker_field_shift' AND a.cover_gap_id = 'gap'`).all();
-    expect(fieldChange.results).toEqual([{ partition_key: `${actors[winner]}-context`, op: "upsert" }]);
+    const fieldChange = await f.db.prepare(`SELECT kind, partition_key, op FROM sync_changes s
+      JOIN assignments a ON a.id = s.resource_id WHERE s.kind IN ('assignment_briefing', 'worker_field_shift') AND a.cover_gap_id = 'gap'
+      ORDER BY kind`).all();
+    expect(fieldChange.results).toEqual([
+      { kind: "assignment_briefing", partition_key: `${actors[winner]}-context`, op: "upsert" },
+      { kind: "worker_field_shift", partition_key: `${actors[winner]}-context`, op: "upsert" },
+    ]);
     expect(await f.db.prepare(`SELECT count(*) AS count FROM cover_offers WHERE gap_id = 'gap' AND state = 'offered'`).first("count")).toBe(2);
     const sibling = data(await f.call(actors[loser]!, getCoverRoute));
     expect(sibling).toMatchObject({ audience: "worker", offer: { state: "filled_elsewhere" } });

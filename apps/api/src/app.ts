@@ -5,7 +5,7 @@ import { API_BASE_PATH, PRIVATE_CACHE_CONTROL } from "./config";
 import { commercialRoutes } from "./modules/commercial/routes";
 import { accessRoutes } from "./modules/access/routes";
 import { authRoutes } from "./modules/auth/routes";
-import { attendanceRoutes, attendanceSyncOperation, fieldLiveRoutes, workerFieldShiftSyncProjection } from "./modules/field";
+import { assignmentBriefingSyncProjection, attendanceRoutes, attendanceSyncOperation, fieldLiveRoutes, workerFieldShiftSyncProjection } from "./modules/field";
 import { jobSyncProjections } from "./modules/jobs/projections";
 import { jobsCommandRoutes } from "./modules/jobs/routes.commands";
 import { jobsReadRoutes } from "./modules/jobs/routes.read";
@@ -35,7 +35,10 @@ export function createApp() {
   app.route(API_BASE_PATH, jobsReadRoutes);
   app.route(API_BASE_PATH, createTransportRoutes({
     operations: [attendanceSyncOperation],
-    projections: [placeSyncProjection, ...jobSyncProjections, ...scheduleSyncProjections, coverSyncProjection, workerFieldShiftSyncProjection],
+    projections: [
+      placeSyncProjection, ...jobSyncProjections, ...scheduleSyncProjections, coverSyncProjection,
+      workerFieldShiftSyncProjection, assignmentBriefingSyncProjection,
+    ],
   }));
   app.route(API_BASE_PATH, accessRoutes);
   app.route(API_BASE_PATH, placesRoutes);

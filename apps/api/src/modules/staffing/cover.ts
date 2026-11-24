@@ -12,7 +12,7 @@ import { accessClock, at, currentCheck, displayName, eligibilityCutoff, eligibil
 import { randomToken } from "../auth/crypto";
 import { liveContextPredicate } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
-import { workerFieldShiftChangeRows } from "../field/attendance";
+import { workerFieldChangeRows, workerFieldShiftKind } from "../field/attendance";
 import { currentMembership, memberJson } from "../jobs/projections";
 import { foreman, jobOpen } from "../schedule/policy";
 import { crewAvailabilityKind, workerAgendaKind } from "../schedule/projections";
@@ -391,11 +391,11 @@ function noticeWrites(access: SessionAccess, guard: CommandStatement, kind: keyo
 function coverSignals(access: SessionAccess, workerWhere: string, options?: { notices?: CommandStatement; assignment?: string }) {
   const { notices, assignment } = options ?? {};
   const source = notices ? `, cover_notices AS MATERIALIZED (${notices.sql})` : "";
-  const fieldSource = assignment ? `, confirmed_worker_changes AS MATERIALIZED (${workerFieldShiftChangeRows("SELECT ? AS id")})` : "";
+  const fieldSource = assignment ? `, confirmed_worker_changes AS MATERIALIZED (${workerFieldChangeRows("SELECT ? AS id", "both")})` : "";
   const noticeChanges = notices ? ` UNION ALL SELECT 'notification', notice_id, context_id, 'upsert', ${at} FROM cover_notices` : "";
   const crewChanges = assignment ? ` UNION ALL SELECT kind, resource_id, partition_key, op, at FROM confirmed_worker_changes
     UNION ALL SELECT '${crewAvailabilityKind}', a.worker_membership_id, field.partition_key, field.op, field.at
-    FROM confirmed_worker_changes field JOIN assignments a ON a.id = field.resource_id` : "";
+    FROM confirmed_worker_changes field JOIN assignments a ON a.id = field.resource_id WHERE field.kind = '${workerFieldShiftKind}'` : "";
   return {
     changes: scopedStatement(access, `${source}${fieldSource} ${changedCover(workerWhere)}${noticeChanges}${crewChanges}`,
       ...notices?.params ?? [], ...assignment ? [assignment] : []),

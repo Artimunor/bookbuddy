@@ -57,17 +57,21 @@ function assignmentAccess(session: SessionAccess, now: number, id: string, actor
 const authorize = { sql: "EXISTS (SELECT 1 FROM field_actor)" };
 const estimateAudience = (alias: string) => `CASE WHEN ${alias}.is_lead = 1 THEN 'crew_and_customer' ELSE 'crew_only' END`;
 export const workerFieldShiftKind = "worker_field_shift";
+export const assignmentBriefingKind = "assignment_briefing";
 
 // Used in the existing command batch, never resolved in a follow-up membership read.
-export function workerFieldShiftChangeRows(assignmentIdsSql: string): string {
-  return `SELECT '${workerFieldShiftKind}' AS kind, a.id AS resource_id, c.id AS partition_key,
+export function workerFieldChangeRows(assignmentIdsSql: string, changes: "shift" | "briefing" | "both"): string {
+  const kind = changes === "both" ? "projection.kind"
+    : `'${changes === "shift" ? workerFieldShiftKind : assignmentBriefingKind}'`;
+  const projections = changes === "both" ? `CROSS JOIN (SELECT '${workerFieldShiftKind}' AS kind UNION ALL SELECT '${assignmentBriefingKind}') projection` : "";
+  return `SELECT ${kind} AS kind, a.id AS resource_id, c.id AS partition_key,
     'upsert' AS op, ${at} AS at FROM (${assignmentIdsSql}) ids JOIN assignments a ON a.id = ids.id
     JOIN membership_roles r ON r.membership_id = a.worker_membership_id AND r.role = 'worker'
       AND r.revoked_at IS NULL AND r.granted_at <= ${at}
-    JOIN account_contexts c ON c.role_grant_id = r.id`;
+    JOIN account_contexts c ON c.role_grant_id = r.id ${projections}`;
 }
 
-const shiftChanges = (access: SessionAccess) => scopedStatement(access, workerFieldShiftChangeRows("SELECT id FROM field_actor"));
+const shiftChanges = (access: SessionAccess) => scopedStatement(access, workerFieldChangeRows("SELECT id FROM field_actor", "shift"));
 
 export function attendanceEventValue(e: string, name = namedActor(`${e}.actor_id`)): string {
   return `json_object('id', ${e}.id, 'assignmentId', ${e}.assignment_id, 'kind', ${e}.kind, 'source', ${e}.source,

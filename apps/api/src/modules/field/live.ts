@@ -8,7 +8,7 @@ import { currentMembership } from "../jobs/projections";
 import { createLinkTarget, linkTokenFor } from "../links";
 import { placeCapability } from "../places/policy";
 import { confirmedWindow, customer, foreman, jobOpen } from "../schedule/policy";
-import { readyPhotoSql, workerFieldShiftChangeRows } from "./attendance";
+import { readyPhotoSql, workerFieldChangeRows } from "./attendance";
 import {
   activeHold, attendanceSql, briefingReceiptSql, currentSafetyVersion, effectiveAttendance, estimateSql, fieldJobs, fieldPosition,
   fieldReceipt, headingSql, holdsSql, instructionSql, jsonRows, pageSize, pageSql, visitAssignments, windowSql, workRows, workStampSql,
@@ -181,7 +181,7 @@ const linkMinExpiry = `${at} + ${day / 24}`;
 const linkExpiry = `max(booked.ends_at, ${at}) + ${day}`;
 const eventKey = `'field_live:' || ${stampId}`;
 
-function visitSignals(access: SessionAccess, guard: CommandStatement, visit: string, workChanged: boolean): OperationWrites {
+function visitSignals(access: SessionAccess, guard: CommandStatement, visit: string, workChange: "shift" | "both" | null): OperationWrites {
   const audience: SessionAccess = { ...access, sql: `${access.sql}, live_audience AS MATERIALIZED (
     SELECT scope.context_id, v.id AS resource_id, ${linkExpiry} AS expires_at ${visitFrom}
     JOIN place_people person ON person.place_id = j.place_id
@@ -201,9 +201,9 @@ function visitSignals(access: SessionAccess, guard: CommandStatement, visit: str
     ],
     // The only persistent customer sync value is its inbox row. Live content stays online-only.
     changes: scopedStatement(access, `SELECT 'notification' AS kind, n.id AS resource_id, n.context_id AS partition_key,
-      'upsert' AS op, ${at} AS at FROM notifications n WHERE n.event_key = ${eventKey}${workChanged ? ` UNION ALL ${
-        workerFieldShiftChangeRows(`SELECT a.id ${visitAssignments} WHERE sh.visit_id = ${visitId}
-          AND a.state = 'confirmed' AND sh.state <> 'cancelled' AND a.confirmed_at <= ${at}`)
+      'upsert' AS op, ${at} AS at FROM notifications n WHERE n.event_key = ${eventKey}${workChange ? ` UNION ALL ${
+        workerFieldChangeRows(`SELECT a.id ${visitAssignments} WHERE sh.visit_id = ${visitId}
+          AND a.state = 'confirmed' AND sh.state <> 'cancelled' AND a.confirmed_at <= ${at}`, workChange)
       }` : ""}`),
     effects: scopedStatement(access, `SELECT lower(hex(randomblob(16))) AS id, 'notification_push' AS kind,
       'notification_push:' || n.id AS dedupe_key, n.id AS resource_ref, ${at} AS due_at, ${at} + ${day} AS expires_at
@@ -239,7 +239,7 @@ export function changeWork(ctx: RequestScope, session: SessionAccess, { params: 
       : `coalesce(${workKind}, 'not_started') IN ('not_started', 'work_paused') AND NOT EXISTS (${blockedAssignments}) AND (${onSite})`})`,
     params: [expectedRevision, payload.bookedWindowId] },
     writes(guard) {
-      const signals = visitSignals(access, guard, id, true);
+      const signals = visitSignals(access, guard, id, finish ? "both" : "shift");
       return { ...signals, statements: [
         insertCustomerStamp(access, guard, finish ? "finished" : "working"),
         insertWork(access, guard, finish ? "work_finished" : "work_started"),
@@ -280,7 +280,7 @@ export function publishUpdate(ctx: RequestScope, session: SessionAccess, { param
       ...(correctsId === null ? [] : [correctsId]), ...(band ? [band.endsAt] : []), ...(nextUpdateAt === null ? [] : [nextUpdateAt])] },
     ...(photo ? { ineligible: { code: "VALIDATION_FAILED" } as const } : {}),
     writes(guard) {
-      const signals = visitSignals(access, guard, id, pause);
+      const signals = visitSignals(access, guard, id, pause ? "shift" : null);
       return { ...signals, statements: [
         insertCustomerStamp(access, guard, payload.kind, band, nextUpdateAt, correctsId, photo?.caption),
         ...(pause ? [insertWork(access, guard, "work_paused")] : []),

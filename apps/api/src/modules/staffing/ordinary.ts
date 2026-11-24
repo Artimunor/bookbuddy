@@ -7,7 +7,7 @@ import type { OperationResult, OperationSpec, OperationWrites } from "../../db/o
 import type { RequestScope } from "../../db/scope";
 import { accessClock, at, displayName, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
-import { workerFieldShiftChangeRows } from "../field/attendance";
+import { workerFieldChangeRows } from "../field/attendance";
 import { currentMembership } from "../jobs/projections";
 import { createLinkTarget, linkTokenFor, registerLinkResolver } from "../links";
 import { calendarDay } from "../schedule/calendar";
@@ -126,7 +126,7 @@ function transitionSignals(access: OrdinaryAccess, guard: CommandStatement, opti
       FROM notifications n WHERE n.id = ? UNION ALL
       SELECT '${workerAgendaKind}', m.id, c.id, 'upsert', ${at} ${workerContext(member, biz)}${changedAssignments ? ` UNION ALL
       SELECT '${crewAvailabilityKind}', m.id, c.id, 'upsert', ${at} ${workerContext(member, biz)} UNION ALL
-      ${workerFieldShiftChangeRows(changedAssignments)}` : ""}`, id),
+      ${workerFieldChangeRows(changedAssignments, "both")}` : ""}`, id),
     effects: scopedStatement(access, `SELECT 'push-' || n.id AS id, 'notification_push' AS kind,
       'notification_push:' || n.id AS dedupe_key, n.id AS resource_ref, ${at} AS due_at,
       ${offerExpiry ?? `${at} + ${calendarDay}`} AS expires_at FROM notifications n WHERE n.id = ?`, id),

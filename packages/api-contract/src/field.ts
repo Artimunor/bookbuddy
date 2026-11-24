@@ -171,6 +171,15 @@ export const assignmentBriefingSchema = z.strictObject({
   instruction: instructionLink.nullable(),
 });
 
+// Last confirmed safety context is readable offline; site access and clearance are online only.
+export const cachedAssignmentBriefingSchema = z.strictObject({
+  assignmentId, siteZone, bookedWindow, hasActiveHold: z.boolean(),
+  instruction: instructionLink.extend({
+    state: z.enum(["awaiting_teach_back", "awaiting_acknowledgement", "acknowledged"]),
+    original, reviewedHumanReadingAid: original.nullable(),
+  }).nullable(),
+});
+
 const shareKind = z.enum(["on_the_way", "arrival_revised", "arrival_withdrawn", "paused", "photo"]);
 // F-05 and F-17: the private work state and the last published state are independent.
 export const foremanVisitControlSchema = z.strictObject({
@@ -330,4 +339,5 @@ export type ForemanVisitControl = z.output<typeof foremanVisitControlSchema>;
 export type WorkerFieldShift = z.output<typeof workerFieldShiftSchema>;
 export type AttendanceEvent = z.output<typeof attendanceEventSchema>;
 export type AssignmentBriefing = z.output<typeof assignmentBriefingSchema>;
+export type CachedAssignmentBriefing = z.output<typeof cachedAssignmentBriefingSchema>;
 export type SafetyInstruction = z.output<typeof safetyInstructionSchema>;
