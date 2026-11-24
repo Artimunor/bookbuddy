@@ -6,6 +6,8 @@ import { createLinkTarget, linkTokenFor, registerLinkResolver } from "../links";
 import type { LinkResolver } from "../links";
 import { awaitingSignOff, completionValue, dayMs, followUpKind, isSignOffRecipient, jobSource, reminderKind } from "./completion";
 
+export { caseSweepStatements } from "./cases";
+export { billingRoutes } from "./routes.billing";
 export { completionRoutes } from "./routes.completion";
 
 const completionLink: LinkResolver = {

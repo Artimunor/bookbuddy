@@ -3,7 +3,7 @@ import {
   businessEligibilitySchema, businessMemberSchema, businessOverviewSchema, contextChoiceSchema,
   invitationOpeningSchema, invitationUnavailableSchema,
 } from "./access";
-import { completionProjectionSchema } from "./aftercare";
+import { billProjectionSchema, completionProjectionSchema, problemCaseProjectionSchema } from "./aftercare";
 import { contextIdSchema, idSchemaFor } from "./common";
 import { jobDetailSchema } from "./jobs";
 import { placeDetailsSchema } from "./places";
@@ -53,12 +53,14 @@ export const linkOpeningSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("business_eligibility"), eligibility: businessEligibilitySchema }),
   z.object({ kind: z.literal("job"), record: jobDetailSchema }),
   z.object({ kind: z.literal("completion"), completion: completionProjectionSchema }),
+  z.object({ kind: z.literal("bill"), bill: billProjectionSchema }),
+  z.object({ kind: z.literal("problem_case"), case: problemCaseProjectionSchema }),
   z.object({ kind: z.literal("cover"), cover: coverViewSchema }),
   z.object({ kind: z.literal("assignment_offer"), offer: workerAssignmentOfferSchema }),
   z.object({ kind: z.literal("crew_availability"), date: z.iso.date(), availability: crewAvailabilitySchema }),
   z.strictObject({
     kind: z.literal("switch_context"),
-    targetKind: z.enum(["place", "business", "invitation", "job", "shift", "offer", "conversation", "update", "completion"]),
+    targetKind: z.enum(["place", "business", "invitation", "job", "shift", "offer", "conversation", "update", "completion", "bill", "problem_case"]),
     activeContextId: contextIdSchema.nullable(),
     choices: z.array(contextChoiceSchema).min(1),
   }),

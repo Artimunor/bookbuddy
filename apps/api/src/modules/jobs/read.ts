@@ -156,6 +156,10 @@ const overviewPacket = `json_object(
   'nextReplyAt', (SELECT min(reply_at) FROM sorted_jobs WHERE state = 'open' AND offered_live),
   'unassignedCount', (SELECT count(*) FROM sorted_jobs WHERE state = 'open' AND accountable_foreman_membership_id IS NULL),
   'commercialReviewCount', (SELECT count(*) FROM pending_reviews),
+  'bills', json((SELECT json_object('openCount', count(*), 'totalMinor', coalesce(sum(invoice.total_minor), 0), 'currency', 'EUR')
+    FROM bills invoice WHERE invoice.business_id = s.business_id AND invoice.state = 'issued' AND invoice.issued_at <= ${at}
+      AND NOT EXISTS (SELECT 1 FROM paid_records record WHERE record.bill_id = invoice.id AND record.kind = 'matched'
+        AND record.at <= ${at} AND NOT EXISTS (SELECT 1 FROM paid_records successor WHERE successor.prior_id = record.id)))),
   'stuck', json(${jsonRows(`json_object(${headingSql("j", placeZone)}, 'since', coalesce(h.ended_at, h.expires_at),
     'offeredTo', json_extract(${memberJson("h.recipient_id")}, '$.displayName'),
     'accountableForeman', json_extract(${memberJson("j.accountable_foreman_membership_id")}, '$.displayName'))`,
@@ -325,6 +329,7 @@ interface Overview {
   business: unknown; eligibility: unknown; offeredCount: number; nextReplyAt: number | null;
   stuck: (Heading & { since: number; offeredTo: string; accountableForeman: string | null })[];
   unassignedCount: number; commercialReviewCount: number;
+  bills: { openCount: number; totalMinor: number; currency: "EUR" };
 }
 export interface ReadRows {
   audience: "customer" | "foreman" | "provider_admin" | "worker"; siteZone: string | null; businessName: string | null; unreadCount: number;
@@ -410,14 +415,14 @@ const moment = ({ at, by, jobId, recordId, kind }: Moment) => ({ at, by, jobId, 
 
 export function projectJobsBusinessOverview(rows: ReadRows, now: number) {
   if (!rows.overview) return null;
-  const { business, eligibility, offeredCount, nextReplyAt, stuck, unassignedCount, commercialReviewCount } = rows.overview;
+  const { business, eligibility, offeredCount, nextReplyAt, stuck, unassignedCount, commercialReviewCount, bills } = rows.overview;
   const upcoming = rows.jobs.find((job) => job.next && job.next.startsAt > now);
   const current = rows.jobs.find((job) => isLive(job.next, now));
   return {
     business, eligibility, unassignedCount, commercialReviewCount, liveJob: current ? providerLive(current, now) : null,
     nextVisit: upcoming ? { ...overviewHeading(upcoming), startsAt: upcoming.next!.startsAt, endsAt: upcoming.next!.endsAt } : null,
     handoffs: { offeredCount, nextReplyAt, stuck: stuck.map((job) => ({ ...job, title: job.title ?? job.reference })) },
-    bills: { openCount: 0, totalMinor: 0, currency: "EUR" },
+    bills,
   };
 }
 

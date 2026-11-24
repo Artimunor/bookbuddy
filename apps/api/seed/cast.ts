@@ -4,6 +4,7 @@ export const ids = {
   business: "seed-ruiz", area: "seed-area", villa: "seed-villa-mar", casa: "seed-casa-llum",
   claire: "seed-claire", mateo: "seed-mateo", nadia: "seed-nadia", diego: "seed-diego",
   lucia: "seed-lucia", sam: "seed-sam", ines: "seed-ines", pau: "seed-pau",
+  steward: "seed-case-steward",
   job: "seed-bb-1042", otherJob: "seed-bb-1031", terms: "seed-terms-v1",
   quote: "seed-quote-1042", version: "seed-quote-1042-v1", visit: "seed-visit-1042",
   window: "seed-window-1042", shift: "seed-shift-1042", slot: "seed-slot-1042",
@@ -18,6 +19,7 @@ const cast = [
   ["nadia", "Nadia Benali", "worker", "en"], ["diego", "Diego Torres", "worker", "pt-PT"],
   ["lucia", "Lucía Ortega", "worker", "en"], ["sam", "Sam Martin", "customer, view only", "en"],
   ["ines", "Inés Vidal", "foreman, reviewer", "en"], ["pau", "Pau Soler", "worker, review pending", "en"],
+  ["steward", "BookBuddy Local Service", "BookBuddy case steward", "en"],
 ] as const;
 
 export async function castSql(domain: string, secret: string) {
@@ -59,7 +61,7 @@ export async function castSql(domain: string, secret: string) {
     rows.push(insert("business_grants", "id,business_id,membership_id,capability,issuer_id,valid_from", [`seed-mateo-${capability}`, ids.business, `${ids.mateo}-member`, capability, ids.ines, 1]));
   }
   for (const capability of ["review_commercial", "publish_commercial", "backup_foreman"]) rows.push(insert("business_grants", "id,business_id,membership_id,capability,issuer_id,valid_from", [`seed-ines-${capability}`, ids.business, `${ids.ines}-member`, capability, ids.mateo, 1]));
-  for (const name of ["claire", "sam"] as const) rows.push(insert("account_contexts", "id,account_id,role", [`${ids[name]}-customer-context`, ids[name], "customer"]));
+  for (const name of ["claire", "sam", "steward"] as const) rows.push(insert("account_contexts", "id,account_id,role", [`${ids[name]}-customer-context`, ids[name], "customer"]));
   for (const [place, alias] of [[ids.villa, "Villa Mar"], [ids.casa, "Casa Llum"]] as const) {
     rows.push(insert("places", "id,owner_id,alias,normalized_address,state", [place, ids.claire, alias, `Fictional ${alias}`, "pending_verification"]));
     rows.push(insert("place_people", "place_id,account_id,verified_from,history_from", [place, ids.claire, 1, 1]));

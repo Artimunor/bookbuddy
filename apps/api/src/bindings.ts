@@ -15,6 +15,8 @@ export interface Bindings extends AuthBindings {
   SYNC_CURSOR_HMAC_KEY?: string;
   PUBLIC_APP_ORIGIN?: string;
   EXPO_ACCESS_TOKEN?: string;
+  // Deploy with the independently verified local BookBuddy case steward's account ID.
+  CASE_STEWARD_ACCOUNT_ID?: string;
 }
 
 export type ApiEnv = {

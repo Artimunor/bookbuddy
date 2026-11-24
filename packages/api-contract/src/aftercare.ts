@@ -5,7 +5,8 @@ import {
 import { z } from "zod";
 import { changeVersionIdSchema, quoteVersionIdSchema } from "./commercial";
 import {
-  attachmentIdSchema, commandInputSchema, idSchemaFor, localeTagSchema, paginationInputSchema, paginationSchema, revisionSchema, timestampSchema,
+  attachmentIdSchema, businessIdSchema, commandInputSchema, idSchemaFor, localeTagSchema, paginationInputSchema, paginationSchema,
+  revisionSchema, timestampSchema,
 } from "./common";
 import { jobIdSchema } from "./jobs";
 import { defineRoute } from "./route";
@@ -128,7 +129,7 @@ export const billPaymentOutcomeSchema = z.discriminatedUnion("status", [
 ]);
 const deferralDisposition = z.enum(BILL_DEFERRAL_DISPOSITIONS);
 const deferral = stamp.extend({
-  id: billDeferralIdSchema, caseId: caseIdSchema, amountMinor: positiveMinor, reviewAt: timestampSchema,
+  id: billDeferralIdSchema, caseId: caseIdSchema.nullable(), amountMinor: positiveMinor, reviewAt: timestampSchema,
 });
 const providerDeferral = deferral.extend({
   basis: shortText, affectedLineNos: z.array(no).min(1).max(100),
@@ -203,7 +204,10 @@ const providerCase = z.strictObject({
   page: paginationSchema, canRespond: z.boolean(),
 });
 export const problemCaseProjectionSchema = z.discriminatedUnion("audience", [participantCase, providerCase]);
-export const jobCasesProjectionSchema = z.strictObject({ jobId: jobIdSchema, siteZone: name, cases: z.array(caseReceipt), page: paginationSchema });
+export const jobCasesProjectionSchema = z.strictObject({
+  jobId: jobIdSchema, siteZone: name, cases: z.array(caseReceipt), page: paginationSchema,
+  newCaseAudience: z.strictObject({ businessId: businessIdSchema, providerName: name }).nullable(),
+});
 
 const ratingAudience = z.strictObject({ author: z.literal(true), bookBuddyFeedbackTeam: z.literal(true), providerFeedbackLead: z.literal(true) });
 const ratingStars = z.int().min(1).max(5);
@@ -229,7 +233,8 @@ export const getJobBillRoute = defineRoute({
 });
 export const listJobCasesRoute = defineRoute({
   method: "GET", path: "/jobs/:j/cases", auth: "context",
-  input: z.strictObject({ params: jobParams, query: paginationInputSchema.optional() }), output: jobCasesProjectionSchema,
+  input: z.strictObject({ params: jobParams, query: paginationInputSchema.extend({ category: caseCategory.optional() }).optional() }),
+  output: jobCasesProjectionSchema,
 });
 export const getProblemCaseRoute = defineRoute({
   method: "GET", path: "/cases/:id", auth: "context",
@@ -329,7 +334,7 @@ export const releaseDeferralRoute = commandRoute("/bills/:id/release-deferral", 
 export const submitProblemCasePayloadSchema = z.strictObject({
   id: caseIdSchema, reportEventId: caseEventIdSchema, category: caseCategory, affectedItem: approvedScopeLineReferenceSchema.optional(),
   billId: billIdSchema.optional(), description: original, evidence: caseEvidenceIds,
-  // Match the preview, never authorise sharing by accepting a caller-selected grant or recipient.
+  // Null opts out. A non-null audience must match the live preview; the reporter never selects a recipient or grant.
   expectedProviderAudience: providerAudience.nullable(),
 }).refine(({ billId, category }) => billId === undefined || category === "bill", { path: ["billId"] });
 export const submitProblemCaseRoute = commandRoute("/jobs/:j/problem-cases", jobParams, submitProblemCasePayloadSchema,
