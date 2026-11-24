@@ -134,7 +134,10 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
   const job = detail.data?.audience === "provider_admin" && detail.data.job.view === "whole" ? detail.data.job : null;
   const items = job && !page?.items.some((item) => item.jobId === job.jobId) ? [job, ...page?.items ?? []] : page?.items ?? [];
   const unpaid = page?.unpaidBills.find(bill => bill.jobId === selected);
-  const { awaitingDetail, standard, urgent, replyAt } = handoffPresentation(job, offer.result, selected);
+  const { awaitingDetail, discardReceipt, standard, urgent, replyAt } =
+    handoffPresentation(job, offerSiteZone ? offer.result : null, selected, detail.error);
+  // Clearing the fallback here prevents a retry from showing a denied receipt again.
+  if (discardReceipt) setOfferSiteZone(undefined);
   const preview = awaitingDetail ? null : job?.handoffPreview;
   const handoff = awaitingDetail ? null : job?.handoff;
   const candidate = preview?.eligibleForemen.find((person) => person.membershipId === recipient);
@@ -197,7 +200,7 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
       secondary={!canWithdraw && standardAction ? urgentAction : undefined} /> : undefined}>
     <SegmentedControl label={t("mobile.provider.segment")} value={segment} onChange={(value) => { setSegment(value); setCursors([]); setSelected(null); }} options={[{ value: "needs_you", label: `${t("mobile.provider.needsYou")} ${page?.needsYouCount ?? ""}` }, { value: "active", label: `${t("mobile.provider.active")} ${page?.activeCount ?? ""}` }, { value: "past", label: `${t("mobile.provider.past")} ${page?.pastCount ?? ""}` }]} />
     <ReadState status={jobs.status} retry={() => { void jobs.refresh(); }} />
-    {awaitingDetail && replyAt !== null && offerSiteZone && !detail.error && <Card dense>
+    {awaitingDetail && replyAt !== null && offerSiteZone && <Card dense>
       <Badge label={t("mobile.provider.offered")} tone="neutral" />
       <Copy accessibilityLiveRegion="polite">{t("mobile.provider.replyBy", { time: format.siteTime(replyAt, offerSiteZone) })}</Copy>
     </Card>}

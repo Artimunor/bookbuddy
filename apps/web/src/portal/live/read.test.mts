@@ -182,3 +182,42 @@ test("More adopts its live summary and coalesces in-flight hints into one reconc
   });
   expect(urls).toEqual([visitPath, `${visitPath}?cursor=older`, visitPath]);
 });
+
+test("More fills the gap when 51 new moments arrive over a fully loaded history", async () => {
+  const { read, urls, nextRequest } = setup();
+  const moments = Array.from({ length: 102 }, (_, index) => ({
+    ...visit.moments[0], id: `update-${index}`, recordedAt: at - index,
+  }));
+  async function respond(request: ReturnType<typeof nextRequest>, start: number, cursor: string | null) {
+    (await request).response.resolve(Response.json({ ok: true, meta, data: {
+      ...visit, moments: moments.slice(start, start + 50), page: { hasMore: cursor !== null, cursor },
+    } }));
+  }
+  async function load(start: number, cursor: string | null, after?: string) {
+    const request = nextRequest();
+    const loaded = read.load(after);
+    await respond(request, start, cursor);
+    await loaded;
+  }
+
+  await load(51, "old-tail");
+  await load(101, null, "old-tail");
+  expect(read.snapshot().visit).toMatchObject({
+    moments: moments.slice(51), page: { hasMore: false, cursor: null },
+  });
+
+  const request = nextRequest();
+  const refreshed = settled(read);
+  read.hint();
+  await respond(request, 0, "new-gap");
+  const head = (await refreshed).visit;
+  expect(head).toMatchObject({
+    moments: moments.slice(0, 50), page: { hasMore: true, cursor: "new-gap" },
+  });
+  await load(50, "new-tail", head?.page.cursor ?? undefined);
+  await load(100, null, read.snapshot().visit?.page.cursor ?? undefined);
+  expect(read.snapshot().visit).toMatchObject({
+    moments, page: { hasMore: false, cursor: null },
+  });
+  expect(urls).toEqual([visitPath, `${visitPath}?cursor=old-tail`, visitPath, `${visitPath}?cursor=new-gap`, `${visitPath}?cursor=new-tail`]);
+});

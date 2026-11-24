@@ -19,9 +19,10 @@ const empty: LiveReadState = { visit: null, failed: false, loading: false, canSu
 function reconcileHead(head: CustomerLiveVisit, previous: CustomerLiveVisit): CustomerLiveVisit {
   const boundary = head.moments.at(-1);
   if (!head.page.hasMore || !boundary) return head;
-  // The server orders by recorded time, then ID, both descending. Keep the loaded suffix
-  // beyond this new boundary, including rows that a new moment displaced from page one.
+  // An overlapping ID proves the refreshed head meets the loaded history. Otherwise
+  // page from the new boundary so moments between the two reads are not skipped.
   const seen = new Set(head.moments.map(({ id }) => id));
+  if (!previous.moments.some(({ id }) => seen.has(id))) return head;
   const older = previous.moments.filter(({ id, recordedAt }) => !seen.has(id) &&
     (recordedAt < boundary.recordedAt || (recordedAt === boundary.recordedAt && id < boundary.id)));
   return older.length ? { ...head, moments: [...head.moments, ...older], page: previous.page } : head;
