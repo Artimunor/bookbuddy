@@ -476,3 +476,44 @@ test.each(["expired", "replaced", "issuer role revoked"] as const)("sign-off kee
     expect(await f.db.prepare("SELECT count(*) FROM notifications WHERE kind = 'bill_issued'").first("count(*)")).toBe(0);
   } finally { f.db.close(); clock.mockRestore(); }
 });
+
+test("a pending bill hint stops reserving its number when its issuer loses authority", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await grantForemanIssuance(f.db, now);
+    const billReference = "RR-0415";
+    expect((await f.submit({ ...submission("pending-wrap"), billReference, billAmountMinor: 25_200 })).status).toBe(200);
+    expect(await f.db.prepare("SELECT state, bill_hint_grant_id FROM completions").first())
+      .toEqual({ state: "submitted", bill_hint_grant_id: "foreman-issue" });
+
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO jobs (id, reference, business_id, place_id, requester_id, origin, state)
+        VALUES ('other-job', 'BB-456', 'business', 'place', 'customer', 'bookbuddy', 'open')`),
+      f.db.prepare("INSERT INTO quotes VALUES ('other-quote', 'other-job')"),
+      f.db.prepare(`INSERT INTO quote_versions (id, quote_id, job_id, business_id, no, author_id, terms_id, original_locale,
+        scope, exclusions, net_minor, tax_minor, total_minor, currency, state)
+        SELECT 'other-v1', 'other-quote', 'other-job', business_id, no, author_id, terms_id, original_locale,
+          scope, exclusions, net_minor, tax_minor, total_minor, currency, 'draft' FROM quote_versions WHERE id = 'quote-v1'`),
+      f.db.prepare(`INSERT INTO quote_items
+        SELECT 'other-v1', line_no, original_label, quantity, net_minor, tax_minor, evidence_rule, evidence_alternative
+        FROM quote_items WHERE version_id = 'quote-v1'`),
+      f.db.prepare("UPDATE quote_versions SET publisher_id = 'admin', issued_at = 3, expires_at = 50, state = 'issued' WHERE id = 'other-v1'"),
+      f.db.prepare(`INSERT INTO approvals (id, quote_version_id, account_id, grant_id, terms_hash, decision, at)
+        VALUES ('other-approval', 'other-v1', 'customer', 'approve', ?, 'approve', 4)`).bind(termsHash),
+      f.db.prepare("UPDATE quote_versions SET state = 'approved' WHERE id = 'other-v1'"),
+    ]);
+
+    const path = "/jobs/other-job/bills";
+    const invoice = { id: "other-bill", replacesId: null, number: billReference, currency: "EUR", providerDocumentRef: "doc",
+      paymentInstructions: { instructions: { language: "en", text: "Pay the provider" }, reference: billReference },
+      lines: approvedBillLines.slice(0, 2) };
+    expect(await f.request(path, "admin", "issue-while-reserved", invoice)).toMatchObject(conflict);
+
+    clock.mockReturnValue(now + 1);
+    await f.db.prepare("UPDATE membership_roles SET revoked_at = ?, revoked_by = 'admin' WHERE id = 'foreman-admin-role'").bind(now + 1).run();
+    expect(await f.request(path, "admin", "issue-after-revocation", invoice)).toMatchObject({
+      status: 200, body: { data: { bill: { id: "other-bill", number: billReference, version: 1, state: "issued" } } },
+    });
+  } finally { f.db.close(); clock.mockRestore(); }
+});

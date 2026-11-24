@@ -41,12 +41,29 @@ export const invoiceLine = (value: string) => `json_object('originalLabel', ${va
 export const invoiceLines = (items: string) => `(SELECT json_group_array(${invoiceLine("line.value")} ORDER BY line.key)
   FROM json_each(${items}) line)`;
 
-// Only a provider-authorized pending wrap-up reserves a first-version reference.
-// Return/supersede releases it; an ordinary foreman's suggestion reserves nothing.
+// A foreman cannot issue directly. The same account may authorize the hint through
+// its provider-admin role; sign-off and reservation both require the exact grant.
+const billingGrantFor = (account: string, business: string, match: string) => `SELECT g.id FROM business_grants g
+  JOIN memberships m ON m.id = g.membership_id AND m.business_id = g.business_id AND m.account_id = ${account} AND m.state = 'active'
+  JOIN businesses b ON b.id = g.business_id AND b.state = 'approved'
+  JOIN accounts a ON a.id = m.account_id AND a.state = 'active'
+  JOIN account_contexts admin ON admin.role = 'provider_admin' AND admin.account_id = a.id AND admin.business_id = g.business_id
+  JOIN membership_roles r ON r.id = admin.role_grant_id AND r.role = admin.role AND r.membership_id = m.id
+    AND r.revoked_at IS NULL AND r.granted_at <= ${at}
+  WHERE g.business_id = ${business} AND g.capability = 'issue_bill' AND ${match} AND ${liveTerm("g")}
+  ORDER BY g.valid_from DESC, g.id LIMIT 1`;
+export const billHintGrant = (scope: string) => billingGrantFor(
+  `${scope}.account_id`, "j.business_id", `g.membership_id = ${scope}.membership_id`);
+export const liveBillHintIssuer = (completion: string, business: string) =>
+  `EXISTS (${billingGrantFor(`${completion}.bill_hint_by`, business, `g.id = ${completion}.bill_hint_grant_id`)})`;
+
+// Keep the non-null filter for the pending-reference partial index. A return,
+// supersession or lapse of the named issuer's authority releases the number.
 export const billReferenceReserved = (number: string) => `EXISTS (SELECT 1 FROM completions pending
   JOIN jobs other ON other.id = pending.job_id AND other.business_id = j.business_id
   WHERE pending.state = 'submitted' AND pending.bill_hint_grant_id IS NOT NULL
     AND pending.bill_reference_hint = ${number} AND pending.job_id <> j.id
+    AND ${liveBillHintIssuer("pending", "other.business_id")}
     AND NOT EXISTS (SELECT 1 FROM bills existing WHERE existing.job_id = pending.job_id AND existing.state = 'issued'))`;
 
 const targets = `SELECT c.id AS context_id, c.role, c.account_id, c.business_id, NULL AS membership_id

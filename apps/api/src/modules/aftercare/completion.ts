@@ -14,7 +14,7 @@ import { readyPhotoSql } from "../field/attendance";
 import { currentMembership } from "../jobs/projections";
 import { createLinkedNotifications } from "../links/notifications";
 import { casePacket, casePacketExists, caseProviderGrant } from "./case-policy";
-import { approvedInvoice, billReferenceReserved, billSignals, issuedBillNotice } from "./invoice";
+import { approvedInvoice, billHintGrant, billReferenceReserved, billSignals, issuedBillNotice, liveBillHintIssuer } from "./invoice";
 
 export const dayMs = 86_400_000;
 export const reminderKind = "sign_off_reminder";
@@ -76,19 +76,6 @@ const crewAttendance = `FROM shifts sh JOIN shift_slots slot ON slot.shift_id = 
     AND next.review_state = 'accepted' AND next.received_at <= ${at})`;
 const checkout = `(SELECT CASE WHEN sum(kind = 'arrival') = sum(kind = 'departure') THEN max(actual_at) FILTER (WHERE kind = 'departure') END
   FROM (SELECT e.kind, e.actual_at ${crewAttendance}))`;
-
-// A foreman cannot issue directly. The same account may authorize the hint
-// through its provider-admin role; sign-off must still honor that exact grant.
-const billingGrantFor = (account: string, match: string) => `SELECT g.id FROM business_grants g
-  JOIN memberships m ON m.id = g.membership_id AND m.business_id = g.business_id AND m.account_id = ${account} AND m.state = 'active'
-  JOIN businesses b ON b.id = g.business_id AND b.state = 'approved'
-  JOIN accounts a ON a.id = m.account_id AND a.state = 'active'
-  JOIN account_contexts admin ON admin.role = 'provider_admin' AND admin.account_id = a.id AND admin.business_id = g.business_id
-  JOIN membership_roles r ON r.id = admin.role_grant_id AND r.role = admin.role AND r.membership_id = m.id
-    AND r.revoked_at IS NULL AND r.granted_at <= ${at}
-  WHERE g.business_id = j.business_id AND g.capability = 'issue_bill' AND ${match} AND ${liveTerm("g")}
-  ORDER BY g.valid_from DESC, g.id LIMIT 1`;
-const billingGrant = (scope: string) => billingGrantFor(`${scope}.account_id`, `g.membership_id = ${scope}.membership_id`);
 
 const returnedOrEmpty = `NOT EXISTS (SELECT 1 FROM completions WHERE job_id = j.id AND state IN ('submitted', 'signed_off'))`;
 export const awaitingSignOff = (completion: string) => `${completion}.state = 'submitted' AND ${completion}.submitted_at <= ${at}
@@ -176,7 +163,7 @@ export function completionValue(scope: string, version: string, receiptState?: "
       ELSE json_object('submit', ${flag(`j.state = 'open' AND j.place_state IN ('in_area', 'out_of_area')
         AND work.finished_at IS NOT NULL AND ${returnedOrEmpty}`)},
         'messageApprover', ${flag("chosen.state = 'submitted'")},
-        'canIssueBill', ${flag(`EXISTS (${billingGrant(scope)})`)}) END AS actions,
+        'canIssueBill', ${flag(`EXISTS (${billHintGrant(scope)})`)}) END AS actions,
       CASE WHEN NOT (${customerView}) AND work.finished_at IS NOT NULL THEN json_object('finishedAt', work.finished_at,
         'crewCheckedOutAt', ${checkout}) END AS work,
       CASE WHEN NOT (${customerView}) AND chosen.state = 'returned' THEN (SELECT json_object('at', e.at,
@@ -276,7 +263,7 @@ export function submitCompletion(ctx: RequestScope, session: SessionAccess, { pa
     SELECT 1 FROM (SELECT (${approvedInvoice(at)}) AS approved) CROSS JOIN completion_input input
     WHERE approved ->> 'net' >= 0 AND approved ->> 'tax' >= 0
       AND (approved ->> 'net') + (approved ->> 'tax') = input.bill_amount
-      AND (NOT EXISTS (${billingGrant("scope")}) OR EXISTS (SELECT 1 FROM bills b WHERE b.job_id = j.id AND b.state = 'issued') OR (
+      AND (NOT EXISTS (${billHintGrant("scope")}) OR EXISTS (SELECT 1 FROM bills b WHERE b.job_id = j.id AND b.state = 'issued') OR (
         NOT EXISTS (SELECT 1 FROM bills b WHERE b.business_id = j.business_id AND b.number = input.bill_reference AND b.version = 1)
         AND NOT (${billReferenceReserved("input.bill_reference")}))))`;
   const eventKey = `${readyKind}:${id}`;
@@ -317,7 +304,7 @@ export function submitCompletion(ctx: RequestScope, session: SessionAccess, { pa
             1 + coalesce((SELECT max(no) FROM completions WHERE job_id = j.id), 0), scope.account_id,
             ${finishedAt}, ${at}, input.bill_reference, input.bill_amount,
             CASE WHEN input.bill_reference IS NOT NULL THEN scope.account_id END,
-            CASE WHEN input.bill_reference IS NOT NULL THEN (${billingGrant("scope")}) END, 'submitted'
+            CASE WHEN input.bill_reference IS NOT NULL THEN (${billHintGrant("scope")}) END, 'submitted'
             FROM aftercare_job j CROSS JOIN aftercare_actor scope CROSS JOIN completion_input input WHERE ${guard.sql}`, ...guard.params ?? []),
           scopedStatement(writesAccess, `INSERT INTO completion_items (id, completion_id, quote_version_id, change_version_id, line_no,
             outcome, original_language, result_note, not_done_reason, evidence_alternative)
@@ -375,7 +362,7 @@ export function signOffCompletion(ctx: RequestScope, session: SessionAccess, { p
           SELECT j.id AS job_id, j.business_id, c.bill_reference_hint AS number, c.bill_amount_minor AS total,
             (${approvedInvoice("c.submitted_at")}) AS approved, ${calendarDeadline(at, AFTERCARE_TARGETS.billDueCalendarDays)} AS due
           FROM aftercare_job j JOIN completions c ON c.id = ${resultId} AND c.state = 'signed_off'
-          WHERE ${guard.sql} AND EXISTS (${billingGrantFor("c.bill_hint_by", "g.id = c.bill_hint_grant_id")})
+          WHERE ${guard.sql} AND ${liveBillHintIssuer("c", "j.business_id")}
             AND NOT EXISTS (SELECT 1 FROM bills b WHERE (b.job_id = j.id AND b.state = 'issued')
               OR (b.business_id = j.business_id AND b.number = c.bill_reference_hint AND b.version = 1))
         ) INSERT INTO bills (id, job_id, business_id, number, version, net_minor, tax_minor, total_minor, currency,
