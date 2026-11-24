@@ -2,21 +2,13 @@ import { getBusinessScheduleRoute, proposeVisitWindowsRoute, type BusinessSchedu
 import { uuid } from "expo";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
 import { useCommand, useRemote } from "../../api";
-import { useFormat, useT } from "../../i18n";
+import { useT } from "../../i18n";
 import { useSession } from "../../session";
-import { Button, Card, Dock, Screen, TextField } from "../../ui/controls";
-import { Copy } from "../../ui/controls/shared";
-import { TwoClock } from "../../ui/live/TwoClock";
-import { siteTime } from "../f-01/Screen";
 import { useLocalDraft } from "../f-04/draft";
 import { confirmAction } from "../s-17/confirmAction";
-import { wallInstant } from "../w-08/Screen";
-import { NativePicker } from "../w-08/NativePicker";
+import { ScheduleView, type Window } from "./View";
 
-type Window = { id: string; startsAt: number; endsAt: number };
-type Status = "idle" | "loading" | "ready" | "error" | "offline";
 const emptyDraft: { windows: Window[] } = { windows: [] };
 export default function ForemanSchedule() {
   const { jobId } = useLocalSearchParams<{ jobId: string }>(); const { session } = useSession();
@@ -40,21 +32,4 @@ function ScheduleRoute() {
     confirmAction(router, { title: revised ? t("mobile.crewSchedule.newVisit") : t("mobile.crewSchedule.sendWindows"), actionLabel: revised ? t("mobile.crewSchedule.newVisit") : t("mobile.crewSchedule.sendWindows"), actionLabelKey: revised ? "mobile.crewSchedule.newVisit" : "mobile.crewSchedule.sendWindows", item: data.job.reference, actor: bootstrap?.account.displayName ?? "", role: session?.activeContext?.businessName ?? "", effects: [t("mobile.crewSchedule.proposalEffect")], onReview: () => {}, onConfirm: async () => { const result = await command.run({ params: { j: jobId }, body: { expectedRevision: visit?.revision ?? 0, payload: { visitId: visit?.id ?? newVisitId, approvedQuoteVersionId: data.approvedQuote!.id, purpose: booked ? { kind: "agreement", replacesWindowId: booked.id, requestId: visit?.rescheduleRequest?.id ?? null } : { kind: "booking", visitKind: visit?.kind ?? "work", requestId: visit?.rescheduleRequest?.id ?? null }, windows: windows.map(w => ({ ...w, expiresAt: Math.min(w.startsAt, Date.now() + 86400000) })) } } }); if (result.ok) { await local.remove().catch(() => {}); router.replace(`/f/jobs/${jobId}` as Href); return "confirmed"; } return "delivery" in result.error && result.error.delivery === "unknown" ? "uncertain" : "invalidated"; } });
   }
   return <ScheduleView data={data} status={remote.status} windows={windows} capacity={capacity} busy={busy} checking={command.state === "checking"} failed={command.state === "failed" || command.state === "conflict"} onBack={() => router.back()} onRetry={() => void remote.refresh()} onWeek={delta => { if (data?.capacity.state !== "ready") return; const date = new Date(`${data.capacity.days[0]!.date}T12:00:00Z`); date.setUTCDate(date.getUTCDate() + 7 * delta); setWeek(date.toISOString().slice(0, 10)); }} onWindows={next => local.change({ windows: next })} onSend={send} />;
-}
-export function ScheduleView(p: { data: BusinessSchedule | null; customerZone?: string | null; status: Status; windows: Window[]; capacity: (w: Window) => { free: number; total: number } | null; busy: boolean; checking: boolean; failed: boolean; onBack: () => void; onRetry: () => void; onWeek: (delta: number) => void; onWindows: (w: Window[]) => void; onSend: () => void }) {
-  const t = useT(); const format = useFormat(); const [date, setDate] = useState(""); const [start, setStart] = useState(""); const [end, setEnd] = useState(""); const [invalid, setInvalid] = useState(false); const [changing, setChanging] = useState(false);
-  const d = p.data; const visit = d?.visit; const revised = visit?.bookedWindow?.crewAvailability === "no_crew_available"; const agreed = !!visit?.bookedWindow && !revised && !changing; const lanes = d?.capacity.state === "ready" ? d.capacity.days.find(day => day.date === date)?.lanes ?? [] : [];
-  const customerZone = p.customerZone ?? null;
-  const clock = (at: number) => { const value = format.twoClock(at, d?.siteZone, customerZone); return value.kind === "available" ? <TwoClock siteTime={value.siteTime} siteZone={d?.siteZone ?? ""} viewerLine={value.viewerTime ? t("mobile.crewSchedule.customerClock", { time: value.viewerTime }) : undefined} /> : null; };
-  function add() { if (!d) return; const a = wallInstant(date, start, d.siteZone), b = wallInstant(date, end, d.siteZone); if (a === null || b === null || a >= b || a <= Date.now()) { setInvalid(true); return; } const window = { id: uuid.v4(), startsAt: a, endsAt: b }; p.onWindows(visit?.bookedWindow ? [window] : [...p.windows, window]); setInvalid(false); }
-  const disabled = !d?.approvedQuote || !p.windows.length || p.busy || p.status !== "ready" || p.windows.some(w => !p.capacity(w)?.free || w.startsAt <= Date.now());
-  return <Screen title={t("mobile.crewSchedule.schedule")} navigation={{ kind: "back", label: t("mobile.crewSchedule.back"), onPress: p.onBack }} dock={d && !agreed ? <Dock context={t("mobile.crewSchedule.proposalEffect")} primary={{ label: revised ? t("mobile.crewSchedule.newVisit") : t("mobile.crewSchedule.sendWindows"), live: !!revised, onPress: p.onSend, disabled }} /> : undefined}>
-    {(p.status === "idle" || p.status === "loading") && <Copy>{t("mobile.crewSchedule.loading")}</Copy>}{p.status === "error" && <><Copy>{t("mobile.crewSchedule.error")}</Copy><Button label={t("mobile.crewSchedule.retry")} onPress={p.onRetry} /></>}{p.status === "offline" && <Copy>{t("mobile.crewSchedule.offline")}</Copy>}
-    {d && <><Copy variant="sectionTitle">{d.job.title}</Copy><Copy>{d.job.reference} · {d.siteZone}</Copy>{revised && <Card><Copy>{t("mobile.crewSchedule.revised")}</Copy></Card>}{changing && <Card><Copy>{t("mobile.crewSchedule.bookingRemains")}</Copy></Card>}{visit?.bookedWindow && <Card><Copy variant="sectionTitle">{t("mobile.crewSchedule.booked")}</Copy>{clock(visit.bookedWindow.startsAt)}{clock(visit.bookedWindow.endsAt)}{agreed && <Button variant="quiet" label={t("mobile.crewSchedule.change")} onPress={() => setChanging(true)} />}</Card>}
-    {visit?.offeredWindows.map(w => <Card key={w.id}><Copy>{t("mobile.crewSchedule.waitingCustomer")}</Copy><Copy>{siteTime(format, w.startsAt, d.siteZone)} – {siteTime(format, w.endsAt, d.siteZone)}</Copy></Card>)}
-    {!agreed && <>{d.capacity.state === "unavailable" ? <Copy>{t("mobile.crewSchedule.capacityUnknown")}</Copy> : <><View style={{ flexDirection: "row", flexWrap: "wrap" }}><Button variant="quiet" label={t("mobile.crewSchedule.previous")} onPress={() => p.onWeek(-1)} /><Button variant="quiet" label={t("mobile.crewSchedule.next")} onPress={() => p.onWeek(1)} /></View><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>{d.capacity.days.map(day => <Button key={day.date} label={day.date} variant={date === day.date ? "primary" : "neutral"} onPress={() => setDate(day.date)} />)}</View></>}
-    {lanes.map(lane => <Card key={lane.membershipId}><Copy variant="sectionTitle">{lane.displayName}</Copy>{lane.busy.map(b => <Copy key={b.startsAt}>{t("mobile.crewSchedule.busy")} · {siteTime(format, b.startsAt, d.siteZone)} – {siteTime(format, b.endsAt, d.siteZone)}</Copy>)}</Card>)}
-    {p.windows.map(w => { const c = p.capacity(w); return <Card key={w.id}>{clock(w.startsAt)}{clock(w.endsAt)}<Copy>{c ? t("mobile.crewSchedule.freeCount", c) : t("mobile.crewSchedule.capacityUnknown")}</Copy>{c?.free === 0 && <Copy>{t("mobile.crewSchedule.conflictWindow")}</Copy>}<Button variant="quiet" label={t("mobile.crewSchedule.remove")} onPress={() => p.onWindows(p.windows.filter(x => x.id !== w.id))} /></Card>; })}
-    <Card><TextField label={t("mobile.crewSchedule.date")} helper={t("mobile.crewSchedule.dateHint")} value={date} onChangeText={setDate} /><NativePicker label={t("mobile.crewSchedule.date")} mode="date" date={date} time={start} zone={d.siteZone} onChange={setDate} /><TextField label={t("mobile.crewSchedule.start")} helper={t("mobile.crewSchedule.timeHint")} value={start} onChangeText={setStart} /><NativePicker label={t("mobile.crewSchedule.start")} mode="time" date={date} time={start} zone={d.siteZone} onChange={setStart} /><TextField label={t("mobile.crewSchedule.end")} value={end} onChangeText={setEnd} /><NativePicker label={t("mobile.crewSchedule.end")} mode="time" date={date} time={end} zone={d.siteZone} onChange={setEnd} />{invalid && <Copy>{t("mobile.crewSchedule.invalidTime")}</Copy>}<Button label={t("mobile.crewSchedule.addWindow")} onPress={add} /></Card></>}{p.checking && <Copy>{t("mobile.crewSchedule.checking")}</Copy>}{p.failed && <Copy>{t("mobile.crewSchedule.saveFailed")}</Copy>}</>}
-  </Screen>;
 }

@@ -9,16 +9,20 @@ const base = { audience: "foreman", gapId: "gap1", slotId: "slot1", shift: { shi
 export const gap = foremanCoverSchema.parse({ ...base, noCrewUpdate: null });
 export const offers = foremanCoverSchema.parse({ ...gap, currentRoundNo: 1, dispatchesUsed: 1, status: { state: "offers_out", sentAt: sent, replyBy: start - 18 * minute }, candidates: [diego, lucia].map((c, i) => ({ ...c, response: { offerId: `offer${i}`, state: "offered", at: sent, declineReason: null } })), customerUpdate: { state: "published", kind: "cover_arranging", publishedAt: start - 26 * minute, nextUpdateAt: start - 15 * minute }, actions: { canIssue: false, canClose: true, canRelease: false, canConfirm: false } });
 export const accepted = foremanCoverSchema.parse({ ...offers, status: { state: "accepted_pending_confirmation", hold: { offerId: "offer0", worker: { membershipId: "diego", displayName: "Diego Torres" }, acceptedAt, confirmBy: start - 17 * minute, fit, onDuty: true, gapStillOpen: true } }, candidates: offers.candidates.map((c, i) => ({ ...c, response: { ...c.response!, state: i === 0 ? "held" : "on_hold", at: acceptedAt } })), actions: { canIssue: false, canClose: false, canRelease: true, canConfirm: true } });
-export const confirmed = foremanCoverSchema.parse({ ...accepted, status: { state: "confirmed", assignmentId: "assignment1", worker: { membershipId: "diego", displayName: "Diego Torres" }, confirmedAt: start - 20 * minute, confirmedByName: "Mateo Ruiz", confirmedByViewer: true }, actions: { canIssue: false, canClose: false, canRelease: false, canConfirm: false } });
-export const noCover = foremanCoverSchema.parse({ ...offers, status: { state: "no_cover", endedAt: start - 18 * minute }, noCrewUpdate: { visitId: "visit1", bookedWindowId: "window1", expectedRevision: 2 }, actions: { canIssue: false, canClose: false, canRelease: false, canConfirm: false } });
+export const confirmed = foremanCoverSchema.parse({ ...accepted, status: { state: "confirmed", assignmentId: "assignment1", worker: { membershipId: "diego", displayName: "Diego Torres" }, confirmedAt: start - 20 * minute, confirmedByName: "Mateo Ruiz", confirmedByViewer: true },
+  candidates: accepted.candidates.map((c, i) => ({ ...c, response: { ...c.response!, state: i === 0 ? "confirmed" : "filled_elsewhere", at: start - 20 * minute } })),
+  customerUpdate: { state: "published", kind: "crew_updated", publishedAt: start - 20 * minute, nextUpdateAt: null }, actions: { canIssue: false, canClose: false, canRelease: false, canConfirm: false } });
+export const noCover = foremanCoverSchema.parse({ ...offers, status: { state: "no_cover", endedAt: start - 18 * minute },
+  candidates: offers.candidates.map(c => ({ ...c, response: { ...c.response!, state: "expired", at: start - 18 * minute } })),
+  noCrewUpdate: { visitId: "visit1", bookedWindowId: "window1", expectedRevision: 2 }, actions: { canIssue: false, canClose: false, canRelease: false, canConfirm: false } });
 export const proposed = foremanCoverSchema.parse({ ...noCover, status: { state: "new_visit_proposed", proposedAt: start - 16 * minute, windowId: "window2", window: { startsAt: start + 24 * 60 * minute, endsAt: start + 25 * 60 * minute } }, noCrewUpdate: null, customerUpdate: { state: "published", kind: "no_crew_available", publishedAt: start - 17 * minute, nextUpdateAt: null } });
 const noop = () => {};
 const props = { status: "ready" as const, selected: [], now: start - 24 * minute, onToggle: noop, onSend: noop, onCloseRound: noop, onReview: noop, onShift: noop, onPropose: noop, onPublishNoCrew: noop, onBack: noop, onRetry: noop };
 export const previews: ScreenPreview[] = [
   { id: "F-10", state: "gap", render: () => <CoverView {...props} data={gap} /> },
   { id: "F-10", state: "crew-offers-out", render: () => <CoverView {...props} data={offers} /> },
-  { id: "F-10", state: "accepted", render: () => <CoverView {...props} data={accepted} /> },
-  { id: "F-10", state: "confirmed", render: () => <CoverView {...props} data={confirmed} /> },
-  { id: "F-10", state: "no-cover", render: () => <CoverView {...props} data={noCover} /> },
-  { id: "F-10", state: "new-visit-proposed", render: () => <CoverView {...props} data={proposed} /> },
+  { id: "F-10", state: "accepted", render: () => <CoverView {...props} data={accepted} now={acceptedAt} /> },
+  { id: "F-10", state: "confirmed", render: () => <CoverView {...props} data={confirmed} now={start - 20 * minute} /> },
+  { id: "F-10", state: "no-cover", render: () => <CoverView {...props} data={noCover} now={start - 18 * minute} /> },
+  { id: "F-10", state: "new-visit-proposed", render: () => <CoverView {...props} data={proposed} now={start - 16 * minute} /> },
 ];

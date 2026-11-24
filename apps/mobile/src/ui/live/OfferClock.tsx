@@ -4,11 +4,12 @@ import { Platform, StyleSheet, Text, View } from "react-native";
 import { useBeaconTheme } from "../theme";
 import { decorative, Glyph } from "./parts";
 
-export type OfferClockProps = {
-  /** The caller-formatted absolute reply or confirmation deadline, including the zone. */
-  deadline: string;
-  surface?: "neutral" | "capsule" | "fieldCapsule";
-} & (
+type Deadline =
+  | { deadline: string; embedded?: never }
+  /** The containing capsule already prints the absolute deadline. */
+  | { deadline?: never; embedded: true };
+
+export type OfferClockProps = Deadline & { surface?: "neutral" | "capsule" | "fieldCapsule" } & (
   | { state: "running"; remaining: string; fraction: number; statusLabel?: string }
   | { state: "urgent"; remaining: string; fraction: number; statusLabel: string }
   | { state: "expired" | "filled" | "accepted"; statusLabel: string; remaining?: never; fraction?: never }
@@ -74,10 +75,10 @@ export function OfferClock(props: OfferClockProps) {
           <Glyph mark={staticMarks[state]} size={26} color={surface !== "neutral" ? ink : state === "expired" ? color.criticalInk : state === "filled" ? color.successInk : color.infoInk} />
         </View>
       )}
-      <View style={[styles.copy, { gap: space.grid[1] }]}>
-        <Text style={[type.label, native.tabularNumbers, { color: ink }]}>{deadline}</Text>
+      {(deadline || statusLabel) && <View style={[styles.copy, { gap: space.grid[1] }]}>
+        {deadline && <Text style={[type.label, native.tabularNumbers, { color: ink }]}>{deadline}</Text>}
         {statusLabel && <Text role="status" accessibilityLiveRegion="polite" aria-live="polite" style={[type.supporting, { color: muted }]}>{statusLabel}</Text>}
-      </View>
+      </View>}
     </View>
   );
 }

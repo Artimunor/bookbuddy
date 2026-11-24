@@ -6,6 +6,7 @@ import { decorative, Glyph, motionNativeDriver, useReducedMotion } from "./parts
 
 export type JobLineStage =
   | { kind: "journey"; steps: readonly [string, string, string, string, string, string]; current: 0 | 1 | 2 | 3 | 4 | 5; estimate?: never }
+  | { kind: "cover"; steps: readonly [string, string, string, string]; current: 0 | 1 | 2 | 3; estimate?: never }
   | ({ kind: "visit"; steps: readonly [string, string, string, string, string] } & (
     | { current: 1; estimate?: { fraction: number; label: string } }
     | { current: 0 | 2 | 3 | 4; estimate?: never }

@@ -2,20 +2,21 @@ import { attachmentIdSchema, getJobRoute, getVisitLiveRoute, idSchema, localeTag
 import { uuid } from "expo";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
+import { View, useWindowDimensions } from "react-native";
 import { useCommand, useRemote } from "../../api";
 import type { CommandStatus, RemoteStatus } from "../../api/requests";
-import { useLocale, useT } from "../../i18n";
+import { useFormat, useLocale, useT } from "../../i18n";
 import { useAttach, useOpenMediaPreview, type MediaTransfer } from "../../media";
 import { useRepository, useVisibilityGeneration } from "../../repository/hooks";
 import type { ScopedRepository } from "../../repository";
 import { useSession } from "../../session";
-import { Button, Card, Dock, Sheet, TextField } from "../../ui/controls";
-import { Copy } from "../../ui/controls/shared";
-import { ArrivalBand, LiveCapsule, Stamp } from "../../ui/live";
+import { Button, Card, Dock, Sheet, StatusBanner, TextField } from "../../ui/controls";
+import { Copy, Target, controlMetrics } from "../../ui/controls/shared";
+import { LiveCapsule, Stamp } from "../../ui/live";
+import { useBeaconTheme } from "../../ui/theme";
 import { AttachmentTiles, PhotoTile, useAttachNavigation } from "../c-02/attachments";
 import { useLocalDraft } from "../f-04/draft";
-import { clockTime } from "../f-05/Screen";
+import { foremanWindow } from "../f-06/clock";
 import { confirmAction } from "../s-17/confirmAction";
 
 type Kind = "on_the_way" | "arrival_revised" | "paused" | "photo";
@@ -76,22 +77,38 @@ export default function ShareUpdateScreen() {
     const arrival = data?.customerPreview.live.arrival; if (!data || !arrival || status !== "ready" || !data.permittedUpdates.includes("arrival_withdrawn")) return;
     confirmAction(router, { title: t("mobile.jobControl.retracted"), actionLabel: t("mobile.jobControl.retracted"), actionLabelKey: "mobile.jobControl.retracted", item: data.job.reference, actor: bootstrap?.account.displayName ?? "", role: session?.activeContext?.businessName ?? "", effects: [t("mobile.jobControl.append")], destructive: true, onReview: () => {}, onConfirm: async () => { const result = await command.run({ params: { id: data.visitId }, body: { expectedRevision: data.revision, payload: { id: uuid.v4(), kind: "arrival_withdrawn", correctsId: arrival.id } } }); if (result.ok) { await visitRead.refresh(); return "confirmed"; } return result.error.code === "INTERNAL_ERROR" || ("delivery" in result.error && result.error.delivery === "unknown") ? "uncertain" : "invalidated"; } });
   }
-  return <ShareUpdateView key={data?.visitId ?? "loading"} visible={focused} data={data} status={status} commandState={command.state} initialKind={useProgress || upload ? "photo" : undefined} photo={photo} onClose={() => router.back()} onRetry={() => { if (!hint && !visitId) void jobRead.refresh(); else if (visitId) void visitRead.refresh(); }} onSend={payload => { void publish(payload); }} onRetract={retract} />;
+  return <ShareUpdateView key={data?.visitId ?? "loading"} visible={focused} data={data} status={status} commandState={command.state} initialKind={useProgress || upload ? "photo" : undefined} photo={photo} author={bootstrap?.account.displayName ?? undefined} providerName={session?.activeContext?.businessName ?? undefined} onClose={() => router.back()} onRetry={() => { if (!hint && !visitId) void jobRead.refresh(); else if (visitId) void visitRead.refresh(); }} onSend={payload => { void publish(payload); }} onRetract={retract} />;
 }
-export function ShareUpdateView({ visible = true, data, status, commandState, onClose, onRetry, onSend, onRetract, photo, initialKind, initialBand }: { visible?: boolean; data: ForemanVisitControl | null; status: RemoteStatus; commandState: CommandStatus; onClose: () => void; onRetry: () => void; onSend: (payload: Payload) => void; onRetract: () => void; photo?: PhotoView; initialKind?: Kind; initialBand?: { startsAt: number; endsAt: number } }) {
-  const t = useT(), { locale } = useLocale(); const previous = data?.customerPreview.live.arrival;
+export function ShareUpdateView({ visible = true, data, status, commandState, onClose, onRetry, onSend, onRetract, photo, initialKind, initialBand, now: fixedNow, author, providerName }: {
+  visible?: boolean; data: ForemanVisitControl | null; status: RemoteStatus; commandState: CommandStatus;
+  onClose: () => void; onRetry: () => void; onSend: (payload: Payload) => void; onRetract: () => void; photo?: PhotoView;
+  initialKind?: Kind; initialBand?: { startsAt: number; endsAt: number }; now?: number; author?: string; providerName?: string;
+}) {
+  const t = useT(); const format = useFormat();
+  const { color, radius, field, space } = useBeaconTheme();
+  const { fontScale } = useWindowDimensions();
+  const previous = data?.customerPreview.live.arrival;
+  const now = fixedNow ?? Date.now();
   const [kind, setKind] = useState<Kind>(initialKind ?? (previous && data?.permittedUpdates.includes("arrival_revised") ? "arrival_revised" : data?.permittedUpdates.includes("on_the_way") ? "on_the_way" : "paused"));
   useEffect(() => { if (initialKind === "photo") setKind("photo"); }, [initialKind]);
-  const [band, setBand] = useState(() => initialBand ?? previous?.band ?? { startsAt: Math.ceil(Date.now() / 300000) * 300000 + 600000, endsAt: Math.ceil(Date.now() / 300000) * 300000 + 1200000 });
-  const at = (time: number) => clockTime(time, data?.siteZone ?? "UTC", locale); const range = `${at(band.startsAt)} – ${at(band.endsAt)}`;
-  const options: { kind: Kind; label: string }[] = [{ kind: "on_the_way", label: t("mobile.jobControl.onWay") }, { kind: "arrival_revised", label: t("mobile.jobControl.late") }, { kind: "paused", label: t("mobile.jobControl.paused") }, { kind: "photo", label: t("mobile.jobControl.photo") }];
+  const [band, setBand] = useState(() => initialBand ?? previous?.band ?? { startsAt: Math.ceil(now / 300000) * 300000 + 600000, endsAt: Math.ceil(now / 300000) * 300000 + 1200000 });
+  const timing = data ? foremanWindow(format, band, data.siteZone, data.customerZone) : null;
+  const beforeTiming = data && previous ? foremanWindow(format, previous.band, data.siteZone, data.customerZone) : null;
+  const at = (instant: number) => {
+    const value = format.siteTime(instant, data?.siteZone);
+    return value.kind === "available" ? value.site.time : "";
+  };
+  const options: { kind: Kind; label: string; glyph: string }[] = [
+    { kind: "on_the_way", label: t("mobile.jobControl.onWay"), glyph: "»" }, { kind: "arrival_revised", label: t("mobile.jobControl.late"), glyph: "◷" },
+    { kind: "paused", label: t("mobile.jobControl.paused"), glyph: "Ⅱ" }, { kind: "photo", label: t("mobile.jobControl.photo"), glyph: "▧" },
+  ];
   const label = options.find(option => option.kind === kind)?.label ?? "";
   const caption = photo?.caption.trim() ?? ""; const language = photo?.language.trim() ?? "";
   const captionValid = !caption || localeTagSchema.safeParse(language).success;
   const source = photo?.source;
   const locked = commandState === "sending" || commandState === "checking";
   const allowed = !!data && data.permittedUpdates.includes(kind) && (kind !== "arrival_revised" || !!previous) && status === "ready" && commandState !== "sending" &&
-    (kind === "photo" ? !!source?.ready && captionValid : commandState !== "checking" && (kind === "paused" || band.endsAt > Date.now()));
+    (kind === "photo" ? !!source?.ready && captionValid : commandState !== "checking" && (kind === "paused" || band.endsAt > now));
   const send = () => {
     if (!allowed) return;
     if (kind === "on_the_way") onSend({ kind, band });
@@ -99,14 +116,37 @@ export function ShareUpdateView({ visible = true, data, status, commandState, on
     else if (kind === "paused") onSend({ kind });
     else if (kind === "photo" && source) onSend({ kind, attachmentId: source.attachmentId, ...(source.progressEventId && { progressEventId: source.progressEventId }), ...(caption && { caption: { text: caption, language } }) });
   };
-  const context = status === "offline" ? t("mobile.photos.connectShare") : kind !== "photo" ? !allowed ? t("mobile.jobControl.unavailableType") : t("mobile.jobControl.noLocation") : !data?.permittedUpdates.includes("photo") ? t("mobile.jobControl.unavailableType") : !captionValid ? t("mobile.photos.invalidLanguage") : !source ? t("mobile.photos.addPhoto") : !source.ready ? t("mobile.photos.wait") : t("mobile.photos.sharePrivacy");
-  return <Sheet visible={visible} title={t("mobile.jobControl.shareTitle")} closeLabel={t("mobile.crew.close")} onClose={onClose} dock={data ? <Dock context={context} primary={{ label: kind === "photo" ? commandState === "checking" ? t("mobile.request.checkStatus") : t("mobile.photos.sharePhoto") : t("mobile.jobControl.send"), onPress: send, disabled: !allowed, busy: commandState === "sending", live: true }} /> : undefined}>
-    {(status === "loading" || status === "idle") && <Copy>{t("mobile.foremanHome.loading")}</Copy>}{(status === "error" || status === "offline") && <><Copy>{status === "offline" ? t("mobile.foremanHome.offline") : t("mobile.jobControl.error")}</Copy><Button label={t("mobile.foremanHome.retry")} onPress={onRetry} /></>}
-    {commandState === "checking" && <Copy>{t("mobile.jobControl.checking")}</Copy>}{(commandState === "failed" || commandState === "conflict") && <Copy>{t("mobile.jobControl.failed")}</Copy>}
+  const context = status === "offline" ? t("mobile.photos.connectShare") : kind !== "photo" ? !allowed && !locked ? t("mobile.jobControl.unavailableType") : t("mobile.jobControl.shareLive") : !data?.permittedUpdates.includes("photo") ? t("mobile.jobControl.unavailableType") : !captionValid ? t("mobile.photos.invalidLanguage") : !source ? t("mobile.photos.addPhoto") : !source.ready ? t("mobile.photos.wait") : t("mobile.photos.sharePrivacy");
+  const actionLabel = kind === "photo" ? commandState === "checking" ? t("mobile.request.checkStatus") : t("mobile.photos.sharePhoto") :
+    kind === "arrival_revised" ? t("mobile.jobControl.shareNewTime") : t("mobile.jobControl.shareKind", { kind: label });
+  const steps = [t("mobile.liveVisit.stepConfirmed"), t("mobile.liveVisit.stepWay"), t("mobile.liveVisit.stepSite"), t("mobile.liveVisit.working"), t("mobile.liveVisit.stepFinished")] as const;
+  const stage = kind !== "paused" ? 1 : data?.customerPreview.live.step === "finished" ? 4 : data?.customerPreview.live.step === "working" ? 3 : data?.customerPreview.live.step === "on_site" ? 2 : data?.customerPreview.live.step === "on_the_way" ? 1 : 0;
+  const step = t("mobile.liveVisit.step", { step: stage + 1, stage: steps[stage] });
+  const provenance = author ? t("mobile.liveVisit.shared", { name: author, time: at(now) }) : "";
+  const viewer = timing?.customerTime ? t("mobile.liveVisit.yourTime", { time: timing.customerTime }) : null;
+  const customerTime = timing?.customerTime && data ? t("mobile.jobControl.forCustomerTime", { time: timing.customerTime, name: data.customerName }) : null;
+  const subtitle = data ? `${t("mobile.jobControl.to", { name: data.customerName })} · ${data.job.reference}` : undefined;
+  return <Sheet visible={visible} title={t("mobile.jobControl.shareTitle")} subtitle={subtitle} closeLabel={t("mobile.crew.close")} onClose={onClose} dock={data ? <Dock context={context} primary={{ label: actionLabel, onPress: send, disabled: !allowed, busy: commandState === "sending", live: true }} /> : undefined}>
+    {(status === "loading" || status === "idle") && <Copy>{t("mobile.foremanHome.loading")}</Copy>}
+    {(status === "error" || status === "offline") && <StatusBanner state={status === "offline" ? "offline" : "not-sent"} label={status === "offline" ? t("mobile.foremanHome.offline") : t("mobile.jobControl.error")} action={{ label: t("mobile.foremanHome.retry"), onPress: onRetry }} />}
+    {commandState === "checking" && <Copy accessibilityLiveRegion="polite">{t("mobile.jobControl.checking")}</Copy>}{(commandState === "failed" || commandState === "conflict") && <Copy>{t("mobile.jobControl.failed")}</Copy>}
     {commandState === "done" && <Copy>{t("mobile.jobControl.sent")}</Copy>}
-    {data && <><Copy>{t("mobile.jobControl.to", { name: data.customerName })} · {data.job.reference}</Copy><View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{options.map(option => <Button key={option.kind} label={option.label} variant={option.kind === kind ? "primary" : "neutral"} disabled={locked || !data.permittedUpdates.includes(option.kind)} onPress={() => setKind(option.kind)} />)}</View>
+    {data && <>
+      <View accessibilityRole="radiogroup" accessibilityLabel={t("mobile.jobControl.shareTitle")} style={{ flexDirection: "row", flexWrap: "wrap", gap: space.grid[field ? 4 : 2] }}>
+        {options.map(option => {
+          const selected = option.kind === kind;
+          const unavailable = !data.permittedUpdates.includes(option.kind);
+          const disabled = locked || unavailable;
+          return <Target key={option.kind} accessibilityRole="radio" accessibilityState={{ checked: selected, disabled }} accessibilityLabel={option.label}
+            accessibilityHint={unavailable ? t("mobile.jobControl.unavailableType") : undefined} disabled={disabled} onPress={() => setKind(option.kind)}
+            style={({ pressed }) => ({ flexGrow: 1, flexBasis: fontScale >= 1.25 ? "100%" : "44%", minHeight: controlMetrics(field).primaryActionMinHeight, borderRadius: radius.input, borderWidth: controlMetrics(field).controlBorderWidth, borderColor: selected ? color.brand : color.outline, backgroundColor: selected ? pressed ? color.brandPressed : color.brand : unavailable || pressed ? color.subtle : color.surface, paddingHorizontal: space.grid[3], paddingVertical: space.grid[2], flexDirection: "row", alignItems: "center", gap: space.grid[2] })}>
+            <Copy aria-hidden variant="label" style={{ color: selected ? color.onBrand : color.muted }}>{option.glyph}</Copy>
+            <Copy variant="supporting" style={{ color: selected ? color.onBrand : unavailable ? color.muted : color.ink, flexShrink: 1 }}>{option.label}</Copy>
+          </Target>;
+        })}
+      </View>
     {kind === "photo" ? <>
-      <Card>
+      <Card dense>
         {source && <><PhotoTile label={t("mobile.jobControl.photo")} uri={source.uri} onOpen={photo?.onOpen} />
           {!source.progressEventId && <Copy variant="supporting">{t("mobile.photos.taken", { time: at(source.at) })}</Copy>}
         </>}
@@ -117,14 +157,38 @@ export function ShareUpdateView({ visible = true, data, status, commandState, on
         {photo?.error && <Copy accessibilityRole="alert">{t("mobile.photos.failed")}</Copy>}
       </Card>
       {source && <><Copy variant="sectionTitle">{t("mobile.jobControl.preview")}</Copy>
-        {source.uri ? <Stamp kind="photo" title={t("mobile.photos.photoShared")} time={at(Date.now())} attribution={photo?.author} detail={caption} photo={{ source: { uri: source.uri }, accessibilityLabel: t("mobile.jobControl.photo") }} /> :
-          <Card><Copy variant="label">{t("mobile.photos.photoShared")} · {at(Date.now())}</Copy>{photo?.author && <Copy variant="supporting">{photo.author}</Copy>}{caption && <Copy accessibilityLanguage={language}>{caption}</Copy>}</Card>}
+        <Stamp kind="photo" title={t("mobile.photos.photoShared")} time={at(now)} attribution={photo?.author} detail={caption}
+          photo={source.uri ? { source: { uri: source.uri }, accessibilityLabel: t("mobile.jobControl.photo") } : undefined} />
         {!!caption && <Copy variant="supporting">{t("mobile.photos.captionOriginal")}</Copy>}
       </>}
       {status === "offline" && source && <Copy variant="supporting">{t("mobile.photos.notShared")}</Copy>}
       <Copy variant="supporting">{t("mobile.photos.sharePrivacy")}</Copy>
-    </> : kind === "paused" ? <Card><Copy>{t("mobile.jobControl.pauseNotice")}</Copy></Card> : <><Card>{kind === "arrival_revised" && previous && <><Copy variant="label">{t("mobile.jobControl.was")}</Copy><Copy>{at(previous.band.startsAt)} – {at(previous.band.endsAt)}</Copy><Copy>{t("mobile.jobControl.sharedAt", { name: previous.sharedByName, time: at(previous.recordedAt) })}</Copy></>}<ArrivalBand state="onTheWay" label={t("mobile.jobControl.arriving")} time={{ siteTime: range, siteZone: data.siteZone }} /><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}><Button variant="neutral" label={t("mobile.jobControl.earlier")} onPress={() => setBand(current => ({ startsAt: current.startsAt - 300000, endsAt: current.endsAt - 300000 }))} /><Button variant="neutral" label={t("mobile.jobControl.later")} onPress={() => setBand(current => ({ startsAt: current.startsAt + 300000, endsAt: current.endsAt + 300000 }))} /></View>{kind === "arrival_revised" && data.permittedUpdates.includes("arrival_withdrawn") && <Button variant="quiet" label={t("mobile.jobControl.retracted")} onPress={onRetract} />}</Card></>}
-    {kind !== "photo" && <><Copy variant="sectionTitle">{t("mobile.jobControl.preview")}</Copy><LiveCapsule state={kind === "paused" ? "paused" : "onTheWay"} stateLabel={kind === "paused" ? t("mobile.jobControl.paused") : t("mobile.jobControl.onWay")} source={data.job.title ?? data.job.reference} reference={data.job.reference} time={kind === "paused" ? undefined : range} zoneLine={data.siteZone} provenance="" accessibilityLabel={`${label}, ${kind === "paused" ? "" : range}`} /></>}
-    <Copy variant="supporting">{t("mobile.jobControl.noLocation")}</Copy><Copy variant="supporting">{t("mobile.jobControl.append")}</Copy></>}
+    </> : kind === "paused" ? <Card dense><Copy>{t("mobile.jobControl.pauseNotice")}</Copy></Card> : <>
+      {kind === "arrival_revised" && previous && beforeTiming && <View style={{ borderRadius: radius.input, backgroundColor: color.subtle, padding: space.grid[3], gap: space.grid[1] }}>
+        <Copy variant="label">{t("mobile.jobControl.was")}</Copy>
+        <Copy variant="supporting">{beforeTiming.time} · {t("mobile.jobControl.sharedAt", { name: previous.sharedByName, time: at(previous.recordedAt) })}</Copy>
+      </View>}
+      <Card dense>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.grid[2] }}>
+          <View style={{ flex: 1, minWidth: 120 }}>
+            <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.jobControl.arriving")}</Copy>
+            <Copy variant="pageTitle" style={{ fontVariant: ["tabular-nums"] }}>{timing?.time}</Copy>
+          </View>
+          <Button variant="neutral" label={t("mobile.jobControl.earlier")} glyph="−" iconOnly disabled={locked} onPress={() => setBand(current => ({ startsAt: current.startsAt - 300000, endsAt: current.endsAt - 300000 }))} />
+          <Button variant="neutral" label={t("mobile.jobControl.later")} glyph="+" iconOnly disabled={locked} onPress={() => setBand(current => ({ startsAt: current.startsAt + 300000, endsAt: current.endsAt + 300000 }))} />
+        </View>
+        <Copy variant="supporting" style={{ color: color.muted }}>{[timing?.zone, customerTime].filter(Boolean).join(" · ")}</Copy>
+        {kind === "arrival_revised" && data.permittedUpdates.includes("arrival_withdrawn") && <Button variant="quiet" label={t("mobile.jobControl.retracted")} disabled={locked || status !== "ready"} onPress={onRetract} />}
+      </Card>
+    </>}
+    {kind !== "photo" && <>
+      <Copy variant="sectionTitle">{t("mobile.jobControl.preview")}</Copy>
+      <LiveCapsule state={kind === "paused" ? "paused" : "onTheWay"} stateLabel={kind === "paused" ? t("mobile.liveVisit.paused") : t("mobile.liveVisit.onWay")}
+        source={providerName ?? data.job.title ?? data.job.reference} reference={data.job.reference} time={kind === "paused" ? undefined : timing?.time}
+        zoneLine={kind === "paused" ? timing?.zone : [timing?.zone, viewer].filter(Boolean).join(" · ")} provenance={provenance}
+        accessibilityLabel={[label, kind === "paused" ? undefined : timing?.time, timing?.zone, kind === "paused" ? undefined : viewer, step, provenance].filter(Boolean).join(", ")}
+        line={{ kind: "visit", steps, ...(stage === 1 ? { current: 1 as const } : { current: stage }), accessibilityLabel: step, compact: true }} />
+    </>}
+    <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.jobControl.noLocation")}</Copy><Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.jobControl.append")}</Copy></>}
   </Sheet>;
 }

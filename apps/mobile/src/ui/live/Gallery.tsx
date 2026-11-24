@@ -106,6 +106,11 @@ export function LiveGallery() {
               accessibilityLabel="Crew on site since 09:14 Spain time. Shared by Mateo at 09:14 Spain time." />
           </BeaconThemeProvider>
         </View>
+        <View style={styles.cell}>
+          <LiveCapsule size="pill" state="onTheWay" stateLabel="On the way" source="Reformas Ruiz" time="09:10–09:20 Spain time"
+            zoneLine="08:10–08:20 your time" provenance="Shared by Mateo · 08:52"
+            accessibilityLabel="On the way, arriving 09:10 to 09:20 Spain time, 08:10 to 08:20 your time." />
+        </View>
       </View>
 
       <Text accessibilityRole="header" style={[type.pageTitle, { color: color.ink }]}>Component states</Text>
@@ -119,6 +124,13 @@ export function LiveGallery() {
           <ArrivalBand state="dueNow" label="Due now" time={arrival} provenance="Last confirmed by Mateo · 08:52 Spain time" />
           <ArrivalBand state="noUpdateSince" label="No update since 08:52" time={arrival} provenance="Last confirmed by Mateo · 08:52 Spain time" />
           <ArrivalBand state="arrived" checkIn={checkIn} />
+        </Example>
+        <Example title="Cover search">
+          <LiveCapsule state="crewConfirmed" stateLabel="Offers out · reply by" source="Cover search" reference="09:00–10:00"
+            time="08:42" zoneLine="Spain time" provenance="Visit starts at 09:00"
+            accessibilityLabel="Cover search, offers out, reply by 08:42 Spain time. Step 2 of 4."
+            coverClock={{ remaining: "6 min", fraction: 2 / 3 }}
+            line={{ kind: "cover", steps: ["Gap", "Offers out", "Accepted", "Confirmed"], current: 1, accessibilityLabel: "Step 2 of 4, Offers out" }} />
         </Example>
         <Example title="Crew and timestamps">
           <CrewDots audience="customer" people={[

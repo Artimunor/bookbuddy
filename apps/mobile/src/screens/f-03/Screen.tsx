@@ -2,10 +2,11 @@ import { acceptJobHandoffRoute, declineJobHandoffRoute, getHandoffRoute, type Ro
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useState } from "react";
 import { useCommand, useRemote } from "../../api";
-import { useFormat, useT } from "../../i18n";
+import { useFormat, useLocale, useT } from "../../i18n";
 import { useSession } from "../../session";
-import { Button, Card, Dock, ListRow, Screen, TextField, TwinCard } from "../../ui/controls";
+import { Button, Card, Dock, ListRow, Screen, StatusBanner, TextField, TwinCard } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
+import { useBeaconTheme } from "../../ui/theme";
 import { useOffline } from "../s-02/flow";
 import { confirmAction } from "../s-17/confirmAction";
 import { siteTime } from "../f-01/Screen";
@@ -37,26 +38,51 @@ export default function IntakeScreen() {
   return <IntakeView job={job} status={state} offline={offline} declining={declining} reason={reason} setReason={setReason} onDeclining={setDeclining} busy={[accept.state, decline.state].some(s => s === "sending" || s === "checking")} checking={[accept.state, decline.state].includes("checking")} failed={[accept.state, decline.state].some(s => s === "failed" || s === "conflict")} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} onAccept={() => confirm("accept")} onDecline={() => confirm("decline")} onNavigate={path => router.push(path as Href)} />;
 }
 export function IntakeView({ job, status, offline, declining, reason, setReason, onDeclining, busy, checking, failed, onBack, onRetry, onAccept, onDecline, onNavigate }: { job: Intake | null; status: Status; offline: boolean; declining: boolean; reason: string; setReason: (value: string) => void; onDeclining: (value: boolean) => void; busy: boolean; checking: boolean; failed: boolean; onBack: () => void; onRetry: () => void; onAccept: () => void; onDecline: () => void; onNavigate: (path: string) => void }) {
-  const t = useT(); const format = useFormat(); const takeover = !!job?.handoff.from;
+  const t = useT(); const format = useFormat(); const { locale } = useLocale();
+  const { color, radius, space } = useBeaconTheme();
+  const takeover = job?.handoff.from;
+  const chat = job?.chatThreadId;
   const available = !!job && job.reply === "available" && job.handoff.state === "offered" && !offline && !busy;
-  const dock = job && status === "ready" && (job.reply === "available" || job.reply === "authority_missing") ? declining ? <Dock context={t("mobile.foremanHome.declineEffect")} primary={{ label: t("mobile.foremanHome.confirmDecline"), onPress: onDecline, disabled: !available }} secondary={{ label: t("mobile.foremanHome.cancel"), onPress: () => onDeclining(false), disabled: busy }} /> : <Dock context={job.reply === "authority_missing" ? t("mobile.foremanHome.authority") : takeover ? t("mobile.foremanHome.takeoverEffect") : t("mobile.foremanHome.effect")} primary={{ label: takeover ? t("mobile.foremanHome.takeoverAction") : t("mobile.foremanHome.accept"), onPress: onAccept, disabled: !available }} secondary={job.chatThreadId ? { label: t("mobile.foremanHome.ask"), onPress: () => onNavigate(`/chat/${job.chatThreadId}`) } : undefined} /> : undefined;
+  const dock = job && status === "ready" && (job.reply === "available" || job.reply === "authority_missing") ?
+    declining ? <Dock context={t("mobile.foremanHome.declineEffect")} primary={{ label: t("mobile.foremanHome.confirmDecline"), onPress: onDecline, disabled: !available }} secondary={{ label: t("mobile.foremanHome.cancel"), onPress: () => onDeclining(false), disabled: busy }} /> :
+    <Dock context={offline ? t("mobile.foremanHome.offline") : job.reply === "authority_missing" ? t("mobile.foremanHome.authority") : takeover ? t("mobile.foremanHome.takeoverEffect") : t("mobile.foremanHome.acceptNamed", { name: job.customerName })}
+      primary={{ label: takeover ? t("mobile.foremanHome.takeoverAction") : t("mobile.foremanHome.accept"), onPress: onAccept, disabled: !available }}
+      secondary={takeover && available ? { label: t("mobile.foremanHome.confirmDecline"), onPress: () => onDeclining(true) } : chat ? { label: t("mobile.foremanHome.askNamed", { name: job.customerName }), onPress: () => onNavigate(`/chat/${chat}`) } : undefined} /> : undefined;
   const request = job?.request;
-  const originalLabel = request?.originalText
-    ? t("mobile.foremanHome.original", { language: request.originalLanguage ?? t("mobile.foremanHome.unknownLanguage") }) : "";
-  return <Screen title={takeover ? t("mobile.foremanHome.takeover") : t("mobile.foremanHome.newJob")} navigation={{ kind: "back", label: t("mobile.foremanHome.back"), onPress: onBack }} dock={dock}>
+  const translation = request?.translation;
+  const languages = typeof Intl.DisplayNames === "function" ? new Intl.DisplayNames(locale, { type: "language", fallback: "none" }) : null;
+  const language = (tag: string | null | undefined) => {
+    try { return tag ? languages?.of(tag) : undefined; } catch { return undefined; }
+  };
+  const originalName = language(request?.originalLanguage);
+  const translationName = translation?.status === "ready" ? language(translation.language) : undefined;
+  const unknownLanguage = t("mobile.foremanHome.unknownLanguage");
+  const requestTitle = job && request ? t("mobile.foremanHome.requestFrom", { name: job.customerName, time: siteTime(format, request.submitted.at, job.siteZone) }) : undefined;
+  const original = { text: request?.originalText ?? "", label: t("mobile.foremanHome.original", { language: originalName ?? unknownLanguage }) };
+  const expiry = job ? format.lines(job.handoff.expiresAt, job.siteZone)?.site : null;
+  return <Screen title={takeover ? t("mobile.foremanHome.takeover") : t("mobile.foremanHome.newJob")} subtitle={job ? `${job.reference} · ${job.town}` : undefined} navigation={{ kind: "back", label: t("mobile.foremanHome.back"), onPress: onBack }} dock={dock}>
     {(status === "idle" || status === "loading") && <Copy>{t("mobile.foremanHome.loading")}</Copy>}
     {status === "offline" && <Copy>{t("mobile.foremanHome.offline")}</Copy>}
     {(status === "error" || (status === "ready" && !job)) && <><Copy>{t("mobile.foremanHome.unavailable")}</Copy><Button label={t("mobile.foremanHome.retry")} onPress={onRetry} /></>}
     {job && status === "ready" && <>
-      <Copy variant="supporting">{job.reference} · {job.town}</Copy>
-      {offline && <Copy>{t("mobile.foremanHome.offline")}</Copy>}{checking && <Copy>{t("mobile.foremanHome.checking")}</Copy>}{failed && !checking && <Copy>{t("mobile.foremanHome.failed")}</Copy>}
-      {job.reply === "authority_missing" && <><Copy>{t("mobile.foremanHome.authority")}</Copy><Button variant="quiet" label={t("mobile.foremanHome.help")} onPress={() => onNavigate("/help")} /></>}
+      {offline && <StatusBanner state="offline" label={t("mobile.foremanHome.offline")} />}{checking && <Copy accessibilityLiveRegion="polite">{t("mobile.foremanHome.checking")}</Copy>}{failed && !checking && <Copy>{t("mobile.foremanHome.failed")}</Copy>}
+      {job.reply === "authority_missing" && <StatusBanner state="not-sent" label={t("mobile.foremanHome.authority")} action={{ label: t("mobile.foremanHome.help"), onPress: () => onNavigate("/help") }} />}
       {job.reply === "closed_elsewhere" && <Copy>{t("mobile.foremanHome.closedElsewhere")}</Copy>}{(job.reply === "closed" || job.handoff.state !== "offered") && <Copy>{t("mobile.foremanHome.closed")}</Copy>}
-      {takeover && <Card><Copy>{t("mobile.foremanHome.replyBy", { time: siteTime(format, job.handoff.expiresAt, job.siteZone) })}</Copy><Copy>{t("mobile.foremanHome.incumbent", { name: job.handoff.from!.displayName })}</Copy></Card>}
-      {request && (request.originalText ? request.translation?.status === "ready" ? <TwinCard state="translated" title={t("mobile.foremanHome.requestFrom", { name: job.customerName, time: siteTime(format, request.submitted.at, job.siteZone) })} original={{ text: request.originalText, label: originalLabel }} translation={{ text: request.translation.text, label: t("mobile.foremanHome.translation", { language: request.translation.language }) }} /> : request.translation ? <TwinCard state={request.translation.status} title={t("mobile.foremanHome.requestFrom", { name: job.customerName, time: siteTime(format, request.submitted.at, job.siteZone) })} original={{ text: request.originalText, label: originalLabel }} status={request.translation.status === "pending" ? t("mobile.foremanHome.pendingTranslation") : t("mobile.foremanHome.unavailableTranslation")} /> : <TwinCard state="original" title={t("mobile.foremanHome.requestFrom", { name: job.customerName, time: siteTime(format, request.submitted.at, job.siteZone) })} original={{ text: request.originalText, label: originalLabel }} /> : <Copy>{t("mobile.foremanHome.voiceOnly")}</Copy>)}
-      <Card>{request && request.photos.map(photo => <ListRow key={photo.attachmentId} label={t("mobile.foremanHome.photos", { count: request.photos.length })} onPress={photo.availability === "available" ? () => onNavigate(`/media/${photo.attachmentId}`) : undefined} />)}<ListRow label={job.town} description={t("mobile.foremanHome.addressHidden")} /></Card>
-      {job.handoff.offeredBy && <Copy variant="supporting">{t("mobile.foremanHome.offeredBy", { name: job.handoff.offeredBy })}</Copy>}
-      {job.reply === "available" && !declining && <Button variant="quiet" label={t("mobile.foremanHome.decline")} onPress={() => onDeclining(true)} disabled={!available} />}
+      {takeover && <><StatusBanner state="offline" label={expiry ? t("mobile.foremanHome.replyBy", { time: expiry }) : t("mobile.foremanHome.takeover")} /><Card dense><Copy>{t("mobile.foremanHome.incumbent", { name: takeover.displayName })}</Copy></Card></>}
+      {originalName && translationName && <Copy variant="supporting" style={{ color: color.muted, backgroundColor: color.subtle, borderRadius: radius.input, padding: space.grid[3] }}>
+        {t("mobile.foremanHome.requestLanguages", { readerLanguage: translationName, name: job.customerName, originalLanguage: originalName })}
+      </Copy>}
+      {request && (request.originalText ? translation?.status === "ready" ?
+        <TwinCard state="translated" title={requestTitle} original={original} translation={{ text: translation.text, label: t("mobile.foremanHome.translation", { language: translationName ?? unknownLanguage }) }} /> :
+        translation ? <TwinCard state={translation.status} title={requestTitle} original={original} status={translation.status === "pending" ? t("mobile.foremanHome.pendingTranslation") : t("mobile.foremanHome.unavailableTranslation")} /> :
+        <TwinCard state="original" title={requestTitle} original={original} /> : <Copy>{t("mobile.foremanHome.voiceOnly")}</Copy>)}
+      <Card dense>
+        {request?.photos.map((photo, index) => <ListRow key={photo.attachmentId} glyph="▧" label={t("mobile.foremanHome.requestPhoto", { number: index + 1, count: request.photos.length })}
+          onPress={photo.availability === "available" ? () => onNavigate(`/media/${photo.attachmentId}`) : undefined} />)}
+        <ListRow glyph="⌖" label={job.town} description={t("mobile.foremanHome.addressHidden")} />
+      </Card>
+      {job.reply === "available" && !declining && !takeover && <Button variant="quiet" label={t("mobile.foremanHome.decline")} onPress={() => onDeclining(true)} disabled={!available} />}
+      {job.handoff.offeredBy && <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.foremanHome.offeredBy", { name: job.handoff.offeredBy })}</Copy>}
       {declining && <TextField label={t("mobile.foremanHome.reason")} value={reason} onChangeText={setReason} multiline maxLength={500} disabled={busy} />}
     </>}
   </Screen>;

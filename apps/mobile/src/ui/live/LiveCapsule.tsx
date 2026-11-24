@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useBeaconTheme } from "../theme";
 import { CrewDots, type CrewDotsProps } from "./CrewDots";
 import { JobLine, type JobLineProps, type JobLineStage } from "./JobLine";
+import { OfferClock, type OfferClockProps } from "./OfferClock";
 import { decorative, DirectedText, Glyph } from "./parts";
 
 export type LiveCapsuleState = "crewConfirmed" | "onTheWay" | "onSite" | "working" | "coverBeingArranged" |
@@ -23,6 +24,8 @@ export type LiveCapsuleProps = {
   /** A single sentence with state, time and zone, and provenance. */
   accessibilityLabel: string;
   line?: JobLineStage & Pick<JobLineProps, "accessibilityLabel" | "compact" | "hideEstimateLabel" | "status">;
+  /** The heading and time already state the absolute cover deadline. */
+  coverClock?: Pick<Extract<OfferClockProps, { state: "running" }>, "remaining" | "fraction">;
   /** Five session stages with the same rail, semantics and motion as the visit line. */
   sessionLine?: Pick<Extract<JobLineStage, { kind: "visit" }>, "steps" | "current"> & Pick<JobLineProps, "accessibilityLabel" | "status">;
   crew?: CrewDotsProps;
@@ -37,18 +40,21 @@ const marks: Record<LiveCapsuleState, string> = {
 };
 
 export function LiveCapsule({
-  size = "card", state, pulse, stateLabel, source, reference, time, zoneLine, estimate, provenance, accessibilityLabel, line, sessionLine, crew, onPress,
+  size = "card", state, pulse, stateLabel, source, reference, time, zoneLine, estimate, provenance, accessibilityLabel, line, coverClock, sessionLine, crew, onPress,
 }: LiveCapsuleProps) {
   const { scheme, field, color, type, space } = useBeaconTheme();
   const [focused, setFocused] = useState(false);
-  const polarity = native.liveCapsule[scheme][field ? "field" : "standard"];
   const activity = state === "finished" ? "finished"
     : state === "booked" ? "upcoming"
     : state === "noUpdateSince" || state === "quiet" || state === "paused" || state === "coverBeingArranged" ? "quiet"
     : "live";
   const pill = size === "pill";
   const card = size === "card";
-  const lineSurface = field ? "fieldCapsule" : "capsule";
+  const cover = line?.kind === "cover";
+  // An inactive cover search is never a live signal, even in Field mode.
+  const fieldPolarity = field && (!cover || activity === "live");
+  const polarity = native.liveCapsule[scheme][fieldPolarity ? "field" : "standard"];
+  const lineSurface = fieldPolarity ? "fieldCapsule" : "capsule";
   const accent = activity === "live" || activity === "upcoming" ? polarity.accent : polarity.text.color;
   const baseStyle = [polarity.surface, {
     borderRadius: pill ? metrics.pillRadius : metrics.radius,
@@ -61,10 +67,13 @@ export function LiveCapsule({
   }];
 
   const contents = pill ? (
-    <View {...decorative} style={[styles.row, { gap: space.grid[2] }]}>
+    <View {...decorative} style={[styles.row, { gap: space.grid[2] }, !!zoneLine && styles.pillClockRow]}>
       <Glyph mark={marks[state]} color={accent} size={20} />
-      <Text style={[type.label, polarity.text, styles.fill]}>{stateLabel}</Text>
-      {time && <DirectedText dir="ltr" style={[type.supporting, native.tabularNumbers, polarity.text, styles.trailing]}>{time}</DirectedText>}
+      <Text style={[type.label, polarity.text, styles.fill, !!zoneLine && styles.pillState]}>{stateLabel}</Text>
+      {zoneLine ? <View style={styles.pillClocks}>
+        {!!time && <DirectedText dir="ltr" style={[type.supporting, native.tabularNumbers, polarity.text, styles.trailing]}>{time}</DirectedText>}
+        <Text style={[type.caption, native.tabularNumbers, polarity.supportingText, styles.trailing]}>{zoneLine}</Text>
+      </View> : !!time && <DirectedText dir="ltr" style={[type.supporting, native.tabularNumbers, polarity.text, styles.trailing]}>{time}</DirectedText>}
       {onPress && <Glyph mark="›" color={polarity.text.color} size={20} />}
     </View>
   ) : (
@@ -76,7 +85,14 @@ export function LiveCapsule({
         </View>
         {reference && <Text style={[type.caption, polarity.supportingText, styles.trailing]}>{reference}</Text>}
       </View>
-      <View style={{ gap: space.grid[1] }}>
+      {cover ? <View style={[styles.row, { gap: space.grid[3] }]}>
+        <View style={[styles.fill, { gap: space.grid[1] }]}>
+          <Text style={[type.label, { color: accent }]}>{stateLabel}</Text>
+          {!!time && <DirectedText dir="ltr" style={[type.display, native.tabularNumbers, polarity.text, styles.leading]}>{time}</DirectedText>}
+          {!!zoneLine && <Text style={[type.supporting, polarity.supportingText]}>{zoneLine}</Text>}
+        </View>
+        {coverClock && <OfferClock state="running" embedded surface={lineSurface} {...coverClock} />}
+      </View> : <View style={{ gap: space.grid[1] }}>
         <View style={[styles.row, { gap: space.grid[2] }]}>
           <Text style={[card ? type.pageTitle : time ? type.label : type.display, { color: card || !time ? polarity.text.color : accent }, styles.fill]}>{stateLabel}</Text>
           {card && !!time && <DirectedText dir="ltr" style={[type.label, native.tabularNumbers, { color: accent }, styles.trailing]}>{time}</DirectedText>}
@@ -90,13 +106,13 @@ export function LiveCapsule({
         </View>
         {!card && !!time && <DirectedText dir="ltr" style={[type.display, native.tabularNumbers, polarity.text, styles.leading]}>{time}</DirectedText>}
         {zoneLine && <Text style={[type.supporting, native.tabularNumbers, polarity.supportingText]}>{zoneLine}</Text>}
-      </View>
+      </View>}
       {sessionLine ? <JobLine kind="visit" {...sessionLine} pulse={pulse} surface={lineSurface} activity={activity} />
         : line && <JobLine {...line} pulse={pulse} surface={lineSurface} activity={activity} />}
-      <View style={crew ? [styles.footer, { borderColor: field ? color.livePressed : color.nightLine, gap: space.grid[2] }] : undefined}>
+      {(crew || provenance) && <View style={crew ? [styles.footer, { borderColor: field ? color.livePressed : color.nightLine, gap: space.grid[2] }] : undefined}>
         {crew && <CrewDots {...crew} surface={lineSurface} />}
-        <Text style={[type.supporting, native.tabularNumbers, polarity.supportingText]}>{provenance}</Text>
-      </View>
+        {!!provenance && <Text style={[type.supporting, native.tabularNumbers, polarity.supportingText]}>{provenance}</Text>}
+      </View>}
     </View>
   );
 
@@ -121,6 +137,9 @@ export function LiveCapsule({
 const styles = StyleSheet.create({
   row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center" },
   fill: { flexGrow: 1, flexShrink: 1 },
+  pillClockRow: { flexWrap: "nowrap" },
+  pillState: { flexBasis: 0, minWidth: 0 },
+  pillClocks: { flexShrink: 1, maxWidth: "52%", minWidth: 0, alignItems: "flex-end" },
   leading: { alignSelf: "flex-start", maxWidth: "100%" },
   trailing: { flexShrink: 1, maxWidth: "100%" },
   estimate: { flexShrink: 1, paddingHorizontal: native.spacing.grid[2], paddingVertical: native.spacing.grid[1] },
