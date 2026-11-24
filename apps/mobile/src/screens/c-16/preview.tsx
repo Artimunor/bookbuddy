@@ -1,9 +1,8 @@
 import { problemCaseProjectionSchema } from "@bookbuddy/api-contract";
 import type { ScreenPreview } from "../../preview/screens/types";
 import { fixturePhoto } from "../c-02/attachment-fixtures";
-import { AttachmentTiles } from "../c-02/attachments";
+import { CaseAttachments, CaseView, DraftView } from "./Screen";
 import { completion, job } from "../c-10/preview";
-import { CaseView, DraftView } from "./Screen";
 
 const at = Date.parse("2026-11-24T09:38:00Z");
 const content = (text: string) => ({ original: { language: "en", text }, reading: null });
@@ -16,9 +15,10 @@ const noop = () => {};
 const caseProps = { status: "ready" as const, editing: false, message: "", checking: false, busy: false, failed: false, offline: false, onMessage: noop, onBack: noop, onRetry: noop, onAdd: noop, onSend: noop, onReview: noop };
 const draft = { category: "quality", item: "", billId: "", description: "The door still catches halfway when it slides.", share: true, pending: null };
 const draftProps = { draft, selectedItem: "", scope: completion, existing: [], provider: "Reformas Ruiz", status: "ready" as const, onRetry: noop, saved: true, failed: false, sendFailed: false, checking: false, busy: false, onChange: noop, onBack: noop, onSend: noop, onOpen: noop };
+const attachmentProps = { locked: false, onAdd: noop, onRemove: noop, onOpen: noop, onRetry: noop };
 export const previews: ScreenPreview[] = [
-  { id: "C-16", state: "draft", render: () => <DraftView {...draftProps} offline={false} canSend attachments={<AttachmentTiles items={[fixturePhoto]} onOpen={noop} onRemove={noop} />} /> },
-  { id: "C-16", state: "offline", render: () => <DraftView {...draftProps} offline canSend={false} waitingMedia attachments={<AttachmentTiles offline items={[{ ...fixturePhoto, state: "queued" }]} onOpen={noop} onRemove={noop} />} /> },
-  { id: "C-16", state: "case-open", render: () => <CaseView {...caseProps} data={open} onEvidence={noop} /> },
+  { id: "C-16", state: "draft", render: () => <DraftView {...draftProps} offline={false} canSend attachments={<CaseAttachments {...attachmentProps} items={[fixturePhoto]} offline={false} />} /> },
+  { id: "C-16", state: "offline", render: () => <DraftView {...draftProps} offline canSend={false} waitingMedia attachments={<CaseAttachments {...attachmentProps} offline items={[{ ...fixturePhoto, state: "queued" }]} />} /> },
+  { id: "C-16", state: "case-open", render: () => <CaseView {...caseProps} data={open} twoClock onEvidence={noop} /> },
   { id: "C-16", state: "resolved", render: () => <CaseView {...caseProps} data={resolved} /> },
 ];

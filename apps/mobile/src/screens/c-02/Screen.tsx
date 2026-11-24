@@ -1,15 +1,18 @@
 import { listPlacesRoute, localeTagSchema } from "@bookbuddy/api-contract";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
+import { View } from "react-native";
 import { useRemote } from "../../api";
 import type { MediaTransfer } from "../../media";
-import { useT } from "../../i18n";
-import { Button, Card, Dock, Screen, TextField } from "../../ui/controls";
-import { Copy } from "../../ui/controls/shared";
+import { useLocale, useT } from "../../i18n";
+import { Badge, Button, Dock, Screen, StatusBanner, TextField } from "../../ui/controls";
+import { Copy, controlMetrics } from "../../ui/controls/shared";
+import { useBeaconTheme } from "../../ui/theme";
 import { useOffline } from "../s-02/flow";
 import { confirmAction } from "../s-17/confirmAction";
 import { AttachmentTiles } from "./attachments";
 import { requestDraftHref, type RequestDraft, useRequestDraft } from "./draft";
+import { originalLanguageName } from "./language";
 import { useRequestMedia } from "./request-media";
 
 export default function DescribeScreen() {
@@ -38,22 +41,37 @@ export default function DescribeScreen() {
 }
 
 export function DescribeView({ draft, saved, failed, warn = false, offline, items = [], wrongPlace = false, choosePlace = false, onAdd, onOpen, onRemove, onRetry, onChange, onBack, onContinue }: { draft: RequestDraft; saved: boolean; failed: boolean; warn?: boolean; offline: boolean; items?: readonly MediaTransfer[]; wrongPlace?: boolean; choosePlace?: boolean; onAdd: (mode: "photo" | "voice") => void; onOpen?: (id: string) => void; onRemove?: (item: MediaTransfer) => void; onRetry?: (id: string) => void; onChange: (draft: RequestDraft) => void; onBack: () => void; onContinue: () => void }) {
-  const t = useT(); const voice = items.some(item => item.file.kind === "voice");
+  const t = useT();
+  const { locale } = useLocale();
+  const { color, field, space } = useBeaconTheme();
+  const [editingLanguage, setEditingLanguage] = useState(false);
+  const voice = items.some(item => item.file.kind === "voice");
+  const language = originalLanguageName(draft.language, locale);
   const valid = (!!draft.description.trim() || voice) && !wrongPlace && (!draft.language.trim() || localeTagSchema.safeParse(draft.language.trim()).success);
   const reason = wrongPlace ? t("mobile.photos.placeChanged") : valid ? t("mobile.request.nextPlace") : t("mobile.request.describeRequired");
   const photos = items.filter(item => item.file.kind === "photo").length;
-  const addActions: ReactNode = choosePlace ? <Button variant="neutral" label={t("mobile.photos.pickPlace")} onPress={() => onAdd("photo")} /> : <>
-    <Button variant="neutral" label={t("mobile.photos.addPhoto")} onPress={() => onAdd("photo")} disabled={wrongPlace || photos >= 5} />
-    <Button variant="neutral" label={t("mobile.photos.addVoice")} onPress={() => onAdd("voice")} disabled={wrongPlace || voice} />
+  const addActions = choosePlace ? <Button variant="neutral" label={t("mobile.photos.pickPlace")} onPress={() => onAdd("photo")} /> : <>
+    <Button variant="neutral" glyph="▣" label={t("mobile.photos.addPhoto")} onPress={() => onAdd("photo")} disabled={wrongPlace || photos >= 5} />
+    <Button variant="neutral" glyph="♪" label={t("mobile.photos.addVoice")} onPress={() => onAdd("voice")} disabled={wrongPlace || voice} />
   </>;
-  return <Screen title={t("mobile.request.describeTitle")} navigation={{ kind: "back", label: t("mobile.request.back"), onPress: onBack }} dock={<Dock context={reason} primary={{ label: t("mobile.request.continue"), onPress: onContinue, disabled: !valid }} />}>
-    <Copy variant="supporting">{t("mobile.request.stepOne")}</Copy><Copy>{t("mobile.request.languageLine")}</Copy>
+  return <Screen title={t("mobile.request.describeTitle")} subtitle={t("mobile.request.stepOne")} navigation={{ kind: "back", label: t("mobile.request.back"), onPress: onBack }} dock={<Dock context={reason} primary={{ label: t("mobile.request.continue"), onPress: onContinue, disabled: !valid }} />}>
+    <Copy variant="supporting" style={{ color: color.muted }}>{voice ? t("mobile.request.speakLanguageLine") : t("mobile.request.languageLine")}</Copy>
     {warn && <Copy>{t("mobile.request.expiryWarning")}</Copy>}
-    <Card><TextField label={t("mobile.request.description")} multiline maxLength={16000} placeholder={t("mobile.request.example")} value={draft.description} onChangeText={description => onChange({ ...draft, description })} />
-    <TextField label={t("mobile.request.language")} helper={t("mobile.request.languageHelp")} value={draft.language} autoCapitalize="none" maxLength={255} onChangeText={language => onChange({ ...draft, language })} /></Card>
-    {saved && <Copy variant="supporting">{offline ? t("mobile.request.savedOffline") : t("mobile.request.saved")}</Copy>}{failed && <Copy>{t("mobile.request.saveFailed")}</Copy>}
-    <Card><Copy variant="sectionTitle">{t("mobile.photos.photosAndVoice")}</Copy><AttachmentTiles items={items} offline={offline} onOpen={onOpen} onRemove={onRemove} onRetry={onRetry} />{addActions}</Card>
-    <Copy variant="supporting">{t("mobile.request.visibility")}</Copy>
-    <Copy variant="supporting">{t("mobile.request.noCodes")}</Copy>
+    <TextField label={t("mobile.request.description")} multiline maxLength={16000} placeholder={t("mobile.request.example")} value={draft.description}
+      helper={voice ? t("mobile.request.voiceOptional") : undefined} onChangeText={description => onChange({ ...draft, description })} />
+    <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.grid[2] }}>
+      {!!language && <Badge tone="info" label={t("mobile.customerQuote.original", { language })} />}
+      {!editingLanguage && <Button variant="quiet" label={language ? t("mobile.request.changeLanguage") : t("mobile.request.language")} onPress={() => setEditingLanguage(true)} />}
+    </View>
+    {editingLanguage && <TextField label={t("mobile.request.language")} helper={t("mobile.request.languageHelp")} value={draft.language}
+      autoCapitalize="none" maxLength={255} onChangeText={language => onChange({ ...draft, language })} />}
+    {saved && <Copy variant="supporting" accessibilityLiveRegion="polite" style={{ color: color.muted }}>{offline ? t("mobile.request.savedOffline") : t("mobile.request.saved")}</Copy>}
+    {failed && <StatusBanner state="not-sent" label={t("mobile.request.saveFailed")} />}
+    <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.photos.photosAndVoice")}</Copy>
+    <AttachmentTiles items={items} offline={offline} onOpen={onOpen} onRemove={onRemove} onRetry={onRetry} actions={addActions} />
+    <View style={{ gap: controlMetrics(field).controlGap }}>
+      <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.request.visibility")}</Copy>
+      <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.request.noCodes")}</Copy>
+    </View>
   </Screen>;
 }

@@ -1,5 +1,6 @@
 import type { MediaCaller } from "@bookbuddy/api-contract";
 import { useRouter, type Href } from "expo-router";
+import type { ReactNode } from "react";
 import { Image, Pressable, View } from "react-native";
 import { useT } from "../../i18n";
 import type { MediaTransfer } from "../../media";
@@ -23,10 +24,10 @@ export function PhotoTile({ label, uri, pending = false, onOpen, large = false }
   return onOpen ? <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onOpen}>{contents}</Pressable> : <View accessible accessibilityLabel={label}>{contents}</View>;
 }
 
-export function AttachmentTiles({ items, offline, onOpen, onRemove, onRetry }: { items: readonly MediaTransfer[]; offline?: boolean; onOpen?: (id: string) => void; onRemove?: (item: MediaTransfer) => void; onRetry?: (id: string) => void }) {
-  const t = useT(); const { space } = useBeaconTheme();
+export function AttachmentTiles({ items, offline, onOpen, onRemove, onRetry, actions }: { items: readonly MediaTransfer[]; offline?: boolean; onOpen?: (id: string) => void; onRemove?: (item: MediaTransfer) => void; onRetry?: (id: string) => void; actions?: ReactNode }) {
+  const t = useT(); const { field, space } = useBeaconTheme();
   let photoNumber = 0;
-  return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.grid[3] }}>{items.map(item => {
+  return <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", gap: space.grid[field ? 4 : 3] }}>{items.map(item => {
     const { attachmentId, file, fileUri, state } = item;
     const title = file.kind === "voice" ? t("mobile.media.voiceNote") : t("mobile.photos.number", { number: ++photoNumber });
     const open = fileUri && onOpen ? () => onOpen(attachmentId) : undefined;
@@ -38,5 +39,5 @@ export function AttachmentTiles({ items, offline, onOpen, onRemove, onRetry }: {
       {state === "failed" && !item.terminal && onRetry && <Button variant="quiet" label={t("shared.action.retry")} onPress={() => onRetry(attachmentId)} />}
       {onRemove && <Button variant="quiet" label={t("mobile.media.remove")} accessibilityLabel={t("mobile.photos.removeNamed", { name: title })} onPress={() => onRemove(item)} />}
     </View>;
-  })}</View>;
+  })}{actions}</View>;
 }

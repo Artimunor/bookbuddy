@@ -1,12 +1,14 @@
 import { listPlacesRoute, type PlaceSummary } from "@bookbuddy/api-contract";
 import { Redirect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { I18nManager, View } from "react-native";
 import { useRemote } from "../../api";
-import { useT } from "../../i18n";
+import { useLocale, useT } from "../../i18n";
 import { Badge, Button, Card, Dock, Screen, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
+import { useBeaconTheme } from "../../ui/theme";
 import { useOffline } from "../s-02/flow";
+import { usePlaceLocationLabel } from "./location";
 
 export default function PlacesScreen() {
   const router = useRouter();
@@ -39,15 +41,20 @@ export function PlacesView({ query, onQuery, places, total, status, onRetry, onB
   onPrevious?: () => void; onNext?: () => void;
 }) {
   const t = useT();
-  const ordered = [...places].sort((a, b) => Number(b.liveBookingCount > 0 || b.openBookingCount > 0) - Number(a.liveBookingCount > 0 || a.openBookingCount > 0) || a.alias.localeCompare(b.alias));
-  return <Screen title={t("mobile.places.title")} navigation={{ kind: "back", label: t("mobile.places.back"), onPress: onBack }}
-    dock={status !== "offline" ? <Dock primary={{ label: t("mobile.places.add"), onPress: onAdd }} /> : undefined}>
-    {status === "ready" && <><Copy variant="supporting">{t("mobile.places.count", { count: total })}</Copy>
-      <TextField label={t("mobile.places.search")} value={query} onChangeText={onQuery} maxLength={160} />
-      {ordered.map((place) => <PlaceCard key={place.id} place={place} onOpen={() => onOpen(place.id)} />)}
+  const { locale } = useLocale();
+  const { color } = useBeaconTheme();
+  const locationLabel = usePlaceLocationLabel();
+  const now = Date.now();
+  const ordered = [...places].sort((a, b) => Number(b.liveBookingCount > 0 || b.openBookingCount > 0) - Number(a.liveBookingCount > 0 || a.openBookingCount > 0) || a.alias.localeCompare(b.alias, locale));
+  return <Screen title={t("mobile.places.title")} subtitle={status === "ready" ? t("mobile.places.count", { count: total }) : undefined}
+    navigation={{ kind: "back", label: t("mobile.places.back"), onPress: onBack }}
+    dock={status !== "offline" ? <Dock primary={{ glyph: "+", label: t("mobile.places.add"), onPress: onAdd }} /> : undefined}>
+    {status === "ready" && <>
+      <TextField label={t("mobile.places.search")} value={query} onChangeText={onQuery} maxLength={160} returnKeyType="search" />
+      {ordered.map((place) => <PlaceCard key={place.id} place={place} location={locationLabel(place.areaName, place.siteZone, now)} onOpen={() => onOpen(place.id)} />)}
       {!ordered.length && <><Copy variant="sectionTitle">{query ? t("mobile.places.noMatch") : t("mobile.places.empty")}</Copy>
         {!!query && <Button variant="quiet" label={t("mobile.places.clear")} onPress={() => onQuery("")} />}</>}
-      <Copy variant="supporting">{t("mobile.places.separate")}</Copy></>}
+      <Copy variant="supporting" style={{ color: color.muted, textAlign: "center" }}>{t("mobile.places.separate")}</Copy></>}
       {onPrevious && <Button variant="quiet" label={t("mobile.places.previousPage")} onPress={onPrevious} />}
       {onNext && <Button variant="quiet" label={t("mobile.places.nextPage")} onPress={onNext} />}
     {(status === "loading" || status === "idle") && <Copy>{t("mobile.places.loading")}</Copy>}
@@ -56,16 +63,27 @@ export function PlacesView({ query, onQuery, places, total, status, onRetry, onB
   </Screen>;
 }
 
-function PlaceCard({ place, onOpen }: { place: PlaceSummary; onOpen: () => void }) {
+function PlaceCard({ place, location, onOpen }: { place: PlaceSummary; location: string; onOpen: () => void }) {
   const t = useT();
-  const relationship = place.relationship === "owner" ? [t("mobile.places.owner"), place.viewerIsNamedApprover ? t("mobile.places.approver") : null].filter(Boolean).join(" · ")
+  const { color, radius, space } = useBeaconTheme();
+  const relationship = place.relationship === "owner" ? (place.viewerIsNamedApprover ? t("mobile.places.ownerApprover") : t("mobile.places.owner"))
     : place.ownerDisplayName ? t("mobile.places.managed", { name: place.ownerDisplayName }) : "";
+  const approver = place.relationship !== "owner" && place.namedApproverDisplayName
+    ? t("mobile.places.approves", { name: place.namedApproverDisplayName }) : null;
   const booking = t("mobile.places.bookingsCount", { count: place.openBookingCount });
-  return <Card onPress={onOpen} accessibilityLabel={[place.alias, place.areaName, place.siteZone, relationship, booking].filter(Boolean).join(", ")}>
-    <Copy variant="sectionTitle">{place.alias}</Copy>
-    <Copy variant="supporting">{[place.areaName, place.siteZone].filter(Boolean).join(" · ")}</Copy>
-    {!!relationship && <Badge label={relationship} />}
-    {place.relationship !== "owner" && !!place.namedApproverDisplayName && <Copy variant="supporting">{t("mobile.places.approves", { name: place.namedApproverDisplayName })}</Copy>}
-    <View><Copy>{booking}</Copy></View>
+  return <Card dense onPress={onOpen} accessibilityLabel={[place.alias, location, relationship, approver, booking].filter(Boolean).join(", ")}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.grid[3] }}>
+      <View aria-hidden style={{ backgroundColor: color.subtle, width: 32, height: 32, borderRadius: radius.smallTile, alignItems: "center", justifyContent: "center" }}>
+        <Copy variant="sectionTitle" aria-hidden>⌂</Copy>
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Copy variant="label">{place.alias}</Copy>
+        {!!location && <Copy variant="supporting" style={{ color: color.muted }}>{location}</Copy>}
+      </View>
+      <Copy aria-hidden variant="label" style={{ color: color.muted }}>{I18nManager.isRTL ? "‹" : "›"}</Copy>
+    </View>
+    {!!relationship && <Badge tone={place.relationship === "owner" ? "info" : "neutral"} label={relationship} />}
+    {!!approver && <Copy variant="supporting" style={{ color: color.muted }}>{approver}</Copy>}
+    <Copy variant="supporting">{booking}</Copy>
   </Card>;
 }

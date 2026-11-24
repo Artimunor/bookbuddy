@@ -3,17 +3,21 @@ import { uuid } from "expo";
 import * as Haptics from "expo-haptics";
 import { useRouter, type Href } from "expo-router";
 import { useRef, useState } from "react";
+import { View } from "react-native";
 import { useCommand, useRemote } from "../../api";
 import { useApiAccess } from "../../api/provider";
-import { useFormat, useT } from "../../i18n";
+import { useFormat, useLocale, useT } from "../../i18n";
 import type { MediaTransfer } from "../../media";
 import { useRepository } from "../../repository/hooks";
 import { useSession } from "../../session";
-import { Button, Card, Dock, Screen } from "../../ui/controls";
+import { Badge, Button, Card, Dock, ListRow, Screen, StatusBanner } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { TwoClock } from "../../ui/live/TwoClock";
+import { useBeaconTheme } from "../../ui/theme";
+import { Journey } from "../c-01/common";
 import { AttachmentTiles } from "../c-02/attachments";
 import { requestDraftHref, type RequestDraft, useRequestDraft } from "../c-02/draft";
+import { originalLanguageName } from "../c-02/language";
 import { useRequestMedia } from "../c-02/request-media";
 import { useOffline } from "../s-02/flow";
 
@@ -92,18 +96,59 @@ export default function RequestReviewScreen() {
 
 type CommandState = "idle" | "sending" | "done" | "conflict" | "checking" | "failed";
 export function ReviewRequestView({ draft, place, offline, status, checking, failed, warn = false, twoClock = false, receipt, items = [], awaitingMedia = false, wrongPlace = false, onOpenAttachment, onRemoveAttachment, onRetryAttachment, onBack, onEditDescription, onEditPlace, onSend, onOpenJob, onClose }: { draft: RequestDraft; place: PlaceDetails | null; offline: boolean; status: CommandState; checking: boolean; failed: boolean; warn?: boolean; twoClock?: boolean; receipt: RequestReceipt | null; items?: readonly MediaTransfer[]; awaitingMedia?: boolean; wrongPlace?: boolean; onOpenAttachment?: (id: string) => void; onRemoveAttachment?: (item: MediaTransfer) => void; onRetryAttachment?: (id: string) => void; onBack: () => void; onEditDescription: () => void; onEditPlace: () => void; onSend: () => void; onOpenJob: () => void; onClose: () => void }) {
-  const t = useT(); const format = useFormat();
-  if (receipt) { const at = format.twoClock(receipt.submittedAt, receipt.siteZone, twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined); return <Screen title={receipt.reference} navigation={{ kind: "close", label: t("mobile.request.close"), onPress: onClose }} dock={<Dock primary={{ label: t("mobile.request.openJob"), onPress: onOpenJob }} />}><Copy variant="display" accessibilityRole="header">{t("mobile.request.sent")}</Copy><Copy variant="sectionTitle">{t("mobile.request.notYetBooking")}</Copy>{at.kind === "available" && <TwoClock siteTime={at.siteTime} siteZone={receipt.siteZone} viewerLine={at.viewerTime ? t("mobile.visitWindow.yourTime", { time: at.viewerTime }) : undefined} />}<Card><Copy variant="sectionTitle">{t("mobile.request.requested")}</Copy><Copy>{t("mobile.request.notYetBooking")}</Copy></Card><Card><Copy variant="sectionTitle">{t("mobile.request.next")}</Copy><Copy>{t("mobile.request.nextBody")}</Copy></Card></Screen>; }
+  const t = useT();
+  const format = useFormat();
+  const { locale } = useLocale();
+  const { color, space } = useBeaconTheme();
+  if (receipt) {
+    const viewerZone = twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
+    const at = format.twoClock(receipt.submittedAt, receipt.siteZone, viewerZone);
+    return <Screen title={receipt.reference} navigation={{ kind: "close", label: t("mobile.request.close"), onPress: onClose }}
+      dock={<Dock primary={{ label: t("mobile.request.openJob"), onPress: onOpenJob }} />}>
+      <Card>
+        <Badge tone="success" label={t("mobile.request.sent")} />
+        <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.request.notYetBooking")}</Copy>
+        {at.kind === "available" && <TwoClock siteTime={at.siteTime} siteZone={format.zoneLabel(receipt.siteZone, at.site)}
+          viewerLine={at.viewer && at.viewerTime ? `${at.viewerTime} ${format.zoneLabel(viewerZone, at.viewer)}` : undefined} />}
+        <Journey journey={receipt.journey} />
+      </Card>
+      <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.request.next")}</Copy>
+      <Card dense>
+        <ListRow glyph="▤" label={t("mobile.request.receiptQuote")} />
+        <ListRow glyph="✓" label={t("mobile.request.receiptDecision")} />
+        <ListRow glyph="◷" label={t("mobile.request.receiptWindow")} />
+      </Card>
+    </Screen>;
+  }
   const sending = status === "sending"; const ready = !!payload(draft, items)?.success && !awaitingMedia && !wrongPlace && place?.state === "in_area" && !offline;
   const context = checking ? t("mobile.request.checking") : wrongPlace ? t("mobile.photos.placeChanged") : offline ? t("mobile.request.offline") : awaitingMedia ? t("mobile.photos.wait") : !ready ? (place?.state === "out_of_area" ? t("mobile.request.outsideArea") : place?.state !== "in_area" ? t("mobile.request.areaUnknown") : t("mobile.request.describeRequired")) : t("mobile.request.free");
   const who = draft.arrivalArrangement === "nobody" ? t("mobile.request.nobody") : draft.arrivalArrangement === "requester" ? t("mobile.request.me") : draft.arrivalContactName;
-  return <Screen title={t("mobile.request.reviewTitle")} navigation={{ kind: "back", label: t("mobile.request.back"), onPress: onBack }} dock={<Dock context={context} primary={{ label: checking ? t("mobile.request.checkStatus") : t("mobile.request.send"), onPress: onSend, busy: sending, disabled: sending || offline || (!checking && !ready) }} />}>
-    <Copy variant="supporting">{t("mobile.request.stepThree")}</Copy><Card><Copy variant="sectionTitle">{checking ? t("mobile.request.checking") : offline ? t("mobile.request.offline") : t("mobile.request.notBooking")}</Copy>{failed && <Copy>{checking ? t("mobile.pending.reviewFailed") : t("mobile.request.failed")}</Copy>}</Card>
+  const language = originalLanguageName(draft.language, locale);
+  const cardHeading = { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" } as const;
+  return <Screen title={t("mobile.request.reviewTitle")} subtitle={t("mobile.request.stepThree")} navigation={{ kind: "back", label: t("mobile.request.back"), onPress: onBack }} dock={<Dock context={context} primary={{ label: checking ? t("mobile.request.checkStatus") : t("mobile.request.send"), onPress: onSend, busy: sending, disabled: sending || offline || (!checking && !ready) }} />}>
+    <StatusBanner state={offline ? "offline" : failed ? "not-sent" : "last-confirmed"}
+      label={checking ? t("mobile.request.checking") : offline ? t("mobile.request.offline") : failed ? t("mobile.request.failed") : t("mobile.request.notBooking")}
+      detail={failed && checking ? t("mobile.pending.reviewFailed") : !checking && !offline && !failed ? t("mobile.request.quoteFirst") : undefined} />
     {warn && <Copy>{t("mobile.request.expiryWarning")}</Copy>}
-    <Card><Copy variant="sectionTitle">{t("mobile.request.job")}</Copy>{!!draft.description.trim() && <Copy>{draft.description}</Copy>}{!!draft.language && <Copy variant="supporting">{draft.language}</Copy>}
+    <Card dense>
+      <View style={cardHeading}><Copy variant="label">{t("mobile.request.job")}</Copy>
+        <Button variant="quiet" label={t("mobile.request.edit")} onPress={onEditDescription} disabled={checking || sending} />
+      </View>
+      {!!draft.description.trim() && <Copy>{draft.description}</Copy>}
+      {language && <Badge tone="info" label={t("mobile.customerQuote.original", { language })} />}
       {!!items.length && <AttachmentTiles items={items} offline={offline} onOpen={onOpenAttachment} onRemove={checking || sending ? undefined : onRemoveAttachment} onRetry={checking || sending ? undefined : onRetryAttachment} />}
-      <Button variant="quiet" label={t("mobile.request.edit")} onPress={onEditDescription} disabled={checking || sending} />
     </Card>
-    <Card><Copy variant="sectionTitle">{t("mobile.request.placeTitle")}</Copy><Copy>{place?.alias ?? draft.placeId}</Copy>{!!place?.address && <Copy>{place.address}</Copy>}{!!draft.safeNote && <Copy>{draft.safeNote}</Copy>}<Copy>{who}</Copy><Button variant="quiet" label={t("mobile.request.edit")} onPress={onEditPlace} disabled={checking || sending} /></Card><Copy variant="supporting">{t("mobile.request.visibility")}</Copy>
+    <Card dense>
+      <View style={cardHeading}><Copy variant="label">{t("mobile.request.placeTitle")}</Copy>
+        <Button variant="quiet" label={t("mobile.request.edit")} onPress={onEditPlace} disabled={checking || sending} />
+      </View>
+      {place && <Copy variant="label">{[place.alias, place.areaName].filter(Boolean).join(" · ")}</Copy>}
+      {!!place?.address && <Copy variant="supporting" style={{ color: color.muted }}>{place.address}</Copy>}
+      <View style={{ gap: space.grid[1], paddingTop: space.grid[2], borderTopWidth: 1, borderTopColor: color.separator }}>
+        {!!draft.safeNote && <Copy>{draft.safeNote}</Copy>}
+        <Copy variant="supporting">{who}</Copy>
+      </View>
+    </Card>
+    <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.request.visibility")}</Copy>
   </Screen>;
 }

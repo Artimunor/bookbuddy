@@ -93,17 +93,17 @@ function Glyph({ color, children }: { color: string; children: ReactNode }) {
 }
 
 export type DockProps = {
-  primary: ControlAction & { live?: boolean; glyph?: string };
+  primary: ControlAction & { live?: boolean; destructive?: boolean; glyph?: string };
   secondary?: ControlAction & { glyph?: string; iconOnly?: boolean };
   context?: string;
 };
 
 // Use as Screen.dock or Sheet.dock so the footer stays outside the scrolling content.
-export function Dock({ primary: { live, ...primary }, secondary, context }: DockProps) {
+export function Dock({ primary: { live, destructive, ...primary }, secondary, context }: DockProps) {
   const { color, field, space } = useBeaconTheme();
   const { fontScale } = useWindowDimensions();
   const iconAction = secondary?.iconOnly && fontScale < 1.5;
-  const primaryButton = <Button {...primary} variant={live ? "live" : "primary"} />;
+  const primaryButton = <Button {...primary} variant={live ? "live" : destructive ? "destructive" : "primary"} />;
   return (
     <View style={{
       backgroundColor: color.surface,

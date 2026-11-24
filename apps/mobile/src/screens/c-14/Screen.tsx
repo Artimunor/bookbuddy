@@ -9,6 +9,8 @@ import { useSession } from "../../session";
 import { Badge, BookingCard, Button, Card, Dock, ListRow, Screen, SwitchRow, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { JobLine } from "../../ui/live/JobLine";
+import { useBeaconTheme } from "../../ui/theme";
+import { usePlaceLocationLabel } from "../c-13/location";
 import { confirmAction, type ConfirmResult } from "../s-17/confirmAction";
 import { useOffline } from "../s-02/flow";
 
@@ -195,11 +197,17 @@ export function PlaceView({ place, isNew, status, mode, draft, setDraft, email, 
 }) {
   const format = useFormat();
   const t = useT();
+  const { color, space } = useBeaconTheme();
+  const locationLabel = usePlaceLocationLabel();
   const capabilities = { view: t("mobile.places.view"), message: t("mobile.places.message"), request: t("mobile.places.request"), book: t("mobile.places.book"), approve: t("mobile.places.approve"), sign_off: t("mobile.places.signOff"), bill_view: t("mobile.places.billView"), delegate: t("mobile.places.delegate") };
   const stages = [t("mobile.places.requested"), t("mobile.places.quoted"), t("mobile.places.booked"), t("mobile.places.visit"), t("mobile.places.signedOff"), t("mobile.places.paid")] as const;
   const stepNames = ["requested", "quoted", "booked", "visit", "signed_off", "paid"];
-  const dock = status !== "ready" ? undefined : mode === "edit" ? <Dock primary={{ label: t("mobile.places.save"), onPress: onSave, disabled: busy || codeWarning || !draft.alias.trim() || !draft.address.trim() }} secondary={{ label: t("mobile.places.cancel"), onPress: onCancel, disabled: busy }} /> : mode === "invite" ? <Dock primary={{ label: t("mobile.places.sendInvite"), onPress: onSend, disabled: busy || !email.trim() }} secondary={{ label: t("mobile.places.cancel"), onPress: onCancel, disabled: busy }} /> : place?.actions.invite ? <Dock primary={{ label: t("mobile.places.invite"), onPress: onInvite, disabled: busy }} /> : undefined;
-  return <Screen title={place?.alias ?? (isNew ? t("mobile.places.add") : t("mobile.places.title"))} navigation={{ kind: "back", label: t("mobile.places.back"), onPress: onBack }} dock={dock}>
+  const dock = status !== "ready" ? undefined : mode === "edit" ? <Dock primary={{ label: t("mobile.places.save"), onPress: onSave, disabled: busy || codeWarning || !draft.alias.trim() || !draft.address.trim() }} secondary={{ label: t("mobile.places.cancel"), onPress: onCancel, disabled: busy }} /> : mode === "invite" ? <Dock primary={{ label: t("mobile.places.sendInvite"), onPress: onSend, disabled: busy || !email.trim() }} secondary={{ label: t("mobile.places.cancel"), onPress: onCancel, disabled: busy }} /> : place?.actions.invite ? <Dock primary={{ glyph: "+", label: t("mobile.places.invite"), onPress: onInvite, disabled: busy }} /> : undefined;
+  const showingDetails = status === "ready" && mode === "view" && place;
+  return <Screen title={place?.alias ?? (isNew ? t("mobile.places.add") : t("mobile.places.title"))}
+    subtitle={showingDetails ? locationLabel(showingDetails.areaName, showingDetails.siteZone, Date.now()) || undefined : undefined}
+    navigation={{ kind: "back", label: t("mobile.places.back"), onPress: onBack }} dock={dock}
+    trailing={showingDetails && showingDetails.actions.edit ? <Button variant="quiet" label={t("mobile.places.edit")} onPress={onEdit} disabled={busy} /> : undefined}>
     {status === "offline" && <Copy>{t("mobile.places.offline")}</Copy>}
     {(status === "idle" || status === "loading") && <Copy>{t("mobile.places.loading")}</Copy>}
     {status === "error" && <><Copy>{t("mobile.places.unavailable")}</Copy><Button label={t("mobile.places.retry")} onPress={onRetry} /></>}
@@ -210,18 +218,33 @@ export function PlaceView({ place, isNew, status, mode, draft, setDraft, email, 
         <TextField label={t("mobile.places.note")} value={draft.note} onChangeText={(note) => setDraft({ ...draft, note })} multiline maxLength={500} helper={t("mobile.places.noCodes")} error={codeWarning ? t("mobile.places.codeWarning") : undefined} disabled={busy} /></>}
       {mode === "invite" && <><Copy>{t("mobile.places.inviteInfo")}</Copy><TextField label={t("mobile.places.email")} value={email} onChangeText={setEmail} autoComplete="email" autoCapitalize="none" inputMode="email" disabled={busy} /></>}
       {mode === "view" && place && <>
-        <Copy variant="supporting">{[place.areaName, place.siteZone].filter(Boolean).join(" · ")}</Copy>
-        {place.relationship !== "owner" && place.ownerDisplayName && <Copy>{t("mobile.places.managed", { name: place.ownerDisplayName })}</Copy>}
-        {place.actions.edit && <Button variant="quiet" label={t("mobile.places.edit")} onPress={onEdit} disabled={busy} />}
-        <Card><Copy variant="supporting">{t("mobile.places.address")}</Copy><Copy>{place.address}</Copy><Copy variant="supporting">{t("mobile.places.note")}</Copy><Copy>{place.safeArrivalNote}</Copy><Copy variant="supporting">{t("mobile.places.noCodes")}</Copy></Card>
-        <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.places.people")}</Copy>
-        <Card>{[...place.people].sort((a,b) => Number(b.isOwner || b.isNamedApprover) - Number(a.isOwner || a.isNamedApprover)).map((person) => <View key={person.accountId}>
-          <ListRow label={person.displayName} description={[person.isOwner ? t("mobile.places.owner") : null, person.isNamedApprover ? t("mobile.places.approver") : null, ...person.capabilities.map((c) => capabilities[c])].filter(Boolean).join(" · ")}
-            onPress={canEditPeople(place) && !busy ? () => onEditPerson(person) : undefined} />
-          {personEditor?.person.accountId === person.accountId && <PersonGrantFields editor={personEditor} place={place} busy={busy} />}
-        </View>)}
-          {place.pendingInvitations?.map((invitation) => <Card key={invitation.id}><ListRow label={invitation.email} description={t("mobile.places.sent", { date: format.lines(invitation.issuedAt, invitation.siteZone)?.site ?? "" })} onPress={() => setSelectedInvite(selectedInvite === invitation.id ? null : invitation.id)} /><Badge label={t("mobile.places.pending")} />
-            {selectedInvite === invitation.id && <>{invitation.reissue.status === "available" && <Button variant="quiet" label={t("mobile.places.resend")} onPress={() => onInvitation(invitation.id, "reissue")} disabled={busy} />}{invitation.canWithdraw && <Button variant="quiet" label={t("mobile.places.withdraw")} onPress={() => onInvitation(invitation.id, "withdraw")} disabled={busy} />}</>}</Card>)}
+        {place.relationship !== "owner" && place.ownerDisplayName && <Badge tone="info" label={t("mobile.places.managed", { name: place.ownerDisplayName })} />}
+        <Card dense>
+          <Copy variant="caption" style={{ color: color.muted }}>{t("mobile.places.address")}</Copy>
+          <Copy>{place.address}</Copy>
+          <View style={{ paddingTop: space.grid[2], borderTopWidth: 1, borderTopColor: color.separator, gap: space.grid[1] }}>
+            <Copy variant="caption" style={{ color: color.muted }}>{t("mobile.places.note")}</Copy>
+            <Copy>{place.safeArrivalNote}</Copy>
+            <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.places.noCodes")}</Copy>
+          </View>
+        </Card>
+        <View style={{ flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", justifyContent: "space-between", gap: space.grid[2] }}>
+          <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.places.people")}</Copy>
+          {place.pendingInvitations && <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.places.peopleCount", { active: place.people.length, invited: place.pendingInvitations.length })}</Copy>}
+        </View>
+        <Card dense>{[...place.people].sort((a, b) => Number(b.isOwner || b.isNamedApprover) - Number(a.isOwner || a.isNamedApprover)).map((person) => {
+          const description = [person.isOwner ? t("mobile.places.owner") : null, person.isNamedApprover ? t("mobile.places.approver") : null, ...person.capabilities.map(c => capabilities[c])].filter(Boolean).join(" · ");
+          const initials = person.displayName.trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join("").toUpperCase();
+          return <View key={person.accountId}>
+            <ListRow label={person.displayName} description={description} glyph={initials} onPress={canEditPeople(place) && !busy ? () => onEditPerson(person) : undefined} />
+            {personEditor?.person.accountId === person.accountId && <PersonGrantFields editor={personEditor} place={place} busy={busy} />}
+          </View>;
+        })}
+          {place.pendingInvitations?.map((invitation) => <View key={invitation.id}>
+            <ListRow label={invitation.email} description={t("mobile.places.sent", { date: format.lines(invitation.issuedAt, invitation.siteZone)?.site ?? "" })} onPress={() => setSelectedInvite(selectedInvite === invitation.id ? null : invitation.id)} />
+            <View style={{ paddingStart: space.grid[4], paddingTop: space.grid[1] }}><Badge tone="attention" label={t("mobile.places.pending")} /></View>
+            {selectedInvite === invitation.id && <>{invitation.reissue.status === "available" && <Button variant="quiet" label={t("mobile.places.resend")} onPress={() => onInvitation(invitation.id, "reissue")} disabled={busy} />}{invitation.canWithdraw && <Button variant="quiet" label={t("mobile.places.withdraw")} onPress={() => onInvitation(invitation.id, "withdraw")} disabled={busy} />}</>}
+          </View>)}
         </Card>
         <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.places.bookings")}</Copy>
         {!place.bookings.length && <Copy>{t("mobile.places.noBookings")}</Copy>}

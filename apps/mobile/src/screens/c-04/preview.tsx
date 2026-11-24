@@ -11,7 +11,7 @@ export const previews: ScreenPreview[] = [
   { id: "C-04", state: "waiting-for-uploads", render: () => <ReviewRequestView {...props} awaitingMedia items={[{ ...fixturePhoto, state: "uploading" }]} onOpenAttachment={noop} onRemoveAttachment={noop} /> },
   { id: "C-04", state: "voice-only", render: () => <ReviewRequestView {...props} draft={{ ...fixtureDraft, description: "" }} items={[fixtureVoice]} /> },
   { id: "C-04", state: "sending", render: () => <ReviewRequestView {...props} status="sending" /> },
-  { id: "C-04", state: "sent", render: () => <ReviewRequestView {...props} receipt={receipt} /> },
+  { id: "C-04", state: "sent", render: () => <ReviewRequestView {...props} receipt={receipt} twoClock /> },
   { id: "C-04", state: "not-sent-offline", render: () => <ReviewRequestView {...props} offline /> },
   { id: "C-04", state: "not-sent", render: () => <ReviewRequestView {...props} failed /> },
   { id: "C-04", state: "checking", render: () => <ReviewRequestView {...props} checking status="checking" /> },

@@ -124,6 +124,13 @@ function ControlExamples({ title, description }: { title: string; description: s
         {!!result && <Text accessibilityLiveRegion="polite" style={[type.supporting, { color: color.muted }]}>{result}</Text>}
       </Section>
 
+      <Section title="Destructive dock">
+        <Dock
+          context="Your visit stays booked until you confirm."
+          primary={{ label: "Cancel visit", destructive: true, onPress: () => setDialog(true) }}
+        />
+      </Section>
+
       <Section title="Fields and choices">
         <TextField
           label="Email address"

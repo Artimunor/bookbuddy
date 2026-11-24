@@ -4,15 +4,18 @@ import type { Translator } from "@bookbuddy/i18n";
 import { uuid } from "expo";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useState, type ReactNode } from "react";
+import { View } from "react-native";
 import { useCommand, useRemote } from "../../api";
 import type { RemoteStatus } from "../../api/requests";
 import { useFormat, useLocale, useT } from "../../i18n";
 import { useAttach, useOpenMediaPreview, type MediaTransfer } from "../../media";
 import { useSession } from "../../session";
-import { Badge, Button, Card, Dock, Screen, SegmentedControl, TextField } from "../../ui/controls";
+import { Badge, Button, Card, Dock, Screen, SegmentedControl, StatusBanner, TextField, TwinCard } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
+import { Stamp } from "../../ui/live";
+import { useBeaconTheme } from "../../ui/theme";
 import { AttachmentTiles, PhotoTile, useAttachNavigation } from "../c-02/attachments";
-import { AuthoredText } from "../c-10/Screen";
+import { readingLanguageLabel } from "../s-12/language";
 import { useOffline } from "../s-02/flow";
 import { type CaseDraft, useCaseDraft } from "./draft";
 
@@ -60,11 +63,11 @@ function useCaseMedia(parent: string | undefined, draft: CaseDraft, change: (nex
   };
 }
 
-function CaseAttachments({ items, offline, locked, onAdd, onRemove, onOpen, onRetry }: { items: readonly MediaTransfer[]; offline: boolean; locked: boolean; onAdd: () => void; onRemove: (item: MediaTransfer) => void; onOpen: (id: string) => void; onRetry: (id: string) => void }) {
+export function CaseAttachments({ items, offline, locked, onAdd, onRemove, onOpen, onRetry }: { items: readonly MediaTransfer[]; offline: boolean; locked: boolean; onAdd: () => void; onRemove: (item: MediaTransfer) => void; onOpen: (id: string) => void; onRetry: (id: string) => void }) {
   const t = useT();
-  return <Card><Copy variant="sectionTitle">{t("mobile.photos.evidence")}</Copy>
-    <AttachmentTiles items={items} offline={offline} onOpen={onOpen} onRemove={locked ? undefined : onRemove} onRetry={locked ? undefined : onRetry} />
-    <Button variant="neutral" label={t("mobile.photos.addEvidence")} onPress={onAdd} disabled={locked || items.length >= 6} />
+  return <Card dense><Copy variant="label" accessibilityRole="header">{t("mobile.photos.evidence")}</Copy>
+    <AttachmentTiles items={items} offline={offline} onOpen={onOpen} onRemove={locked ? undefined : onRemove} onRetry={locked ? undefined : onRetry}
+      actions={<Button glyph="+" variant="neutral" label={t("mobile.photos.addEvidence")} onPress={onAdd} disabled={locked || items.length >= 6} />} />
   </Card>;
 }
 
@@ -123,14 +126,23 @@ export function NewCaseScreen() {
 type DraftProps = { draft: CaseDraft; selectedItem: string; scope: Completion | null; existing: { id: string; reference: string }[]; hasMore?: boolean; moreBusy?: boolean; onMore?: () => void; provider: string | null; status: RemoteStatus; onRetry: () => void; offline: boolean; saved: boolean; failed: boolean; sendFailed: boolean; checking: boolean; busy: boolean; canSend: boolean; waitingMedia?: boolean; attachments?: ReactNode; onChange: (draft: CaseDraft) => void; onBack: () => void; onSend: () => void; onOpen: (id: string) => void };
 export function DraftView({ draft, selectedItem, scope, existing, hasMore = false, moreBusy = false, onMore, provider, status, onRetry, offline, saved, failed, sendFailed, checking, busy, canSend, waitingMedia, attachments, onChange, onBack, onSend, onOpen }: DraftProps) {
   const t = useT(); const locked = checking || busy;
-  return <Screen title={t("mobile.case.title")} navigation={{ kind: "back", label: t("mobile.case.back"), onPress: onBack }} dock={<Dock context={checking ? t("mobile.case.checking") : offline ? t("mobile.case.offline") : waitingMedia ? t("mobile.photos.wait") : !canSend ? t("mobile.case.required") : undefined} primary={{ label: checking ? t("mobile.case.checkAgain") : t("mobile.case.send"), onPress: onSend, disabled: !canSend || busy, busy }} />}>
+  return <Screen title={t("mobile.case.title")} subtitle={scope ? `${scope.job.reference} · ${scope.job.title ?? scope.job.placeAlias}` : undefined}
+    navigation={{ kind: "back", label: t("mobile.case.back"), onPress: onBack }}
+    dock={<Dock context={checking ? t("mobile.case.checking") : offline ? t("mobile.case.offline") : waitingMedia ? t("mobile.photos.wait") : !canSend ? t("mobile.case.required") : undefined} primary={{ label: checking ? t("mobile.case.checkAgain") : t("mobile.case.send"), onPress: onSend, disabled: !canSend || busy, busy }} />}>
     {status !== "ready" && !offline && <ReadState status={status} retry={onRetry} />}
-    <Card><SegmentedControl label={t("mobile.case.category")} value={draft.category} options={PROBLEM_CASE_CATEGORIES.map(value => ({ value, label: categoryLabel(t, value) }))} disabled={locked} onChange={category => onChange({ ...draft, category })} /></Card>
-    {scope && <Card><SegmentedControl label={t("mobile.case.item")} value={selectedItem} options={[{ value: "", label: t("mobile.case.noItem") }, ...scope.approvedScope.lines.map(line => ({ value: JSON.stringify(line.ref), label: line.label.reading?.status === "ready" ? line.label.reading.text : line.label.original.text }))]} disabled={locked} onChange={item => onChange({ ...draft, item: item || "none" })} /></Card>}
-    <Card><TextField label={t("mobile.case.description")} value={draft.description} maxLength={4000} multiline disabled={locked} onChangeText={description => onChange({ ...draft, description })} /></Card>
+    <SegmentedControl label={t("mobile.case.category")} value={draft.category} options={PROBLEM_CASE_CATEGORIES.map(value => ({ value, label: categoryLabel(t, value) }))} disabled={locked} onChange={category => onChange({ ...draft, category })} />
+    {scope && <SegmentedControl label={t("mobile.case.item")} value={selectedItem} options={[{ value: "", label: t("mobile.case.noItem") }, ...scope.approvedScope.lines.map(line => ({ value: JSON.stringify(line.ref), label: line.label.reading?.status === "ready" ? line.label.reading.text : line.label.original.text }))]} disabled={locked} onChange={item => onChange({ ...draft, item: item || "none" })} />}
+    <TextField label={t("mobile.case.description")} value={draft.description} maxLength={4000} multiline disabled={locked} onChangeText={description => onChange({ ...draft, description })} />
     {attachments}
-    {status === "ready" && <Card>{provider ? <SegmentedControl label={draft.share ? t("mobile.case.who", { provider }) : t("mobile.case.bookbuddyOnly")} value={draft.share ? "yes" : "no"} options={[{ value: "yes", label: t("mobile.case.share") }, { value: "no", label: t("mobile.case.private") }]} disabled={locked} onChange={value => onChange({ ...draft, share: value === "yes" })} /> : <Copy>{t("mobile.case.bookbuddyOnly")}</Copy>}</Card>}
-    {saved && <Copy variant="supporting">{offline ? t("mobile.case.offline") : t("mobile.case.saved")}</Copy>}{failed && <Copy>{t("mobile.case.saveFailed")}</Copy>}{sendFailed && <Copy>{t("mobile.case.failed")}</Copy>}
+    {status === "ready" && <>
+      <StatusBanner state="last-confirmed" label={provider && draft.share ? t("mobile.case.who", { provider }) : t("mobile.case.bookbuddyOnly")} />
+      {provider && <SegmentedControl label={draft.share ? t("mobile.case.who", { provider }) : t("mobile.case.bookbuddyOnly")} hideLabel value={draft.share ? "yes" : "no"}
+        options={[{ value: "yes", label: t("mobile.case.share") }, { value: "no", label: t("mobile.case.private") }]} disabled={locked}
+        onChange={value => onChange({ ...draft, share: value === "yes" })} />}
+    </>}
+    {saved && <Copy variant="supporting">{offline ? t("mobile.case.offline") : t("mobile.case.saved")}</Copy>}
+    {failed && <StatusBanner state="not-sent" label={t("mobile.case.saveFailed")} />}
+    {sendFailed && <StatusBanner state="not-sent" label={t("mobile.case.failed")} />}
     {!!existing.length && <><Copy variant="sectionTitle">{t("mobile.case.existing")}</Copy>{existing.map(item => <Button key={item.id} variant="quiet" label={item.reference} onPress={() => onOpen(item.id)} />)}</>}
     {status === "ready" && hasMore && <Button variant="quiet" label={t("mobile.case.moreCases")} onPress={onMore ?? onRetry} disabled={moreBusy} busy={moreBusy} />}
   </Screen>;
@@ -171,18 +183,74 @@ export function CaseScreen() {
 
 type CaseProps = { data: Participant | null; status: RemoteStatus; hasMore?: boolean; moreBusy?: boolean; onMore?: () => void; twoClock?: boolean; editing: boolean; message: string; checking: boolean; busy: boolean; failed: boolean; offline: boolean; waitingMedia?: boolean; attachments?: ReactNode; onEvidence?: (item: Evidence, eventId: string) => void; onMessage: (value: string) => void; onBack: () => void; onRetry: () => void; onAdd: () => void; onSend: () => void; onReview: () => void };
 export function CaseView({ data, status, hasMore = false, moreBusy = false, onMore, twoClock = false, editing, message, checking, busy, failed, offline, waitingMedia, attachments, onEvidence, onMessage, onBack, onRetry, onAdd, onSend, onReview }: CaseProps) {
-  const t = useT(); const format = useFormat(); const read = status === "ready" ? data : null;
-  function clock(at: number, zone: string) {
-    const lines = format.lines(at, zone, twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined);
-    return lines ? [lines.site, lines.viewer].filter(Boolean).join(" · ") : zone;
-  }
-  const dock = read && (editing ? <Dock context={checking ? t("mobile.case.checking") : offline ? t("mobile.case.offline") : waitingMedia ? t("mobile.photos.wait") : undefined} primary={{ label: checking ? t("mobile.case.checkAgain") : t("mobile.case.sendMessage"), onPress: onSend, disabled: offline || busy || waitingMedia || !message.trim(), busy }} /> : read.actions.appendReport ? <Dock primary={{ label: t("mobile.case.add"), onPress: onAdd, disabled: busy }} /> : read.actions.reviewCompletion ? <Dock primary={{ label: t("mobile.case.review"), onPress: onReview }} /> : undefined);
-  return <Screen title={t("mobile.case.reported")} navigation={{ kind: "back", label: t("mobile.case.back"), onPress: onBack }} dock={dock}>
+  const t = useT();
+  const format = useFormat();
+  const { color, space } = useBeaconTheme();
+  const read = status === "ready" ? data : null;
+  const viewerZone = twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
+  const opened = read ? format.lines(read.receipt.openedAt, read.job.siteZone, viewerZone) : null;
+  const reported = read ? (read.report.at === read.receipt.openedAt ? opened : format.lines(read.report.at, read.job.siteZone, viewerZone)) : null;
+  const acknowledge = read ? format.lines(read.receipt.acknowledgeBy, read.job.siteZone, viewerZone) : null;
+  const firstUpdate = read ? format.lines(read.receipt.firstUpdateBy, read.job.siteZone, viewerZone) : null;
+  const nextUpdate = read?.receipt.nextUpdateAt ? format.lines(read.receipt.nextUpdateAt, read.job.siteZone, viewerZone) : null;
+  const signed = read?.signOff ? format.lines(read.signOff.at, read.job.siteZone, viewerZone) : null;
+  const dock = read && (editing
+    ? <Dock context={checking ? t("mobile.case.checking") : offline ? t("mobile.case.offline") : waitingMedia ? t("mobile.photos.wait") : undefined} primary={{ label: checking ? t("mobile.case.checkAgain") : t("mobile.case.sendMessage"), onPress: onSend, disabled: offline || busy || waitingMedia || !message.trim(), busy }} />
+    : read.actions.appendReport ? <Dock primary={{ glyph: "+", label: t("mobile.case.add"), onPress: onAdd, disabled: busy }} />
+      : read.actions.reviewCompletion ? <Dock primary={{ label: t("mobile.case.review"), onPress: onReview }} /> : undefined);
+  return <Screen title={t("mobile.case.reported")} subtitle={read ? `${read.receipt.reference} · ${read.job.reference}` : undefined}
+    navigation={{ kind: "back", label: t("mobile.case.back"), onPress: onBack }} dock={dock}>
     <ReadState status={status} retry={onRetry} />
-    {read && <><Copy variant="supporting">{read.receipt.reference} · {read.job.reference}</Copy><Card><Badge label={statusLabel(t, read.receipt.state)} /><Copy variant="sectionTitle">{categoryLabel(t, read.receipt.category)}</Copy>{read.affectedItem && <AuthoredText value={read.affectedItem.label} />}{read.bill && <Copy>{read.bill.number}</Copy>}<AuthoredText value={read.report.content} />{read.report.evidence.map(item => <CaseEvidence key={item.attachmentId} item={item} eventId={read.report.id} onOpen={onEvidence} />)}</Card>
-      <Card><Copy>{t("mobile.case.owner", { name: read.receipt.caseOwnerDisplayName })}</Copy><Copy>{t("mobile.case.ackTarget", { time: clock(read.receipt.acknowledgeBy, read.job.siteZone) })}</Copy><Copy>{t("mobile.case.updateTarget", { time: clock(read.receipt.firstUpdateBy, read.job.siteZone) })}</Copy>{read.receipt.nextUpdateAt && <Copy>{t("mobile.case.nextTarget", { time: clock(read.receipt.nextUpdateAt, read.job.siteZone) })}</Copy>}<Copy>{read.signOff ? t("mobile.case.signed", { name: read.signOff.actorDisplayName, time: clock(read.signOff.at, read.job.siteZone) }) : t("mobile.case.notSigned")}</Copy></Card>
-      <Copy variant="sectionTitle">{t("mobile.case.history")}</Copy><Card>{[...read.history].sort((a, b) => b.at - a.at).map(event => <Card key={event.id}><Copy variant="label">{eventLabel(t, event.kind)}</Copy><Copy variant="supporting">{event.actorDisplayName} · {clock(event.at, read.job.siteZone)}</Copy>{event.content && <AuthoredText value={event.content} />}{event.evidence.map(item => <CaseEvidence key={item.attachmentId} item={item} eventId={event.id} onOpen={onEvidence} />)}</Card>)}<Card><Copy variant="label">{t("mobile.case.received")}</Copy><Copy variant="supporting">{read.report.actorDisplayName} · {clock(read.report.at, read.job.siteZone)}</Copy></Card>{hasMore && <Button variant="quiet" label={t("mobile.case.showEarlier")} onPress={onMore ?? onRetry} disabled={moreBusy} busy={moreBusy} />}</Card>
-      {editing && <><Card><TextField label={t("mobile.case.message")} value={message} multiline maxLength={4000} disabled={checking || busy} onChangeText={onMessage} /></Card>{attachments}</>}{failed && <Copy>{t("mobile.case.failed")}</Copy>}
+    {read && <>
+      <Card dense>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: space.grid[2] }}>
+          <Badge tone={read.receipt.state === "open" ? "attention" : "success"} label={statusLabel(t, read.receipt.state)} />
+          {opened && <Copy variant="caption" style={{ color: color.muted }}>{opened.site}</Copy>}
+        </View>
+        {opened?.viewer && <Copy variant="supporting" style={{ color: color.muted }}>{opened.viewer}</Copy>}
+        <Copy variant="sectionTitle">{categoryLabel(t, read.receipt.category)}</Copy>
+        {read.affectedItem && <Copy variant="supporting">{read.affectedItem.label.reading?.status === "ready" ? read.affectedItem.label.reading.text : read.affectedItem.label.original.text}</Copy>}
+        {read.affectedItem?.label.reading?.status === "ready" && <Copy variant="supporting" style={{ color: color.muted }}>{read.affectedItem.label.original.text}</Copy>}
+        {read.bill && <Copy>{read.bill.number}</Copy>}
+        <CaseText value={read.report.content} />
+        {read.report.evidence.map(item => <CaseEvidence key={item.attachmentId} item={item} eventId={read.report.id} onOpen={onEvidence} />)}
+      </Card>
+      <StatusBanner state="last-confirmed" label={read.signOff ? signed ? t("mobile.case.signed", { name: read.signOff.actorDisplayName, time: signed.site }) : t("mobile.places.signedOff") : t("mobile.case.notSigned")} detail={signed?.viewer ?? undefined} />
+      <Card dense>
+        <Copy variant="label">{t("mobile.case.owner", { name: read.receipt.caseOwnerDisplayName })}</Copy>
+        {acknowledge && <Copy variant="supporting">{t("mobile.case.ackTarget", { time: acknowledge.site })}</Copy>}
+        {acknowledge?.viewer && <Copy variant="supporting" style={{ color: color.muted }}>{acknowledge.viewer}</Copy>}
+        {firstUpdate && <Copy variant="supporting">{t("mobile.case.updateTarget", { time: firstUpdate.site })}</Copy>}
+        {firstUpdate?.viewer && <Copy variant="supporting" style={{ color: color.muted }}>{firstUpdate.viewer}</Copy>}
+        {nextUpdate && <Copy variant="supporting">{t("mobile.case.nextTarget", { time: nextUpdate.site })}</Copy>}
+        {nextUpdate?.viewer && <Copy variant="supporting" style={{ color: color.muted }}>{nextUpdate.viewer}</Copy>}
+      </Card>
+      <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.case.history")}</Copy>
+      {[...read.history].sort((a, b) => b.at - a.at).map(event => {
+        const clock = format.lines(event.at, read.job.siteZone, viewerZone);
+        return <View key={event.id} style={{ gap: space.grid[2] }}>
+          <Stamp kind="system" title={eventLabel(t, event.kind)} time={clock?.site ?? ""} attribution={event.actorDisplayName} detail={clock?.viewer ?? undefined} />
+          {event.content && <CaseText value={event.content} />}
+          {event.evidence.map(item => <CaseEvidence key={item.attachmentId} item={item} eventId={event.id} onOpen={onEvidence} />)}
+        </View>;
+      })}
+      <Stamp kind="system" title={t("mobile.case.received")} time={reported?.site ?? ""} attribution={read.report.actorDisplayName} detail={reported?.viewer ?? undefined} />
+      {hasMore && <Button variant="quiet" label={t("mobile.case.showEarlier")} onPress={onMore ?? onRetry} disabled={moreBusy} busy={moreBusy} />}
+      {editing && <><TextField label={t("mobile.case.message")} value={message} multiline maxLength={4000} disabled={checking || busy} onChangeText={onMessage} />{attachments}</>}
+      {failed && <StatusBanner state="not-sent" label={t("mobile.case.failed")} />}
     </>}
   </Screen>;
+}
+
+function CaseText({ value }: { value: Participant["report"]["content"] }) {
+  const t = useT();
+  const reading = value.reading;
+  if (!reading || (reading.status === "ready" && reading.language === value.original.language)) {
+    return <Copy accessibilityLanguage={value.original.language}>{value.original.text}</Copy>;
+  }
+  const original = { text: value.original.text, label: t("mobile.customerQuote.original", { language: readingLanguageLabel(t, value.original.language) }) };
+  if (reading.status === "ready") {
+    return <TwinCard state="translated" original={original} translation={{ text: reading.text, label: t("mobile.customerQuote.translation", { language: readingLanguageLabel(t, reading.language) }) }} />;
+  }
+  return <TwinCard state={reading.status} original={original} status={reading.status === "pending" ? t("mobile.customerQuote.pending") : t("mobile.customerQuote.unavailable")} />;
 }

@@ -1,10 +1,14 @@
 import { approveQuoteVersionRoute, declineQuoteVersionRoute, getQuoteVersionRoute } from "@bookbuddy/api-contract";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
+import { useState } from "react";
+import { View } from "react-native";
 import { commandIntentKey, useCommand, useCommandStatus, useRemote } from "../../api";
-import type { CommandStatus } from "../../api/requests";
+import type { CommandStatus, RemoteStatus } from "../../api/requests";
 import { useFormat, useT } from "../../i18n";
-import { Button, Card, Dock, Sheet } from "../../ui/controls";
+import { useSession } from "../../session";
+import { Button, Card, Dock, Sheet, StatusBanner } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
+import { useBeaconTheme } from "../../ui/theme";
 import { confirmAction } from "../s-17/confirmAction";
 import QuoteScreen, { type CustomerQuote } from "../c-06/Screen";
 
@@ -17,6 +21,7 @@ export default function ApproveQuoteScreen() {
   const approve = useCommand(approveQuoteVersionRoute, { resourceId: versionId });
   const decline = useCommand(declineQuoteVersionRoute, { resourceId: versionId });
   const t = useT(); const format = useFormat();
+  const { preferences } = useSession();
   const read = remote.status === "ready" && remote.data?.audience === "customer" ? remote.data : null;
   const data = remote.status === "ready" ? approve.result ?? decline.result ?? read : null;
   const busy = pendingApproval !== "idle" || pendingDecline !== "idle";
@@ -42,15 +47,62 @@ export default function ApproveQuoteScreen() {
       },
     });
   }
-  return <><QuoteScreen /><ApprovalView data={data} state={state} onClose={() => router.back()} onApprove={() => { void decide(); }} onDecline={askDecline} onCurrent={(id) => router.replace(`/c/jobs/${jobId}/quote/${id}` as Href)} /></>;
+  return <><QuoteScreen /><ApprovalView data={data} readStatus={remote.status} state={state} twoClock={preferences?.twoClock}
+    onClose={() => router.back()} onApprove={() => { void decide(); }} onDecline={askDecline}
+    onWindows={() => router.replace(`/c/jobs/${jobId}/windows` as Href)}
+    onCurrent={(id) => router.replace(`/c/jobs/${jobId}/quote/${id}` as Href)} /></>;
 }
-export function ApprovalView({ data, state, onClose, onApprove, onDecline, onCurrent }: { data: CustomerQuote | null; state: CommandStatus; onClose: () => void; onApprove: () => void; onDecline: () => void; onCurrent: (id: string) => void }) {
-  const t = useT(); const format = useFormat();
+export function ApprovalView({ data, state, readStatus = "ready", twoClock = false, onClose, onApprove, onDecline, onCurrent, onWindows }: {
+  data: CustomerQuote | null; state: CommandStatus; readStatus?: RemoteStatus; twoClock?: boolean; onClose: () => void; onApprove: () => void;
+  onDecline: () => void; onCurrent: (id: string) => void; onWindows?: () => void;
+}) {
+  const t = useT();
+  const format = useFormat();
+  const { color, radius, space } = useBeaconTheme();
+  const [termsVersion, setTermsVersion] = useState<string | null>(null);
   const approved = data?.state === "approved";
   const changed = state === "conflict" || !!data?.replacedBy;
   const busy = state === "sending" || state === "checking";
-  const primary = approved ? { label: t("mobile.customerQuote.done"), onPress: onClose } : changed && data?.replacedBy ? { label: t("mobile.customerQuote.viewCurrent"), onPress: () => onCurrent(data.replacedBy!.id) } : { label: data ? t("mobile.customerQuote.approveAmount", { amount: format.money(data.totalMinor, data.currency) }) : t("mobile.customerQuote.approveChange"), onPress: onApprove, disabled: !data?.actions.approve || busy || changed, busy: state === "sending" };
-  return <Sheet visible title={data && !data.viewerIsNamedApprover ? t("mobile.customerQuote.approvesTitle", { name: data.job.namedApproverDisplayName }) : t("mobile.customerQuote.approveTitle")} closeLabel={t("mobile.customerQuote.close")} onClose={onClose} dock={<Dock primary={primary} context={data && !data.viewerIsNamedApprover ? t("mobile.customerQuote.onlyApprover", { name: data.job.namedApproverDisplayName }) : undefined} />}>
-    {data ? <><Copy variant="supporting">{data.job.reference} · {data.job.jobTitle} · {data.job.placeAlias}</Copy><Card><Copy>{t("mobile.customerQuote.namedApprover", { name: data.job.namedApproverDisplayName, place: data.job.placeAlias })}</Copy></Card><Card><Copy variant="sectionTitle">{t("mobile.customerQuote.quoteVersion", { number: data.no, provider: data.job.providerDisplayName })}</Copy><Copy variant="sectionTitle">{format.money(data.totalMinor, data.currency)}</Copy></Card><Copy>{t("mobile.customerQuote.effects")}</Copy><Copy>{t("mobile.customerQuote.recorded")}</Copy><Copy>{data.terms.consentText}</Copy><Copy variant="sectionTitle">{t("mobile.customerQuote.terms")}</Copy><Copy>{data.terms.originalText}</Copy>{approved && <Copy>{t("mobile.customerQuote.approved")}</Copy>}{changed && <Copy>{t("mobile.customerQuote.changed")}</Copy>}{state === "checking" && <Copy>{t("mobile.customerQuote.checking")}</Copy>}{state === "failed" && <Copy>{t("mobile.customerQuote.failed")}</Copy>}{data.actions.decline && !busy && !changed && <Button variant="quiet" label={t("mobile.customerQuote.decline")} onPress={onDecline} />}</> : <Copy>{t("mobile.customerQuote.loading")}</Copy>}
+  const primary = approved
+    ? data.hasProposedWindows && onWindows ? { label: t("mobile.customerHome.pickWindow"), onPress: onWindows } : { label: t("mobile.customerQuote.done"), onPress: onClose }
+    : changed && data?.replacedBy ? { label: t("mobile.customerQuote.viewCurrent"), onPress: () => onCurrent(data.replacedBy!.id) }
+      : { label: data ? t("mobile.customerQuote.approveAmount", { amount: format.money(data.totalMinor, data.currency) }) : t("mobile.customerQuote.approveChange"), onPress: onApprove, disabled: !data?.actions.approve || busy || changed, busy: state === "sending" };
+  const context = readStatus === "offline" ? t("mobile.customerQuote.offline") : data && !data.viewerIsNamedApprover && !approved && !changed
+    ? t("mobile.customerQuote.onlyApprover", { name: data.job.namedApproverDisplayName }) : undefined;
+  const decisionAt = approved && data.decision ? format.lines(data.decision.at, data.job.siteZone,
+    twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined) : null;
+  const showTerms = data !== null && termsVersion === data.id;
+  return <Sheet visible
+    title={approved ? t("mobile.customerQuote.approvalReceipt") : data && !data.viewerIsNamedApprover
+      ? t("mobile.customerQuote.approvesTitle", { name: data.job.namedApproverDisplayName }) : t("mobile.customerQuote.approveTitle")}
+    subtitle={data ? `${data.job.reference} · ${data.job.jobTitle} · ${data.job.placeAlias}` : undefined}
+    closeLabel={t("mobile.customerQuote.close")} onClose={onClose} dock={<Dock primary={primary} context={context} />}>
+    {changed && <StatusBanner state="last-confirmed" label={t("mobile.customerQuote.changed")} />}
+    {state === "checking" && <StatusBanner state="last-confirmed" label={t("mobile.customerQuote.checking")} />}
+    {state === "failed" && <StatusBanner state="not-sent" label={t("mobile.customerQuote.failed")} />}
+    {data ? <>
+      {approved && decisionAt && <View style={{ gap: space.grid[1] }} accessibilityLiveRegion="polite">
+        <Copy variant="label" style={{ color: color.successInk }}>{decisionAt.site}</Copy>
+        {decisionAt.viewer && <Copy variant="supporting">{decisionAt.viewer}</Copy>}
+      </View>}
+      <View style={{ backgroundColor: color.subtle, borderRadius: radius.card, padding: space.grid[4] }}>
+        <Copy variant="label">{t("mobile.customerQuote.namedApprover", { name: data.job.namedApproverDisplayName, place: data.job.placeAlias })}</Copy>
+      </View>
+      <Card dense>
+        <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.customerQuote.quoteVersion", { number: data.no, provider: data.job.providerDisplayName })}</Copy>
+        <Copy variant="pageTitle" style={{ fontVariant: ["tabular-nums"] }}>{format.money(data.totalMinor, data.currency)}</Copy>
+      </Card>
+      {!approved && <>
+        <Copy variant="supporting">{t("mobile.customerQuote.effects")}</Copy>
+        {data.viewerIsNamedApprover && <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.customerQuote.recorded")}</Copy>}
+        <Copy>{data.terms.consentText}</Copy>
+      </>}
+      <View style={{ alignSelf: "flex-start" }}><Button variant="quiet" label={t("mobile.customerQuote.terms")}
+        onPress={() => setTermsVersion(showTerms ? null : data.id)} /></View>
+      {showTerms && <Card dense><Copy>{data.terms.originalText}</Copy></Card>}
+      {data.actions.decline && !busy && !changed && <View style={{ alignSelf: "flex-start" }}>
+        <Button variant="quiet" label={t("mobile.customerQuote.decline")} onPress={onDecline} />
+      </View>}
+    </> : <Copy>{readStatus === "offline" ? t("mobile.customerQuote.offline") : readStatus === "error" ? t("mobile.customerQuote.error") : t("mobile.customerQuote.loading")}</Copy>}
   </Sheet>;
 }

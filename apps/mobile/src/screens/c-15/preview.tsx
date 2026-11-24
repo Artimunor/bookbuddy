@@ -12,4 +12,4 @@ const states = [
   { state: "rejected", data: { ...change, state: "rejected" as const, actions: { approve: false, decline: false } } },
   { state: "superseded", data: { ...change, state: "superseded" as const, actions: { approve: false, decline: false }, replacedBy: { id: change.id, no: 2, issuedAt: change.issuedAt } } },
 ];
-export const previews: ScreenPreview[] = states.map(({ state, data }) => ({ id: "C-15", state, render: () => <ChangeView data={data} status="ready" busy={state === "checking"} checking={state === "checking"} failed={false} onBack={empty} onRetry={empty} onApprove={empty} onReject={empty} onOpen={empty} onJob={empty} /> }));
+export const previews: ScreenPreview[] = states.map(({ state, data }) => ({ id: "C-15", state, render: () => <ChangeView data={data} status="ready" twoClock busy={state === "checking"} checking={state === "checking"} failed={false} onBack={empty} onRetry={empty} onApprove={empty} onReject={empty} onOpen={empty} onJob={empty} /> }));
