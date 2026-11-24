@@ -1,8 +1,9 @@
 import type { HomeProjection } from "@bookbuddy/api-contract";
 import { useEffect, useState } from "react";
-import { ActionLink, Button, Card, Glyph, LiveCapsule, NeedsYouCard, Stamp, StatusBanner } from "../../ui";
-import { formatPortalClock } from "../time";
-import { Booking, dayLine, Frame, jobTitle, momentLabel, money, PortalClock, usePortal, usePortalViewerZone, visitLabels } from "./common";
+import { ActionLink, Button, Card, Glyph, NeedsYouCard, Stamp, StatusBanner } from "../../ui";
+import { liveVisitPath, splitUpcomingVisits } from "../live/navigation";
+import { VisitSummaryCard } from "../live/summary";
+import { Booking, Frame, jobTitle, momentLabel, money, PortalClock, usePortal, usePortalViewerZone } from "./common";
 
 type Home = Extract<HomeProjection, { audience: "customer" }>;
 export function Now() {
@@ -26,7 +27,7 @@ export function Now() {
       for (const item of group) zones.set(item.jobId, item.siteZone);
     }
   }
-  const labels = visitLabels(t);
+  const visits = data ? splitUpcomingVisits(data, Date.now()) : null;
   return <Frame current="now"><h1 className="text-page-title">{t("web.portal.work.now")}</h1>
     {!data && !failed && <p role="status">{t("web.portal.work.loading")}</p>}
     {failed && <StatusBanner title={t("web.portal.work.failed")} tone="critical" action={<Button onClick={() => setGeneration((n) => n + 1)}>{t("web.portal.work.retry")}</Button>} />}
@@ -34,22 +35,16 @@ export function Now() {
       <ActionLink className="bb-ask" to="/portal/new/describe" variant="secondary">{t("web.portal.ps.description")}<Glyph name="next" /></ActionLink>
       {data.liveVisits.length > 0 && <section className="space-y-3">
         <h2 className="text-section-title">{t("web.portal.work.live")}</h2>
-        {data.liveVisits.map(({ jobId, title, reference, providerName, siteZone, visit }) => {
-          const label = labels[visit.status];
-          const band = visit.arrival ?? (visit.status === "confirmed" ? visit.window : null);
-          const clocks = band ? formatPortalClock(band.startsAt, siteZone, locale, viewerZone, band.endsAt, true) ?? undefined : undefined;
-          const source = formatPortalClock(visit.source.at, siteZone, locale, undefined, undefined, true)?.site;
-          const time = [source?.value, source?.zoneLabel].filter(Boolean).join(" ");
-          const provenance = visit.source.by && time ? t("web.portal.schedule.shared", { name: visit.source.by, time }) : time;
-          const sourceLabel = title ? jobTitle(t, title, reference) : providerName;
-          return <LiveCapsule key={jobId} to={`/portal/jobs/${encodeURIComponent(jobId)}/live`} source={sourceLabel}
-            reference={reference} state={{ kind: visit.status === "finished" ? "finished" : visit.status === "paused" ? "paused" : visit.status === "cover_arranging" ? "quiet" : "live", label }}
-            clocks={clocks} provenance={provenance} stageLine={dayLine(labels, visit.step, t)} size="card"
-            ariaLabel={[sourceLabel, label, clocks && `${clocks.site.value} ${clocks.site.zoneLabel}`, clocks?.viewer && `${clocks.viewer.value} ${clocks.viewer.zoneLabel}`, provenance].filter(Boolean).join(" · ")} />;
-        })}
+        {data.liveVisits.map((item) => <VisitSummaryCard key={item.jobId} item={item} to={liveVisitPath(item.jobId)}
+          t={t} locale={locale} viewerZone={viewerZone} />)}
       </section>}
       {data.decisions.length > 0 && <section className="space-y-3"><h2 className="text-section-title">{t("web.portal.work.needsYou")}</h2>{data.decisions.map((decision) => <NeedsYouCard key={decision.recordId} title={decision.kind === "review_quote" ? t("web.portal.work.reviewQuote") : t("web.portal.work.open")} detail={[jobTitle(t,decision.title,decision.reference), decision.reference, decision.amount && money(locale, decision.amount.minor, decision.amount.currency)].filter(Boolean).join(" · ")} deadline={decision.dueAt === null ? undefined : <PortalClock at={decision.dueAt} zone={decision.siteZone} locale={locale} viewerZone={viewerZone} />} action={{ label: decision.kind === "review_quote" ? t("web.portal.work.reviewQuote") : t("web.portal.work.open"), to: decision.kind === "review_quote" ? `/portal/jobs/${encodeURIComponent(decision.jobId)}/quote/${encodeURIComponent(decision.recordId)}` : `/portal/jobs/${encodeURIComponent(decision.jobId)}` }} />)}</section>}
-      {data.upcoming.length > 0 && <section className="space-y-3"><h2 className="text-section-title">{t("web.portal.work.upcoming")}</h2>{data.upcoming.map((item) => <Booking key={item.jobId} item={item} viewerZone={viewerZone} />)}</section>}
+      {visits && visits.today.length > 0 && <section className="space-y-3">
+        <h2 className="text-section-title">{t("web.portal.work.todayVisits")}</h2>
+        {visits.today.map((item) => <VisitSummaryCard key={item.jobId} item={item} to={liveVisitPath(item.jobId)}
+          t={t} locale={locale} viewerZone={viewerZone} bookedWindow={item.nextVisit?.window} />)}
+      </section>}
+      {visits && visits.later.length > 0 && <section className="space-y-3"><h2 className="text-section-title">{t("web.portal.work.upcoming")}</h2>{visits.later.map((item) => <Booking key={item.jobId} item={item} viewerZone={viewerZone} />)}</section>}
       {data.recent.length > 0 && <Card title={t("web.portal.work.latest")}><div className="bb-moments">{data.recent.map((moment) => {
         const zone = data.place?.siteZone ?? zones.get(moment.jobId);
         return <Stamp key={`${moment.recordId}-${moment.at}`} kind="system" title={momentLabel(t, moment.kind)} time={zone ? <PortalClock at={moment.at} zone={zone} locale={locale} viewerZone={viewerZone} /> : t("web.portal.auth.yourTime", { time: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", hourCycle: "h23", timeZone: viewerZone }).format(moment.at) })} actor={moment.by ? { name: moment.by, role: "" } : undefined} />;
