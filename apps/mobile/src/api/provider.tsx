@@ -4,13 +4,18 @@ import { resolveLocale } from "@bookbuddy/i18n/locales";
 import type { LocaleTag } from "@bookbuddy/i18n/locales";
 import Constants from "expo-constants";
 import { useLocales } from "expo-localization";
+import { useNetworkState } from "expo-network";
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Platform } from "react-native";
+import { RequestBook } from "./requests";
 
 interface ApiAccess {
   client: ApiClient | null;
   locale: LocaleTag;
+  requests: RequestBook;
+  offline: boolean;
+  isOffline: () => boolean;
   bindSession: (credential: string | null, uiLocale: string | null) => void;
   setRequestLocale: (locale: LocaleTag) => void;
 }
@@ -21,6 +26,13 @@ export function ApiProvider({ children, baseUrl, fetch }: { children: ReactNode;
   const url = baseUrl ?? (Platform.OS !== "web" && typeof extraUrl === "string" ? extraUrl : undefined);
   const locales = useLocales();
   const credential = useRef<string | null>(null);
+  const [requests, setRequests] = useState(() => new RequestBook(false));
+  const currentRequests = useRef(requests);
+  const network = useNetworkState();
+  const offline = network.isConnected === false || network.isInternetReachable === false;
+  const connection = useRef(offline);
+  useLayoutEffect(() => { connection.current = offline; }, [offline]);
+  const isOffline = useCallback(() => connection.current, []);
   const [preference, setPreference] = useState<string | null>(null);
   const fallbackLocale = resolveLocale([...(preference ? [preference] : []), ...locales.map(({ languageTag }) => languageTag)]);
   const fallbackHeader = useRef(fallbackLocale);
@@ -35,11 +47,17 @@ export function ApiProvider({ children, baseUrl, fetch }: { children: ReactNode;
     baseUrl: url, getSession: () => credential.current, getLocale: () => explicitHeader.current ?? fallbackHeader.current, fetch,
   }) : null, [url, fetch]);
   const bindSession = useCallback((token: string | null, preferred: string | null) => {
-    credential.current = token;
+    if (credential.current !== token) {
+      credential.current = token;
+      currentRequests.current.active = false;
+      currentRequests.current = new RequestBook(token !== null);
+      setRequests(currentRequests.current);
+    }
     setPreference(preferred);
   }, []);
   const locale = effectiveLocale ?? fallbackLocale;
-  const access = useMemo<ApiAccess>(() => ({ client, locale, bindSession, setRequestLocale }), [client, locale, bindSession, setRequestLocale]);
+  const access = useMemo<ApiAccess>(() => ({ client, locale, requests, offline, isOffline, bindSession, setRequestLocale }),
+    [client, locale, requests, offline, isOffline, bindSession, setRequestLocale]);
   return <ApiContext.Provider value={access}>{children}</ApiContext.Provider>;
 }
 
