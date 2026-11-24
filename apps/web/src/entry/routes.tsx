@@ -44,10 +44,15 @@ export const routes: RouteObject[] = [
   {
     path: "portal",
     caseSensitive: true,
+    lazy: async () => ({ Component: (await import("../portal/session")).PortalLayout }),
     children: [
-      ...["sign-in", "verify", "setup", "invite/:opaque", "help"].map(pendingPortalRoute),
+      { path: "sign-in", caseSensitive: true, lazy: async () => ({ Component: (await import("../portal/auth")).SignIn }) },
+      { path: "verify", caseSensitive: true, lazy: async () => ({ Component: (await import("../portal/auth")).Verify }) },
+      { path: "setup", caseSensitive: true, lazy: async () => ({ Component: (await import("../portal/auth")).Setup }) },
+      ...["invite/:opaque", "help"].map(pendingPortalRoute),
       {
         id: "portal-protected",
+        lazy: async () => ({ Component: (await import("../portal/session")).ProtectedPortal }),
         children: [
           "now",
           "bookings",
