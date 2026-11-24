@@ -21,7 +21,7 @@ type Source = "camera" | "library" | "voice";
 const silent = Array<number>(38).fill(0);
 
 export default function AttachScreen() {
-  const { caller, parentScopeId, stageId } = useLocalSearchParams<{ caller?: string; parentScopeId?: string; stageId?: string }>();
+  const { caller, parentScopeId, stageId, mode } = useLocalSearchParams<{ caller?: string; parentScopeId?: string; stageId?: string; mode?: string }>();
   const scope = mediaScopeSchema.safeParse({ caller, parentScopeId }).data;
   const repository = useRepository();
   const router = useRouter();
@@ -44,7 +44,10 @@ export default function AttachScreen() {
   const disablePrevention = usePreventRemove(voice.phase !== "idle", () => {
     if (voice.phase === "recording") void voice.finish("review");
   });
-  const canCapture = !!scope && !!repository?.isActive;
+  const showPhotos = mode === undefined || mode === "photo";
+  const showVoice = !!scope && allowsVoice(scope.caller) && (mode === undefined || mode === "voice");
+  const canCapture = !!scope && !!repository?.isActive && (showPhotos || showVoice);
+  const visibleItems = mode === undefined ? items : items.filter(({ file }) => file.kind === mode);
   const busy = picking || voice.phase !== "idle";
 
   function review(attachmentId: AttachmentId) {
@@ -67,7 +70,7 @@ export default function AttachScreen() {
     } else if (result.status !== "cancelled") setNotice(result.status);
   }
   async function choose(source: "camera" | "library") {
-    if (pendingPhoto.current || !canCapture || busy) return;
+    if (pendingPhoto.current || !showPhotos || !canCapture || busy) return;
     pendingPhoto.current = true;
     setNotice(null);
     setPicking(true);
@@ -90,21 +93,23 @@ export default function AttachScreen() {
         <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.media.recordingNote")}</Copy>
       </> : canCapture ? <>
         <View style={{ borderWidth: 1, borderColor: color.separator, borderRadius: radius.card, backgroundColor: color.surface, overflow: "hidden" }}>
-          <CaptureSourceRow name="camera" first title={t("mobile.media.takePhoto")}
-            description={denied.camera ? t("mobile.media.cameraDenied") : t("mobile.media.cameraDescription")}
-            onPress={() => { void choose("camera"); }} disabled={busy} denied={denied.camera} onSettings={settings} />
-          <CaptureSourceRow name="library" title={t("mobile.media.choosePhoto")}
-            description={denied.library ? t("mobile.media.libraryDenied") : t("mobile.media.libraryDescription")}
-            onPress={() => { void choose("library"); }} disabled={busy} denied={denied.library} onSettings={settings} />
-          {scope && allowsVoice(scope.caller) && <CaptureSourceRow name="voice" title={t("mobile.media.recordVoice")}
+          {showPhotos && <>
+            <CaptureSourceRow name="camera" first title={t("mobile.media.takePhoto")}
+              description={denied.camera ? t("mobile.media.cameraDenied") : t("mobile.media.cameraDescription")}
+              onPress={() => { void choose("camera"); }} disabled={busy} denied={denied.camera} onSettings={settings} />
+            <CaptureSourceRow name="library" title={t("mobile.media.choosePhoto")}
+              description={denied.library ? t("mobile.media.libraryDenied") : t("mobile.media.libraryDescription")}
+              onPress={() => { void choose("library"); }} disabled={busy} denied={denied.library} onSettings={settings} />
+          </>}
+          {showVoice && <CaptureSourceRow name="voice" first={!showPhotos} title={t("mobile.media.recordVoice")}
             description={denied.voice ? (Platform.OS === "web" ? t("mobile.media.microphoneDeniedWeb") : t("mobile.media.microphoneDenied")) : t("mobile.media.voiceDescription")}
             onPress={() => { setNotice(null); void voice.start(); }} disabled={busy} denied={denied.voice} onSettings={settings} />}
         </View>
         <Copy variant="supporting" style={{ color: color.muted }}>{caller === "chat" ? t("mobile.media.privacyChat") : t("mobile.media.privacyRecord")}</Copy>
-        {items.filter((item) => !item.selected && item.fileUri).map((item) =>
+        {visibleItems.filter((item) => !item.selected && item.fileUri).map((item) =>
           <Button key={item.attachmentId} variant="neutral" disabled={busy}
             label={item.file.kind === "voice" ? t("mobile.media.reviewRecording") : t("mobile.media.reviewPhoto")} onPress={() => review(item.attachmentId)} />)}
-        {items.filter((item) => item.selected).map((item) => isSentDraft(item)
+        {visibleItems.filter((item) => item.selected).map((item) => isSentDraft(item)
           ? <SentDraftMedia key={item.attachmentId} kind={item.file.kind} /> :
           <View key={item.attachmentId} style={{ gap: space.grid[2], alignItems: "flex-start" }}>
             <Copy variant="supporting" style={{ color: item.state === "failed" ? color.criticalInk : color.muted }}>
