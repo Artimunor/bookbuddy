@@ -1,13 +1,14 @@
 import { expect, test } from "bun:test";
 import {
   appendThreadEntriesRoute, getThreadEntriesRoute, getThreadRoute, listThreadsRoute, markThreadReadRoute,
-  operationIdHeader, reportTranslationRoute, requestTranslationRoute, syncRoute,
+  openLinkRoute, operationIdHeader, reportTranslationRoute, requestTranslationRoute, syncRoute,
 } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { runEffectBatch } from "../src/effects";
 import { randomToken } from "../src/modules/auth/crypto";
 import { hashSessionCredential } from "../src/modules/auth/session";
+import type { ExpoFetch, ExpoMessage } from "../src/providers/expo-push";
 import type { TranslationFetch } from "../src/providers/translate";
 import { createTestD1 } from "./d1";
 
@@ -312,5 +313,71 @@ test("media is linked only from the author's exact thread; restricted text and r
     expect(calls).toBe(0);
     expect(await f.db.prepare("SELECT state FROM message_translations WHERE root_id='eligible-text'").first())
       .toEqual({ state: "unavailable" });
+  } finally { f.db.close(); }
+});
+
+test("one initial read returns permissions and the live Crew hold without adding it to Job or older pages", async () => {
+  const f = await fixture();
+  try {
+    const { jobThread, crew } = await f.threads();
+    await f.grant(jobThread, "worker", 0);
+    await f.db.prepare(`INSERT INTO safety_holds (id, assignment_id, kind, state)
+      VALUES ('hold', 'chat-assignment', 'work_rule', 'active')`).run();
+    const jobPage = data(getThreadEntriesRoute.output, await f.request(entries(jobThread), "worker"));
+    expect(jobPage.thread).toMatchObject({ id: jobThread, audience: "job", writeState: "open",
+      canSend: false, readOnlyReason: "read_only_grant" });
+    expect(jobPage.thread?.members.map(({ role, isViewer }) => [role, isViewer])).toEqual([
+      ["foreman", false], ["customer", false], ["worker", true],
+    ]);
+    expect(jobPage.thread).not.toHaveProperty("safetyHold");
+    const held = data(getThreadEntriesRoute.output, await f.request(entries(crew), "worker"));
+    expect(held.thread).toMatchObject({ id: crew, audience: "crew", canSend: true, safetyHold: true });
+    const older = data(getThreadEntriesRoute.output, await f.request(`${entries(crew)}?cursor=before~1`, "worker"));
+    expect(older.thread).toBeUndefined();
+    await f.db.prepare("UPDATE safety_holds SET state='cleared', cleared_at=? WHERE id='hold'").bind(Date.now()).run();
+    expect(data(getThreadEntriesRoute.output, await f.request(entries(crew), "worker")).thread).toMatchObject({ safetyHold: false });
+  } finally { f.db.close(); }
+});
+
+test("chat append atomically creates recipient-scoped notices, reuses links, and reauthorizes opens and push", async () => {
+  const f = await fixture();
+  try {
+    const { crew } = await f.threads();
+    const origin = "https://bookbuddy.test";
+    f.env.PUBLIC_APP_ORIGIN = origin;
+    await f.db.prepare(`INSERT INTO push_installations (id, account_id, token, token_epoch, platform, state, updated_at)
+      VALUES ('worker-device','worker','ExpoPushToken[chat-worker]',1,'ios','active',?)`).bind(Date.now()).run();
+    const text = "A peça chegou";
+    const first = entry("crew-alert", text, "pt-PT");
+    const second = entry("crew-update", "A peça está pronta", "pt-PT");
+    for (const op of [first, second, first]) {
+      data(appendThreadEntriesRoute.output, await f.request(entries(crew), "foreman", { operations: [op] }));
+    }
+    expect(f.wakes.map(keys => keys.length)).toEqual([1, 1]);
+    expect(f.hints).toEqual([`thread:${crew}`, `thread:${crew}`]);
+    const { results: notices } = await f.db.prepare(`SELECT n.kind, n.context_id, n.link_token
+      FROM notifications n ORDER BY n.event_key`).all<{ kind: string; context_id: string; link_token: string }>();
+    const token = notices[0]!.link_token;
+    expect(notices).toEqual(Array.from({ length: 2 }, () => ({ kind: "chat_message", context_id: "worker-ctx", link_token: token })));
+    expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "worker"))).toEqual({
+      kind: "thread", threadId: crew, audience: "crew",
+    });
+    expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "customer"))).toMatchObject({ kind: "unavailable" });
+    const delivered: ExpoMessage[] = [];
+    const expo: ExpoFetch = async (_url, init) => {
+      const messages = JSON.parse(String(init.body)) as ExpoMessage[];
+      delivered.push(...messages);
+      return Response.json({ data: messages.map(() => ({ status: "ok", id: "chat-ticket" })) });
+    };
+    await runEffectBatch(f.env, f.wakes[0]!, Date.now(), expo);
+    expect(delivered).toHaveLength(1);
+    expect(delivered[0]?.data).toEqual({ url: `${origin}/l/${token}` });
+    expect(JSON.stringify(delivered)).not.toContain(text);
+    await f.db.prepare("UPDATE assignments SET state='released' WHERE id='chat-assignment'").run();
+    expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "worker"))).toMatchObject({
+      kind: "unavailable", reason: "removed",
+    });
+    await runEffectBatch(f.env, f.wakes[1]!, Date.now(), expo);
+    expect(delivered).toHaveLength(1);
   } finally { f.db.close(); }
 });

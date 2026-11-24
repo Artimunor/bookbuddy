@@ -40,6 +40,7 @@ function destination(link: Destination, role: string | undefined, opaque: string
       if (record.audience === "worker") return { pathname: "/w/shifts/[shiftId]", params: { shiftId: record.job.assignment.shiftId } } as Href;
       return "/p/jobs" as Href;
     }
+    case "thread": return { pathname: "/threads/[threadId]", params: { threadId: link.threadId } } as Href;
     case "completion": return link.completion.audience === "customer"
       ? { pathname: "/c/jobs/[jobId]/completion", params: { jobId: link.completion.job.jobId } } as Href
       : { pathname: "/f/jobs/[jobId]/wrap-up", params: { jobId: link.completion.job.jobId } } as Href;

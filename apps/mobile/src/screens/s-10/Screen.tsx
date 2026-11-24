@@ -1,4 +1,4 @@
-import { appendThreadEntriesRoute, getThreadEntriesRoute, getThreadRoute, markThreadReadRoute, reportTranslationRoute, requestTranslationRoute, type ChatEntryProjection, type ThreadDetails, type ThreadEntriesPage } from "@bookbuddy/api-contract";
+import { appendThreadEntriesRoute, getThreadEntriesRoute, markThreadReadRoute, reportTranslationRoute, requestTranslationRoute, type ChatEntryProjection, type ThreadDetails, type ThreadEntriesPage } from "@bookbuddy/api-contract";
 import { uuid } from "expo";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -19,35 +19,33 @@ import { useBeaconTheme } from "../../ui/theme";
 type PendingMessage = { id: string; text: string; sourceLanguage: string; at: number; failed?: boolean };
 export default function ChatScreen() {
   const { threadId } = useLocalSearchParams<{ threadId: string }>(); const id = threadId ?? ""; const router = useRouter();
-  const details = useRemote(getThreadRoute, { params: { id } }, { enabled: !!id, loadOnMount: false });
   const page = useRemote(getThreadEntriesRoute, { params: { id } }, { enabled: !!id, loadOnMount: false });
   const { client, offline } = useApiAccess(); const outbox = useOutbox(); const repo = useRepository();
   const read = useCommand(markThreadReadRoute); const report = useCommand(reportTranslationRoute); const translate = useCommand(requestTranslationRoute);
   const [draft, setDraft] = useState(""); const [busy, setBusy] = useState(false); const [failed, setFailed] = useState(false); const [reported, setReported] = useState(false);
   const [history, setHistory] = useState<{ id: string; repo: typeof repo; entries: ChatEntryProjection[]; cursor: string | null }>({ id, repo, entries: [], cursor: null });
   const attempt = useRef<{ id: string; text: string; sourceLanguage: string } | null>(null);
-  const previous = useRef<{ id: string; repo: typeof repo; details: ThreadDetails | null; page: ThreadEntriesPage | null }>({ id, repo, details: null, page: null });
-  const refreshThread = () => { void details.refresh(); void page.refresh(); };
+  const previous = useRef<{ id: string; repo: typeof repo; page: ThreadEntriesPage | null }>({ id, repo, page: null });
+  const refreshThread = () => { void page.refresh(); };
   const retryLive = useLiveHints(id ? { kind: "thread", opaqueId: id } : null, page.refresh, {
-    onCatchUp: ({ at, details: thread, page: firstPage }) => { details.seed(thread, at); page.seed(firstPage, at); },
+    onCatchUp: ({ at, details: thread, page: firstPage }) => page.seed({ ...firstPage, thread }, at),
     onUnavailable: refreshThread,
     onScopeClosed: () => {
-      previous.current = { id, repo, details: null, page: null };
+      previous.current = { id, repo, page: null };
       setHistory({ id, repo, entries: [], cursor: null });
       refreshThread();
     },
   });
-  if (previous.current.id !== id || previous.current.repo !== repo) previous.current = { id, repo, details: null, page: null };
-  if (details.status === "ready") previous.current.details = details.data;
+  if (previous.current.id !== id || previous.current.repo !== repo) previous.current = { id, repo, page: null };
   if (page.status === "ready") previous.current.page = page.data;
-  const denied = details.status === "error" || page.status === "error";
-  if (denied) previous.current = { id, repo, details: null, page: null };
+  const denied = page.status === "error";
+  if (denied) previous.current = { id, repo, page: null };
   useEffect(() => {
-    const error = details.status === "error" ? details.error : page.status === "error" ? page.error : null;
+    const error = page.status === "error" ? page.error : null;
     if (error?.code === "NOT_FOUND" || error?.code === "UNAUTHENTICATED") router.replace("/help" as Href);
-  }, [details.status, details.error, page.status, page.error, router]);
-  const data = repo?.isActive && !denied ? details.data ?? (offline ? previous.current.details : null) : null;
+  }, [page.status, page.error, router]);
   const currentPage = repo?.isActive && !denied ? page.data ?? (offline ? previous.current.page : null) : null;
+  const data = currentPage?.thread ?? null;
   const older = history.id === id && history.repo === repo ? history.entries : [];
   const cursor = history.id === id && history.repo === repo && history.entries.length ? history.cursor : undefined;
   const entries = currentPage && { ...currentPage, entries: [...currentPage.entries, ...older.filter(old => !currentPage.entries.some(entry => entry.id === old.id))], page: cursor === undefined ? currentPage.page : { cursor, hasMore: cursor !== null } } as ThreadEntriesPage;
@@ -97,6 +95,9 @@ export function ChatView({ data, page, pending, offline, draft, busy, failed, re
     </View>{failed && <Copy>{t("mobile.chat.failed")}</Copy>}</View> : <View style={{ padding: space.contentInset }}><Copy>{data.readOnlyReason === "job_closed" ? t("mobile.chat.closed") : t("mobile.chat.readOnly")}</Copy></View>);
   return <Screen title={data?.audience === "crew" ? t("mobile.chat.crew") : t("mobile.chat.job")} navigation={{ kind: "back", label: t("mobile.chat.back"), onPress: onBack }} dock={composer} bell={<Button variant="navigation" label={t("mobile.chat.details")} glyph="ⓘ" iconOnly onPress={onDetails} />}>
     {data && <><Copy variant="supporting">{data.job.reference} · {data.job.title}</Copy><Pressable accessibilityRole="button" onPress={onDetails} style={{ backgroundColor: color.subtle, padding: space.grid[3], borderRadius: radius.card }}><Copy variant="supporting">{t("mobile.chat.languageLine", { reading: readingLanguageLabel(t, data.readingLocale), name: contact?.displayName ?? "", writing: readingLanguageLabel(t, contact?.writingLanguage ?? null) })}</Copy></Pressable></>}
+    {data?.audience === "crew" && data.safetyHold && <View role="status" accessibilityLiveRegion="polite" style={{ backgroundColor: color.attentionSoft, borderColor: color.attentionInk, borderWidth: 1, borderRadius: radius.card, padding: space.cardPadding }}>
+      <Copy variant="sectionTitle" style={{ color: color.attentionInk }}>{t("mobile.liveShift.hold")}</Copy>
+    </View>}
     {offline && <Copy>{t("mobile.chat.offline")}</Copy>}
     {!data && <><Copy>{offline ? t("mobile.chat.offline") : t("mobile.chat.loading")}</Copy><Button variant="neutral" label={t("mobile.chat.retry")} onPress={onRetry} /></>}
     {page?.page.hasMore && <Button variant="quiet" label={t("mobile.chat.more")} disabled={busy || offline} onPress={onMore} />}

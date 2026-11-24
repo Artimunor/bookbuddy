@@ -4,7 +4,7 @@ import type { LanguagePair } from "../../providers/translate";
 import { at, displayName, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import { customerStampSql } from "../field/live";
-import { effectiveAttendance } from "../field/safety";
+import { activeHold, currentSafetyVersion, effectiveAttendance } from "../field/safety";
 import { currentMembership } from "../jobs/projections";
 import type { SyncProjectionReader } from "../sync/registry";
 import { chatMediaAvailable, chatThreadKind, mediaKind, readingLocales, receiptFields, savedReadPosition } from "./commands";
@@ -67,8 +67,19 @@ export function readThreadList(session: SessionAccess, now: number, after: reado
           ORDER BY job_id, audience LIMIT 1 OFFSET ${inboxPageSize - 1}))) FROM live_scope) AS value FROM acting_session`, JSON.stringify(pairs));
 }
 
+const assignedVisibility = `(t.role = 'foreman' OR a.worker_membership_id = ${currentMembership("t", at)})`;
+const crewHold = `(WITH relevant AS MATERIALIZED (
+  SELECT v.id AS visit_id, a.id, a.starts_at FROM visits v
+  JOIN shifts s ON s.visit_id = v.id AND s.state IN ('planned', 'active')
+  JOIN shift_slots slot ON slot.shift_id = s.id JOIN assignments a ON a.slot_id = slot.id
+  WHERE v.job_id = t.job_id AND v.state = 'booked' AND a.state = 'confirmed' AND a.confirmed_at <= ${at}
+    AND a.ends_at > ${at} AND ${assignedVisibility}
+) SELECT EXISTS (SELECT 1 FROM relevant r WHERE r.visit_id = (
+  SELECT visit_id FROM relevant ORDER BY starts_at > ${at}, starts_at, visit_id LIMIT 1
+) AND ${activeHold("r.id", currentSafetyVersion("r.id"))}))`;
+
 const allChatMembers = `all_chat_members AS MATERIALIZED (${chatParticipants()})`;
-const threadDetailsSql = `(SELECT json_object(${threadFields("t")}, 'canSend', ${bool("t.can_send")},
+const threadDetailsJson = `json_patch(json_object(${threadFields("t")}, 'canSend', ${bool("t.can_send")},
       'readOnlyReason', CASE WHEN t.job_state <> 'open' THEN 'job_closed' WHEN NOT t.can_send THEN 'read_only_grant' END,
       'readPosition', ${savedReadPosition("t")}, 'lastPosition', t.last_position, 'readingLocale', pref.reading_locale,
       'members', json(${items(`SELECT json_object(${actorFields("a", "member", "t")}, 'isContact', ${bool(contact("member", "t"))},
@@ -77,7 +88,9 @@ const threadDetailsSql = `(SELECT json_object(${threadFields("t")}, 'canSend', $
           ORDER BY e.position DESC LIMIT 1), 'readingLocale', p.reading_locale) AS value
         FROM all_chat_members member JOIN accounts a ON a.id = member.account_id
         LEFT JOIN account_preferences p ON p.account_id = member.account_id
-        ORDER BY member.role <> 'foreman', a.display_name, member.context_id`)}))
+        ORDER BY member.role <> 'foreman', a.display_name, member.context_id`)})),
+      CASE WHEN t.audience = 'crew' THEN json_object('safetyHold', ${bool(crewHold)}) ELSE '{}' END)`;
+const threadDetailsSql = `(SELECT ${threadDetailsJson}
       FROM chat_scope t LEFT JOIN account_preferences pref ON pref.account_id = t.account_id)`;
 
 export function readThread(session: SessionAccess, now: number, threadId: string): CommandStatement {
@@ -96,7 +109,6 @@ const jobStamps = items(`SELECT json_object('visitId', v.id, 'update', json(${cu
     AND (cu.kind <> 'photo' OR EXISTS (SELECT 1 FROM update_attachments ua WHERE ua.update_id = cu.id))
   ORDER BY cu.recorded_at DESC, cu.id DESC LIMIT ${entryPageSize}`);
 
-const assignedVisibility = `(t.role = 'foreman' OR a.worker_membership_id = ${currentMembership("t", at)})`;
 const crewStamps = items(`SELECT json_object('id', id, 'visitId', visit_id, 'at', stamp_at, 'kind', kind,
     'isCurrent', ${bool("current")}, 'actorName', (SELECT ${displayName("actor")} FROM accounts actor WHERE actor.id = actor_id)) AS value FROM (
     SELECT e.id, v.id AS visit_id, e.actual_at AS stamp_at, e.actor_id,
@@ -117,7 +129,8 @@ const crewStamps = items(`SELECT json_object('id', id, 'visitId', visit_id, 'at'
       AND e.kind IN ('work_started', 'work_paused', 'work_finished')
   ) WHERE stamp_at BETWEEN ${stampFloor} AND ${at} ORDER BY stamp_at DESC, id DESC LIMIT ${entryPageSize}`);
 
-const threadEntriesSql = (initial: boolean, pairs: readonly LanguagePair[]) => `(SELECT json_object('threadId', t.id, 'audience', t.audience,
+const threadEntriesSql = (initial: boolean, pairs: readonly LanguagePair[], includeHeader = false) => `(SELECT
+      json_object('threadId', t.id, 'audience', t.audience, ${includeHeader ? `'thread', json(${threadDetailsJson}),` : ""}
       'entries', json(${items(`SELECT CASE WHEN author.author_context = t.context_id THEN
         json_set(entry, '$.readingLocales', json(locales)) ELSE entry END AS value FROM (
         SELECT json_object(${receiptFields("e")}, 'correctsId', e.corrects_id, 'sourceLanguage', e.source_language,
@@ -150,7 +163,7 @@ function threadEntriesScope(session: SessionAccess, now: number, threadId: strin
 export function readThreadEntries(session: SessionAccess, now: number, threadId: string, before: number | null,
   pairs: readonly LanguagePair[]): CommandStatement {
   return scopedStatement(threadEntriesScope(session, now, threadId, before, pairs),
-    `SELECT ${threadEntriesSql(before === null, pairs)} AS value FROM acting_session`);
+    `SELECT ${threadEntriesSql(before === null, pairs, before === null)} AS value FROM acting_session`);
 }
 
 export function readLiveThread(session: SessionAccess, now: number, threadId: string, pairs: readonly LanguagePair[]): CommandStatement {

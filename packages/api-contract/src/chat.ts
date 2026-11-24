@@ -74,7 +74,7 @@ export const threadSummarySchema = z.strictObject({
 });
 
 // S-13: current members only, no contact details, profiles or former members.
-export const threadDetailsSchema = z.strictObject({
+const threadDetails = {
   ...threadHeader,
   canSend: z.boolean(),
   readOnlyReason: z.enum(["job_closed", "read_only_grant"]).nullable(),
@@ -82,7 +82,11 @@ export const threadDetailsSchema = z.strictObject({
   lastPosition: readPosition,
   readingLocale: localeTagSchema.nullable(),
   members: z.array(member),
-});
+};
+export const threadDetailsSchema = z.discriminatedUnion("audience", [
+  z.strictObject({ ...threadDetails, audience: z.literal("job") }),
+  z.strictObject({ ...threadDetails, audience: z.literal("crew"), safetyHold: z.boolean() }),
+]);
 
 const visitId = idSchemaFor<"visit">();
 const jobStamp = z.strictObject({ visitId, update: customerUpdateSchema, isCurrent: z.boolean() });
@@ -94,6 +98,9 @@ const crewStamp = z.strictObject({
 });
 const entryPage = {
   threadId: chatThreadIdSchema,
+  // The initial HTTP read includes the checked header and viewer permissions.
+  // Older pages and realtime frames with separate details omit this field.
+  thread: threadDetailsSchema.optional(),
   entries: z.array(chatEntryProjectionSchema).max(syncLimits.changes),
   page: paginationSchema,
 };
@@ -101,7 +108,7 @@ const entryPage = {
 export const threadEntriesPageSchema = z.discriminatedUnion("audience", [
   z.strictObject({ ...entryPage, audience: z.literal("job"), stamps: z.array(jobStamp).max(syncLimits.changes) }),
   z.strictObject({ ...entryPage, audience: z.literal("crew"), stamps: z.array(crewStamp).max(syncLimits.changes) }),
-]);
+]).refine(({ thread, threadId, audience: pageAudience }) => !thread || (thread.id === threadId && thread.audience === pageAudience));
 
 export const appendChatPayloadSchema = z.strictObject({
   // Stable client message ID: the entry ID, also the root ID for a new message.

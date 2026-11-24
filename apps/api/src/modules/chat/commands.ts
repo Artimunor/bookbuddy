@@ -8,6 +8,7 @@ import { languageSql, translationText, unsupportedMessageControls } from "../../
 import type { LanguagePair } from "../../providers/translate";
 import { at, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { chatNotifications } from "./links";
 import { chatParticipants, chatScope, chatTargets, ensureChatMember, entryVisible, exactThread } from "./policy";
 import { canRetryTranslation, preferredTranslation, reviewedPair, translationIntent } from "./translation";
 
@@ -28,6 +29,10 @@ function threadChanges(threadId: string, now: number, viewer?: SessionAccess): C
   return { sql: `WITH clock(at) AS (VALUES (?)), chat_targets AS MATERIALIZED (${chatTargets("t.id = ?")})
     SELECT '${chatThreadKind}' AS kind, id AS resource_id, context_id AS partition_key, 'upsert' AS op, ${at} AS at
     FROM (${chatParticipants()})`, params: [now, threadId] };
+}
+
+function joinSelects(a: CommandStatement, b: CommandStatement): CommandStatement {
+  return { sql: `SELECT * FROM (${a.sql}) UNION ALL SELECT * FROM (${b.sql})`, params: [...a.params ?? [], ...b.params ?? []] };
 }
 
 export const receiptFields = (entry: string) => `'id', ${entry}.id, 'rootId', ${entry}.root_id,
@@ -79,6 +84,7 @@ export async function planChatAppend(ctx: Clock, session: SessionAccess, threadI
   const hasPrior = correctsId === undefined ? (expectedRevision === undefined || expectedRevision === 0
     ? "NOT EXISTS (SELECT 1 FROM chat_messages WHERE id = (SELECT id FROM append_input))" : "0")
     : `EXISTS (SELECT 1 FROM prior${expectedRevision === undefined ? "" : " WHERE revision = ?"})`;
+  const notices = chatNotifications(scoped, threadId, id, ctx.now);
   const plan = await planOperation(ctx, {
     command: "chat.append", operationId, resultRef: id, access,
     input: { threadId, expectedRevision, payload: { id, correctsId, originalText, sourceLanguage, attachmentIds: attachments } },
@@ -127,9 +133,10 @@ export async function planChatAppend(ctx: Clock, session: SessionAccess, threadI
             AND (pair.value ->> '$[1]') = prefs.reading_locale COLLATE NOCASE
           WHERE e.id = ? AND ${languageSql("e.source_language")} <> ${languageSql("prefs.reading_locale")} AND ${guard.sql}
           ON CONFLICT(root_id, revision, target_locale) DO NOTHING`, JSON.stringify(pairs), id, ...guard.params ?? [])] : [],
+        ...notices.statements(guard),
       ],
-      changes: threadChanges(threadId, ctx.now),
-      ...(translate ? { effects: translationIntent(id, ctx.now) } : {}),
+      changes: joinSelects(threadChanges(threadId, ctx.now), notices.changes),
+      effects: translate ? joinSelects(translationIntent(id, ctx.now), notices.effects) : notices.effects,
       topics: [{ kind: "thread", opaqueId: threadId }],
     }),
   });
