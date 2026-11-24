@@ -1,0 +1,15 @@
+{
+  "defaultLocale": "en",
+  "enabledLocales": {
+    "en": { "autonym": "English", "dir": "ltr" },
+    "pt-PT": { "autonym": "Português (Portugal)", "dir": "ltr" }
+  },
+  "languageDefaults": {
+    "en": "en",
+    "pt": "pt-PT"
+  },
+  "pseudoLocales": {
+    "en-XA": { "autonym": "English (expanded)", "dir": "ltr" },
+    "ar-XB": { "autonym": "Arabic (RTL test)", "dir": "rtl" }
+  }
+}

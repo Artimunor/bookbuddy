@@ -1,0 +1,13 @@
+# Web shell
+
+Run `bun run dev:web` from the repository root. Vite serves the web shell and proxies `/api` (including WebSocket upgrades) to the local Worker on port 8787. Run `bun run build:web` to build `apps/web/dist/`. The build writes `index.html` for the portal and link shell, `<locale>/index.html` for localized home pages, and `<locale>/<page>.html` for other public pages. The public documents contain only the route shell until their page modules land.
+
+## Hosting on Cloudflare
+
+Serve `dist/` on the same HTTPS origin as the API and verified app links. For Workers Static Assets, use `auto-trailing-slash` HTML handling: `/en/` maps to `en/index.html` and `/en/services` maps to `en/services.html`. Disable the global SPA fallback so nonexistent public pages can return 404.
+
+- Route `/api` and `/api/*` to the API Worker. Leave static assets and localized documents asset-first.
+- Route unprefixed `/`, `/services`, `/services/repairs`, `/book`, `/help`, `/privacy` and `/terms` (including their trailing-slash forms) through the host before static serving. Pass the request method, URL, `Cookie` and `Accept-Language` to `redirectPublicEntry` in `src/entry/host.ts`. For GET and HEAD it returns the same-origin `302` with `Cache-Control: private, no-store`. Preserve the query string. In particular, `/` must reach this handler before Cloudflare serves the root `index.html`.
+- For document GET and HEAD requests in the `/portal` namespace and at `/l/:opaque`, serve the static `/index.html` shell without changing the URL. Use `portalDocumentPath` from `src/entry/host.ts` to restrict this fallback. Do not use the shell for an API, asset or unmatched public request. This fallback serves no session or job data; the portal route and API still need to check access when those features are wired.
+
+The locale handler accepts an enabled tag in the `bookbuddy_ui_locale` cookie before consulting weighted `Accept-Language`. It falls back to English only if neither yields a supported locale. A public language selector can save an explicit choice by setting that cookie with a persistence lifetime, `Path=/`, `SameSite=Lax` and `Secure` on HTTPS. Visiting a prefixed URL alone does not set the cookie or change the signed-in account preference. Vite dev and preview use the same redirect handler; production Worker asset routing is configured at deployment.
