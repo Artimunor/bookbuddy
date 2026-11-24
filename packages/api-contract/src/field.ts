@@ -150,12 +150,17 @@ const workStamp = z.strictObject({
 
 // W-04, W-06 and W-10: only this worker's assignment, estimate and attendance.
 export const workerFieldShiftSchema = z.strictObject({
-  id: assignmentId, shiftId, visitId, job: jobHeading, siteZone, bookedWindow, task: displayText,
+  id: assignmentId, shiftId, visitId, job: jobHeading.extend({ placeAlias: displayText.nullable() }), siteZone, bookedWindow, task: displayText,
   state: z.enum(ASSIGNMENT_STATES), isLead: z.boolean(), foremanName: displayText,
-  crewThreadId: idSchemaFor<"chat_thread">().nullable(), estimate: estimateReceipt.nullable(), attendance,
+  crewThreadId: idSchemaFor<"chat_thread">().nullable(), estimate: estimateReceipt.nullable(),
+  attendance: attendance.extend({ pendingReviewEventIds: z.array(attendanceEventId) }),
   holds: z.array(safetyHold), work: workStamp.nullable(),
   nextAction: z.enum(["depart", "check_in", "check_out", "view_briefing", "send_progress"]).nullable(),
 });
+export const cachedWorkerFieldShiftSchema = workerFieldShiftSchema.extend({
+  job: workerFieldShiftSchema.shape.job.omit({ placeAlias: true }),
+});
+
 // W-09: ordinary safe arrival plan is not the human-reviewed safety instruction.
 export const assignmentBriefingSchema = z.strictObject({
   shift: workerFieldShiftSchema,
@@ -242,7 +247,8 @@ const visitCommand = <Payload extends z.ZodType>(payload: Payload) =>
 // inside its scoped D1 read or guarded batch; the caller cannot supply authority or receipt time.
 export const getVisitLiveRoute = defineRoute({
   method: "GET", path: "/visits/:id/live", auth: "context",
-  input: z.object({ params: visitParams, query: paginationInputSchema.optional() }), output: customerLiveVisitSchema,
+  input: z.object({ params: visitParams, query: paginationInputSchema.optional() }),
+  output: z.union([customerLiveVisitSchema, foremanVisitControlSchema]),
 });
 export const getVisitLogRoute = defineRoute({
   method: "GET", path: "/visits/:id/log", auth: "context",
@@ -258,7 +264,7 @@ export const departAssignmentRoute = defineRoute({
 });
 export const recordAttendanceRoute = defineRoute({
   method: "POST", path: "/assignments/:id/attendance", auth: "context", command: true,
-  input: z.object({ params: assignmentParams, body: commandInputSchema(submitAttendance) }), output: attendanceResult,
+  input: z.object({ params: assignmentParams, body: commandInputSchema(submitAttendance).strict() }), output: attendanceResult,
 });
 export const requestAttendanceCorrectionRoute = defineRoute({
   method: "POST", path: "/assignments/:id/request-correction", auth: "context", command: true,
@@ -283,6 +289,10 @@ export const publishVisitUpdateRoute = defineRoute({
   method: "POST", path: "/visits/:id/updates", auth: "context", command: true,
   input: visitCommand(publishUpdate),
   output: z.strictObject({ visitId, revision: revisionSchema, update: customerUpdateSchema, customerPreview: customerLiveSummary }),
+});
+export const getWorkerFieldShiftRoute = defineRoute({
+  method: "GET", path: "/assignments/:id/field", auth: "context",
+  input: z.object({ params: assignmentParams }), output: workerFieldShiftSchema,
 });
 export const getAssignmentBriefingRoute = defineRoute({
   method: "GET", path: "/assignments/:id/briefing", auth: "context",
