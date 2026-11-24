@@ -1,11 +1,45 @@
 import { Database } from "bun:sqlite";
 import type { SQLQueryBindings } from "bun:sqlite";
+import { Buffer } from "node:buffer";
 import { readdir } from "node:fs/promises";
 
 export interface D1CallCounts {
   prepare: number;
   batch: number;
   query: number;
+}
+
+// SQLite's local defaults are looser than deployed D1. Each db.batch item is
+// still subject to these limits: https://developers.cloudflare.com/d1/platform/limits/
+const tokens = /--[^\r\n]*|\/\*[\s\S]*?(?:\*\/|$)|'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*\]|[$A-Za-z0-9_\u0080-\uffff]+|[();]/g;
+
+function d1Limit(message: string, sql: string, offset = 0): never {
+  const error = new RangeError(`D1 statement ${message}: ${sql.slice(Math.max(0, offset - 80), offset + 160).trim()}`);
+  // Route error envelopes may hide the originating SQL from a test failure.
+  console.error(error.message);
+  throw error;
+}
+
+function checkStatement(sql: string) {
+  if (Buffer.byteLength(sql, "utf8") > 100_000) d1Limit("exceeds 100 KB", sql);
+  // Parenthesized subqueries and CTEs have separate compound SELECT counts.
+  const terms = [1];
+  for (const match of sql.matchAll(tokens)) {
+    switch (match[0].toUpperCase()) {
+      case "(": terms.push(1); break;
+      case ")": if (terms.length > 1) terms.pop(); break;
+      case ";": terms[terms.length - 1] = 1; break;
+      case "UNION":
+      case "INTERSECT":
+      case "EXCEPT": {
+        const depth = terms.length - 1;
+        const count = (terms[depth] ?? 1) + 1;
+        if (count > 5) d1Limit("exceeds five compound SELECT terms", sql, match.index);
+        terms[depth] = count;
+        break;
+      }
+    }
+  }
 }
 
 function toSqlite(value: unknown): SQLQueryBindings {
@@ -27,6 +61,7 @@ class SqliteStatement implements D1PreparedStatement {
   constructor(readonly owner: TestD1, readonly sql: string, readonly params: SQLQueryBindings[] = []) {}
 
   bind(...values: unknown[]): D1PreparedStatement {
+    if (values.length > 100) d1Limit(`has ${values.length} bound parameters (max 100)`, this.sql);
     return new SqliteStatement(this.owner, this.sql, values.map(toSqlite));
   }
 
@@ -67,6 +102,7 @@ export class TestD1 implements D1Database {
   constructor(private readonly sqlite: Database) {}
 
   prepare(sql: string): D1PreparedStatement {
+    checkStatement(sql);
     this.calls.prepare++;
     return new SqliteStatement(this, sql);
   }

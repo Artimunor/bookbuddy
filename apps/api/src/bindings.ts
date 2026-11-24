@@ -1,8 +1,9 @@
 import type { AuthBindings } from "./config";
 import type { EffectsWake } from "./effects/index";
+import type { TranslationBindings } from "./providers/translate";
 import type { LiveTopic } from "./realtime/live-topic";
 
-export interface Bindings extends AuthBindings {
+export interface Bindings extends AuthBindings, TranslationBindings {
   DB: D1Database;
   EVIDENCE: R2Bucket;
   // The deployed S3 bucket name must match EVIDENCE.

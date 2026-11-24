@@ -7,8 +7,11 @@ import type { Bindings } from "../bindings";
 import { createMailDelivery } from "../providers/mail";
 import type { MailMessage } from "../providers/mail";
 import type { ExpoFetch } from "../providers/expo-push";
+import type { TranslationFetch } from "../providers/translate";
 import { dispatchPush, pushNotificationEffect, sweepPushReceipts } from "./push";
 import type { EffectOutcome } from "./push";
+import { chatTranslationEffect, dispatchTranslation, publishTranslationHints, recoverTranslations } from "./translate";
+import type { TranslationThread } from "./translate";
 
 // Durable intent data stays in D1. Queue wakeups carry keys only.
 export interface EffectsWake {
@@ -31,7 +34,7 @@ export interface EffectHandler extends ClaimDefinition {
 
 const mailHandlers: readonly EffectHandler[] = [otpEmailEffect, invitationMailEffect, commercialMailEffect];
 const mailByKind = new Map(mailHandlers.map((handler) => [handler.kind, handler]));
-const handlers: readonly ClaimDefinition[] = [...mailHandlers, pushNotificationEffect];
+const handlers: readonly ClaimDefinition[] = [...mailHandlers, pushNotificationEffect, chatTranslationEffect];
 const knownKinds = handlers.map(({ kind }) => `'${kind}'`).join(", ");
 const eligible = `CASE e.kind ${handlers.map((h) => `WHEN '${h.kind}' THEN (${h.eligible})`).join(" ")} ELSE 0 END`;
 const scrub = `CASE kind ${handlers.map((h) => `WHEN '${h.kind}' THEN (${h.scrub})`).join(" ")} ELSE resource_ref END`;
@@ -41,7 +44,8 @@ const maxClaim = 32;
 const leaseMs = 60_000;
 const effectClock = "WITH clock(at) AS (VALUES (?))";
 
-export async function runEffectBatch(env: Bindings, keys: readonly string[] | null, now = Date.now(), expoFetch?: ExpoFetch): Promise<void> {
+export async function runEffectBatch(env: Bindings, keys: readonly string[] | null, now = Date.now(),
+  expoFetch?: ExpoFetch, translationFetch?: TranslationFetch): Promise<void> {
   if (keys?.length === 0) return;
   const { DB: db } = env;
   const claim = crypto.randomUUID();
@@ -51,7 +55,7 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
   const keyArgs = keys === null ? [] : [JSON.stringify(keys)];
   // Claim + input in one transactional batch. Bound each sweep; pending work
   // left by a missed wake stays in the ledger for the next scheduled pass.
-  const claimResults = await db.batch<ClaimedEffect>([
+  const claimResults = await db.batch([
     ...(keys === null ? [...completionSweepStatements(now), ...caseSweepStatements(now)]
       .map(({ sql, params }) => db.prepare(sql).bind(...params ?? [])) : []),
     db.prepare(`${effectClock} UPDATE effect_outbox SET state = 'skipped', resource_ref = ${scrub}
@@ -67,6 +71,7 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
       WHERE result_code IS NULL AND lease_until <= ? AND effect_id IN (
         SELECT id FROM effect_outbox WHERE state = 'unknown' AND kind IN (${knownKinds})
       )`).bind(now),
+    recoverTranslations(db, target, keyArgs, 2 * maxClaim),
     db.prepare(`${effectClock} INSERT INTO effect_claims (effect_id, attempt, claim_id, fence, claimed_at, lease_until)
       SELECT e.id, 1, ?, 1, ?, min(e.expires_at, ?) FROM effect_outbox e
       WHERE e.state = 'pending' AND ${target} AND e.due_at <= ? AND e.expires_at > ? AND (${eligible})
@@ -76,19 +81,29 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
     db.prepare(`${effectClock} SELECT e.id, e.kind, ${claimResource} AS resource_ref FROM effect_claims c JOIN effect_outbox e ON e.id = c.effect_id
       WHERE c.claim_id = ? AND e.state = 'claimed' ORDER BY e.due_at, e.id`).bind(now, claim),
   ]);
-  const claimed = claimResults.at(-1);
-  if (!claimed?.results.length) return;
+  const claimed = claimResults.at(-1)?.results as ClaimedEffect[] | undefined;
+  const recovered = claimResults.at(-4)?.results as TranslationThread[] ?? [];
+  if (!claimed?.length) {
+    if (recovered.length) await publishTranslationHints(env, recovered);
+    return;
+  }
 
-  const mailJobs: ClaimedEffect[] = [], pushJobs: ClaimedEffect[] = [];
-  for (const job of claimed.results) (job.kind === pushNotificationEffect.kind ? pushJobs : mailJobs).push(job);
-  const [mail, push] = await Promise.all([
+  const mailJobs: ClaimedEffect[] = [], pushJobs: ClaimedEffect[] = [], translationJobs: ClaimedEffect[] = [];
+  for (const job of claimed) {
+    if (job.kind === chatTranslationEffect.kind) translationJobs.push(job);
+    else if (job.kind === pushNotificationEffect.kind) pushJobs.push(job);
+    else mailJobs.push(job);
+  }
+  const [mail, push, translation] = await Promise.all([
     dispatchMail(env, mailJobs),
     dispatchPush(env, pushJobs, claim, now, expoFetch),
+    dispatchTranslation(env, translationJobs, claim, translationFetch),
   ]);
-  const results = JSON.stringify(mail.concat(push.outcomes));
+  const results = JSON.stringify(mail.concat(push.outcomes, translation.outcomes));
   // The claim ID and outstanding-result guard fence late responses. A dead
   // process's expired claim becomes unknown, never pending for another send.
-  await db.batch([
+  const saved = await db.batch([
+    ...(translation.statement ? [translation.statement] : []),
     ...push.statements,
     db.prepare(`WITH outcomes AS (SELECT value ->> 'id' AS id, value ->> 'state' AS state FROM json_each(?))
       UPDATE effect_outbox SET state = (SELECT state FROM outcomes WHERE id = effect_outbox.id), resource_ref = ${scrub}
@@ -100,6 +115,8 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
       WHERE claim_id = ? AND result_code IS NULL
         AND effect_id IN (SELECT id FROM effect_outbox WHERE state IN ('delivered', 'failed', 'unknown', 'skipped'))`).bind(claim),
   ]);
+  const translated = translation.statement ? saved[0]?.results as TranslationThread[] ?? [] : [];
+  if (recovered.length || translated.length) await publishTranslationHints(env, [...recovered, ...translated]);
 }
 
 async function dispatchMail(env: Bindings, jobs: readonly ClaimedEffect[]): Promise<EffectOutcome[]> {

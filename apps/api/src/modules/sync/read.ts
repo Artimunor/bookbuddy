@@ -7,13 +7,29 @@ import type { SyncRegistry } from "./registry";
 
 const pageLimit = syncLimits.changes;
 
-export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: number, registry: SyncRegistry): CommandStatement {
+// D1 permits at most five SELECT terms in one compound. Nested groups keep
+// that limit without changing the feed order or making another D1 call.
+function compoundSelect(parts: readonly string[], empty: string): string {
+  if (parts.length <= 5) return parts.length ? parts.join(" UNION ALL ") : empty;
+  const groups = [];
+  for (let i = 0; i < parts.length; i += 5) {
+    groups.push(`SELECT * FROM (${parts.slice(i, i + 5).join(" UNION ALL ")})`);
+  }
+  return compoundSelect(groups, empty);
+}
+
+const sqlEncoder = new TextEncoder();
+const emptyProjection = "SELECT NULL AS kind, NULL AS resource_id, NULL AS value WHERE 0";
+
+export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: number, registry: SyncRegistry): CommandStatement[] {
   const expired = cursor !== null && cursor.expiresAt <= now;
   const snapshot = cursor?.phase === "snapshot" ? cursor : undefined;
   const delta = cursor?.phase === "delta" ? cursor : undefined;
-  const snapshotParts: string[] = [], projectionParts: string[] = [];
-  const snapshotParams: unknown[] = [], projectionParams: unknown[] = [];
+  const role = cursor?.context.role;
+  const snapshotParts: string[] = [], projectionParts: CommandStatement[] = [];
+  const snapshotParams: unknown[] = [];
   for (const [kind, reader] of registry.projections) {
+    if (role && reader.roles && !reader.roles.includes(role)) continue;
     // Registry kind names have already been restricted to ASCII ID characters.
     const ids = reader.snapshotIds(now);
     snapshotParts.push(`SELECT '${kind}' AS kind, resource_id FROM (
@@ -26,11 +42,9 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
     )`);
     snapshotParams.push(...ids.params ?? []);
     const projection = reader.project(now);
-    projectionParts.push(`SELECT '${kind}' AS kind, resource_id, value FROM (${projection.sql})`);
-    projectionParams.push(...projection.params ?? []);
+    projectionParts.push({ sql: `SELECT '${kind}' AS kind, resource_id, value FROM (${projection.sql})`, params: projection.params });
   }
-  return {
-    sql: `${access.sql},
+  const prefix = `${access.sql},
       cursor_input(phase, epoch, seq, through_seq, anchor, after_kind, after_id) AS (VALUES (?, ?, ?, ?, ?, ?, ?)),
       state AS MATERIALIZED (
         SELECT s.account_id, l.context_id, l.role, l.business_id,
@@ -68,7 +82,7 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
         SELECT *, row_number() OVER (PARTITION BY kind, resource_id ORDER BY seq DESC) AS newest FROM delta_page
       ),
       snapshot_scan AS MATERIALIZED (
-        SELECT kind, resource_id FROM (${snapshotParts.join(" UNION ALL ") || "SELECT NULL AS kind, NULL AS resource_id WHERE 0"})
+        SELECT kind, resource_id FROM (${compoundSelect(snapshotParts, "SELECT NULL AS kind, NULL AS resource_id WHERE 0")})
         ORDER BY kind, resource_id LIMIT COALESCE((SELECT ${pageLimit + 1} - barrier FROM bounds), 0)
       ),
       page_keys AS MATERIALIZED (
@@ -79,20 +93,45 @@ export function syncFeed(access: SessionAccess, cursor: SyncCursor | null, now: 
           LIMIT COALESCE((SELECT ${pageLimit} - barrier FROM bounds), 0)
         )
       ),
-      projection_keys AS MATERIALIZED (SELECT kind, resource_id FROM page_keys WHERE op = 'upsert'),
-      projections AS (${projectionParts.join(" UNION ALL ") || "SELECT NULL AS kind, NULL AS resource_id, NULL AS value WHERE 0"})
-      SELECT b.account_id, b.context_id, b.role, b.business_id, b.epoch, b.mode, b.barrier, b.high,
+      projection_keys AS MATERIALIZED (SELECT kind, resource_id FROM page_keys WHERE op = 'upsert')`;
+  const pageRows = `SELECT b.account_id, b.context_id, b.role, b.business_id, b.epoch, b.mode, b.barrier, b.high,
         b.delta_through, b.snapshot_anchor, (SELECT MAX(seq) FROM delta_page) AS delta_last,
         CASE WHEN b.mode = 'delta' THEN (SELECT count(*) FROM delta_scan) > ${pageLimit}
              ELSE (SELECT count(*) FROM snapshot_scan) > ${pageLimit} - b.barrier END AS has_more,
         k.seq, k.kind, k.resource_id, k.op, p.value
       FROM bounds b LEFT JOIN page_keys k ON 1
       LEFT JOIN projections p ON p.kind = k.kind AND p.resource_id = k.resource_id
-      ORDER BY k.seq, k.kind, k.resource_id`,
-    params: [...access.params ?? [], expired ? "expired" : cursor?.phase ?? "initial", cursor?.epoch ?? null,
-      delta?.seq ?? null, delta?.through ?? null, snapshot?.anchor ?? null, snapshot?.kind ?? null, snapshot?.id ?? null,
-      ...snapshotParams, ...projectionParams],
-  };
+      ORDER BY k.seq, k.kind, k.resource_id`;
+  const commonParams = [...access.params ?? [], expired ? "expired" : cursor?.phase ?? "initial", cursor?.epoch ?? null,
+    delta?.seq ?? null, delta?.through ?? null, snapshot?.anchor ?? null, snapshot?.kind ?? null, snapshot?.id ?? null, ...snapshotParams];
+
+  // A large projection does not justify another D1 request. Keep the same
+  // scoped page derivation in each necessary shard; all shards read the same
+  // transaction after its ordered writes, and each projection is evaluated once.
+  const fixedBytes = sqlEncoder.encode(`${prefix}, projections AS () ${pageRows}`).byteLength;
+  const groups: CommandStatement[][] = [[]];
+  let bytes = fixedBytes, parameters = commonParams.length;
+  for (const part of projectionParts) {
+    // Allow for compound separators and grouping parentheses around each arm.
+    const partBytes = sqlEncoder.encode(part.sql).byteLength + 40;
+    const partParameters = part.params?.length ?? 0;
+    if (fixedBytes + partBytes > 100_000 || commonParams.length + partParameters > 100) {
+      throw new RangeError("A sync projection cannot fit in a D1 statement");
+    }
+    if (bytes + partBytes > 100_000 || parameters + partParameters > 100) {
+      groups.push([]);
+      bytes = fixedBytes;
+      parameters = commonParams.length;
+    }
+    groups.at(-1)!.push(part);
+    bytes += partBytes;
+    parameters += partParameters;
+  }
+  return groups.map((group, index) => ({
+    sql: `${prefix}, projections AS (${compoundSelect(group.map(({ sql }) => sql), emptyProjection)})
+      ${index === 0 ? pageRows : "SELECT kind, resource_id, value FROM projections"}`,
+    params: [...commonParams, ...group.flatMap(({ params }) => params ?? [])],
+  }));
 }
 
 interface FeedRow {
@@ -118,10 +157,12 @@ export type FeedPage = Pick<SyncPage, "mode" | "context" | "upserts" | "removals
   accountId: SyncCursor["accountId"]; epoch: number; position: CursorPosition;
 };
 
-export function decodeFeed(rows: readonly unknown[], cursor: SyncCursor | null, registry: SyncRegistry): FeedPage | "UNAUTHENTICATED" | "NOT_FOUND" {
-  const pageRows = rows as FeedRow[];
-  const first = pageRows[0];
-  if (!first) return "UNAUTHENTICATED";
+interface ProjectedRow { kind: string; resource_id: string; value: string | null }
+
+export function decodeFeed(results: readonly D1Result[], cursor: SyncCursor | null, registry: SyncRegistry): FeedPage | "UNAUTHENTICATED" | "NOT_FOUND" {
+  const pageRows = results[0]?.results as FeedRow[] | undefined;
+  const first = pageRows?.[0];
+  if (!first || !pageRows) return "UNAUTHENTICATED";
   if (cursor && cursor.accountId !== first.account_id) return "NOT_FOUND";
   const accountId = accountIdSchema.parse(first.account_id);
   if (first.mode === "revoked") {
@@ -134,10 +175,16 @@ export function decodeFeed(rows: readonly unknown[], cursor: SyncCursor | null, 
   const removals: SyncRemoval[] = first.barrier ? [{ kind: "scope", resourceId: context.contextId }] : [];
   const upserts: SyncProjection[] = [];
   let lastKey: { kind: string; id: string } | undefined;
-  for (const { kind, resource_id: id, op, value } of pageRows) {
+  const supplemental = new Map<string, string>();
+  for (let i = 1; i < results.length; i++) {
+    const projections = results[i]!.results as ProjectedRow[];
+    for (const row of projections) if (row.value !== null) supplemental.set(`${row.kind}:${row.resource_id}`, row.value);
+  }
+  for (const { kind, resource_id: id, op, value: primary } of pageRows) {
     if (!kind || !id) continue;
     lastKey = { kind, id };
     const reader = registry.projections.get(kind);
+    const value = primary ?? supplemental.get(`${kind}:${id}`) ?? null;
     if (op === "upsert" && reader && value !== null) {
       upserts.push({ kind, resourceId: id, value: reader.schema.parse(JSON.parse(value)) });
     } else if (op === "remove" || (first.mode === "delta" && reader)) {

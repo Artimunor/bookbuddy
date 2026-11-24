@@ -6,6 +6,9 @@ import { commercialRoutes } from "./modules/commercial/routes";
 import { accessRoutes } from "./modules/access/routes";
 import { billingRoutes, completionRoutes } from "./modules/aftercare";
 import { authRoutes } from "./modules/auth/routes";
+import { chatThreadSyncProjection } from "./modules/chat/read";
+import { chatRoutes } from "./modules/chat/routes";
+import { chatAppendSyncOperation, chatReadSyncOperation } from "./modules/chat/sync";
 import { assignmentBriefingSyncProjection, attendanceRoutes, attendanceSyncOperation, fieldLiveRoutes, workerFieldShiftSyncProjection } from "./modules/field";
 import { jobSyncProjections } from "./modules/jobs/projections";
 import { jobsCommandRoutes } from "./modules/jobs/routes.commands";
@@ -36,10 +39,12 @@ export function createApp() {
   app.route(API_BASE_PATH, jobsCommandRoutes);
   app.route(API_BASE_PATH, jobsReadRoutes);
   app.route(API_BASE_PATH, createTransportRoutes({
-    operations: [attendanceSyncOperation],
+    operations: [attendanceSyncOperation, chatAppendSyncOperation, chatReadSyncOperation],
     projections: [
-      placeSyncProjection, ...jobSyncProjections, ...scheduleSyncProjections, coverSyncProjection,
+      placeSyncProjection, ...jobSyncProjections, ...scheduleSyncProjections,
+      { ...coverSyncProjection, roles: ["foreman", "worker"] },
       workerFieldShiftSyncProjection, assignmentBriefingSyncProjection,
+      chatThreadSyncProjection,
     ],
   }));
   app.route(API_BASE_PATH, accessRoutes);
@@ -52,6 +57,7 @@ export function createApp() {
   app.route(API_BASE_PATH, mediaRoutes);
   app.route(API_BASE_PATH, completionRoutes);
   app.route(API_BASE_PATH, billingRoutes);
+  app.route(API_BASE_PATH, chatRoutes);
 
   // Mount feature routers here via app.basePath(API_BASE_PATH).route("/", routes).
   // Routers' paths are relative to /api/v1, not each module name (see plan §3).

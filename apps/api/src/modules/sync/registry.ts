@@ -1,11 +1,14 @@
 import { idSchema } from "@bookbuddy/api-contract";
-import type { SyncOp, SyncOpKind, SyncProjection } from "@bookbuddy/api-contract";
+import type { ScopeHeader, SyncOp, SyncOpKind, SyncProjection } from "@bookbuddy/api-contract";
 import type { CommandInput, CommandStatement } from "../../db/commit";
 import type { OperationResult } from "../../db/operations";
 import type { RequestScope } from "../../db/scope";
+import type { LanguagePair } from "../../providers/translate";
 import type { SessionAccess } from "../auth/session";
 
-export type SyncCommandContext = Pick<RequestScope, "now" | "requestId"> & { access: SessionAccess; contextId: string };
+export type SyncCommandContext = Pick<RequestScope, "now" | "requestId"> & {
+  access: SessionAccess; contextId: string; translationPairs?: readonly LanguagePair[];
+};
 type Plan = (ctx: SyncCommandContext, operation: SyncOp) => Promise<CommandInput<OperationResult>>;
 export interface SyncOperationHandler { kind: SyncOpKind; plan: Plan }
 
@@ -21,6 +24,9 @@ export function syncOperation<K extends SyncOpKind>(kind: K, plan: (
 export interface SyncProjectionReader {
   kind: string;
   schema: { parse(value: unknown): SyncProjection["value"] };
+  // Optional planning hint: a signed cursor's context role can omit these
+  // branches, but all retained SQL still authorizes against current grants.
+  roles?: readonly ScopeHeader["role"][];
   // Read authorized resource_id keys from snapshot_scope, after snapshot_scope.after_id.
   // The surrounding query orders and limits each branch; expose no values here.
   snapshotIds: (now: number) => CommandStatement;

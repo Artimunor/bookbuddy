@@ -6,6 +6,7 @@ import { prepareCommand } from "../../db/commit";
 import type { CommandInput } from "../../db/commit";
 import type { OperationResult } from "../../db/operations";
 import { openRequestScope } from "../../db/scope";
+import { enabledTranslationPairs } from "../../providers/translate";
 import { resolveSession } from "../auth/session";
 import { notificationReadSyncOperation } from "../notifications/commands";
 import { notificationSyncProjection } from "../notifications/read";
@@ -16,8 +17,9 @@ import { decodeFeed, syncFeed } from "./read";
 import { createSyncRegistry } from "./registry";
 import type { SyncOperationHandler, SyncProjectionReader } from "./registry";
 
-// Cloudflare's lower Worker plan permits 50 D1 statements per invocation.
-const statementBudget = 49;
+// D1 counts the whole batch as one invocation query. Bound the app's work
+// independently so eight valid operations can still share one atomic batch.
+const statementBudget = 128;
 
 export function createTransportRoutes({ operations = [], projections = [] }: {
   operations?: readonly SyncOperationHandler[];
@@ -39,18 +41,19 @@ export function createTransportRoutes({ operations = [], projections = [] }: {
     if (cursor && cursor.context.contextId !== contextId) return transportFailure(c, "NOT_FOUND");
     const access = await resolveSession(c.req.raw, contextId, ctx.now, cursor?.accountId);
     if (!access) return transportFailure(c, "UNAUTHENTICATED");
+    const translationPairs = operations.some(({ kind }) => kind === "chat_append") ? enabledTranslationPairs(c.env) : [];
 
     const plans: (CommandInput<OperationResult> | null)[] = await Promise.all(operations.map((operation) => {
       const handler = registry.operations.get(operation.kind);
-      return handler ? handler.plan({ now: ctx.now, requestId: ctx.requestId, access, contextId }, operation) : null;
+      return handler ? handler.plan({ now: ctx.now, requestId: ctx.requestId, access, contextId, translationPairs }, operation) : null;
     }));
-    const count = plans.reduce((sum, plan) => sum + (plan?.statements.length ?? 0), 1);
+    const feed = syncFeed(access, cursor, ctx.now, registry);
+    const count = plans.reduce((sum, plan) => sum + (plan?.statements.length ?? 0), feed.length);
     if (count > statementBudget) return transportFailure(c, "VALIDATION_FAILED");
     const prepared = plans.map((plan) => plan === null ? null : prepareCommand(ctx, plan));
-    const feed = syncFeed(access, cursor, ctx.now, registry);
-    const feedStatement = ctx.binding.prepare(feed.sql).bind(...feed.params ?? []);
-    const batch = await ctx.binding.batch([...prepared.flatMap((plan) => plan?.statements ?? []), feedStatement]);
-    const page = decodeFeed(batch.at(-1)?.results ?? [], cursor, registry);
+    const projections = feed.map(({ sql, params }) => ctx.binding.prepare(sql).bind(...params ?? []));
+    const batch = await ctx.binding.batch([...prepared.flatMap((plan) => plan?.statements ?? []), ...projections]);
+    const page = decodeFeed(batch.slice(-feed.length), cursor, registry);
     if (typeof page === "string") return transportFailure(c, page);
 
     const outcomes: OpOutcome[] = [], results: OperationResult[] = [];
