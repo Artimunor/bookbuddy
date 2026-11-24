@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import {
-  acceptCoverRoute, closeCoverRoute, confirmCoverRoute, declineCoverRoute, getCoverRoute, issueCoverRoute,
-  operationIdHeader, releaseCoverRoute, resultSchema, withdrawCoverRoute,
+  acceptCoverRoute, closeCoverRoute, confirmCoverRoute, declineCoverRoute, getCoverRoute, getHomeRoute, issueCoverRoute,
+  listShiftsRoute, operationIdHeader, releaseCoverRoute, resultSchema, withdrawCoverRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
@@ -18,8 +18,9 @@ const start = base + 60 * minute;
 const end = start + 60 * minute;
 const actors = ["customer", "foreman", "first", "second", "third", "prior", "foreign", "noncrew"] as const;
 type Actor = typeof actors[number];
+type TestCommand = { operationId: string; expectedRevision: number; expectedRoundNo: number | null; payload: object };
 
-function command(operationId: string, expectedRevision: number, expectedRoundNo: number | null, payload: object = {}) {
+function command(operationId: string, expectedRevision: number, expectedRoundNo: number | null, payload: object = {}): TestCommand {
   return { operationId, expectedRevision, expectedRoundNo, payload };
 }
 
@@ -103,15 +104,16 @@ async function fixture() {
   const now = spyOn(Date, "now").mockImplementation(() => clock);
 
   async function call<Output extends ResponseSchema>(actor: Actor,
-    route: { method: string; path: string; output: Output }, body?: ReturnType<typeof command>, racing = false) {
+    route: { method: string; path: string; output: Output }, body?: TestCommand, racing = false) {
     const { batch, query } = db.calls;
     const response = await app.request(`${origin}/api/v1${route.path.replace(":g", "gap")}`, {
       method: route.method, headers: { Authorization: `Bearer ${keyByActor.get(actor)}`, "Content-Type": "application/json",
         ...(body ? { [operationIdHeader]: body.operationId } : {}) }, body: body ? JSON.stringify(body) : undefined,
     }, env, execution);
     if (!racing) {
-      expect(db.calls.batch - batch).toBe(route.method === "POST" ? 1 : 0);
-      expect(db.calls.query - query).toBe(route.method === "GET" ? 1 : 0);
+      const batched = route.method === "POST" || route.path === getHomeRoute.path;
+      expect(db.calls.batch - batch).toBe(batched ? 1 : 0);
+      expect(db.calls.query - query).toBe(batched ? 0 : 1);
     }
     return resultSchema(route.output).parse(await response.json());
   }
@@ -280,11 +282,38 @@ test("foreman release keeps the original winner and lets a sibling answer withou
   try {
     await f.issue();
     const first = await f.offer("first");
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO shift_slots (id, shift_id, number) VALUES ('ordinary-slot', 'shift', 2)`),
+      f.db.prepare(`INSERT INTO assignment_offers (id, slot_id, recipient_id, issued_by, issued_at, expires_at, state)
+        VALUES ('ordinary-offer', 'ordinary-slot', 'first-member', 'foreman', ?, ?, 'offered')`).bind(base, base + 20 * minute),
+    ]);
+    const home = data(await f.call("first", getHomeRoute));
+    if (home.audience !== "worker") throw new Error("Expected worker home");
+    expect(home.offers).toMatchObject([
+      { kind: "cover", gapId: "gap", offerId: first.offerId, awaitingConfirmationUntil: null },
+      { kind: "ordinary", offerId: "ordinary-offer" },
+    ]);
+    expect(home.offers[1]).not.toHaveProperty("gapId");
+    const agenda = data(await f.call("first", { ...listShiftsRoute, path: "/shifts?segment=offers" }));
+    expect(agenda.rows).toMatchObject([
+      { kind: "offer", source: "cover", gapId: "gap", id: first.offerId },
+      { kind: "offer", source: "ordinary", id: "ordinary-offer" },
+    ]);
+    expect(agenda.rows[1]).not.toHaveProperty("gapId");
+    const otherHome = data(await f.call("third", getHomeRoute));
+    expect(otherHome).toMatchObject({ audience: "worker", offers: [] });
     data(await f.call("first", acceptCoverRoute, command("take", 1, 1, { offerId: first.offerId })));
+    expect(data(await f.call("first", getHomeRoute))).toMatchObject({ offers: [
+      { kind: "cover", gapId: "gap", offerId: first.offerId, replyBy: base + 15 * minute, awaitingConfirmationUntil: base + 5 * minute },
+      { kind: "ordinary", offerId: "ordinary-offer" },
+    ] });
     const released = data(await f.call("foreman", releaseCoverRoute, command("release", 2, 1, { reason: "safety" })));
     expect(released).toMatchObject({ currentRoundNo: 2, revision: 3, dispatchesUsed: 1, status: { state: "offers_out" } });
     expect(await f.db.prepare(`SELECT winner_offer_id FROM cover_rounds WHERE round_no = 1 AND state = 'closed'`).first("winner_offer_id")).toBe(first.offerId);
     expect(data(await f.call("first", getCoverRoute))).toMatchObject({ audience: "worker", offer: { state: "not_confirmed" } });
+    expect(data(await f.call("first", getHomeRoute))).toMatchObject({
+      offers: [{ kind: "ordinary", offerId: "ordinary-offer" }],
+    });
     expect(await f.offer("second")).toMatchObject({ roundNo: 2, revision: 3 });
     expect(f.wakes.map((keys) => keys.length)).toEqual([2, 1]);
   } finally { f.close(); }

@@ -158,9 +158,13 @@ const shiftAgendaEntry = z.object({
   kind: z.literal("shift"), shift: shiftSummary.extend({ placeAlias: displayName.nullable() }), assignment: workerAssignment,
 });
 const shiftOfferAgendaEntry = z.object({
-  kind: z.literal("offer"), id: idSchema, source: z.enum(ASSIGNMENT_SOURCES),
+  kind: z.literal("offer"), id: idSchema,
   ...span, siteZone, areaName: displayName, task: displayName, replyBy: timestampSchema,
 });
+const ordinaryOfferAgendaEntry = shiftOfferAgendaEntry.extend({ source: z.literal("ordinary") });
+const coverOfferAgendaEntry = shiftOfferAgendaEntry.extend({ source: z.literal("cover"), gapId: idSchemaFor<"cover_gap">() });
+const pendingOfferState = { state: z.enum(["offered", "awaiting_confirmation"]) };
+const pastOfferState = { state: z.enum(["filled", "expired", "declined", "withdrawn", "released"]), endedAt: timestampSchema };
 const shiftAgendaSegment = z.enum(["upcoming", "offers", "past"]);
 export const shiftAgendaSchema = z.discriminatedUnion("segment", [
   paginationSchema.extend({
@@ -173,13 +177,19 @@ export const shiftAgendaSchema = z.discriminatedUnion("segment", [
   }),
   paginationSchema.extend({
     segment: z.literal("offers"),
-    rows: z.array(shiftOfferAgendaEntry.extend({ state: z.enum(["offered", "awaiting_confirmation"]) })),
+    rows: z.array(z.discriminatedUnion("source", [
+      ordinaryOfferAgendaEntry.extend(pendingOfferState),
+      coverOfferAgendaEntry.extend(pendingOfferState),
+    ])),
   }),
   paginationSchema.extend({
     segment: z.literal("past"),
-    rows: z.array(z.discriminatedUnion("kind", [
+    rows: z.array(z.union([
       shiftAgendaEntry.extend({ outcome: z.enum(["completed", "cancelled", "dropped", "released"]), endedAt: timestampSchema }),
-      shiftOfferAgendaEntry.extend({ state: z.enum(["filled", "expired", "declined", "withdrawn", "released"]), endedAt: timestampSchema }),
+      z.discriminatedUnion("source", [
+        ordinaryOfferAgendaEntry.extend(pastOfferState),
+        coverOfferAgendaEntry.extend(pastOfferState),
+      ]),
     ])),
   }),
 ]);

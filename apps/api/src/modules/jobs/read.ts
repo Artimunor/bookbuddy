@@ -1,9 +1,11 @@
+import type { HomeProjection } from "@bookbuddy/api-contract";
 import type { ChangeVersionState, QuoteVersionState } from "@bookbuddy/domain";
 import type { CommandStatement } from "../../db/commit";
 import { at, currentCheck, displayName, eligibilityStatus, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import { routedReviewer } from "../commercial/policy";
 import { placeCapability } from "../places/policy";
+import { workerHomeOffers } from "../schedule/shifts";
 import {
   booking, businessCapability, currentMembership, customerPlaces, handoffJson, headingSql, journey, journeySql,
   memberJson, nextVisitId, placeZone, scopedIntakeIds, scopedJobIds, visitJson,
@@ -242,6 +244,8 @@ function read(access: SessionAccess, mode: ReadMode, options: {
       'audience', s.role, 'businessName', s.business_name, 'siteZone', s.site_zone,
       'place', json((SELECT ${placePacket("p")} FROM job_places p WHERE p.id = s.selected_place)),
       'unreadCount', (SELECT count(*) FROM notifications n WHERE n.context_id = s.context_id AND n.read_at IS NULL),
+      'offers', json(${mode === "home" ? `CASE WHEN s.role = 'worker'
+        THEN ${workerHomeOffers("s.membership_id", "s.business_id")} ELSE '[]' END` : "'[]'"}),
       'jobs', json(${mode === "intake" ? "'[]'" : jsonRows(jobPacket(mode), `FROM (${selected}) j ${jobRowFrom} ORDER BY j.rank, j.time, j.id`)}),
       'incoming', json(${intakeFilter === "0" ? "'[]'" : jsonRows(intakePacket(mode === "intake"),
         `FROM intake k ${intakeRowFrom} ${mode === "intake" ? "JOIN requests r ON r.job_id = j.id" : ""}
@@ -297,6 +301,7 @@ interface Overview {
 export interface ReadRows {
   audience: "customer" | "foreman" | "provider_admin" | "worker"; siteZone: string | null; businessName: string | null; unreadCount: number;
   place: { placeId: string; alias: string; siteZone: string | null } | null;
+  offers: Extract<HomeProjection, { audience: "worker" }>["offers"];
   jobs: Job[]; incoming: Intake[]; counts: { active: number; past: number; incoming: number; needsYou: number; writeQuote: number };
   live: Job | null; history: Moment[]; overview: Overview | null;
 }
@@ -410,7 +415,7 @@ export function projectHome(rows: ReadRows, now: number) {
       };
     }
     case "provider_admin": return { audience, unreadCount, overview: projectJobsBusinessOverview(rows, now) };
-    case "worker": return { audience, unreadCount, businessName, siteZone, assignment: null, offers: [], openToCoverUntil: null };
+    case "worker": return { audience, unreadCount, businessName, siteZone, assignment: null, offers: rows.offers, openToCoverUntil: null };
   }
 }
 

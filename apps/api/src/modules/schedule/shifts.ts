@@ -44,14 +44,15 @@ function holdsJson(where: string, roster = false) {
 
 // The current round determines which single worker is awaiting confirmation.
 // Being the recipient of a provisional cover reply never grants shift access.
+const coverReplyBy = "min(co.expires_at, cd.reply_until, cg.safe_cutoff, sh.starts_at)";
 const coverState = (clock: string) => `CASE
   WHEN co.state IN ('declined', 'withdrawn') THEN co.state
   WHEN cg.state = 'filled' THEN CASE WHEN cr.winner_offer_id IS co.id THEN NULL ELSE 'filled' END
   WHEN cg.state = 'closed' OR NOT (${liveShift}) THEN 'withdrawn'
   WHEN cr.winner_offer_id = co.id AND cr.state = 'accepted_pending_confirmation'
     THEN CASE WHEN cr.confirm_by > ${clock} THEN 'awaiting_confirmation' ELSE 'released' END
-  WHEN cr.winner_offer_id = co.id AND cr.state = 'closed' THEN 'released'
-  WHEN min(co.expires_at, cd.reply_until, cg.safe_cutoff, sh.starts_at) <= ${clock} THEN 'expired'
+  WHEN won.state = 'closed' THEN 'released'
+  WHEN ${coverReplyBy} <= ${clock} THEN 'expired'
   WHEN cd.state = 'closed' THEN 'withdrawn'
   WHEN cr.state = 'open' AND cg.state = 'open' AND cd.dispatch_no = cr.dispatch_no THEN 'offered'
 END`;
@@ -120,23 +121,39 @@ export function cachedAgendaJson(member: string, business: string, clock: string
       AND ${activeWork(clock)} ORDER BY a.starts_at, a.id LIMIT ${pageSize}`)}))`;
 }
 
-function offersSql(clock: string) {
-  const summary = `sh.starts_at, sh.ends_at, ${zone} AS site_zone, area.name AS area_name, ${title} AS task`;
-  return `SELECT o.id, 'ordinary' AS source, ${summary}, o.expires_at AS reply_by,
+const offerSummary = `sh.starts_at, sh.ends_at, ${zone} AS site_zone, area.name AS area_name, ${title} AS task,
+  sh.skill, sh.briefing_language`;
+
+function coverOfferRows(clock: string, member: string, business: string) {
+  return `SELECT co.id, 'cover' AS source, co.gap_id, ${offerSummary}, ${coverReplyBy} AS offer_reply_by,
+    CASE WHEN cr.winner_offer_id = co.id AND cr.state = 'accepted_pending_confirmation'
+      THEN cr.confirm_by ELSE ${coverReplyBy} END AS reply_by,
+    ${coverState(clock)} AS state, coalesce(co.responded_at, won.ended_at, cg.closed_at, cr.ended_at, cd.closed_at, v.cancelled_at, cr.confirm_by, co.expires_at) AS ended_at
+    FROM cover_offers co JOIN cover_dispatches cd ON cd.gap_id = co.gap_id AND cd.dispatch_no = co.dispatch_no
+    JOIN cover_gaps cg ON cg.id = co.gap_id LEFT JOIN cover_rounds cr ON cr.gap_id = cg.id AND cr.round_no = cg.current_round_no
+    LEFT JOIN cover_rounds won ON won.gap_id = co.gap_id AND won.dispatch_no = co.dispatch_no AND won.winner_offer_id = co.id
+    JOIN shift_slots slot ON slot.id = cg.slot_id ${taskJoin}
+    WHERE co.recipient_id = ${member} AND j.business_id = ${business} AND cd.issued_at <= ${clock}`;
+}
+
+export function workerHomeOffers(member: string, business: string) {
+  return array(`SELECT json_object('kind', source, 'offerId', id, 'gapId', gap_id,
+    'town', area_name, 'task', task, 'skill', skill, 'briefingLanguage', briefing_language, 'siteZone', site_zone,
+    'window', json_object('startsAt', starts_at, 'endsAt', ends_at), 'replyBy', offer_reply_by,
+    'awaitingConfirmationUntil', CASE WHEN state = 'awaiting_confirmation' THEN reply_by END) AS value
+    FROM (${workerOfferRows(at, member, business)}) WHERE state IN ('offered', 'awaiting_confirmation')
+    ORDER BY reply_by, id LIMIT ${pageSize}`);
+}
+
+function workerOfferRows(clock: string, member: string, business: string) {
+  return `SELECT o.id, 'ordinary' AS source, NULL AS gap_id, ${offerSummary}, o.expires_at AS offer_reply_by, o.expires_at AS reply_by,
     CASE WHEN o.state = 'offered' THEN CASE WHEN o.expires_at <= ${clock} THEN 'expired'
       WHEN NOT (${liveShift}) OR sh.starts_at <= ${clock} THEN 'withdrawn' ELSE 'offered' END
       WHEN o.state <> 'confirmed' THEN o.state END AS state,
     coalesce(o.resolved_at, v.cancelled_at, o.expires_at) AS ended_at
-    FROM assignment_offers o JOIN shift_slots slot ON slot.id = o.slot_id ${taskJoin} CROSS JOIN actor
-    WHERE o.recipient_id = actor.member_id AND j.business_id = actor.business_id AND o.issued_at <= ${clock}
-    UNION ALL
-    SELECT co.id, 'cover', ${summary}, CASE WHEN cr.winner_offer_id = co.id AND cr.state = 'accepted_pending_confirmation'
-      THEN cr.confirm_by ELSE min(co.expires_at, cd.reply_until, cg.safe_cutoff, sh.starts_at) END,
-      ${coverState(clock)}, coalesce(co.responded_at, cg.closed_at, cr.ended_at, cd.closed_at, v.cancelled_at, cr.confirm_by, co.expires_at)
-    FROM cover_offers co JOIN cover_dispatches cd ON cd.gap_id = co.gap_id AND cd.dispatch_no = co.dispatch_no
-    JOIN cover_gaps cg ON cg.id = co.gap_id LEFT JOIN cover_rounds cr ON cr.gap_id = cg.id AND cr.round_no = cg.current_round_no
-    JOIN shift_slots slot ON slot.id = cg.slot_id ${taskJoin} CROSS JOIN actor
-    WHERE co.recipient_id = actor.member_id AND j.business_id = actor.business_id AND cd.issued_at <= ${clock}`;
+    FROM assignment_offers o JOIN shift_slots slot ON slot.id = o.slot_id ${taskJoin}
+    WHERE o.recipient_id = ${member} AND j.business_id = ${business} AND o.issued_at <= ${clock}
+    UNION ALL ${coverOfferRows(clock, member, business)}`;
 }
 
 export interface AgendaPosition { key: number | null; id: string }
@@ -152,9 +169,9 @@ export function readShiftAgenda(session: SessionAccess, now: number, segment: Sh
   const ascending = segment !== "past";
   const order = ascending ? "ASC" : "DESC";
   const compare = ascending ? ">" : "<";
-  const offers = segment === "upcoming" ? "" : `, offers AS (${offersSql(at)})`;
+  const offers = segment === "upcoming" ? "" : `, offers AS (${workerOfferRows(at, "(SELECT member_id FROM actor)", "(SELECT business_id FROM actor)")})`;
   const offerRows = `SELECT ${ascending ? "reply_by" : "ended_at"} AS key, id,
-    json_object('kind', 'offer', 'id', id, 'source', source, 'startsAt', starts_at, 'endsAt', ends_at,
+    json_object('kind', 'offer', 'id', id, 'source', source, 'gapId', gap_id, 'startsAt', starts_at, 'endsAt', ends_at,
     'siteZone', site_zone, 'areaName', area_name, 'task', task, 'replyBy', reply_by,
     'state', state${ascending ? "" : ", 'endedAt', ended_at"}) AS value FROM offers WHERE state IN (
     ${ascending ? "'offered', 'awaiting_confirmation'" : "'filled', 'expired', 'declined', 'withdrawn', 'released'"})`;

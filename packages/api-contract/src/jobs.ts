@@ -105,11 +105,15 @@ const workerAssignment = z.object({
   nextStep: z.enum(["travel", "check_in", "open_briefing", "check_out"]).nullable(), safetyHold: z.boolean(),
 });
 // Pending worker offers are not job access. Only a confirmed assignment can open a site-specific view.
-const workerOffer = z.object({
-  offerId: idSchema, kind: z.enum(["assignment", "cover"]), town: displayText, task: displayText,
+const workerOfferSummary = z.object({
+  offerId: idSchema, town: displayText, task: displayText,
   skill: displayText, briefingLanguage: localeTagSchema, siteZone, window: timeBand, replyBy: timestampSchema,
   awaitingConfirmationUntil: timestampSchema.nullable(),
 });
+const workerOffer = z.discriminatedUnion("kind", [
+  workerOfferSummary.extend({ kind: z.literal("ordinary") }),
+  workerOfferSummary.extend({ kind: z.literal("cover"), gapId: idSchemaFor<"cover_gap">() }),
+]);
 const workerCard = jobHeading.extend({ place, assignment: workerAssignment });
 
 const providerJobCard = jobCard.extend({ accountableForeman: member.nullable(), handoff: handoff.nullable() });
