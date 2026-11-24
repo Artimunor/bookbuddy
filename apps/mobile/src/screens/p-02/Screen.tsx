@@ -1,14 +1,15 @@
 import { getJobRoute, getJobsRoute, offerJobHandoffRoute, recordPaidRoute, withdrawJobHandoffRoute, type RouteResponse } from "@bookbuddy/api-contract";
 import { uuid } from "expo";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCommand, useRemote } from "../../api";
 import { useT } from "../../i18n";
-import { Badge, BookingCard, Button, Card, SegmentedControl, SwitchRow, TextField } from "../../ui/controls";
+import { Badge, BookingCard, Button, Card, ListRow, SegmentedControl, SwitchRow, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { ProviderScreen, ReadState, useProvider, useProviderFormat as useFormat, useProviderLabels } from "../p-01/shared";
 import { useOffline } from "../s-02/flow";
 import { confirmAction } from "../s-17/confirmAction";
+import { CommercialReview, type ReviewTarget } from "./Review";
 
 type Segment = "needs_you" | "active" | "past";
 type UnpaidBill = Extract<RouteResponse<typeof getJobsRoute.output>, { audience: "provider_admin" }>["unpaidBills"][number];
@@ -50,16 +51,28 @@ function RecordPayment({ bill, actor, ready, onChanged }: { bill: UnpaidBill; ac
 }
 
 export default function ProviderJobsScreen() {
+  const params = useLocalSearchParams<{ jobId?: string; segment?: string; reviewKind?: string; reviewVersionId?: string }>();
+  const router = useRouter();
+  if (params.jobId && params.reviewVersionId && (params.reviewKind === "quote" || params.reviewKind === "change")) {
+    return <CommercialReview key={`${params.jobId}:${params.reviewKind}:${params.reviewVersionId}`}
+      target={{ jobId: params.jobId, kind: params.reviewKind, versionId: params.reviewVersionId }}
+      onClose={() => router.canGoBack() ? router.back() : router.replace("/you")} onChanged={() => {}} />;
+  }
+  return <ProviderJobs jobId={params.jobId} initialSegment={params.segment} />;
+}
+
+function ProviderJobs({ jobId, initialSegment }: { jobId?: string; initialSegment?: string }) {
   const router = useRouter(); const t = useT(); const format = useFormat(); const labels = useProviderLabels(); const { actor } = useProvider();
-  const params = useLocalSearchParams<{ jobId?: string; segment?: string }>();
-  const [segment, setSegment] = useState<Segment>(params.segment === "needs_you" ? "needs_you" : params.jobId ? "active" : "needs_you");
-  const [selected, setSelected] = useState<string | null>(params.jobId ?? null); const [recipient, setRecipient] = useState<string | null>(null); const [urgentCalled, setUrgentCalled] = useState(false);
+  const [segment, setSegment] = useState<Segment>(initialSegment === "needs_you" ? "needs_you" : jobId ? "active" : "needs_you");
+  const [selected, setSelected] = useState<string | null>(jobId ?? null); const [recipient, setRecipient] = useState<string | null>(null); const [urgentCalled, setUrgentCalled] = useState(false);
   const [cursors, setCursors] = useState<string[]>([]);
+  const [review, setReview] = useState<ReviewTarget | null>(null);
+  const reviewChanged = useRef(false);
   useEffect(() => {
-    if (!params.jobId) return;
-    setSegment(params.segment === "needs_you" ? "needs_you" : "active");
-    setSelected(params.jobId); setCursors([]); setRecipient(null); setUrgentCalled(false);
-  }, [params.jobId, params.segment]);
+    if (!jobId) return;
+    setSegment(initialSegment === "needs_you" ? "needs_you" : "active");
+    setSelected(jobId); setCursors([]); setRecipient(null); setUrgentCalled(false);
+  }, [jobId, initialSegment]);
   const jobs = useRemote(getJobsRoute, { query: { segment, ...(cursors.at(-1) ? { cursor: cursors.at(-1) } : {}) } });
   const detail = useRemote(getJobRoute, { params: { j: selected ?? "" }, query: { view: "whole" } }, { enabled: !!selected });
   const offer = useCommand(offerJobHandoffRoute); const withdraw = useCommand(withdrawJobHandoffRoute);
@@ -78,13 +91,25 @@ export default function ProviderJobsScreen() {
       return result && "delivery" in result.error && result.error.delivery === "unknown" ? "uncertain" : "invalidated";
     } });
   }
+  if (review) return <CommercialReview target={review} onChanged={() => { reviewChanged.current = true; }} onClose={() => {
+    setReview(null);
+    if (reviewChanged.current) {
+      reviewChanged.current = false;
+      void detail.refresh();
+    }
+  }} />;
   return <ProviderScreen title={t("mobile.provider.jobs")} business={page?.businessName}>
     <SegmentedControl label={t("mobile.provider.segment")} value={segment} onChange={(value) => { setSegment(value); setCursors([]); setSelected(null); }} options={[{ value: "needs_you", label: `${t("mobile.provider.needsYou")} ${page?.needsYouCount ?? ""}` }, { value: "active", label: `${t("mobile.provider.active")} ${page?.activeCount ?? ""}` }, { value: "past", label: `${t("mobile.provider.past")} ${page?.pastCount ?? ""}` }]} />
     <ReadState status={jobs.status} retry={() => { void jobs.refresh(); }} />
     {items.map((item) => <Card key={item.jobId}><BookingCard title={item.title ?? item.reference} place={`${item.reference} · ${item.place.alias}`} stage={labels.journey(item.journey.step, item.journey.cancelled)} next={item.accountableForeman ? t("mobile.provider.foreman", { name: item.accountableForeman.displayName }) : t("mobile.provider.noForeman")} accessibilityLabel={`${item.title ?? item.reference} · ${item.reference} · ${item.place.alias} · ${labels.journey(item.journey.step, item.journey.cancelled)}`} onPress={() => { setSelected(selected === item.jobId ? null : item.jobId); setRecipient(null); setUrgentCalled(false); }} />
       {selected === item.jobId && <><ReadState status={detail.status} retry={() => { void detail.refresh(); }} />{job && <>
         {job.handoff && <><Badge label={job.handoff.state === "expired" || job.handoff.state === "declined" ? t("mobile.provider.handoffStuck") : job.handoff.state === "accepted" ? t("mobile.provider.accepted") : job.handoff.state === "withdrawn" ? t("mobile.provider.withdrawn") : t("mobile.provider.offered")} tone={job.handoff.state === "expired" || job.handoff.state === "declined" ? "critical" : "neutral"} /><Copy>{t("mobile.provider.offeredTo", { name: job.handoff.to.displayName })}</Copy><Copy>{t("mobile.provider.replyBy", { time: format.siteTime(job.handoff.expiresAt, job.siteZone) })}</Copy></>}
-        {job.commercialReview && <><Badge label={t("mobile.provider.review")} tone="attention" /><Copy>{t("mobile.provider.reviewVersion", { version: job.commercialReview.version, person: job.commercialReview.submitted.by ?? "", time: format.siteTime(job.commercialReview.submitted.at, job.siteZone) })}</Copy></>}
+        {job.commercialReview && <ListRow label={t("mobile.provider.review")} description={t("mobile.provider.reviewVersion", {
+          version: job.commercialReview.version, person: job.commercialReview.submitted.by ?? "", time: format.siteTime(job.commercialReview.submitted.at, job.siteZone),
+        })} onPress={() => {
+          const record = job.commercialReview;
+          if (record) setReview({ jobId: job.jobId, kind: record.kind, versionId: record.versionId });
+        }} />}
         {job.bill?.outcome.status === "paid" && <>
           <Copy>{t("mobile.provider.bill", { number: job.bill.number, amount: format.money(job.bill.total.minor, job.bill.total.currency) })}</Copy>
           <Copy>{t("mobile.provider.paid", { amount: format.money(job.bill.outcome.matched.minor, job.bill.outcome.matched.currency),

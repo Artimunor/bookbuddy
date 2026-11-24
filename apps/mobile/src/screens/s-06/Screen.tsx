@@ -1,9 +1,9 @@
-import { accountSettingsRoute } from "@bookbuddy/api-contract";
+import { accountSettingsRoute, listPlacesRoute } from "@bookbuddy/api-contract";
 import type { Translator } from "@bookbuddy/i18n";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
-import { useCallback, useRef, useState, type ComponentRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentRef, type RefObject } from "react";
 import { AccessibilityInfo, Platform, View } from "react-native";
-import { useCommand } from "../../api";
+import { useCommand, useRemote } from "../../api";
 import { useLocale, useT } from "../../i18n";
 import { usePendingDrafts, usePendingSends, useStagedMediaCount } from "../../repository/hooks";
 import { useSession } from "../../session";
@@ -29,6 +29,21 @@ export default function YouScreen() {
   const openedSwitch = useRef(false);
   const account = bootstrap?.account;
   const active = bootstrap?.activeContext ?? session?.activeContext ?? undefined;
+  const [placesContext, setPlacesContext] = useState<string | null>(null);
+  const places = useRemote(listPlacesRoute, { query: {} }, { enabled: active?.role === "customer", loadOnMount: false });
+  const openingPlaces = placesContext !== null && placesContext === active?.contextId;
+  useEffect(() => {
+    if (!placesContext) return;
+    if (!openingPlaces || places.status === "offline" || places.status === "error") {
+      setPlacesContext(null);
+      if (openingPlaces) router.push({ pathname: "/c/places", params: { from: "you" } });
+    } else if (places.status === "ready") {
+      setPlacesContext(null);
+      const only = places.data.total === 1 ? places.data.places[0] : undefined;
+      if (only) router.push({ pathname: "/c/places/[placeId]", params: { placeId: only.id } });
+      else router.push("/c/places");
+    }
+  }, [openingPlaces, placesContext, places.status, places.data, router]);
   const drafts = usePendingDrafts(true);
   const sends = usePendingSends();
   const media = useStagedMediaCount();
@@ -42,6 +57,7 @@ export default function YouScreen() {
       openedSwitch.current = false;
       if (Platform.OS !== "web" && switchTrigger.current) AccessibilityInfo.sendAccessibilityEvent(switchTrigger.current, "focus");
     }
+    return () => setPlacesContext(null);
   }, [router, session, status]));
 
   function openSignOut() {
@@ -62,7 +78,11 @@ export default function YouScreen() {
     <YouView account={account} active={active ?? undefined} contexts={bootstrap?.contexts} readingLocale={preferences?.readingLocale}
       pending={pending} loading={loading} canEdit={!!account && !offline} signOutTrigger={signOutTrigger} editTrigger={editTrigger} switchTrigger={switchTrigger}
       onRetry={canRetry ? retry : undefined} onSignOut={openSignOut} onEdit={() => setEditing(true)}
-      onPlaces={() => router.push({ pathname: "/c/places", params: { from: "you" } })} onDisplay={() => router.push("/display")}
+      openingPlaces={openingPlaces} onPlaces={() => {
+        if (active?.role !== "customer" || openingPlaces) return;
+        setPlacesContext(active.contextId);
+        void places.refresh();
+      }} onDisplay={() => router.push("/display")}
       onPrivacy={() => router.push("/live-privacy" as Href)} onHelp={() => router.push("/help")}
       onSwitch={() => { openedSwitch.current = true; router.push("/switch-role"); }} onBack={() => {
         if (router.canGoBack()) router.back();
@@ -72,7 +92,7 @@ export default function YouScreen() {
   </>;
 }
 
-export function YouView({ account, active, contexts, readingLocale, place, namedApprover, pending, loading, canEdit,
+export function YouView({ account, active, contexts, readingLocale, place, namedApprover, pending, loading, canEdit, openingPlaces,
   signOutTrigger, editTrigger, switchTrigger, onBack, onEdit, onSwitch, onPlaces, onDisplay, onPrivacy, onHelp, onSignOut, onRetry }: {
   account?: AccountIdentity;
   active?: RoleChoice;
@@ -83,6 +103,7 @@ export function YouView({ account, active, contexts, readingLocale, place, named
   pending?: PendingWork;
   loading?: boolean;
   canEdit?: boolean;
+  openingPlaces?: boolean;
   signOutTrigger?: RefObject<ComponentRef<typeof View> | null>;
   editTrigger?: RefObject<ComponentRef<typeof View> | null>;
   switchTrigger?: RefObject<ComponentRef<typeof View> | null>;
@@ -151,7 +172,7 @@ export function YouView({ account, active, contexts, readingLocale, place, named
     </Card>}
     <Card>
       {active?.role === "customer" && <ListRow glyph="⌖" label={t("mobile.you.places")}
-        description={place ? isolated(place) : t("mobile.you.placesHint")} onPress={onPlaces} />}
+        description={openingPlaces ? t("mobile.places.loading") : place ? isolated(place) : t("mobile.you.placesHint")} onPress={onPlaces} disabled={openingPlaces} />}
       <ListRow glyph="◎" label={t("mobile.display.title")} description={languageSummary} onPress={onDisplay} />
       <ListRow glyph="◉" label={t("mobile.you.privacy")} description={t("mobile.you.privacyHint")} onPress={onPrivacy} />
       <ListRow glyph="?" label={t("mobile.you.help")} description={t("mobile.you.helpHint")} onPress={onHelp} />

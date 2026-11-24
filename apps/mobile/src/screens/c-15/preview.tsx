@@ -7,8 +7,9 @@ const change = customerChangeVersionSchema.parse({ audience: "customer", id: "ch
 const empty = () => {};
 const states = [
   { state: "open", data: change },
+  { state: "checking", data: change },
   { state: "approved", data: { ...change, state: "approved" as const, actions: { approve: false, decline: false } } },
   { state: "rejected", data: { ...change, state: "rejected" as const, actions: { approve: false, decline: false } } },
   { state: "superseded", data: { ...change, state: "superseded" as const, actions: { approve: false, decline: false }, replacedBy: { id: change.id, no: 2, issuedAt: change.issuedAt } } },
 ];
-export const previews: ScreenPreview[] = states.map(({ state, data }) => ({ id: "C-15", state, render: () => <ChangeView data={data} status="ready" busy={false} checking={false} failed={false} onBack={empty} onRetry={empty} onApprove={empty} onReject={empty} onOpen={empty} onJob={empty} /> }));
+export const previews: ScreenPreview[] = states.map(({ state, data }) => ({ id: "C-15", state, render: () => <ChangeView data={data} status="ready" busy={state === "checking"} checking={state === "checking"} failed={false} onBack={empty} onRetry={empty} onApprove={empty} onReject={empty} onOpen={empty} onJob={empty} /> }));

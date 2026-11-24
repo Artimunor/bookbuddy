@@ -6,9 +6,10 @@ export const quote = customerQuoteVersionSchema.parse({ audience: "customer", id
 const empty = () => {};
 const variants = [
   { state: "current", data: quote },
+  { state: "checking", data: quote },
   { state: "superseded", data: { ...quote, state: "superseded" as const, actions: { approve: false, decline: false }, replacedBy: { id: quote.id, no: 2, issuedAt: quote.issuedAt } } },
   { state: "expired", data: { ...quote, state: "expired" as const, actions: { approve: false, decline: false } } },
   { state: "declined", data: { ...quote, state: "declined" as const, actions: { approve: false, decline: false } } },
   { state: "read-only", data: { ...quote, viewerIsNamedApprover: false, actions: { approve: false, decline: false } } },
 ];
-export const previews: ScreenPreview[] = variants.map(({ state, data }) => ({ id: "C-06", state, render: () => <QuoteView data={data} status="ready" onBack={empty} onRetry={empty} onOpen={empty} onReview={empty} /> }));
+export const previews: ScreenPreview[] = variants.map(({ state, data }) => ({ id: "C-06", state, render: () => <QuoteView data={data} status="ready" checking={state === "checking"} onBack={empty} onRetry={empty} onOpen={empty} onReview={empty} onHistory={empty} /> }));

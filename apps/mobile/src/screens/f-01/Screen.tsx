@@ -35,7 +35,7 @@ export function HomeView({ data, cached, lastConfirmedAt, status, name, onRetry,
   const t = useT(); const format = useFormat();
   const actionPath = (item: Home["needsYou"][number]) => {
     const id = item.action.recordId;
-    if (item.action.kind === "accept_job" && id) return `/f/intake/${id}?jobId=${item.jobId}`;
+    if (item.action.kind === "accept_job" && id) return `/f/intake/${id}`;
     if (item.action.kind === "find_cover" && id) return `/f/cover/${id}`;
     if (item.action.kind === "confirm_cover" && id) return `/f/cover/${id}/confirm`;
     if (item.action.kind === "review_briefing" && id) return `/w/shifts/${id}/briefing`;

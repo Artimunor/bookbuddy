@@ -1,4 +1,4 @@
-import { acceptJobHandoffRoute, declineJobHandoffRoute, getJobRoute, linkTokenSchema, openLinkRoute, type JobDetail } from "@bookbuddy/api-contract";
+import { acceptJobHandoffRoute, declineJobHandoffRoute, getHandoffRoute, type RouteResponse } from "@bookbuddy/api-contract";
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useState } from "react";
 import { useCommand, useRemote } from "../../api";
@@ -10,21 +10,16 @@ import { useOffline } from "../s-02/flow";
 import { confirmAction } from "../s-17/confirmAction";
 import { siteTime } from "../f-01/Screen";
 
-type Intake = Extract<Extract<JobDetail, { audience: "foreman" }>["job"], { view: "intake" }>;
+type Intake = RouteResponse<typeof getHandoffRoute.output>["job"];
 type Status = "idle" | "loading" | "ready" | "error" | "offline";
 export default function IntakeScreen() {
-  const { handoffId, jobId, opaque: rawLink } = useLocalSearchParams<{ handoffId: string; jobId?: string; opaque?: string }>();
-  const parsedLink = linkTokenSchema.safeParse(rawLink);
-  const opaque = parsedLink.success ? parsedLink.data : undefined;
-  const direct = useRemote(getJobRoute, { params: { j: jobId ?? "" }, query: { view: "intake" } }, { enabled: !!jobId && !opaque });
-  const linked = useRemote(openLinkRoute, { params: { opaque: opaque ?? "" } }, { enabled: !!opaque });
-  const remote = opaque ? linked : direct;
-  const accept = useCommand(acceptJobHandoffRoute); const decline = useCommand(declineJobHandoffRoute);
+  const { handoffId } = useLocalSearchParams<{ handoffId: string }>();
+  const remote = useRemote(getHandoffRoute, { params: { h: handoffId ?? "" } }, { enabled: !!handoffId });
+  const accept = useCommand(acceptJobHandoffRoute, { resourceId: handoffId });
+  const decline = useCommand(declineJobHandoffRoute, { resourceId: handoffId });
   const router = useRouter(); const { bootstrap } = useSession(); const offline = useOffline(); const t = useT();
   const [reason, setReason] = useState(""); const [declining, setDeclining] = useState(false); const [destination, setDestination] = useState<string | null>(null);
-  const record = opaque ? (linked.data?.kind === "job" ? linked.data.record : null) : direct.data;
-  const job = record?.audience === "foreman" && record.job.view === "intake" && record.job.jobId === jobId
-    && record.job.handoff.handoffId === handoffId ? record.job : null;
+  const job = remote.data?.job.handoff.handoffId === handoffId ? remote.data?.job ?? null : null;
   useFocusEffect(useCallback(() => { if (destination) { setDestination(null); if (destination === "back") router.back(); else router.replace(destination as Href); } }, [destination, router]));
   function confirm(kind: "accept" | "decline") {
     if (!job || offline || job.reply !== "available" || accept.state === "checking" || decline.state === "checking") return;
@@ -38,7 +33,7 @@ export default function IntakeScreen() {
         return "delivery" in result.error && result.error.delivery === "unknown" ? "uncertain" : "invalidated";
       } });
   }
-  const state = !jobId ? "error" : remote.status;
+  const state = !handoffId ? "error" : remote.status;
   return <IntakeView job={job} status={state} offline={offline} declining={declining} reason={reason} setReason={setReason} onDeclining={setDeclining} busy={[accept.state, decline.state].some(s => s === "sending" || s === "checking")} checking={[accept.state, decline.state].includes("checking")} failed={[accept.state, decline.state].some(s => s === "failed" || s === "conflict")} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} onAccept={() => confirm("accept")} onDecline={() => confirm("decline")} onNavigate={path => router.push(path as Href)} />;
 }
 export function IntakeView({ job, status, offline, declining, reason, setReason, onDeclining, busy, checking, failed, onBack, onRetry, onAccept, onDecline, onNavigate }: { job: Intake | null; status: Status; offline: boolean; declining: boolean; reason: string; setReason: (value: string) => void; onDeclining: (value: boolean) => void; busy: boolean; checking: boolean; failed: boolean; onBack: () => void; onRetry: () => void; onAccept: () => void; onDecline: () => void; onNavigate: (path: string) => void }) {

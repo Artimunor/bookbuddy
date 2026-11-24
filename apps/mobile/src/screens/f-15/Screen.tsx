@@ -17,27 +17,27 @@ type StaffQuote = Extract<QuoteVersion, { audience: "foreman" | "reviewer" }>;
 type ChangeDraft = { locale: string; text: string; timing: string; affected: string; amount: string; evidence: string };
 const empty: ChangeDraft = { locale: "", text: "", timing: "", affected: "", amount: "", evidence: "" };
 export default function ForemanChangeScreen() {
-  const { jobId } = useLocalSearchParams<{ jobId: string }>();
+  const { jobId, versionId } = useLocalSearchParams<{ jobId: string; versionId?: string }>();
   const { session } = useSession();
-  return <ChangeRoute key={`${session?.sessionId}:${session?.activeContext?.contextId}:${jobId}`} />;
+  return <ChangeRoute key={`${session?.sessionId}:${session?.activeContext?.contextId}:${jobId}:${versionId ?? ""}`} jobId={jobId} versionId={versionId} />;
 }
-function ChangeRoute() {
-  const { jobId } = useLocalSearchParams<{ jobId: string }>(); const router = useRouter(); const t = useT(); const format = useFormat(); const offline = useOffline(); const { bootstrap } = useSession();
-  const quotes = useRemote(listQuoteVersionsRoute, { params: { j: jobId ?? "" } }, { enabled: !!jobId });
-  const changes = useRemote(listChangeVersionsRoute, { params: { j: jobId ?? "" } }, { enabled: !!jobId });
-  const quoteVersions = quotes.data?.audience === "foreman" ? quotes.data.versions : [];
-  const baseSummary = quoteVersions.filter(x => x.state === "approved").reduce<(typeof quoteVersions)[number] | null>((a, b) => !a || b.no > a.no ? b : a, null);
+function ChangeRoute({ jobId, versionId }: { jobId: string; versionId?: string }) {
+  const router = useRouter(); const t = useT(); const format = useFormat(); const offline = useOffline(); const { bootstrap } = useSession();
+  const [created, setCreated] = useState<StaffChange | null>(null); const [revision, setRevision] = useState(false);
+  const quotes = useRemote(listQuoteVersionsRoute, { params: { j: jobId ?? "" } }, { enabled: !!jobId && (!versionId || revision) });
+  const changes = useRemote(listChangeVersionsRoute, { params: { j: jobId ?? "" } }, { enabled: !!jobId && (!versionId || revision) });
+  const baseId = quotes.data?.audience === "foreman" ? quotes.data.currentApprovedVersionId : null;
   const versions = changes.data?.audience === "foreman" ? changes.data.versions : [];
-  const latest = versions.reduce<(typeof versions)[number] | null>((a, b) => !a || b.no > a.no ? b : a, null);
-  const quote = useRemote(getQuoteVersionRoute, { params: { j: jobId ?? "", id: baseSummary?.id ?? "" } }, { enabled: !!jobId && !!baseSummary });
-  const remote = useRemote(getChangeVersionRoute, { params: { j: jobId ?? "", id: latest?.id ?? "" } }, { enabled: !!jobId && !!latest });
+  const latest = versions.find(version => version.isCurrentProposal) ?? null;
+  const quote = useRemote(getQuoteVersionRoute, { params: { j: jobId ?? "", id: baseId ?? "" } }, { enabled: !!jobId && !!baseId });
+  const selectedId = versionId ?? latest?.id;
+  const remote = useRemote(getChangeVersionRoute, { params: { j: jobId ?? "", id: selectedId ?? "" } }, { enabled: !!jobId && !!selectedId });
   const base = quote.data?.audience === "foreman" ? quote.data : null; const read = remote.data?.audience === "foreman" ? remote.data : null;
   const create = useCommand(createChangeVersionRoute); const submit = useCommand(submitChangeReviewRoute);
-  const [created, setCreated] = useState<StaffChange | null>(null); const [revision, setRevision] = useState(false);
   const local = useLocalDraft<ChangeDraft>(`change:${jobId ?? "missing"}`, empty); const data = created ? (submit.result?.id === created.id ? submit.result : created) : submit.result ?? read;
   const terms = changes.data?.audience === "foreman" ? changes.data.currentTerms : null;
   const busy = [create.state, submit.state].some(s => s === "sending" || s === "checking"); const checking = [create.state, submit.state].includes("checking"); const failed = [create.state, submit.state].some(s => s === "failed" || s === "conflict");
-  const editable = (!data || revision) && (offline || (!!base && quotes.status === "ready" && changes.status === "ready" && (!latest || remote.status === "ready")));
+  const editable = (!data || revision) && (!versionId || revision) && (offline || (!!base && quotes.status === "ready" && changes.status === "ready" && (!selectedId || remote.status === "ready")));
   async function prepare() {
     const amount = minorAmount(local.value.amount, true);
     if (!jobId || !terms || !base || offline || busy || amount === null || !local.value.locale.trim() || !local.value.text.trim() || !local.value.timing.trim() || !local.value.affected.trim() || !local.value.evidence.trim()) return;
@@ -48,8 +48,8 @@ function ChangeRoute() {
     if (!version.actions.submitReview || offline || busy) return;
     confirmAction(router, { title: t("mobile.foremanQuote.review"), actionLabel: t("mobile.foremanQuote.review"), actionLabelKey: "mobile.foremanQuote.review", item: [version.job.reference, t("mobile.foremanQuote.version", { number: version.no, status: t("mobile.foremanQuote.draft") }), version.originalText, version.affectedItems, version.timing, format.money(version.deltaMinor, version.currency), format.money(version.totalMinor, version.currency), version.terms.originalText].join("\n"), actor: bootstrap?.account.displayName ?? version.authorDisplayName, role: version.job.providerDisplayName, effects: [t("mobile.foremanQuote.effect"), ...(version.reviewRouting ? [t("mobile.foremanQuote.reviewContext", { name: version.reviewRouting.reviewerDisplayName })] : [])], offline, onReview: () => { void remote.refresh(); }, onConfirm: async () => { const result = await submit.run({ params: { id: version.id }, body: { payload: {} } }); if (result.ok) return "confirmed"; return "delivery" in result.error && result.error.delivery === "unknown" ? "uncertain" : "invalidated"; } });
   }
-  const status = offline && editable ? "ready" : quotes.status !== "ready" ? quotes.status : changes.status !== "ready" ? changes.status : baseSummary && !base ? quote.status : latest && !data ? remote.status : "ready";
-  return <ChangeView base={base} data={revision ? null : data} draft={local.value} change={local.change} editable={editable} saved={local.saved} saveFailed={local.failed} status={status} offline={offline} busy={busy} checking={checking} failed={failed} hasTerms={offline || !!terms} onBack={() => router.back()} onJob={() => router.replace(`/f/jobs/${jobId}` as Href)} onRetry={() => { void quotes.refresh(); void changes.refresh(); if (baseSummary) void quote.refresh(); if (latest) void remote.refresh(); }} onSend={() => { if (data && !revision) askReview(data); else void prepare(); }} onRevision={() => setRevision(true)} />;
+  const status = versionId && !revision ? remote.status : offline && editable ? "ready" : quotes.status !== "ready" ? quotes.status : changes.status !== "ready" ? changes.status : baseId && !base ? quote.status : selectedId && !data ? remote.status : "ready";
+  return <ChangeView base={base} data={revision ? null : data} draft={local.value} change={local.change} editable={editable} saved={local.saved} saveFailed={local.failed} status={status} offline={offline} busy={busy} checking={checking} failed={failed} hasTerms={offline || !!terms} onBack={() => router.back()} onJob={() => router.replace(`/f/jobs/${jobId}` as Href)} onRetry={() => { if (!versionId || revision) { void quotes.refresh(); void changes.refresh(); if (baseId) void quote.refresh(); } if (selectedId) void remote.refresh(); }} onSend={() => { if (data && !revision) askReview(data); else void prepare(); }} onRevision={() => setRevision(true)} />;
 }
 type Props = { base: StaffQuote | null; data: StaffChange | null; draft: ChangeDraft; change: (draft: ChangeDraft) => void; editable: boolean; saved: boolean; saveFailed: boolean; status: string; offline: boolean; busy: boolean; checking: boolean; failed: boolean; hasTerms: boolean; onBack: () => void; onJob: () => void; onRetry: () => void; onSend: () => void; onRevision: () => void };
 export function ChangeView(p: Props) {

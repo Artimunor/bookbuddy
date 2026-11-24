@@ -1,4 +1,5 @@
 import { getPlaceRoute, listPlacesRoute, type PlaceDetails, type PlaceSummary } from "@bookbuddy/api-contract";
+import { looksLikeAccessCode } from "@bookbuddy/domain";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useRemote } from "../../api";
@@ -41,7 +42,7 @@ export function PlaceRequestView({ draft, place, places, status, saved, failed, 
     {(picker || !draft.placeId) && <Card>{places.map(p => <Button key={p.id} variant="neutral" label={p.alias} onPress={() => select(p.id)} />)}{onMore && <Button variant="quiet" label={t("mobile.customerHome.nextPage")} onPress={onMore} />}<Button variant="quiet" label={t("mobile.request.addPlace")} onPress={onAdd} /></Card>}
     {confirm && <Card><Copy>{t("mobile.request.changeClears")}</Copy><Button label={t("mobile.request.confirmChange")} onPress={() => { onChange({ ...draft, placeId: confirm, safeNote: "" }); setConfirm(null); setPicker(false); }} /><Button variant="quiet" label={t("mobile.request.cancel")} onPress={() => setConfirm(null)} /></Card>}
     {(status === "idle" || status === "loading") && <Copy>{t("mobile.request.loading")}</Copy>}{status === "error" && <><Copy>{t("mobile.request.placeError")}</Copy><Button variant="quiet" label={t("mobile.request.retry")} onPress={onRetry} /></>}
-    <TextField label={t("mobile.request.access")} multiline maxLength={500} value={draft.safeNote} helper={t("mobile.request.noCodes")} error={unsafe ? t("mobile.request.codeWarning") : undefined} onChangeText={safeNote => { if (/\p{N}/u.test(safeNote)) { setUnsafe(true); return; } setUnsafe(false); onChange({ ...draft, safeNote }); }} />
+    <TextField label={t("mobile.request.access")} multiline maxLength={500} value={draft.safeNote} helper={t("mobile.request.noCodes")} error={unsafe ? t("mobile.request.codeWarning") : undefined} onChangeText={safeNote => { if (looksLikeAccessCode(safeNote)) { setUnsafe(true); return; } setUnsafe(false); onChange({ ...draft, safeNote }); }} />
     <SegmentedControl label={t("mobile.request.who")} value={draft.arrivalArrangement} options={[{ value: "nobody", label: t("mobile.request.nobody") }, { value: "requester", label: t("mobile.request.me") }, { value: "someone_else", label: t("mobile.request.someone") }]} onChange={arrivalArrangement => onChange({ ...draft, arrivalArrangement, arrivalContactName: arrivalArrangement === "someone_else" ? draft.arrivalContactName : "" })} />
     {draft.arrivalArrangement === "someone_else" && <TextField label={t("mobile.request.contact")} helper={t("mobile.request.contactHelp")} value={draft.arrivalContactName} maxLength={100} onChangeText={arrivalContactName => onChange({ ...draft, arrivalContactName })} />}
     {saved && <Copy variant="supporting">{status === "offline" ? t("mobile.request.savedOffline") : t("mobile.request.saved")}</Copy>}{failed && <Copy>{t("mobile.request.saveFailed")}</Copy>}

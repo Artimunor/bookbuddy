@@ -3,7 +3,7 @@ import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useRemote } from "../../api";
 import type { RemoteStatus } from "../../api/requests";
 import { useFormat, useT } from "../../i18n";
-import { Badge, Button, Card, Dock, Screen } from "../../ui/controls";
+import { Badge, Button, Card, Dock, ListRow, Screen } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 type Eligibility = CrewMember["eligibility"];
 type Fit = NonNullable<CrewMember["shiftFit"]>["fit"];
@@ -30,12 +30,14 @@ export default function CrewMemberScreen() {
 }
 export function CrewMemberView({ data, status, onBack, onRetry, onSelect, onMessage, onReview }: { data: CrewMember | null; status: RemoteStatus; onBack: () => void; onRetry: () => void; onSelect?: () => void; onMessage: (id: string) => void; onReview: () => void }) {
   const t = useT(); const labels = useCrewLabels(data?.siteZone ?? "UTC"); const fit = data?.shiftFit; const member = data?.member;
+  const crewThreadId = fit?.crewThreadId;
   const dock = fit && onSelect ? <Dock context={t("mobile.crew.selectEffect")} primary={{ label: t("mobile.crew.select"), onPress: onSelect, disabled: status !== "ready" || !fitEligible(fit.fit) }} /> : undefined;
   return <Screen title={t("mobile.crew.member")} navigation={{ kind: "back", label: t("mobile.crew.back"), onPress: onBack }} dock={dock}>
     {(status === "loading" || status === "idle") && <Copy>{t("mobile.crew.loading")}</Copy>}
     {(status === "error" || status === "offline") && <><Copy>{status === "offline" ? t("mobile.crew.offline") : t("mobile.crew.error")}</Copy><Button label={t("mobile.crew.retry")} onPress={onRetry} /></>}
     {data && member && <><Copy variant="supporting">{data.businessName}</Copy><Card><Copy variant="sectionTitle">{member.displayName}</Copy><Copy>{member.skills.join(" · ")}</Copy><Copy>{member.workingLanguages.join(" · ")}</Copy><Copy>{member.openToCoverUntil === null ? t("mobile.crew.notOpen") : t("mobile.crew.openUntil", { time: labels.time(member.openToCoverUntil) })}</Copy></Card>
       {fit ? <Card><Copy variant="sectionTitle">{fit.shift.reference} · {labels.time(fit.shift.window.startsAt)}–{labels.time(fit.shift.window.endsAt)} · {labels.zoneName(fit.shift.window.startsAt, fit.shift.siteZone)}</Copy><Badge label={labels.result(fit.fit)} tone={fitEligible(fit.fit) ? "success" : "attention"} /><Copy>{t("mobile.crew.skills")}: {fit.fit.skillMatches ? t("mobile.crew.skillMatch") : t("mobile.crew.skillMismatch")} · {fit.shift.skill}</Copy><Copy>{t("mobile.crew.languages")}: {fit.fit.briefingLanguageMatches ? t("mobile.crew.languageMatch") : t("mobile.crew.languageMismatch", { language: fit.shift.briefingLanguage })}</Copy><Copy>{t("mobile.crew.availability")}: {labels.availability(fit.fit.availability)}</Copy><Copy>{t("mobile.crew.eligibility")}: {labels.eligibility(fit.fit.eligibility)}</Copy><Copy variant="supporting">{t("mobile.crew.checked", { time: labels.time(fit.fit.checkedAt) })}</Copy>{fit.fit.result === "not_eligible" && <Button variant="quiet" label={t("mobile.crew.askReview")} onPress={onReview} />}</Card> : <><Card><Copy variant="sectionTitle">{t("mobile.crew.eligibility")}</Copy><Copy>{labels.eligibility(data.eligibility)}</Copy></Card><Card><Copy variant="sectionTitle">{t("mobile.crew.availability")}</Copy>{data.availability.map(day => <Copy key={day.date}>{day.date}: {day.available.length ? day.available.map(w => `${labels.time(w.startsAt)}–${labels.time(w.endsAt)}`).join(", ") : t("mobile.crew.noWindows")}{day.busy.map(w => ` · ${t("mobile.crew.busy", { start: labels.time(w.startsAt), end: labels.time(w.endsAt) })}`)}</Copy>)}</Card></>}
-      {fit?.crewThreadId && <Button variant="neutral" label={t("mobile.crew.message")} onPress={() => onMessage(fit.crewThreadId!)} />}<Copy variant="supporting">{t("mobile.crew.privacy")}</Copy></>}
+      {status === "ready" && crewThreadId && <ListRow label={t("mobile.crew.message")} onPress={() => onMessage(crewThreadId)} />}
+      <Copy variant="supporting">{t("mobile.crew.privacy")}</Copy></>}
   </Screen>;
 }

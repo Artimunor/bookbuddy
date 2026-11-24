@@ -1,17 +1,38 @@
-import { changePlaceApproverRoute, createPlaceRoute, getPlaceRoute, invitePlacePersonRoute, patchPlaceRoute, reissueInvitationRoute, withdrawInvitationRoute, type PlaceDetails } from "@bookbuddy/api-contract";
+import { createPlaceRoute, getPlaceRoute, invitePlacePersonRoute, patchPlacePersonRoute, patchPlaceRoute, reissueInvitationRoute, withdrawInvitationRoute, type PlaceDetails, type PlacePersonPatch } from "@bookbuddy/api-contract";
+import { looksLikeAccessCode } from "@bookbuddy/domain";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
+import { View } from "react-native";
 import { useCommand, useRemote } from "../../api";
 import { useFormat, useT } from "../../i18n";
 import { useSession } from "../../session";
-import { Badge, BookingCard, Button, Card, Dock, ListRow, Screen, TextField } from "../../ui/controls";
+import { Badge, BookingCard, Button, Card, Dock, ListRow, Screen, SwitchRow, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { JobLine } from "../../ui/live/JobLine";
-import { confirmAction } from "../s-17/confirmAction";
+import { confirmAction, type ConfirmResult } from "../s-17/confirmAction";
 import { useOffline } from "../s-02/flow";
 
 type Draft = { alias: string; address: string; note: string };
 type Mode = "view" | "edit" | "invite";
+type Person = PlaceDetails["people"][number];
+type PersonGrant = { view: boolean; message: boolean; approve: boolean; successorAccountId?: Person["accountId"] };
+
+function personGrant(person: Person): PersonGrant {
+  return { view: person.isOwner || person.capabilities.includes("view"), message: person.capabilities.includes("message"), approve: person.isNamedApprover };
+}
+
+function grantPatch(person: Person, next: PersonGrant): PlacePersonPatch {
+  const current = personGrant(person);
+  return {
+    ...(next.view !== current.view ? { view: next.view } : {}),
+    ...(next.message !== current.message ? { message: next.message } : {}),
+    ...(next.approve !== current.approve ? { approve: next.approve, ...(next.approve ? {} : { successorAccountId: next.successorAccountId }) } : {}),
+  };
+}
+
+function canEditPeople(place: PlaceDetails) {
+  return place.relationship === "owner" && (place.state === "in_area" || place.state === "out_of_area");
+}
 
 export default function PlaceScreen() {
   const router = useRouter();
@@ -21,7 +42,8 @@ export default function PlaceScreen() {
   const create = useCommand(createPlaceRoute);
   const patch = useCommand(patchPlaceRoute);
   const invite = useCommand(invitePlacePersonRoute);
-  const approver = useCommand(changePlaceApproverRoute);
+  const [personDraft, setPersonDraft] = useState<{ source: PlaceDetails; person: Person; value: PersonGrant } | null>(null);
+  const patchPerson = useCommand(patchPlacePersonRoute, { resourceId: placeId && personDraft ? [placeId, personDraft.person.accountId] : undefined });
   const reissue = useCommand(reissueInvitationRoute);
   const withdraw = useCommand(withdrawInvitationRoute);
   const { bootstrap } = useSession();
@@ -54,15 +76,19 @@ export default function PlaceScreen() {
       setInviteSource(null);
       setEmail("");
       setSelectedInvite(null);
+      setPersonDraft(null);
     }
   }, [placeId, read, isNew]);
   const place = read ? (updated?.source === read ? updated.value : read) : null;
+  const livePlace = useRef(place);
+  livePlace.current = place;
+  const editor = personDraft && personDraft.source === place && canEditPeople(place) ? personDraft : null;
   const visibleMode = !isNew && ((mode === "edit" && (!read || draftSource !== read)) || (mode === "invite" && (!read || inviteSource !== read))) ? "view" : mode;
-  const states = [create.state, patch.state, invite.state, approver.state, reissue.state, withdraw.state];
+  const states = [create.state, patch.state, invite.state, patchPerson.state, reissue.state, withdraw.state];
   const checking = states.includes("checking");
   const busy = checking || states.includes("sending");
   const failed = states.includes("failed") || states.includes("conflict");
-  const codeWarning = /\p{N}/u.test(draft.note);
+  const codeWarning = looksLikeAccessCode(draft.note);
   function edit() { if (place && read) { setDraftSource(read); setDraft({ alias: place.alias, address: place.address ?? "", note: place.safeArrivalNote ?? "" }); setMode("edit"); } }
   async function save() {
     const payload = { alias: draft.alias.trim(), address: draft.address.trim(), safeArrivalNote: draft.note.trim() || null };
@@ -86,34 +112,86 @@ export default function PlaceScreen() {
     const result = await (action === "reissue" ? reissue : withdraw).run({ params: { id }, body: { payload: {} } });
     if (result.ok) { setSelectedInvite(null); await remote.refresh(); }
   }
-  function changeApprover(person: PlaceDetails["people"][number]) {
-    if (!place || !read || busy) return;
-    const source = read;
-    confirmAction(router, { title: t("mobile.places.changeApprover"), actionLabel: t("mobile.places.changeApprover"), actionLabelKey: "mobile.places.changeApprover",
-      item: place.alias, actor: bootstrap?.account.displayName ?? place.ownerDisplayName ?? "", role: t("mobile.places.owner"),
-      effects: [t("mobile.places.changeEffect"), person.displayName], onReview: () => {},
-      onConfirm: async () => {
-        if (liveRead.current !== source) return "invalidated";
-        const result = await approver.run({ params: { p: place.id }, body: { expectedRevision: place.revision, payload: { successorAccountId: person.accountId } } });
-        if (result.ok) { if (liveRead.current === source) setUpdated({ source, value: result.data }); return "confirmed"; }
-        return "delivery" in result.error && result.error.delivery === "unknown" ? "uncertain" : "invalidated";
-      } });
+  function editPerson(person: Person) {
+    if (!place || !canEditPeople(place) || busy) return;
+    setPersonDraft(editor?.person.accountId === person.accountId ? null : { source: place, person, value: personGrant(person) });
+  }
+  function savePerson() {
+    if (!editor || !place || busy) return;
+    const payload = grantPatch(editor.person, editor.value);
+    if (!Object.keys(payload).length) return;
+    const successor = payload.approve === true ? editor.person : payload.approve === false
+      ? place.people.find(person => person.accountId === payload.successorAccountId)
+      : undefined;
+    if (payload.approve !== undefined && (!place.actions.changeApprover || !successor)) return;
+    const save = async (): Promise<ConfirmResult> => {
+      if (livePlace.current !== place) return "invalidated";
+      const result = await patchPerson.run({
+        params: { p: place.id, person: editor.person.accountId },
+        body: { expectedRevision: place.revision, payload },
+      });
+      if (result.ok) {
+        if (livePlace.current === place) {
+          remote.seed(result.data, result.meta.serverTime);
+          setPersonDraft(null);
+        }
+        return "confirmed";
+      }
+      return ("delivery" in result.error && result.error.delivery === "unknown") || result.error.code === "INTERNAL_ERROR" ? "uncertain" : "invalidated";
+    };
+    if (!successor) { void save(); return; }
+    const label = t("mobile.places.changeApprover");
+    confirmAction(router, {
+      title: label, actionLabel: label, actionLabelKey: "mobile.places.changeApprover",
+      item: `${place.alias} · ${editor.person.displayName}`, actor: bootstrap?.account.displayName ?? place.ownerDisplayName ?? "", role: t("mobile.places.owner"),
+      effects: [t("mobile.places.changeEffect"), successor.displayName,
+        ...(payload.view === undefined ? [] : [`${editor.person.displayName} · ${payload.view ? t("mobile.places.grantView") : t("mobile.places.removeView")}`]),
+        ...(payload.message === undefined ? [] : [`${editor.person.displayName} · ${payload.message ? t("mobile.places.grantMessage") : t("mobile.places.removeMessage")}`])],
+      onReview: () => { void remote.refresh(); }, onConfirm: save,
+    });
   }
   const status = offline ? "offline" : isNew ? "ready" : remote.status;
   return <PlaceView place={place} isNew={isNew} status={status} mode={visibleMode} draft={draft} setDraft={setDraft} email={email} setEmail={setEmail}
     busy={busy} checking={checking} failed={failed} codeWarning={codeWarning} selectedInvite={selectedInvite} setSelectedInvite={setSelectedInvite}
     onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} onEdit={edit}
     onCancel={() => isNew ? router.back() : setMode("view")} onSave={() => { void save(); }} onInvite={() => { if (read) { setInviteSource(read); setMode("invite"); } }}
-    onSend={() => { void sendInvite(); }} onChangeApprover={changeApprover} onInvitation={(id, action) => { void invitationAction(id, action); }}
+    onSend={() => { void sendInvite(); }} onEditPerson={editPerson} onInvitation={(id, action) => { void invitationAction(id, action); }}
+    personEditor={editor ? { person: editor.person, value: editor.value, onChange: value => setPersonDraft({ ...editor, value }), onSave: savePerson, onCancel: () => setPersonDraft(null) } : undefined}
     onBooking={(id) => router.push(`/c/jobs/${id}` as Href)} />;
 }
 
-export function PlaceView({ place, isNew, status, mode, draft, setDraft, email, setEmail, busy, checking, failed, codeWarning, selectedInvite, setSelectedInvite, onBack, onRetry, onEdit, onCancel, onSave, onInvite, onSend, onChangeApprover, onInvitation, onBooking }: {
+type PersonEditor = { person: Person; value: PersonGrant; onChange: (value: PersonGrant) => void; onSave: () => void; onCancel: () => void };
+
+function PersonGrantFields({ editor, place, busy }: { editor: PersonEditor; place: PlaceDetails; busy: boolean }) {
+  const t = useT();
+  const { person, value, onChange, onSave, onCancel } = editor;
+  const patch = grantPatch(person, value);
+  const needsSuccessor = person.isNamedApprover && !value.approve;
+  const successors = needsSuccessor ? place.people.filter(candidate => candidate.accountId !== person.accountId && personGrant(candidate).view) : [];
+  return <Card>
+    <Copy variant="sectionTitle">{t("mobile.places.editGrant")}</Copy>
+    <SwitchRow label={t("mobile.places.view")} value={value.view} disabled={busy || person.isOwner || value.approve}
+      onValueChange={view => onChange({ ...value, view, message: view && value.message })} />
+    <SwitchRow label={t("mobile.places.message")} value={value.message} disabled={busy || !value.view}
+      onValueChange={message => onChange({ ...value, message })} />
+    <SwitchRow label={t("mobile.places.approver")} value={value.approve} disabled={busy || !place.actions.changeApprover || (!value.view && !person.isNamedApprover)}
+      onValueChange={approve => onChange({ ...value, approve, view: approve || value.view, successorAccountId: undefined })} />
+    {needsSuccessor && <>
+      <Copy>{t("mobile.places.chooseSuccessor")}</Copy>
+      {successors.map(candidate => <Button key={candidate.accountId} variant={value.successorAccountId === candidate.accountId ? "primary" : "neutral"} label={candidate.displayName}
+        disabled={busy} onPress={() => onChange({ ...value, successorAccountId: candidate.accountId })} />)}
+    </>}
+    <Button label={t("mobile.places.save")} onPress={onSave} disabled={busy || !Object.keys(patch).length || (needsSuccessor && !value.successorAccountId)} />
+    <Button variant="quiet" label={t("mobile.places.cancel")} onPress={onCancel} disabled={busy} />
+  </Card>;
+}
+
+export function PlaceView({ place, isNew, status, mode, draft, setDraft, email, setEmail, busy, checking, failed, codeWarning, selectedInvite, setSelectedInvite, onBack, onRetry, onEdit, onCancel, onSave, onInvite, onSend, onEditPerson, personEditor, onInvitation, onBooking }: {
   place: PlaceDetails | null; isNew: boolean; status: "idle" | "loading" | "ready" | "error" | "offline"; mode: Mode; draft: Draft; setDraft: (value: Draft) => void;
   email: string; setEmail: (value: string) => void; busy: boolean; checking: boolean; failed: boolean; codeWarning: boolean;
   selectedInvite: string | null; setSelectedInvite: (id: string | null) => void;
   onBack: () => void; onRetry: () => void; onEdit: () => void; onCancel: () => void; onSave: () => void; onInvite: () => void; onSend: () => void;
-  onChangeApprover: (person: PlaceDetails["people"][number]) => void; onInvitation: (id: string, action: "reissue" | "withdraw") => void; onBooking: (id: string) => void;
+  personEditor?: PersonEditor; onEditPerson: (person: Person) => void; onInvitation: (id: string, action: "reissue" | "withdraw") => void; onBooking: (id: string) => void;
 }) {
   const format = useFormat();
   const t = useT();
@@ -137,8 +215,11 @@ export function PlaceView({ place, isNew, status, mode, draft, setDraft, email, 
         {place.actions.edit && <Button variant="quiet" label={t("mobile.places.edit")} onPress={onEdit} disabled={busy} />}
         <Card><Copy variant="supporting">{t("mobile.places.address")}</Copy><Copy>{place.address}</Copy><Copy variant="supporting">{t("mobile.places.note")}</Copy><Copy>{place.safeArrivalNote}</Copy><Copy variant="supporting">{t("mobile.places.noCodes")}</Copy></Card>
         <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.places.people")}</Copy>
-        <Card>{[...place.people].sort((a,b) => Number(b.isOwner || b.isNamedApprover) - Number(a.isOwner || a.isNamedApprover)).map((person) => <ListRow key={person.accountId} label={person.displayName} description={[person.isOwner ? t("mobile.places.owner") : null, person.isNamedApprover ? t("mobile.places.approver") : null, ...person.capabilities.map((c) => capabilities[c])].filter(Boolean).join(" · ")}
-          trailing={place.actions.changeApprover && !person.isNamedApprover ? <Button variant="quiet" label={t("mobile.places.changeApprover")} onPress={() => onChangeApprover(person)} disabled={busy} /> : undefined} />)}
+        <Card>{[...place.people].sort((a,b) => Number(b.isOwner || b.isNamedApprover) - Number(a.isOwner || a.isNamedApprover)).map((person) => <View key={person.accountId}>
+          <ListRow label={person.displayName} description={[person.isOwner ? t("mobile.places.owner") : null, person.isNamedApprover ? t("mobile.places.approver") : null, ...person.capabilities.map((c) => capabilities[c])].filter(Boolean).join(" · ")}
+            onPress={canEditPeople(place) && !busy ? () => onEditPerson(person) : undefined} />
+          {personEditor?.person.accountId === person.accountId && <PersonGrantFields editor={personEditor} place={place} busy={busy} />}
+        </View>)}
           {place.pendingInvitations?.map((invitation) => <Card key={invitation.id}><ListRow label={invitation.email} description={t("mobile.places.sent", { date: format.lines(invitation.issuedAt, invitation.siteZone)?.site ?? "" })} onPress={() => setSelectedInvite(selectedInvite === invitation.id ? null : invitation.id)} /><Badge label={t("mobile.places.pending")} />
             {selectedInvite === invitation.id && <>{invitation.reissue.status === "available" && <Button variant="quiet" label={t("mobile.places.resend")} onPress={() => onInvitation(invitation.id, "reissue")} disabled={busy} />}{invitation.canWithdraw && <Button variant="quiet" label={t("mobile.places.withdraw")} onPress={() => onInvitation(invitation.id, "withdraw")} disabled={busy} />}</>}</Card>)}
         </Card>

@@ -1,4 +1,4 @@
-import { getJobRoute, type JobDetail } from "@bookbuddy/api-contract";
+import { getJobRoute, listContractNoticesRoute, type ContractNotice, type JobDetail } from "@bookbuddy/api-contract";
 import { JOURNEY_STEPS } from "@bookbuddy/domain";
 import type { Translator } from "@bookbuddy/i18n";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -14,6 +14,7 @@ import { Copy, Target } from "../../ui/controls/shared";
 import { CrewDots, JobLine, Stamp } from "../../ui/live";
 import { journeyLabels } from "../c-01/common";
 import { LiveVisitScreen } from "../c-09/Screen";
+import { readingLanguageLabel } from "../s-12/language";
 
 type Job = Extract<Extract<JobDetail, { audience: "customer" }>["job"], { view: "whole" }>;
 type Moment = Job["history"]["items"][number];
@@ -65,7 +66,9 @@ export default function JobHomeScreen() {
   const retryLive = useLiveHints(view === "whole" && subscribedVisit ? { kind: "customer-visit", opaqueId: subscribedVisit } : null, remote.refresh);
   const switcher = <JobViewSwitcher value={view} onChange={next => { setView(next); router.setParams({ view: next }); }} />;
   if (view === "today" && liveVisitId) return <LiveVisitScreen visitId={liveVisitId} twoClock={preferences?.twoClock ?? false} viewSwitcher={switcher} onBack={() => router.back()} onNavigate={path => router.push(path as Href)} />;
-  return <JobHomeView job={job} status={jobId ? remote.status : "error"} twoClock={preferences?.twoClock ?? false} onBack={() => router.back()} onRetry={() => { retryLive(); void remote.refresh(); }} onNavigate={(path) => router.push(path as Href)} viewSwitcher={switcher} />;
+  return <JobHomeView job={job} status={jobId ? remote.status : "error"} twoClock={preferences?.twoClock ?? false} onBack={() => router.back()} onRetry={() => { retryLive(); void remote.refresh(); }} onNavigate={(path) => router.push(path as Href)} viewSwitcher={switcher}
+    history={job && <JobHistory key={`${job.jobId}:${job.history.page.cursor ?? ""}`} job={job} onNavigate={path => router.push(path as Href)} />}
+    receipts={job?.quote && <WithdrawalReceipts key={job.jobId} job={job} />} />;
 }
 
 function JobViewSwitcher({ value, onChange }: { value: "today" | "whole"; onChange: (value: "today" | "whole") => void }) {
@@ -74,9 +77,10 @@ function JobViewSwitcher({ value, onChange }: { value: "today" | "whole"; onChan
 }
 
 /** C-09 can supply an in-place Today/Whole job switch without adding a route. */
-export function JobHomeView({ job, status, twoClock = false, onBack, onRetry, onNavigate, viewSwitcher }: {
+export function JobHomeView({ job, status, twoClock = false, onBack, onRetry, onNavigate, viewSwitcher, history, receipts }: {
   job: Job | null; status: RemoteStatus; twoClock?: boolean; onBack: () => void; onRetry: () => void;
   onNavigate: (path: string) => void; viewSwitcher?: ReactNode;
+  history?: ReactNode; receipts?: ReactNode;
 }) {
   const t = useT(); const format = useFormat(); const [more, setMore] = useState(false);
   const current = job ? JOURNEY_STEPS.indexOf(job.journey.step) as 0 | 1 | 2 | 3 | 4 | 5 : 0;
@@ -85,6 +89,9 @@ export function JobHomeView({ job, status, twoClock = false, onBack, onRetry, on
   const root = readable ? `/c/jobs/${readable.jobId}` : "";
   const next = readable?.nextStep;
   const quote = readable?.quote;
+  const crew = readable?.crew;
+  const cancellation = readable?.cancellation;
+  const lead = crew?.leadName;
   const stage = !readable ? "" : readable.journey.cancelled ? t("mobile.customerHome.cancelled") : readable.state === "closed" ? t("mobile.jobHome.closed") : next?.kind === "review_completion" || next?.kind === "sign_off" ? t("mobile.jobHome.finished") : quote?.state === "approved" && readable.journey.step === "quoted" ? t("mobile.jobHome.quoteApproved") : quote?.state === "issued" && readable.journey.step === "quoted" ? t("mobile.jobHome.quoteReady") : labels[current];
   const at = (value: number) => { const time = format.siteTime(value, readable?.siteZone); return time.kind === "available" ? time.siteTime : readable?.siteZone ?? ""; };
   const band = readable?.nextVisit?.window;
@@ -121,6 +128,9 @@ export function JobHomeView({ job, status, twoClock = false, onBack, onRetry, on
       <Card>
         <Copy variant="supporting">{readable.providerName} · {t("mobile.customerHome.step", { step: current + 1, stage: labels[current] })}</Copy>
         <Copy variant="display" accessibilityLiveRegion="polite">{stage}</Copy>
+        {cancellation && <Copy variant="supporting">{cancellation.by
+          ? t("mobile.jobHome.cancelledBy", { name: cancellation.by, time: format.lines(cancellation.at, readable.siteZone)?.site ?? readable.siteZone })
+          : t("mobile.jobHome.cancelledAt", { time: format.lines(cancellation.at, readable.siteZone)?.site ?? readable.siteZone })}</Copy>}
         {quote?.state === "issued" && <Copy variant="sectionTitle">{t("mobile.jobHome.wholeTotal", { amount: format.money(quote.total.minor, quote.total.currency) })}</Copy>}
         {next?.kind === "review_quote" && <Copy variant="supporting">{t("mobile.jobHome.approver", { place: readable.place.alias })}</Copy>}
         {next?.kind === "wait_for_approver" && next.waitingOn && <Copy variant="supporting">{t("mobile.jobHome.waitingApprover", { name: next.waitingOn })}</Copy>}
@@ -133,14 +143,94 @@ export function JobHomeView({ job, status, twoClock = false, onBack, onRetry, on
       {readable.openCase && <Card onPress={() => onNavigate(`${root}/case/${readable.openCase!.caseId}`)} accessibilityLabel={t("mobile.jobHome.openCase")}><Badge tone="critical" label={t("mobile.jobHome.problemOpen")} />{readable.openCase.state === "awaiting_plan" && <Copy>{t("mobile.jobHome.awaitingPlan")}</Copy>}</Card>}
       <Card>
         <ListRow label={quote ? t("mobile.jobHome.quote", { version: quote.version, amount: format.money(quote.total.minor, quote.total.currency) }) : t("mobile.jobHome.noQuote")} onPress={quote ? () => onNavigate(`${root}/quote/${quote.versionId}`) : undefined} />
+        {quote?.sent && <Stamp kind="decision" title={quote.sent.by ? t("mobile.jobHome.sentBy", { name: quote.sent.by }) : t("mobile.jobHome.eventQuote")} time={format.lines(quote.sent.at, readable.siteZone)?.site ?? readable.siteZone} />}
+        {quote?.approved && <Stamp kind="decision" title={quote.approved.by ? t("mobile.jobHome.approvedBy", { name: quote.approved.by }) : t("mobile.jobHome.eventApproved")} time={format.lines(quote.approved.at, readable.siteZone)?.site ?? readable.siteZone} />}
         <ListRow label={t("mobile.jobHome.visit")} description={visitTime ?? (quote?.state === "issued" ? t("mobile.jobHome.afterApproval") : t("mobile.jobHome.noWindows"))} onPress={() => onNavigate(`${root}/windows`)} />
         {viewerTime && <Copy variant="supporting">{viewerTime}</Copy>}
-        {readable.foremanName ? <><ListRow label={readable.foremanName} description={t("mobile.jobHome.foreman")} onPress={chat} /><CrewDots audience="customer" people={[{ id: readable.foremanName, name: readable.foremanName, initials: readable.foremanName.trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join("").toUpperCase(), role: t("mobile.jobHome.foreman") }]} /></> : <ListRow label={t("mobile.jobHome.crewPending")} />}
+        {crew ? <>
+          <ListRow label={lead ?? t("mobile.jobHome.crewConfirmed")} description={lead ? t("mobile.jobHome.crewLeadCount", { count: crew.count }) : t("mobile.jobHome.crewCount", { count: crew.count })} onPress={chat} />
+          {lead && <CrewDots audience="customer" people={[{ id: lead, name: lead, initials: lead.trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join("").toUpperCase(), role: t("mobile.jobHome.crewLead") }]} />}
+          {readable.foremanName && readable.foremanName !== lead && <ListRow label={readable.foremanName} description={t("mobile.jobHome.foreman")} onPress={chat} />}
+        </> : <ListRow label={t("mobile.jobHome.crewPending")} />}
         {readable.bill && <ListRow label={t("mobile.customerHome.seeBill")} description={format.money(readable.bill.total.minor, readable.bill.total.currency)} onPress={() => onNavigate(`${root}/bill`)} />}
       </Card>
-      <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.jobHome.history")}</Copy>
-      {!readable.history.items.length && <Copy variant="supporting">{t("mobile.jobHome.noHistory")}</Copy>}
-      {readable.history.items.map((item, index) => { const title = momentTitle(t, item.kind); const path = momentPath(readable.jobId, item); const stamp = <Stamp kind="system" title={title} time={at(item.at)} attribution={item.by ?? undefined} />; return path ? <Target key={`${item.kind}-${item.recordId}-${index}`} accessibilityRole="button" accessibilityLabel={`${title}, ${at(item.at)}`} onPress={() => onNavigate(path)}>{stamp}</Target> : <View key={`${item.kind}-${item.recordId}-${index}`}>{stamp}</View>; })}
+      {history ?? <HistoryStamps job={readable} pages={[readable.history]} onNavigate={onNavigate} />}
+      {receipts}
     </>}
   </Screen>;
+}
+
+function JobHistory({ job, onNavigate }: { job: Job; onNavigate: (path: string) => void }) {
+  const t = useT();
+  const [earlier, setEarlier] = useState<{ cursor: string; pages: Job["history"][] } | null>(null);
+  const remote = useRemote(getJobRoute, { params: { j: job.jobId }, query: { view: "whole", cursor: earlier?.cursor } }, { enabled: earlier !== null });
+  const current = earlier && remote.data?.audience === "customer" && remote.data.job.view === "whole" ? remote.data.job.history : null;
+  const pages = [job.history, ...earlier?.pages ?? [], ...(current ? [current] : [])];
+  const tail = pages.at(-1)!;
+  const cursor = tail.page.hasMore ? tail.page.cursor : null;
+  const waiting = earlier !== null && (remote.status === "idle" || remote.status === "loading");
+  const blocked = earlier !== null && (remote.status === "offline" || remote.status === "error");
+  return <>
+    <HistoryStamps job={job} pages={pages} onNavigate={onNavigate} />
+    {blocked && <Copy variant="supporting">{remote.status === "offline" ? t("mobile.jobHome.offline") : t("mobile.jobHome.historyUnavailable")}</Copy>}
+    {cursor && <Button variant="quiet" label={t("mobile.jobHome.earlier")} busy={waiting} disabled={waiting || remote.status === "offline"} onPress={() => {
+      if (blocked) { void remote.refresh(); return; }
+      setEarlier({ cursor, pages: current ? [...earlier?.pages ?? [], current] : [] });
+    }} />}
+  </>;
+}
+
+function HistoryStamps({ job, pages, onNavigate }: { job: Job; pages: readonly Job["history"][]; onNavigate: (path: string) => void }) {
+  const t = useT(); const format = useFormat();
+  return <>
+    <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.jobHome.history")}</Copy>
+    {!pages[0]?.items.length && <Copy variant="supporting">{t("mobile.jobHome.noHistory")}</Copy>}
+    {pages.map(({ items }, page) => items.map((item, index) => {
+      const title = momentTitle(t, item.kind);
+      const path = momentPath(job.jobId, item);
+      const time = format.lines(item.at, job.siteZone)?.site ?? job.siteZone;
+      const stamp = <Stamp kind="system" title={title} time={time} attribution={item.by ?? undefined} />;
+      const key = `${page}-${index}-${item.recordId}`;
+      return path ? <Target key={key} accessibilityRole="button" accessibilityLabel={[title, item.by, time].filter(Boolean).join(", ")} onPress={() => onNavigate(path)}>{stamp}</Target>
+        : <View key={key}>{stamp}</View>;
+    }))}
+  </>;
+}
+
+function WithdrawalReceipts({ job }: { job: Job }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const remote = useRemote(listContractNoticesRoute, { params: { j: job.jobId } }, { enabled: open });
+  return <Card>
+    <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.jobHome.withdrawals")}</Copy>
+    <Button variant="quiet" label={open ? t("mobile.jobHome.hideWithdrawals") : t("mobile.jobHome.showWithdrawals")} onPress={() => setOpen(!open)} />
+    {open && (remote.status === "ready" ? <WithdrawalReceiptList notices={remote.data.notices} siteZone={job.siteZone} /> :
+      remote.status === "error" ? <><Copy>{t("mobile.jobHome.withdrawalsUnavailable")}</Copy>
+        {remote.error?.code !== "NOT_FOUND" && remote.error?.code !== "UNAUTHENTICATED" && <Button variant="quiet" label={t("shared.action.retry")} onPress={() => { void remote.refresh(); }} />}</> :
+      <Copy>{remote.status === "offline" ? t("mobile.jobHome.offline") : t("mobile.jobHome.withdrawalsLoading")}</Copy>)}
+  </Card>;
+}
+
+function deliveryLabel(t: T, state: ContractNotice["deliveryState"]) {
+  switch (state) {
+    case "delivered": return t("mobile.jobHome.withdrawalEmailSent");
+    case "pending": case "claimed": return t("mobile.jobHome.withdrawalEmailPending");
+    case "failed": return t("mobile.jobHome.withdrawalEmailFailed");
+    case "skipped": return t("mobile.jobHome.withdrawalEmailSkipped");
+    default: return t("mobile.jobHome.withdrawalEmailUnknown");
+  }
+}
+
+export function WithdrawalReceiptList({ notices, siteZone }: { notices: readonly ContractNotice[]; siteZone: string }) {
+  const t = useT(); const format = useFormat();
+  const withdrawals = notices.filter(notice => notice.kind === "withdrawal");
+  if (!withdrawals.length) return <Copy variant="supporting">{t("mobile.jobHome.noWithdrawals")}</Copy>;
+  return withdrawals.map(notice => <View key={notice.id}>
+    <Stamp kind="decision" title={t("mobile.jobHome.withdrawalReceived")} attribution={notice.actorDisplayName} time={format.lines(notice.at, siteZone)?.site ?? siteZone} />
+    <Copy variant="label">{t("mobile.jobHome.withdrawalNoticeLanguage", { language: readingLanguageLabel(t, notice.noticeLocale) })}</Copy>
+    <Copy>{notice.noticeText}</Copy>
+    <Copy variant="label">{t("mobile.jobHome.withdrawalTermsLanguage", { language: readingLanguageLabel(t, notice.termsLocale) })}</Copy>
+    <Copy>{notice.termsText}</Copy>
+    <Copy variant="supporting">{deliveryLabel(t, notice.deliveryState)}</Copy>
+  </View>);
 }

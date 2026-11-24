@@ -1,36 +1,48 @@
 import { approveQuoteVersionRoute, declineQuoteVersionRoute, getQuoteVersionRoute } from "@bookbuddy/api-contract";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useCommand, useRemote } from "../../api";
+import { commandIntentKey, useCommand, useCommandStatus, useRemote } from "../../api";
 import type { CommandStatus } from "../../api/requests";
 import { useFormat, useT } from "../../i18n";
 import { Button, Card, Dock, Sheet } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { confirmAction } from "../s-17/confirmAction";
 import QuoteScreen, { type CustomerQuote } from "../c-06/Screen";
-import { setApprovalChecking, useApprovalState } from "../c-06/approvalState";
 
 export default function ApproveQuoteScreen() {
   const { jobId, versionId } = useLocalSearchParams<{ jobId: string; versionId: string }>();
   const router = useRouter();
-  const approvalState = useApprovalState(jobId ?? "", versionId ?? "");
+  const pendingApproval = useCommandStatus(versionId ? commandIntentKey(approveQuoteVersionRoute, versionId) : null);
+  const pendingDecline = useCommandStatus(versionId ? commandIntentKey(declineQuoteVersionRoute, versionId) : null);
   const remote = useRemote(getQuoteVersionRoute, { params: { j: jobId ?? "", id: versionId ?? "" } }, { enabled: !!jobId && !!versionId });
-  const approve = useCommand(approveQuoteVersionRoute); const decline = useCommand(declineQuoteVersionRoute);
+  const approve = useCommand(approveQuoteVersionRoute, { resourceId: versionId });
+  const decline = useCommand(declineQuoteVersionRoute, { resourceId: versionId });
   const t = useT(); const format = useFormat();
   const read = remote.status === "ready" && remote.data?.audience === "customer" ? remote.data : null;
   const data = remote.status === "ready" ? approve.result ?? decline.result ?? read : null;
+  const busy = pendingApproval !== "idle" || pendingDecline !== "idle";
+  const state = pendingApproval === "sending" || pendingDecline === "sending" ? "sending"
+    : busy ? "checking" : approve.state !== "idle" ? approve.state : decline.state;
   async function decide() {
-    if (!read || !read.actions.approve || approvalState === "checking" || approve.state === "sending" || approve.state === "checking") return;
-    setApprovalChecking(jobId ?? "", versionId ?? "", true);
+    if (!read || !read.actions.approve || busy) return;
     const outcome = await approve.run({ params: { id: read.id }, body: { payload: { termsHash: read.terms.hash, ...(read.readingAid.status === "ready" ? { readingArtifactRef: read.readingAid.ref } : {}) } } });
-    const uncertain = !outcome.ok && (outcome.error.code === "INTERNAL_ERROR" || ("delivery" in outcome.error && outcome.error.delivery === "unknown"));
-    if (outcome.ok || (!outcome.ok && (outcome.error.code === "CONFLICT" || outcome.error.code === "STALE_REVISION"))) await remote.refresh();
-    if (!uncertain) setApprovalChecking(jobId ?? "", versionId ?? "", false);
+    if (outcome.ok) remote.seed(outcome.data, outcome.meta.serverTime);
+    else if (outcome.error.code === "CONFLICT" || outcome.error.code === "STALE_REVISION") void remote.refresh();
   }
   function askDecline() {
-    if (!read || !read.actions.decline) return;
-    confirmAction(router, { title: t("mobile.customerQuote.decline"), actionLabel: t("mobile.customerQuote.decline"), actionLabelKey: "mobile.customerQuote.decline", item: t("mobile.customerQuote.quoteVersion", { number: read.no, provider: read.job.providerDisplayName }) + " · " + format.money(read.totalMinor, read.currency), actor: read.job.namedApproverDisplayName, role: read.job.placeAlias, effects: [t("mobile.customerQuote.effects")], destructive: true, onReview: () => router.back(), onConfirm: async () => { const result = await decline.run({ params: { id: read.id }, body: { payload: { termsHash: read.terms.hash, ...(read.readingAid.status === "ready" ? { readingArtifactRef: read.readingAid.ref } : {}) } } }); if (result.ok) { void remote.refresh(); return "confirmed"; } return "delivery" in result.error && result.error.delivery === "unknown" ? "uncertain" : "invalidated"; } });
+    if (!read || !read.actions.decline || busy) return;
+    confirmAction(router, {
+      title: t("mobile.customerQuote.decline"), actionLabel: t("mobile.customerQuote.decline"), actionLabelKey: "mobile.customerQuote.decline",
+      item: t("mobile.customerQuote.quoteVersion", { number: read.no, provider: read.job.providerDisplayName }) + " · " + format.money(read.totalMinor, read.currency),
+      actor: read.job.namedApproverDisplayName, role: read.job.placeAlias, effects: [t("mobile.customerQuote.effects")],
+      destructive: true, onReview: () => { void remote.refresh(); },
+      onConfirm: async () => {
+        const result = await decline.run({ params: { id: read.id }, body: { payload: { termsHash: read.terms.hash, ...(read.readingAid.status === "ready" ? { readingArtifactRef: read.readingAid.ref } : {}) } } });
+        if (result.ok) { remote.seed(result.data, result.meta.serverTime); return "confirmed"; }
+        return result.error.code === "INTERNAL_ERROR" || ("delivery" in result.error && result.error.delivery === "unknown") ? "uncertain" : "invalidated";
+      },
+    });
   }
-  return <><QuoteScreen /><ApprovalView data={data} state={approvalState === "checking" && approve.state !== "sending" ? "checking" : approve.state} onClose={() => router.back()} onApprove={() => { void decide(); }} onDecline={askDecline} onCurrent={(id) => router.replace(`/c/jobs/${jobId}/quote/${id}` as Href)} /></>;
+  return <><QuoteScreen /><ApprovalView data={data} state={state} onClose={() => router.back()} onApprove={() => { void decide(); }} onDecline={askDecline} onCurrent={(id) => router.replace(`/c/jobs/${jobId}/quote/${id}` as Href)} /></>;
 }
 export function ApprovalView({ data, state, onClose, onApprove, onDecline, onCurrent }: { data: CustomerQuote | null; state: CommandStatus; onClose: () => void; onApprove: () => void; onDecline: () => void; onCurrent: (id: string) => void }) {
   const t = useT(); const format = useFormat();

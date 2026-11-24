@@ -13,13 +13,16 @@ const unavailable = threadEntriesPageSchema.parse({ ...translated, entries: [{ .
 const rtl = threadEntriesPageSchema.parse({ ...translated, entries: [{ ...entry, author: { displayName: "Nadia Benali", role: "worker", isViewer: false }, sourceLanguage: "ar", originalText: "صباح الخير، سأصل قريباً.", preferredTranslation: { state: "ready", targetLocale: "en", text: "Good morning, I'll be there soon.", producedAt: now } }, reply] });
 export const crewDetails = threadDetailsSchema.parse({ ...details, audience: "crew", safetyHold: true, members: [{ ...mateo, isContact: true, writingLanguage: "es", readingLocale: "es" }, { displayName: "Diego Torres", role: "worker", isViewer: true, isContact: false, writingLanguage: "en", readingLocale: "en" }] });
 const crew = threadEntriesPageSchema.parse({ ...translated, audience: "crew", thread: crewDetails, stamps: [{ id: "stamp-1", visitId: "visit-1", at: now, isCurrent: true, actorName: "Diego Torres", kind: "checked_in" }] });
+const withAttachment = threadEntriesPageSchema.parse({ ...translated, entries: [entry, { ...reply, attachments: [{ attachmentId: "terrace-photo", kind: "photo", availability: "available" }] }] });
 const noop = () => {};
-const props = { pending: [], offline: false, draft: "", busy: false, failed: false, reported: false, onDraft: noop, onSend: noop, onMore: noop, onBack: noop, onDetails: noop, onRetry: noop, onReport: noop, onTranslate: noop };
+const props = { pending: [], offline: false, draft: "", busy: false, failed: false, reported: false, onDraft: noop, onSend: noop, onMore: noop, onBack: noop, onDetails: noop, onRetry: noop, onRemovePending: noop, onRetryPending: noop, onOpenAttachment: noop, onReport: noop, onTranslate: noop };
 export const previews: ScreenPreview[] = [
  { id: "S-10", state: "translated", render: () => <ChatView {...props} data={details} page={translated} /> },
  { id: "S-10", state: "translation-unavailable", render: () => <ChatView {...props} data={details} page={unavailable} /> },
  { id: "S-10", state: "rtl-original", render: () => <ChatView {...props} data={details} page={rtl} /> },
  { id: "S-10", state: "crew-only", render: () => <ChatView {...props} data={crewDetails} page={crew} /> },
- { id: "S-10", state: "queued", render: () => <ChatView {...props} data={details} page={translated} offline pending={[{ id: "waiting", text: "See you then.", sourceLanguage: "en", at: now }]} /> },
+ { id: "S-10", state: "queued", render: () => <ChatView {...props} data={details} page={translated} offline pending={[{ id: "waiting", text: "See you then.", sourceLanguage: "en", at: now, status: "queued" }]} /> },
+ { id: "S-10", state: "failed", render: () => <ChatView {...props} data={details} page={translated} draft="Could you confirm the time?" failed pending={[{ id: "checking", text: "See you then.", sourceLanguage: "en", at: now, status: "checking" }]} /> },
+ { id: "S-10", state: "attachment", render: () => <ChatView {...props} data={details} page={withAttachment} attachmentDraft={{ items: [], complete: true, enabled: true, onAttach: noop, onOpen: noop, onRetry: noop, onDiscard: noop }} /> },
  { id: "S-10", state: "read-only", render: () => <ChatView {...props} data={{ ...details, canSend: false, readOnlyReason: "job_closed", writeState: "read_only" }} page={translated} /> },
 ];

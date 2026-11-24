@@ -11,7 +11,8 @@ export const previews: ScreenPreview[] = [
   { id: "C-07", state: "not-the-named-approver", render: () => <Preview data={viewer} state="idle" /> },
   { id: "C-07", state: "changed", render: () => <Preview data={replaced} state="conflict" /> },
   { id: "C-07", state: "processing", render: () => <Preview data={quote} state="sending" /> },
+  { id: "C-07", state: "checking", render: () => <Preview data={quote} state="checking" /> },
   { id: "C-07", state: "approved", render: () => <Preview data={approved} state="done" /> },
   { id: "C-07", state: "failed", render: () => <Preview data={quote} state="failed" /> },
 ];
-function Preview({ data, state }: { data: typeof quote; state: "idle" | "sending" | "conflict" | "done" | "failed" }) { return <><QuoteView data={data} status="ready" onBack={empty} onRetry={empty} onOpen={empty} onReview={empty} /><ApprovalView data={data} state={state} onClose={empty} onApprove={empty} onDecline={empty} onCurrent={empty} /></>; }
+function Preview({ data, state }: { data: typeof quote; state: "idle" | "sending" | "checking" | "conflict" | "done" | "failed" }) { return <><QuoteView data={data} status="ready" onBack={empty} onRetry={empty} onOpen={empty} onReview={empty} /><ApprovalView data={data} state={state} onClose={empty} onApprove={empty} onDecline={empty} onCurrent={empty} /></>; }

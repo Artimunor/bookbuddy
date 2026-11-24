@@ -7,4 +7,13 @@ const noop = () => {};
 const pending = staffQuoteVersionSchema.parse({ ...quote, state: "in_review", actions: { ...quote.actions, submitReview: false }, review: { id: "review", state: "pending", reviewerDisplayName: "Inés Vidal", backupDisplayName: "Luis García", submittedAt: 1795421580000, dueAt: 1795507980000 } });
 const issued = staffQuoteVersionSchema.parse({ ...quote, state: "issued", publisherDisplayName: "Mateo Ruiz", issuedAt: 1795421640000, expiresAt: 1796036400000, actions: { ...quote.actions, submitReview: false } });
 const approved = staffQuoteVersionSchema.parse({ ...issued, state: "approved", decision: { id: "decision", decision: "approve", termsHash: "terms_hash", actorDisplayName: "Claire Martin", at: 1795422000000 } });
-export const previews: ScreenPreview[] = [{ state: "draft", data: null }, { state: "pending-review", data: pending }, { state: "sent", data: issued }, { state: "approved", data: approved }].map(({ state, data }) => ({ id: "F-04", state, render: () => <QuoteView data={data} draft={state === "draft" ? { scope: quote.scope, exclusions: quote.exclusions, locale: "es", lines: [{ label: "Mano de obra", amount: "160", evidence: "Foto" }, { label: "Rodillos", amount: "80", evidence: "Foto" }] } : emptyQuote} change={noop} editable={state === "draft"} saved={true} saveFailed={false} status="ready" offline={false} busy={false} checking={false} failed={false} hasTerms={true} onBack={noop} onJob={noop} onRetry={noop} onSend={noop} onRevision={noop} onChange={noop} /> }));
+export const previews: ScreenPreview[] = [{ state: "draft", data: null }, { state: "pending-review", data: pending }, { state: "sent", data: issued }, { state: "approved", data: approved }].map(({ state, data }) => ({
+  id: "F-04", state, render: () => <QuoteView data={data}
+    draft={state === "draft" ? { scope: quote.scope, exclusions: quote.exclusions, locale: "es", lines: [
+      { label: "Mano de obra", amount: "160", evidence: "Foto", evidenceAlternative: "Prueba de cierre con la cliente" },
+      { label: "Rodillos", amount: "80", evidence: "Foto" },
+    ] } : emptyQuote}
+    change={noop} editable={state === "draft"} saved saveFailed={false} status="ready" offline={false} busy={false} checking={false} failed={false} hasTerms
+    draftMedia={state === "draft" ? { attachments: [], ready: true, onAttach: noop, onOpen: noop, onExclude: noop, onRetry: noop } : undefined}
+    onBack={noop} onJob={noop} onRetry={noop} onSend={noop} onRevision={noop} onChange={noop} />,
+}));

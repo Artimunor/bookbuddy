@@ -1,4 +1,4 @@
-import { getShiftCandidatesRoute, getShiftRoute, type ShiftDetail } from "@bookbuddy/api-contract";
+import { getShiftRoute, type ShiftDetail } from "@bookbuddy/api-contract";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useRemote } from "../../api";
 import type { RemoteStatus } from "../../api/requests";
@@ -14,8 +14,7 @@ export default function ShiftScreen() {
   const { shiftId } = useLocalSearchParams<{ shiftId: string }>(); const router = useRouter();
   const remote = useRemote(getShiftRoute, { params: { s: shiftId ?? "" } }, { enabled: !!shiftId });
   const data = remote.data?.view === "foreman" ? remote.data : null;
-  const candidates = useRemote(getShiftCandidatesRoute, { params: { s: shiftId ?? "" } }, { enabled: !!shiftId && data?.nextAction === "find_cover" });
-  const gap = candidates.data?.slots.find(slot => slot.coverGapId)?.coverGapId ?? null;
+  const gap = data?.slots.find(slot => slot.coverGapId)?.coverGapId ?? null;
   return <ShiftView data={data} status={remote.status} gapId={gap} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} onCover={() => gap && router.push(`/f/cover/${gap}` as Href)} onAssign={() => data && router.push(`/f/jobs/${data.shift.job.id}/assign?shiftId=${encodeURIComponent(data.shift.id)}` as Href)} onShare={() => data && router.push(`/f/jobs/${data.shift.job.id}/share` as Href)} onBriefing={id => router.push(`/safety/${id}` as Href)} onLog={() => data && router.push(`/f/jobs/${data.shift.job.id}/site-log` as Href)} />;
 }
 
