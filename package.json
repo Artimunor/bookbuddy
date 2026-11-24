@@ -1,0 +1,29 @@
+{
+  "name": "bookbuddy",
+  "private": true,
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "typecheck": "bun scripts/typecheck.ts",
+    "test": "bun test",
+    "check-layout": "bun scripts/check-layout.ts",
+    "i18n:build": "bun packages/i18n/scripts/build.ts",
+    "i18n:check": "bun packages/i18n/scripts/build.ts --check",
+    "tokens:build": "bun packages/design-tokens/scripts/build.ts",
+    "tokens:check": "bun packages/design-tokens/scripts/build.ts --check",
+    "db:migrate:local": "bun run --cwd apps/api db:migrate:local",
+    "seed": "bun scripts/seed.ts",
+    "dev": "bun run dev:web",
+    "dev:api": "bun run --cwd apps/api dev",
+    "dev:web": "bun run --cwd apps/web dev",
+    "dev:mobile": "bun run --cwd apps/mobile dev",
+    "build:web": "bun run --cwd apps/web build",
+    "export:ios": "bun run --cwd apps/mobile export:ios",
+    "export:android": "bun run --cwd apps/mobile export:android",
+    "export:preview": "bun run --cwd apps/mobile export:preview"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.4",
+    "typescript": "6.0.3"
+  }
+}

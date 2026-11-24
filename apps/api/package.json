@@ -1,0 +1,20 @@
+{
+  "name": "@bookbuddy/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bunx --bun --no-install wrangler dev --local --persist-to .wrangler/state",
+    "db:migrate:local": "bunx --bun --no-install wrangler d1 migrations apply DB --local --persist-to .wrangler/state"
+  },
+  "dependencies": {
+    "@bookbuddy/api-contract": "workspace:*",
+    "@bookbuddy/domain": "workspace:*",
+    "@bookbuddy/i18n": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "hono": "4.13.21"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261124.1",
+    "wrangler": "4.167.0"
+  }
+}

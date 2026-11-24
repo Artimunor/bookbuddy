@@ -1,0 +1,11 @@
+{
+  "name": "@bookbuddy/api-client",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@bookbuddy/api-contract": "workspace:*"
+  }
+}
