@@ -1,4 +1,4 @@
-import { acceptInvitationRoute, declineInvitationRoute, linkTokenSchema, openLinkRoute, sessionContextRoute, type CoverView, type InvitationOpening, type JobDetail, type LinkOpening, type WorkerAssignmentOffer } from "@bookbuddy/api-contract";
+import { acceptInvitationRoute, declineInvitationRoute, linkTokenSchema, openLinkRoute, sessionContextRoute, type InvitationOpening, type LinkOpening } from "@bookbuddy/api-contract";
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { View } from "react-native";
@@ -23,8 +23,7 @@ function help(reason?: string): Href {
   return { pathname: "/help", params: { reason: reason === "expired" || reason === "removed" || reason === "pending" ? reason : "generic" } } as Href;
 }
 
-type Destination = Exclude<LinkOpening, { kind: "invitation" | "switch_context" | "unavailable" }>
-  | { kind: "job"; record: JobDetail } | { kind: "cover"; cover: CoverView } | { kind: "assignment_offer"; offer: WorkerAssignmentOffer };
+type Destination = Exclude<LinkOpening, { kind: "invitation" | "switch_context" | "unavailable" }>;
 function destination(link: Destination, role: string | undefined): Href {
   switch (link.kind) {
     case "place": return { pathname: "/c/places/[placeId]", params: { placeId: link.place.id } } as Href;
