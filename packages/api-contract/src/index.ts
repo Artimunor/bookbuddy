@@ -11,3 +11,4 @@ export * from "./jobs";
 export * from "./commercial";
 export * from "./schedule";
 export * from "./staffing";
+export * from "./field";

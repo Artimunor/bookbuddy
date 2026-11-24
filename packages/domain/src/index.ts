@@ -1,6 +1,7 @@
 export * from "./access";
 export * from "./commercial";
 export * from "./deadlines";
+export * from "./field";
 export * from "./format";
 export * from "./ids";
 export * from "./jobs";
