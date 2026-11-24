@@ -11,6 +11,8 @@ import { readyAttachmentSql } from "../media/policy";
 import { placeCapability } from "../places/policy";
 import { approvedVersion, noWithdrawal } from "../schedule/policy";
 import { workerHomeOffers } from "../schedule/shifts";
+import { foremanScope, handoffDeadlineSql, handoffRecipientAllowed, initialHandoffAllowed, latestHandoff,
+  liveProviderHandoff, reofferAllowed, withHandoffClock } from "./handoff-policy";
 import {
   booking, businessCapability, currentMembership, customerPlaces, handoffJson, headingSql, journey, journeySql,
   memberJson, nextVisitId, placeZone, scopedIntakeIds, scopedJobIds, visitJson,
@@ -166,6 +168,21 @@ const readyBillDetails = `(WITH basis(value) AS MATERIALIZED (${approvedInvoice(
   FROM completions c CROSS JOIN basis WHERE c.id = j.ready_bill_completion_id
     AND (basis.value ->> 'net') >= 0 AND (basis.value ->> 'tax') >= 0
     AND (basis.value ->> 'net') + (basis.value ->> 'tax') > 0)`;
+
+const initialOffer = initialHandoffAllowed("h");
+const mayReoffer = reofferAllowed("j", "h");
+const handoffPreview = `(WITH eligible_foremen AS MATERIALIZED (
+    ${foremanScope(`m.business_id = j.business_id AND ${handoffRecipientAllowed("j", "m.id", "c.id")}
+      AND (${initialOffer} OR h.recipient_id <> m.id)`, `m.id AS membership_id, ${displayName("a")} AS display_name`)}
+  ), calendar_area AS (
+    SELECT area.id, area.site_zone WHERE EXISTS (SELECT 1 FROM eligible_foremen)
+  ), ${handoffDeadlineSql("standard", "(SELECT value FROM handoff_offsets)")}
+  SELECT json_object('policy', 'standard', 'expiresAt', deadline.expires_at,
+    'reofferOfId', CASE WHEN ${mayReoffer} THEN h.id END,
+    'eligibleForemen', json(${jsonRows(`json_object('membershipId', membership_id, 'displayName', display_name)`,
+    "FROM eligible_foremen ORDER BY display_name COLLATE NOCASE, membership_id")}))
+  FROM deadline)`;
+
 const todayVisits = (linked: boolean, whole: boolean) => {
   const visit = visitJson("v", "booked");
   const staff = whole ? linked ? "s.role = 'foreman' AND (SELECT visit_id FROM input) IS NOT NULL" : "0" : "s.role = 'foreman'";
@@ -190,7 +207,7 @@ function jobPacket(mode: ReadMode, linked = false): string {
     'next', json(CASE WHEN w.id IS NOT NULL THEN ${visitJson("v", "w")} END),
     'finalAt', CASE WHEN j.state <> 'open' THEN (SELECT max(cancelled_at) FROM visits WHERE job_id = j.id) END,
     'foreman', json(${memberJson("j.accountable_foreman_membership_id")}),
-    'handoff', json(CASE WHEN s.role = 'provider_admin' AND h.id IS NOT NULL THEN ${handoffJson("h", at)} END),
+    'handoff', json(CASE WHEN s.role = 'provider_admin' AND h.offered_at <= ${at} THEN ${handoffJson("h", at)} END),
     'quote', json(CASE WHEN s.role = 'customer' AND q.id IS NOT NULL THEN ${quotePacket(mode === "whole")} END),
     'change', json(CASE WHEN s.role = 'customer' AND ch.id IS NOT NULL THEN ${changePacket} END),
     'proposal', json(CASE WHEN s.role = 'customer' AND offered.id IS NOT NULL THEN ${proposalPacket} END),
@@ -216,6 +233,9 @@ function jobPacket(mode: ReadMode, linked = false): string {
       'foremanChange', json(CASE WHEN s.role = 'foreman' THEN ${foremanVersion("change")} END),
       'foremanBill', json(CASE WHEN s.role = 'foreman' THEN ${foremanBill} END),
       'readyBill', json(CASE WHEN j.ready_bill_completion_id IS NOT NULL THEN ${readyBillDetails} END)` : ""}
+    ${mode === "whole" ? `, 'handoffPreview', json(CASE WHEN j.state = 'open' AND ${liveProviderHandoff("s", "j.business_id")}
+      ${linked ? "AND (SELECT visit_id FROM input) IS NULL" : ""}
+      AND (${initialOffer} OR ${mayReoffer}) THEN ${handoffPreview} END)` : ""}
     ${detail ? `, 'today', json(${todayVisits(linked, mode === "whole")}),
       'review', json(CASE WHEN s.role = 'provider_admin' AND j.state = 'open' THEN (
         SELECT json_object('kind', candidate.kind, 'versionId', candidate.version_id, 'version', candidate.no,
@@ -223,8 +243,8 @@ function jobPacket(mode: ReadMode, linked = false): string {
         FROM pending_reviews candidate JOIN accounts author ON author.id = candidate.author_id
         WHERE candidate.job_id = j.id
         ORDER BY candidate.due_at, candidate.id LIMIT 1) END),
-      'canWithdrawHandoff', s.role = 'provider_admin' AND j.state = 'open' AND (${liveHandoff})
-        AND ${businessCapability("s.membership_id", "handoff", at)},
+      'canWithdrawHandoff', j.state = 'open' AND (${liveHandoff}) AND h.issuer_id = s.account_id
+        AND h.incumbent_id IS j.accountable_foreman_membership_id AND ${liveProviderHandoff("s", "j.business_id")},
       'address', CASE WHEN s.role = 'foreman' THEN p.normalized_address END,
       'arrival', json(CASE WHEN s.role = 'foreman' THEN json_object('arrangement', coalesce(r.arrival_arrangement, 'to_be_arranged'),
         'contactName', r.arrival_contact_name, 'safeNote', r.safe_note) END)` : ""})`;
@@ -384,8 +404,9 @@ function read(access: SessionAccess, mode: ReadMode, options: {
         CASE WHEN s.role = 'customer' THEN (${latestQuote}) END AS quote_id,
         CASE WHEN s.role = 'customer' THEN (${latestChange}) END AS change_id,
         CASE WHEN s.role = 'customer' AND j.state = 'open' THEN (${nextProposal}) END AS proposal_id,
-        CASE WHEN s.role = 'provider_admin' THEN (SELECT h.id FROM job_handoffs h WHERE h.job_id = j.id AND h.offered_at <= ${at}
-          ORDER BY h.state = 'offered' DESC, h.offered_at DESC, h.id DESC LIMIT 1) END AS handoff_id,
+        CASE WHEN s.role = 'provider_admin' THEN (${mode === "whole" ? latestHandoff("j.id", "h.id")
+          : `SELECT h.id FROM job_handoffs h WHERE h.job_id = j.id AND h.offered_at <= ${at}
+            ORDER BY h.state = 'offered' DESC, h.offered_at DESC, h.id DESC LIMIT 1`}) END AS handoff_id,
         review.due_at AS review_due,
         s.role = 'foreman' AND j.accountable_foreman_membership_id = s.membership_id AND NOT EXISTS (
           SELECT 1 FROM quote_versions q WHERE q.job_id = j.id AND q.state IN ('issued', 'approved', 'in_review')) AS write_quote
@@ -446,8 +467,8 @@ function read(access: SessionAccess, mode: ReadMode, options: {
 export const readHome = (access: SessionAccess, placeId?: string) => read(access, "home", { placeId });
 export const readJobs = (access: SessionAccess, segment: Segment, position: Position, placeId?: string) =>
   read(access, "list", { segment, position, placeId });
-export const readJob = (access: SessionAccess, id: string, view: View, position: Position) =>
-  read(access, view, { id, position });
+export const readJob = (access: SessionAccess, now: number, id: string, view: View, position: Position) =>
+  read(view === "whole" ? withHandoffClock(access, now) : access, view, { id, position });
 
 // Compose the regular authorized record read into the opaque-token statement.
 // Only trusted SQL expressions reach here; user-supplied tokens remain bound.
@@ -521,6 +542,7 @@ interface Job extends Heading, JourneyRow {
   foremanBill?: { state: "none" | "draft" | "sent" | "paid_recorded"; total: { minor: number; currency: "EUR" } | null };
   providerInvoice?: ProviderInvoice | null;
   readyToBill?: number; readyBill?: ReadyBill | null;
+  handoffPreview?: Extract<Extract<JobDetail, { audience: "provider_admin" }>["job"], { view: "whole" }>["handoffPreview"];
   address?: string; arrival?: unknown; review?: unknown; canWithdrawHandoff?: number | null;
 }
 interface Intake extends Heading, JourneyRow {
@@ -757,7 +779,7 @@ export function projectJob(rows: ReadRows, view: View, now: number, exactVisit =
     }
     case "provider_admin": return view === "today" ? today && { audience, job: { ...providerCard(job), view, live: providerLive(job, now) } }
       : { audience, job: { ...providerCard(job), view, revision: job.revision, bill: job.providerInvoice ?? null, commercialReview: job.review,
-        canWithdrawHandoff: Boolean(job.canWithdrawHandoff), handoffPreview: null, readyBill: job.readyBill ?? null } };
+        canWithdrawHandoff: Boolean(job.canWithdrawHandoff), handoffPreview: job.handoffPreview ?? null, readyBill: job.readyBill ?? null } };
     case "worker": return null; // No confirmed assignment can exist before staffing is installed.
   }
 }

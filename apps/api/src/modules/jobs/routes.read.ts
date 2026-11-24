@@ -16,7 +16,7 @@ export const jobsReadRoutes = new Hono<ApiEnv>();
 
 async function readResponse(
   c: Context<ApiEnv>,
-  plan: (access: SessionAccess) => CommandStatement,
+  plan: (access: SessionAccess, now: number) => CommandStatement,
   project: (value: string, now: number) => unknown,
   schema: ResponseSchema,
 ) {
@@ -25,7 +25,7 @@ async function readResponse(
   if (!access) return transportFailure(c, "UNAUTHENTICATED");
 
   const row = await commitCommand(ctx, prepareCommand(ctx, {
-    statements: [plan(accessClock(access, ctx.now))],
+    statements: [plan(accessClock(access, ctx.now), ctx.now)],
     decode: ([result]) => result?.results[0] as { value: string | null } | undefined,
   }));
   if (!row) return transportFailure(c, "UNAUTHENTICATED");
@@ -57,7 +57,7 @@ jobsReadRoutes.get(getJobRoute.path, (c) => {
   const { params: { j }, query: { view, cursor } } = input.data;
   const position = jobPosition(cursor);
   if (!position) return transportFailure(c, "VALIDATION_FAILED");
-  return readResponse(c, (access) => readJob(access, j, view, position),
+  return readResponse(c, (access, now) => readJob(access, now, j, view, position),
     (value, now) => projectJob(decodeJobRows(value), view, now), getJobRoute.output);
 });
 

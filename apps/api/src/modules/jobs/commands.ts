@@ -11,6 +11,10 @@ import { createLinkedNotifications } from "../links/notifications";
 import { stagedAttachmentSql } from "../media/policy";
 import { placeReadable } from "../places/policy";
 import { foreman } from "../schedule/policy";
+import {
+  foremanScope, handoffDeadlineSql, handoffRecipientAllowed, initialHandoffAllowed, latestHandoff,
+  liveProviderHandoff, reofferAllowed, staffedOffsets,
+} from "./handoff-policy";
 
 export interface JobCommandResult {
   operation: OperationResult;
@@ -47,83 +51,9 @@ async function planReceipt(ctx: RequestScope, access: SessionAccess, spec: Omit<
 }
 
 const minute = 60_000, day = 24 * 60 * minute, week = 7 * day;
-const offerMinutes = { standard: 120, urgent: 30 } as const;
-const clockWeeks = 6;
-let cachedClock: { from: number; until: number; offsets: string } | undefined;
 
-function offsetAt(formatter: Intl.DateTimeFormat, ms: number): number {
-  const zone = formatter.formatToParts(ms).find(({ type }) => type === "timeZoneName")?.value;
-  if (zone === "GMT") return 0;
-  const match = /^GMT([+-])(\d\d):(\d\d)(?::(\d\d))?$/.exec(zone ?? "");
-  if (!match) throw new RangeError("Staffed calendar could not resolve the site offset");
-  return (match[1] === "-" ? -1 : 1) * (Number(match[2]) * 60 * minute + Number(match[3]) * minute + Number(match[4] ?? 0) * 1_000);
-}
-
-// D1 has no IANA conversion function. Supply immutable UTC offset segments for
-// the next five full weeks, but pick the authoritative site zone and calendar in
-// SQL. Neither the client nor the Worker host's local zone chooses a deadline.
-function staffedOffsets(now: number): string {
-  if (cachedClock && now >= cachedClock.from && now < cachedClock.until) return cachedClock.offsets;
-  const from = Math.floor(now / week) * week;
-  const end = from + clockWeeks * week;
-  const zones: Record<string, [number, number, number][]> = {
-    UTC: [[from, end, 0]], "Etc/UTC": [[from, end, 0]], "Etc/GMT": [[from, end, 0]], GMT: [[from, end, 0]],
-  };
-  for (const zone of Intl.supportedValuesOf("timeZone")) {
-    const formatter = new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "longOffset" });
-    let offset = offsetAt(formatter, from), start = from;
-    const intervals: [number, number, number][] = [];
-    for (let sample = from + week; sample <= end; sample += week) {
-      const next = offsetAt(formatter, sample);
-      if (next === offset) continue;
-      let lo = (sample - week) / 1_000, hi = sample / 1_000;
-      while (hi - lo > 1) {
-        const mid = Math.floor((hi + lo) / 2);
-        if (offsetAt(formatter, mid * 1_000) === offset) lo = mid;
-        else hi = mid;
-      }
-      const transition = hi * 1_000;
-      intervals.push([start, transition, offset]);
-      start = transition;
-      offset = next;
-    }
-    intervals.push([start, end, offset]);
-    zones[zone] = intervals;
-  }
-  const offsets = JSON.stringify(zones);
-  cachedClock = { from, until: from + week, offsets };
-  return offsets;
-}
-
-function withDeadline(access: SessionAccess, now: number, minutes: number): SessionAccess {
-  const duration = minutes * minute;
-  return { sql: `${access.sql},
-    staffed_days(wall_ms) AS (
-      SELECT (? / ${day} - 1) * ${day}
-      UNION ALL SELECT wall_ms + ${day} FROM staffed_days WHERE wall_ms < (? / ${day} + ${clockWeeks * 7 + 1}) * ${day}
-    ), staffed_windows AS (
-      SELECT max(${at}, zone.value ->> '$[0]', d.wall_ms + ${minute} *
-          CASE WHEN holiday.id IS NULL THEN weekday.opens_minute ELSE holiday.opens_minute END - (zone.value ->> '$[2]')) AS starts,
-        min(zone.value ->> '$[1]', d.wall_ms + ${minute} *
-          CASE WHEN holiday.id IS NULL THEN weekday.closes_minute ELSE holiday.closes_minute END - (zone.value ->> '$[2]')) AS ends
-      FROM calendar_area area CROSS JOIN json_each(? -> ('$.' || json_quote(area.site_zone))) zone CROSS JOIN staffed_days d
-      LEFT JOIN staffed_calendar holiday ON holiday.area_id = area.id AND holiday.local_date = date(d.wall_ms / 1000, 'unixepoch')
-      LEFT JOIN staffed_calendar weekday ON weekday.area_id = area.id AND weekday.weekday =
-        (CAST(strftime('%w', d.wall_ms / 1000, 'unixepoch') AS INTEGER) + 6) % 7 + 1
-    ), staffed_elapsed AS (
-      SELECT starts, ends, sum(ends - starts) OVER (ORDER BY starts ROWS UNBOUNDED PRECEDING) AS elapsed
-      FROM staffed_windows WHERE starts < ends
-    ), deadline AS MATERIALIZED (
-      SELECT ends - (elapsed - ?) AS expires_at FROM staffed_elapsed WHERE elapsed >= ? ORDER BY starts LIMIT 1
-    )`, params: [...access.params, now, now, staffedOffsets(now), duration, duration] };
-}
-
-function foremanScope(condition: string): string {
-  return `SELECT c.id AS context_id, m.id AS membership_id, m.business_id, m.account_id FROM account_contexts c
-    JOIN membership_roles r ON r.id = c.role_grant_id AND r.role = 'foreman' AND r.revoked_at IS NULL AND r.granted_at <= ${at}
-    JOIN memberships m ON m.id = r.membership_id AND m.state = 'active'
-    JOIN accounts a ON a.id = m.account_id AND a.state = 'active'
-    WHERE c.role = 'foreman' AND (${condition})`;
+function withDeadline(access: SessionAccess, now: number, policy: "standard" | "urgent"): SessionAccess {
+  return { sql: `${access.sql}, ${handoffDeadlineSql(policy, "?")}`, params: [...access.params, staffedOffsets(now)] };
 }
 
 function adminScope(condition: string): string {
@@ -133,13 +63,6 @@ function adminScope(condition: string): string {
     JOIN accounts a ON a.id = m.account_id AND a.state = 'active'
     JOIN businesses b ON b.id = m.business_id AND b.state = 'approved'
     WHERE c.role = 'provider_admin' AND (${condition})`;
-}
-
-function liveProviderHandoff(business: string): string {
-  return `scope.role = 'provider_admin' AND scope.business_id = ${business} AND EXISTS (
-    SELECT 1 FROM account_contexts c JOIN membership_roles r ON r.id = c.role_grant_id AND r.granted_at <= ${at}
-    JOIN business_grants g ON g.membership_id = r.membership_id AND g.business_id = ${business} AND g.capability = 'handoff'
-    WHERE c.id = scope.context_id AND ${liveTerm("g")})`;
 }
 
 const liveIntake = (grant: string) => `${grant}.capability = 'intake' AND ${liveTerm(grant)}`;
@@ -237,7 +160,7 @@ export function planRequest(ctx: RequestScope, access: SessionAccess, input: Sub
     ), target_business AS MATERIALIZED (SELECT b.* FROM business_choice choice JOIN businesses b ON b.id = choice.id),
     calendar_area AS (SELECT a.* FROM operating_areas a JOIN target_business b ON b.catchment_id = a.id),
     recipient AS MATERIALIZED (${foremanScope("m.id = (SELECT default_foreman_id FROM target_business)")})`, params: [...access.params, payload.placeId] };
-  const offerAccess = withDeadline(requestAccess, ctx.now, offerMinutes.standard);
+  const offerAccess = withDeadline(requestAccess, ctx.now, "standard");
   return planReceipt(ctx, offerAccess, {
     command: "jobs.submit_request", operationId, input, resultRef: job,
     authorize: { sql: "EXISTS (SELECT 1 FROM target_place)" },
@@ -298,21 +221,16 @@ export function planHandoffOffer(ctx: RequestScope, access: SessionAccess, job: 
   const target: SessionAccess = { sql: `${access.sql}, target_job AS MATERIALIZED (SELECT * FROM jobs WHERE id = ?),
     calendar_area AS (SELECT a.* FROM target_job j JOIN businesses b ON b.id = j.business_id JOIN operating_areas a ON a.id = b.catchment_id),
     recipient AS MATERIALIZED (${foremanScope("m.id = ? AND m.business_id = (SELECT business_id FROM target_job)")}),
-    latest AS MATERIALIZED (SELECT h.* FROM job_handoffs h WHERE h.job_id = (SELECT id FROM target_job)
-      ORDER BY h.offered_at DESC, h.rowid DESC LIMIT 1)`, params: [...access.params, job, member] };
-  const offerAccess = withDeadline(target, ctx.now, offerMinutes[policy]);
-  const nextOffer = reofferOfId === undefined
-    ? "NOT EXISTS (SELECT 1 FROM latest WHERE NOT (state = 'accepted' OR (state = 'withdrawn' AND reoffer_of_id IS NULL)))"
-    : `EXISTS (SELECT 1 FROM latest h WHERE h.id = ? AND h.reoffer_of_id IS NULL AND h.incumbent_id IS j.accountable_foreman_membership_id
-        AND h.recipient_id <> target.membership_id
-        AND (h.state IN ('declined', 'expired') OR (h.state = 'offered' AND h.expires_at <= ${at})))`;
+    latest AS MATERIALIZED (${latestHandoff("(SELECT id FROM target_job)", "h.*")})`, params: [...access.params, job, member] };
+  const offerAccess = withDeadline(target, ctx.now, policy);
+  const nextOffer = reofferOfId === undefined ? initialHandoffAllowed("h")
+    : `h.id = ? AND ${reofferAllowed("j", "h")} AND h.recipient_id <> target.membership_id`;
   return planReceipt(ctx, offerAccess, {
     command: "jobs.offer_handoff", operationId, input: [job, input], resultRef: handoff,
-    authorize: { sql: `EXISTS (SELECT 1 FROM target_job j WHERE ${liveProviderHandoff("j.business_id")})` },
-    eligible: { sql: `EXISTS (SELECT 1 FROM target_job j CROSS JOIN recipient target CROSS JOIN deadline
-      WHERE j.state = 'open' AND j.revision = ? AND j.accountable_foreman_membership_id IS NOT target.membership_id
-        AND ${nextOffer} AND NOT EXISTS (SELECT 1 FROM job_grants g WHERE g.job_id = j.id AND g.context_id = target.context_id
-          AND g.capability = 'intake' AND g.valid_from = ${at}))`, params: [expectedRevision, ...reofferOfId === undefined ? [] : [reofferOfId]] },
+    authorize: { sql: `EXISTS (SELECT 1 FROM target_job j WHERE ${liveProviderHandoff("scope", "j.business_id")})` },
+    eligible: { sql: `EXISTS (SELECT 1 FROM target_job j CROSS JOIN recipient target CROSS JOIN deadline LEFT JOIN latest h ON 1
+      WHERE j.revision = ? AND ${handoffRecipientAllowed("j", "target.membership_id", "target.context_id")}
+        AND ${nextOffer})`, params: [expectedRevision, ...reofferOfId === undefined ? [] : [reofferOfId]] },
     writes: (guard) => {
       const notice = notification(target, guard, handoff, "job_handoff_offered", { sql: offerRecipient, params: [handoff] }, ctx.now,
         { sql: "SELECT expires_at FROM job_handoffs WHERE id = ?", params: [handoff] });
@@ -357,7 +275,7 @@ export function planHandoffDecision(ctx: RequestScope, access: SessionAccess, jo
   return planReceipt(ctx, target, {
     command: `jobs.handoff_${state}`, operationId, input: [job, handoff, input], resultRef: handoff,
     authorize: { sql: withdraw
-      ? `EXISTS (SELECT 1 FROM offer h WHERE h.issuer_id = scope.account_id AND ${liveProviderHandoff("h.business_id")})`
+      ? `EXISTS (SELECT 1 FROM offer h WHERE h.issuer_id = scope.account_id AND ${liveProviderHandoff("scope", "h.business_id")})`
       : `EXISTS (SELECT 1 FROM recipient f WHERE f.context_id = scope.context_id)` },
     eligible: { sql: `EXISTS (SELECT 1 FROM offer h JOIN target_job j ON j.id = h.job_id
       WHERE j.state = 'open' AND j.revision = ? AND h.state = 'offered' AND h.offered_at <= ${at} AND h.expires_at > ${at}

@@ -10,6 +10,7 @@ import type { LinkResolver } from ".";
 // happens to be current when the link opens. The job reader rechecks job access.
 export const jobRecordLinkResolver: LinkResolver = {
   targetKind: "job",
+  usesHandoffClock: true,
   project(resource, scope) {
     const kind = `${scope}.kind`;
     const visit = `CASE WHEN ${kind} = 'visit_live' THEN ${resource} END`;

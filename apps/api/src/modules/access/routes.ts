@@ -40,7 +40,7 @@ accessRoutes.get(openLinkRoute.path, async (c) => {
   const authorized = await authorize(c);
   if (!authorized) return transportFailure(c, "UNAUTHENTICATED");
   const { ctx, access } = authorized;
-  const statements = await readLink(withCaseSteward(access, c.env.CASE_STEWARD_ACCOUNT_ID), input.data.params.opaque);
+  const statements = await readLink(withCaseSteward(access, c.env.CASE_STEWARD_ACCOUNT_ID), input.data.params.opaque, ctx.now);
   const row = await commitCommand(ctx, prepareCommand(ctx, {
     statements,
     decode: (results) => results.find(({ results }) => results.length)?.results[0] as LinkRow | undefined,

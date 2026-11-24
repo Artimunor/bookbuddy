@@ -4,12 +4,14 @@ import type { CommandStatement } from "../../db/commit";
 import { at, scopedStatement } from "../access/policy";
 import { hashSessionCredential } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
+import { withHandoffClock } from "../jobs/handoff-policy";
 
 type TargetKind = Extract<LinkOpening, { kind: "switch_context" }>["targetKind"];
 type Unavailable = Extract<LinkOpening, { kind: "unavailable" }>;
 
 export interface LinkResolver {
   readonly targetKind: TargetKind;
+  readonly usesHandoffClock?: true;
   // Return a scalar JSON opening, or NULL when the viewer cannot open the record.
   // The target scope exposes account_id, context_id, role, business_id and membership_id.
   project(resourceSql: string, scopeAlias: string): string;
@@ -24,6 +26,7 @@ let compiledRead: readonly [LinkQuery, ...LinkQuery[]] | undefined;
 interface LinkQuery {
   readonly sql: string;
   readonly usesHash: boolean;
+  readonly usesHandoffClock: boolean;
 }
 
 const maxProjectionBytes = 90_000; // Reserve space for D1's 100 KB statement limit and the request scope.
@@ -46,6 +49,7 @@ interface Projection {
   readonly kinds: string[];
   readonly sql: string;
   readonly targetKind: TargetKind;
+  readonly usesHandoffClock: boolean;
 }
 
 function linkSql(): [LinkQuery, ...LinkQuery[]] {
@@ -70,7 +74,7 @@ function linkSql(): [LinkQuery, ...LinkQuery[]] {
       groups.push(group);
       size = 0;
     }
-    group.push({ kinds, sql, targetKind: resolver.targetKind });
+    group.push({ kinds, sql, targetKind: resolver.targetKind, usesHandoffClock: resolver.usesHandoffClock === true });
     size += bytes;
   }
   const knownKinds = [...resolvers.keys()].map((kind) => `'${kind}'`).join(", ") || "NULL";
@@ -87,7 +91,7 @@ function linkQuery(projections: readonly Projection[], knownKinds?: string, lega
   // D1 batches these statements against a single snapshot. Only the matching
   // kind (or the first group's unknown-token fallback) reaches the session and
   // resource reads; other groups do only an indexed token probe.
-  return { usesHash: legacy !== undefined, sql: `,
+  return { usesHash: legacy !== undefined, usesHandoffClock: projections.some((projection) => projection.usesHandoffClock), sql: `,
     link_input AS (SELECT ? AS token${legacy ? ", ? AS hash" : ""}),
     stored_target AS MATERIALIZED (
       SELECT kind, resource_id, required_scope, expires_at FROM link_targets WHERE token = (SELECT token FROM link_input)
@@ -128,12 +132,13 @@ function linkQuery(projections: readonly Projection[], knownKinds?: string, lega
 
 export interface LinkRow { kind: string | null; value: string | null }
 
-export async function readLink(access: SessionAccess, opaque: string): Promise<[CommandStatement, ...CommandStatement[]]> {
+export async function readLink(access: SessionAccess, opaque: string, now: number): Promise<[CommandStatement, ...CommandStatement[]]> {
   const [first, ...rest] = compiledRead ??= linkSql();
+  const prepare = (query: LinkQuery, ...params: string[]) =>
+    scopedStatement(query.usesHandoffClock ? withHandoffClock(access, now) : access, query.sql, opaque, ...params);
   return [
-    first.usesHash ? scopedStatement(access, first.sql, opaque, await hashSessionCredential(opaque))
-      : scopedStatement(access, first.sql, opaque),
-    ...rest.map(({ sql }) => scopedStatement(access, sql, opaque)),
+    first.usesHash ? prepare(first, await hashSessionCredential(opaque)) : prepare(first),
+    ...rest.map((query) => prepare(query)),
   ];
 }
 

@@ -133,14 +133,31 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
   const job = detail.data?.audience === "provider_admin" && detail.data.job.view === "whole" ? detail.data.job : null;
   const items = page ? job && !page.items.some((item) => item.jobId === job.jobId) ? [job, ...page.items] : page.items : [];
   const unpaid = page?.unpaidBills.find(bill => bill.jobId === selected);
-  const candidate = job?.handoffPreview?.eligibleForemen.find((person) => person.membershipId === recipient);
+  const preview = job?.handoffPreview;
+  const handoff = job?.handoff;
+  const candidate = preview?.eligibleForemen.find((person) => person.membershipId === recipient);
+  const canOffer = !!candidate && (preview?.policy !== "urgent" || urgentCalled);
+  const canWithdraw = !!handoff && job?.canWithdrawHandoff;
   const busy = [offer.state, withdraw.state].some((state) => state === "sending" || state === "checking");
   function confirm(kind: "offer" | "withdraw") {
-    if (!job || busy || (kind === "offer" && (!candidate || (job.handoffPreview?.policy === "urgent" && !urgentCalled)))) return;
+    if (!job || busy || (kind === "offer" ? !canOffer : !canWithdraw)) return;
     const label = kind === "offer" ? t("mobile.provider.offer") : t("mobile.provider.withdrawOffer");
     confirmAction(router, { title: label, actionLabel: label, actionLabelKey: kind === "offer" ? "mobile.provider.offer" : "mobile.provider.withdrawOffer", item: `${job.title ?? job.reference} · ${job.reference}${candidate ? ` · ${candidate.displayName}` : ""}`, actor, role: t("mobile.provider.admin"), effects: [t("mobile.provider.offerEffect")], onReview: () => { void detail.refresh(); }, onConfirm: async () => {
-      const result = kind === "offer" && candidate ? await offer.run({ params: { j: job.jobId }, body: { expectedRevision: job.revision, payload: { recipientMembershipId: candidate.membershipId, ...(job.handoffPreview?.reofferOfId ? { reofferOfId: job.handoffPreview.reofferOfId } : {}), ...(job.handoffPreview?.policy === "urgent" && urgentCalled ? { urgentCallConfirmed: true as const } : {}) } } }) : job.handoff ? await withdraw.run({ params: { j: job.jobId, h: job.handoff.handoffId }, body: { expectedRevision: job.revision, payload: {} } }) : null;
-      if (result?.ok) { void detail.refresh(); void jobs.refresh(); return "confirmed"; }
+      const result = kind === "offer" && candidate && preview ? await offer.run({ params: { j: job.jobId }, body: {
+        expectedRevision: job.revision, payload: {
+          recipientMembershipId: candidate.membershipId,
+          ...(preview.reofferOfId ? { reofferOfId: preview.reofferOfId } : {}),
+          ...(preview.policy === "urgent" && urgentCalled ? { urgentCallConfirmed: true as const } : {}),
+        },
+      } }) : kind === "withdraw" && handoff ? await withdraw.run({ params: { j: job.jobId, h: handoff.handoffId },
+        body: { expectedRevision: job.revision, payload: {} } }) : null;
+      if (result?.ok) {
+        setRecipient(null);
+        setUrgentCalled(false);
+        void detail.refresh();
+        void jobs.refresh();
+        return "confirmed";
+      }
       return result && "delivery" in result.error && result.error.delivery === "unknown" ? "uncertain" : "invalidated";
     } });
   }
@@ -151,10 +168,10 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
       void detail.refresh();
     }
   }} />;
-  const handoffAction = job?.canWithdrawHandoff ? { label: t("mobile.provider.withdrawOffer"), disabled: busy, onPress: () => confirm("withdraw") }
-    : job?.handoffPreview ? {
+  const handoffAction = canWithdraw ? { label: t("mobile.provider.withdrawOffer"), disabled: busy, onPress: () => confirm("withdraw") }
+    : preview ? {
       label: candidate ? t("mobile.provider.offerTo", { name: candidate.displayName }) : t("mobile.provider.offer"),
-      disabled: !candidate || busy || (job.handoffPreview.policy === "urgent" && !urgentCalled), onPress: () => confirm("offer"),
+      disabled: !canOffer || busy, onPress: () => confirm("offer"),
     } : null;
   return <ProviderScreen title={t("mobile.provider.jobs")} business={page?.businessName}
     dock={handoffAction ? <Dock context={t("mobile.provider.offerEffect")} primary={handoffAction} /> : undefined}>
@@ -187,11 +204,11 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
           <Copy>{t("mobile.provider.paid", { amount: format.money(job.bill.outcome.matched.minor, job.bill.outcome.matched.currency),
             person: job.bill.outcome.recorded.by ?? "", time: format.siteTime(job.bill.outcome.recorded.at, job.siteZone) })}</Copy>
         </>}
-        {job.handoffPreview && <>
+        {preview && <>
           <Copy variant="label">{t("mobile.provider.selectForeman")}</Copy>
-          {job.handoffPreview.eligibleForemen.map((person) => <ChoiceRadio key={person.membershipId} selected={recipient === person.membershipId} label={person.displayName} onPress={() => setRecipient(person.membershipId)} />)}
-          <Copy variant="supporting">{t("mobile.provider.replyBy", { time: format.lines(job.handoffPreview.expiresAt, job.siteZone)?.site ?? t("mobile.provider.unavailable") })}</Copy>
-          {job.handoffPreview.policy === "urgent" && <><Copy>{t("mobile.provider.urgentHelp")}</Copy><SwitchRow label={t("mobile.provider.urgentCall")} value={urgentCalled} onValueChange={setUrgentCalled} /></>}
+          {preview.eligibleForemen.map((person) => <ChoiceRadio key={person.membershipId} selected={recipient === person.membershipId} label={person.displayName} onPress={() => setRecipient(person.membershipId)} />)}
+          <Copy variant="supporting">{t("mobile.provider.replyBy", { time: format.lines(preview.expiresAt, job.siteZone)?.site ?? t("mobile.provider.unavailable") })}</Copy>
+          {preview.policy === "urgent" && <><Copy>{t("mobile.provider.urgentHelp")}</Copy><SwitchRow label={t("mobile.provider.urgentCall")} value={urgentCalled} onValueChange={setUrgentCalled} /></>}
         </>}
         {(offer.state === "checking" || withdraw.state === "checking") && <Copy>{t("mobile.provider.checking")}</Copy>}
       </>}</>}

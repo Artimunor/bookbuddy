@@ -316,6 +316,74 @@ test("accept and withdraw race to one committed outcome and no losing effects", 
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
+test("provider details and linked openings preview only candidates the offer command can use", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(friday);
+  const f = await fixture();
+  try {
+    await f.job();
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO businesses (id, legal_name, public_name, verified_work_contact, catchment_id, state)
+        VALUES ('outside', 'Outside LLC', 'Outside', 'other@example.test', 'area', 'approved')`),
+      f.db.prepare(`INSERT INTO memberships VALUES ('outside-member', 'outside', 'other', 'active'),
+        ('not-yet-member', 'business', 'customer', 'active')`),
+      f.db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at) VALUES
+        ('outside-role', 'outside-member', 'outside', 'other', 'foreman', 1),
+        ('peer-foreman-role', 'peer-member', 'business', 'peer', 'foreman', 1),
+        ('not-yet-role', 'not-yet-member', 'business', 'customer', 'foreman', ?)`).bind(tuesday + hour),
+      f.db.prepare(`INSERT INTO account_contexts VALUES ('outside-foreman', 'other', 'foreman', 'outside', 'outside-role'),
+        ('peer-foreman', 'peer', 'foreman', 'business', 'peer-foreman-role'),
+        ('not-yet-foreman', 'customer', 'foreman', 'business', 'not-yet-role')`),
+      f.db.prepare(`INSERT INTO job_grants (job_id, context_id, capability, valid_from, valid_until, revoked_at) VALUES
+        ('job', 'third-staff', 'intake', ?, ?, ?), ('job', 'peer-foreman', 'intake', 1, 2, NULL)`)
+        .bind(friday, friday + hour, friday),
+      f.db.prepare(`INSERT INTO link_targets VALUES ('provider-job-link', 'job_update', 'job', 'admin-staff', ?)`).bind(tuesday + hour),
+    ]);
+    const detail = async (actor: "admin" | "peer" = "admin") => {
+      const response = await f.call("/jobs/job", actor);
+      const result = resultSchema(getJobRoute.output).parse(response.body);
+      if (!result.ok || result.data.audience !== "provider_admin" || result.data.job.view !== "whole") throw new Error("Expected provider detail");
+      return result.data.job;
+    };
+    const initial = await detail();
+    expect(initial.handoffPreview).toEqual({
+      policy: "standard", expiresAt: tuesday, reofferOfId: null,
+      eligibleForemen: [{ membershipId: "second-member", displayName: "second" }],
+    });
+    const blocked = await f.call("/jobs/job/handoffs", "admin", {
+      operationId: "offer-intake-collision", expectedRevision: initial.revision, payload: { recipientMembershipId: "peer-member" },
+    });
+    expect(blocked).toMatchObject({ status: 409, body: { error: { code: "CONFLICT" } } });
+    expect((await f.call("/links/provider-job-link", "admin")).body).toMatchObject({ data: {
+      kind: "job", record: { job: { handoffPreview: initial.handoffPreview } },
+    } });
+    expect((await f.call("/jobs/job", "first")).body).not.toHaveProperty("data.job.handoffPreview");
+    const firstOffer = resultSchema(offerJobHandoffRoute.output).parse((await f.call("/jobs/job/handoffs", "admin", {
+      operationId: "preview-offer", expectedRevision: initial.revision, payload: { recipientMembershipId: "second-member" },
+    })).body);
+    if (!firstOffer.ok) throw new Error(firstOffer.error.code);
+    expect(firstOffer.data.expiresAt).toBe(initial.handoffPreview?.expiresAt);
+    expect(await detail()).toMatchObject({ canWithdrawHandoff: true, handoffPreview: null });
+    expect(await detail("peer")).toMatchObject({ canWithdrawHandoff: false, handoffPreview: null });
+
+    clock.mockReturnValue(tuesday);
+    await f.db.prepare("UPDATE business_grants SET valid_until = ? WHERE id = 'peer-handoff'").bind(tuesday).run();
+    expect((await detail("peer")).handoffPreview).toBeNull();
+    const expired = await detail();
+    expect(expired.handoffPreview).toEqual({
+      policy: "standard", expiresAt: tuesday + 2 * hour, reofferOfId: firstOffer.data.handoffId,
+      eligibleForemen: [{ membershipId: "third-member", displayName: "third" }],
+    });
+    const secondOffer = resultSchema(offerJobHandoffRoute.output).parse((await f.call("/jobs/job/handoffs", "admin", {
+      operationId: "preview-reoffer", expectedRevision: expired.revision,
+      payload: { recipientMembershipId: "third-member", reofferOfId: firstOffer.data.handoffId },
+    })).body);
+    if (!secondOffer.ok) throw new Error(secondOffer.error.code);
+    expect(secondOffer.data.expiresAt).toBe(expired.handoffPreview?.expiresAt);
+    clock.mockReturnValue(secondOffer.data.expiresAt);
+    expect((await detail()).handoffPreview).toBeNull();
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
 test("the deadline is exclusive; an expired offer may be reoffered only once to an alternate", async () => {
   const clock = spyOn(Date, "now").mockReturnValue(friday);
   const f = await fixture();
