@@ -16,6 +16,7 @@ export type JobLineProps = JobLineStage & {
   accessibilityLabel: string;
   status?: { state: "delayed" | "cover" | "cancelled"; label: string };
   activity?: "live" | "quiet" | "finished";
+  pulse?: boolean;
   /** Glance surfaces may omit labels when they show the state separately. */
   compact?: boolean;
   surface?: "neutral" | "capsule" | "fieldCapsule";
@@ -26,7 +27,7 @@ const gap = native.spacing.grid[1];
 const railOffset = (metrics.currentRingSize - metrics.railThickness) / 2;
 
 export function JobLine({
-  steps, current, estimate, accessibilityLabel, status, activity = "live", compact = false, surface = "neutral",
+  steps, current, estimate, accessibilityLabel, status, activity = "live", pulse: animate = true, compact = false, surface = "neutral",
 }: JobLineProps) {
   const { scheme, color, type, motion, space } = useBeaconTheme();
   const palette = native.jobLineColors[scheme][surface];
@@ -34,7 +35,7 @@ export function JobLine({
   const steady = surface === "fieldCapsule" ? color.onLive : surface === "capsule" ? color.onNight : color.ink;
   const steadyGlyph = surface === "fieldCapsule" ? color.live : surface === "capsule" ? color.night : color.onBrand;
   const live = activity === "live" && !status;
-  const reduceMotion = useReducedMotion(live);
+  const reduceMotion = useReducedMotion(live && animate);
   const fraction = estimate && live && Number.isFinite(estimate.fraction) ? Math.max(0, Math.min(1, estimate.fraction)) : 0;
   const target = (current + fraction) / (steps.length - 1);
   const [progress] = useState(() => new Animated.Value(target));

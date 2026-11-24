@@ -19,6 +19,7 @@ export type TextFieldProps = InputOptions & {
   readOnly?: boolean;
   disabled?: boolean;
   accessibilityLabel?: string;
+  writingDirection?: "ltr" | "rtl";
   ref?: Ref<ComponentRef<typeof TextInput>>;
 };
 
@@ -46,17 +47,17 @@ export function CodeField({ onChangeText, ...props }: CodeFieldProps) {
 
 function Field({
   label, value, onChangeText, helper, error, readOnly, disabled, accessibilityLabel,
-  ref, code, onFocus, onBlur, ...options
+  ref, code, onFocus, onBlur, writingDirection, ...options
 }: TextFieldProps & { code?: boolean }) {
   const { color, type, radius, field, space } = useBeaconTheme();
   const [focused, setFocused] = useState(false);
   const descriptionId = useId();
   const description = error || helper;
   const metrics = controlMetrics(field);
-  return (
-    <View style={{ gap: space.grid[2] }}>
-      <Copy variant="label">{label}</Copy>
-      <TextInput
+  const borderColor = error ? color.criticalInk : color.outline;
+  const backgroundColor = readOnly || disabled ? color.subtle : color.surface;
+  const input = (
+    <TextInput
         {...options}
         ref={ref}
         value={value}
@@ -73,14 +74,15 @@ function Field({
         } : undefined)}
         placeholderTextColor={color.muted}
         selectionColor={color.brandInk}
+        caretHidden={code}
         onFocus={(event) => { setFocused(true); onFocus?.(event); }}
         onBlur={(event) => { setFocused(false); onBlur?.(event); }}
         style={[
           type.body,
           {
-            color: color.ink,
-            backgroundColor: readOnly || disabled ? color.subtle : color.surface,
-            borderColor: error ? color.criticalInk : color.outline,
+            color: code ? "transparent" : color.ink,
+            backgroundColor: code ? "transparent" : backgroundColor,
+            borderColor: code ? "transparent" : borderColor,
             borderRadius: radius.input,
             borderWidth: metrics.controlBorderWidth,
             minHeight: options.multiline ? native.ergonomics.field.rowMinHeight + space.grid[8] : metrics.rowMinHeight,
@@ -88,10 +90,32 @@ function Field({
             paddingVertical: space.grid[3],
           },
           options.multiline && styles.multiline,
+          writingDirection && { writingDirection, textAlign: writingDirection === "ltr" ? "left" : "right" },
           code && [type.sectionTitle, native.tabularNumbers, styles.code],
-          focused && focusRing(color.brandInk),
+          focused && !code && focusRing(color.brandInk),
         ]}
       />
+  );
+  return (
+    <View style={{ gap: space.grid[2] }}>
+      <Copy variant="label">{label}</Copy>
+      {code ? (
+        <View style={[{
+          borderRadius: radius.input, borderWidth: metrics.controlBorderWidth, borderColor, backgroundColor,
+        }, focused && focusRing(color.brandInk)]}>
+          <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+            aria-hidden style={styles.cells}>
+            {Array.from({ length: 6 }, (_, index) => (
+              <View key={index} style={[styles.cell, index > 0 && { borderStartWidth: 1, borderColor: color.separator }]}>
+                <Copy variant="sectionTitle" style={[native.tabularNumbers, {
+                  color: value[index] ? color.ink : color.muted,
+                }]}>{value[index] ?? "·"}</Copy>
+              </View>
+            ))}
+          </View>
+          {input}
+        </View>
+      ) : input}
       {!!description && (
         <Copy nativeID={descriptionId} accessibilityLiveRegion="polite" variant="supporting" style={{ color: error ? color.criticalInk : color.muted }}>
           {description}
@@ -160,6 +184,8 @@ export function SegmentedControl<Value extends string>({ label, options, value, 
 const styles = StyleSheet.create({
   multiline: { textAlignVertical: "top" },
   code: { letterSpacing: 6, writingDirection: "ltr", textAlign: "center" },
+  cells: { position: "absolute", top: 0, bottom: 0, start: 0, end: 0, flexDirection: "row", direction: "ltr", alignItems: "center" },
+  cell: { flex: 1, minWidth: 0, alignItems: "center", justifyContent: "center" },
   segments: { flexDirection: "row", flexWrap: "wrap" },
   segment: { flexGrow: 1, maxWidth: "100%", justifyContent: "center" },
 });

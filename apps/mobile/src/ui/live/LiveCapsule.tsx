@@ -12,6 +12,7 @@ export type LiveCapsuleState = "crewConfirmed" | "onTheWay" | "onSite" | "workin
 export type LiveCapsuleProps = {
   size?: "hero" | "card" | "pill";
   state: LiveCapsuleState;
+  pulse?: boolean;
   stateLabel: string;
   source: string;
   reference?: string;
@@ -34,7 +35,7 @@ const marks: Record<LiveCapsuleState, string> = {
 };
 
 export function LiveCapsule({
-  size = "card", state, stateLabel, source, reference, time, zoneLine, estimate, provenance, accessibilityLabel, line, crew, onPress,
+  size = "card", state, pulse, stateLabel, source, reference, time, zoneLine, estimate, provenance, accessibilityLabel, line, crew, onPress,
 }: LiveCapsuleProps) {
   const { scheme, field, color, type, space } = useBeaconTheme();
   const [focused, setFocused] = useState(false);
@@ -85,7 +86,7 @@ export function LiveCapsule({
         {time && <DirectedText dir="ltr" style={[size === "hero" ? type.display : type.sectionTitle, native.tabularNumbers, polarity.text, styles.leading]}>{time}</DirectedText>}
         {zoneLine && <Text style={[type.supporting, native.tabularNumbers, polarity.supportingText]}>{zoneLine}</Text>}
       </View>
-      {line && <JobLine {...line} surface={lineSurface} activity={activity} />}
+      {line && <JobLine {...line} pulse={pulse} surface={lineSurface} activity={activity} />}
       <View style={crew ? [styles.footer, { borderColor: field ? color.livePressed : color.nightLine, gap: space.grid[2] }] : undefined}>
         {crew && <CrewDots {...crew} surface={lineSurface} />}
         <Text style={[type.supporting, native.tabularNumbers, polarity.supportingText]}>{provenance}</Text>
