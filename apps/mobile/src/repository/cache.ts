@@ -1,5 +1,5 @@
-import { cachedWorkerFieldShiftSchema, notificationSchema } from "@bookbuddy/api-contract";
-import type { NotificationProjection, SyncProjection, WorkerFieldShift } from "@bookbuddy/api-contract";
+import { cachedAssignmentBriefingSchema, cachedWorkerFieldShiftSchema, notificationSchema } from "@bookbuddy/api-contract";
+import type { CachedAssignmentBriefing, NotificationProjection, SyncProjection, WorkerFieldShift } from "@bookbuddy/api-contract";
 
 export const day = 24 * 60 * 60 * 1000;
 export const snapshotWindow = 3 * day;
@@ -34,23 +34,32 @@ const stampFields = {
   reviewState: true, correctsId: true, reasonCode: true, recordedByName: true,
 } as const;
 const bandFields = { startsAt: true, endsAt: true } as const;
+const versionFields = { id: true, no: true, issuedByName: true, issuedAt: true } as const;
+const readingFields = { language: true, text: true } as const;
+const briefingFields = {
+  assignmentId: true, siteZone: true, bookedWindow: { id: true, ...bandFields }, hasActiveHold: true,
+  instruction: { instructionId: true, version: versionFields, state: true, original: readingFields, reviewedHumanReadingAid: readingFields },
+} as const;
 const workerFields = {
   id: true, shiftId: true, visitId: true, job: { id: true, reference: true, title: true }, siteZone: true,
   bookedWindow: { id: true, ...bandFields }, task: true, state: true, isLead: true, foremanName: true, crewThreadId: true,
   estimate: { id: true, band: bandFields, at: true, audience: true, foremanName: true },
   attendance: { arrival: stampFields, departure: stampFields, hasPendingReview: true, pendingReviewEventIds: true },
-  holds: { id: true, kind: true, state: true, clearedAt: true, instruction: { instructionId: true,
-    version: { id: true, no: true, issuedByName: true, issuedAt: true } } },
+  holds: { id: true, kind: true, state: true, clearedAt: true, instruction: { instructionId: true, version: versionFields } },
   work: { id: true, kind: true, at: true, byName: true }, nextAction: true,
 } as const;
 const cachedFieldShift = cachedWorkerFieldShiftSchema.extend({
   job: cachedWorkerFieldShiftSchema.shape.job.pick({ id: true, reference: true, title: true }).strip(),
 }).strip();
+const cachedBriefing = cachedAssignmentBriefingSchema.pick({
+  assignmentId: true, siteZone: true, bookedWindow: true, hasActiveHold: true, instruction: true,
+}).strict();
 
 export type CachedWorkerFieldShift = SelectFields<WorkerFieldShift, typeof workerFields>;
 export interface CachedProjections {
   notification: Pick<NotificationProjection, "id" | "kind" | "createdAt" | "readAt">;
   worker_field_shift: CachedWorkerFieldShift;
+  assignment_briefing: SelectFields<CachedAssignmentBriefing, typeof briefingFields>;
 }
 export type ProjectionKind = keyof CachedProjections;
 
@@ -65,6 +74,12 @@ export function cacheableValue({ kind, resourceId, value }: SyncProjection): Cac
     const { arrival, departure } = parsed.data.attendance;
     if ((arrival && arrival.assignmentId !== resourceId) || (departure && departure.assignmentId !== resourceId)) return null;
     return selectFields(parsed.data, workerFields) as CachedWorkerFieldShift;
+  }
+  if (kind === "assignment_briefing") {
+    const parsed = cachedBriefing.safeParse(value);
+    return parsed.success && parsed.data.assignmentId === resourceId
+      ? selectFields(parsed.data, briefingFields) as CachedProjections["assignment_briefing"]
+      : null;
   }
   return null;
 }

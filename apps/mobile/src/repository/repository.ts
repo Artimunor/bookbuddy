@@ -407,11 +407,12 @@ export class ScopedRepository {
         await db.remove(projection, { ...this.partition, kind: removal.kind, id: removal.resourceId });
       }
       for (const row of page.upserts) {
-        const value = row.kind === "worker_field_shift" && page.context.role !== "worker" ? null : cacheableValue(row);
-        if (value) await db.put(projection, { ...this.partition, kind: row.kind, id: row.resourceId, value: JSON.stringify(value) });
-        else if (row.kind === "notification" || row.kind === "worker_field_shift") {
-          await db.remove(projection, { ...this.partition, kind: row.kind, id: row.resourceId });
-        }
+        const workerOnly = row.kind === "worker_field_shift" || row.kind === "assignment_briefing";
+        if (!workerOnly && row.kind !== "notification") continue;
+        const value = !workerOnly || page.context.role === "worker" ? cacheableValue(row) : null;
+        const key = { ...this.partition, kind: row.kind, id: row.resourceId };
+        if (value) await db.put(projection, { ...key, value: JSON.stringify(value) });
+        else await db.remove(projection, key);
       }
       const acknowledged = page.outcomes.filter((outcome) => outcome.status !== "rejected").map(({ operationId }) => operationId);
       const pending = acknowledged.length ? await db.select(outbox, {
