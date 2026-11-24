@@ -11,6 +11,7 @@ import { jobsReadRoutes } from "./modules/jobs/routes.read";
 import { placeSyncProjection } from "./modules/places/read";
 import { placesRoutes } from "./modules/places/routes";
 import { scheduleRoutes, scheduleSyncProjections } from "./modules/schedule";
+import { coverSyncProjection, staffingRoutes } from "./modules/staffing";
 import { createTransportRoutes } from "./modules/sync/routes";
 
 function failure(requestId: string, code: ErrorCode): ErrorEnvelope {
@@ -31,11 +32,14 @@ export function createApp() {
   app.route(API_BASE_PATH, authRoutes);
   app.route(API_BASE_PATH, jobsCommandRoutes);
   app.route(API_BASE_PATH, jobsReadRoutes);
-  app.route(API_BASE_PATH, createTransportRoutes({ projections: [placeSyncProjection, ...jobSyncProjections, ...scheduleSyncProjections] }));
+  app.route(API_BASE_PATH, createTransportRoutes({
+    projections: [placeSyncProjection, ...jobSyncProjections, ...scheduleSyncProjections, coverSyncProjection],
+  }));
   app.route(API_BASE_PATH, accessRoutes);
   app.route(API_BASE_PATH, placesRoutes);
   app.route(API_BASE_PATH, commercialRoutes);
   app.route(API_BASE_PATH, scheduleRoutes);
+  app.route(API_BASE_PATH, staffingRoutes);
 
   // Mount feature routers here via app.basePath(API_BASE_PATH).route("/", routes).
   // Routers' paths are relative to /api/v1, not each module name (see plan §3).

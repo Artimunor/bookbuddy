@@ -7,3 +7,4 @@ export * from "./places";
 export * from "./jobs";
 export * from "./commercial";
 export * from "./schedule";
+export * from "./staffing";
