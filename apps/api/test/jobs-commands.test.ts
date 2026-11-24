@@ -96,7 +96,10 @@ test("text request makes an unassigned job, durable intake offer and safe replay
   const clock = spyOn(Date, "now").mockReturnValue(friday);
   const f = await fixture();
   try {
-    const body = { operationId: "submit", expectedRevision: 0, payload: requestPayload };
+    const safeNote = "Ring at number 24 after 10:30";
+    const body = { operationId: "submit", expectedRevision: 0, payload: { ...requestPayload, safeNote } };
+    expect(await f.call("/requests", "customer", { ...body, payload: { ...body.payload, safeNote: "Gate code: 4321" } }, 0))
+      .toEqual({ status: 422, body: { ok: false, error: { code: "VALIDATION_FAILED" }, meta: { requestId: expect.any(String) } } });
     expect((await f.call("/requests", "other", body)).status).toBe(404);
     expect((await f.call("/requests", "customer", { ...body, expectedRevision: 1 })).body)
       .toMatchObject({ error: { code: "STALE_REVISION", current: { kind: "revision", revision: 0 } } });
@@ -106,7 +109,8 @@ test("text request makes an unassigned job, durable intake offer and safe replay
     expect(response.data.journey).toEqual({ step: "requested", cancelled: false, complete: false });
     expect(await f.db.prepare("SELECT state, accountable_foreman_membership_id AS incumbent FROM jobs WHERE id = ?").bind(jobId).first())
       .toEqual({ state: "open", incumbent: null });
-    expect(await f.db.prepare("SELECT original_text FROM requests WHERE job_id = ?").bind(jobId).first("original_text")).toBe(requestPayload.originalText);
+    expect(await f.db.prepare("SELECT original_text, safe_note FROM requests WHERE job_id = ?").bind(jobId).first())
+      .toEqual({ original_text: requestPayload.originalText, safe_note: safeNote });
     expect(await f.db.prepare("SELECT count(*) AS count FROM visits WHERE job_id = ?").bind(jobId).first("count")).toBe(0);
     const offer = await f.db.prepare("SELECT id, recipient_id, expires_at FROM job_handoffs WHERE job_id = ?").bind(jobId)
       .first<{ id: string; recipient_id: string; expires_at: number }>();

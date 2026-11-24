@@ -1,6 +1,7 @@
 import {
   ARRIVAL_ARRANGEMENTS, ASSIGNMENT_STATES, CHANGE_VERSION_STATES, CURRENCIES, CUSTOMER_UPDATE_KINDS,
-  HANDOFF_POLICIES, HANDOFF_STATES, JOB_STATES, JOURNEY_STEPS, PROBLEM_CASE_STATES, QUOTE_VERSION_STATES, VISIT_STEPS, projectJourney,
+  HANDOFF_POLICIES, HANDOFF_STATES, JOB_STATES, JOURNEY_STEPS, PROBLEM_CASE_STATES, QUOTE_VERSION_STATES, VISIT_STEPS,
+  looksLikeAccessCode, projectJourney,
 } from "@bookbuddy/domain";
 import type { JourneyProjection } from "@bookbuddy/domain";
 import { z } from "zod";
@@ -234,7 +235,8 @@ export const submitRequestPayloadSchema = z.strictObject({
   originalText: z.string().max(16_000).optional(), originalLanguage: localeTagSchema.optional(),
   attachmentIds: requestAttachmentIds.refine((ids) => new Set(ids).size === ids.length, "Each attachment ID must be distinct").optional(),
   arrivalArrangement, arrivalContactName: z.string().trim().min(1).max(100).optional(),
-  safeNote: z.string().trim().min(1).max(500).optional(),
+  safeNote: z.string().trim().min(1).max(500)
+    .refine((note) => !looksLikeAccessCode(note), "Do not include entry credentials").optional(),
 }).superRefine((request, ctx) => {
   if (!request.originalText?.trim() && !request.attachmentIds?.length) {
     ctx.addIssue({ code: "custom", path: ["originalText"], message: "Text or original voice is required" });
