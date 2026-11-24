@@ -7,6 +7,7 @@ import type { OperationResult, OperationSpec, OperationWrites } from "../../db/o
 import type { RequestScope } from "../../db/scope";
 import { accessClock, at, displayName, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { chatParticipants, chatTargets } from "../chat/policy";
 import { workerFieldChangeRows } from "../field/attendance";
 import { currentMembership } from "../jobs/projections";
 import { createLinkTarget, linkTokenFor, registerLinkResolver } from "../links";
@@ -219,7 +220,17 @@ function dropout(access: OrdinaryAccess, assignmentId: string, payload: Bodies["
           WHERE id = ${inputId} AND ${guard.sql}`, payload.source, payload.reason ?? null, ...guard.params ?? []),
         ...openGapStatements(guard, { assignmentId, gapId: gap, droppedAt: access.now }),
         ...notice.statements,
-      ] };
+      ], topicChanges: scopedStatement(access, `, chat_targets AS MATERIALIZED (${chatTargets("t.job_id = (SELECT id FROM ordinary_target)")}),
+        dropped_scope AS MATERIALIZED (
+          SELECT c.id FROM assignments a JOIN memberships m ON m.id = a.worker_membership_id
+          JOIN account_contexts c ON c.account_id = m.account_id AND c.business_id = m.business_id AND c.role = 'worker'
+          WHERE a.id = ${inputId}),
+        remaining AS MATERIALIZED (${chatParticipants("c.id = (SELECT id FROM dropped_scope)")})
+        SELECT 'thread' AS kind, t.id AS opaque_id, s.id AS revoked_scope_id FROM chat_targets t CROSS JOIN dropped_scope s
+          WHERE NOT EXISTS (SELECT 1 FROM remaining r WHERE r.id = t.id)
+            AND (t.audience = 'crew' OR EXISTS (SELECT 1 FROM chat_members cm WHERE cm.thread_id = t.id AND cm.context_id = s.id AND cm.revoked_at IS NULL))
+        UNION ALL SELECT 'provider-job', id, NULL FROM ordinary_target
+        UNION ALL SELECT 'provider-crew', business_id, NULL FROM ordinary_target`) };
     },
   };
 }

@@ -3,6 +3,8 @@ import type { ErrorBody, ErrorCode, ErrorEnvelope, SuccessEnvelope } from "@book
 import type { Context } from "hono";
 import type { ApiEnv } from "../../bindings";
 import type { OperationResult } from "../../db/operations";
+import { publishLiveTopics } from "../../realtime/topics";
+import type { LiveTopicSignal } from "../../realtime/topics";
 
 const statusByCode = {
   UNAUTHENTICATED: 401, NOT_FOUND: 404, VALIDATION_FAILED: 422, CONFLICT: 409, STALE_REVISION: 409,
@@ -45,15 +47,14 @@ export async function boundedBody(request: Request): Promise<unknown> {
 
 export function scheduleOperationSignals(c: Context<ApiEnv>, results: readonly OperationResult[]): void {
   const workKeys = new Set<string>();
-  const topics = new Set<string>();
+  const topics: LiveTopicSignal[] = [];
   for (const result of results) {
     for (const key of result.workKeys) workKeys.add(key);
-    for (const topic of result.topics) topics.add(`${topic.kind}:${topic.opaqueId}`);
+    for (const topic of result.topics) topics.push(topic);
   }
-  if (!workKeys.size && !topics.size) return;
+  if (!workKeys.size && !topics.length) return;
   // Launch only after commit. The durable outbox remains authoritative if a wake fails.
-  const tasks: Promise<unknown>[] = [];
+  const tasks: Promise<unknown>[] = topics.length ? publishLiveTopics(c.env.LIVE, topics) : [];
   if (workKeys.size) tasks.push(c.env.EFFECTS.send({ workKeys: [...workKeys] }));
-  for (const name of topics) tasks.push(c.env.LIVE.getByName(name).publishInvalidation());
   c.executionCtx.waitUntil(Promise.allSettled(tasks));
 }

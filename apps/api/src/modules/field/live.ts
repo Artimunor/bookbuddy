@@ -209,6 +209,8 @@ function visitSignals(access: SessionAccess, guard: CommandStatement, visit: str
       'notification_push:' || n.id AS dedupe_key, n.id AS resource_ref, ${at} AS due_at, ${at} + ${day} AS expires_at
       FROM notifications n WHERE n.event_key = ${eventKey}`),
     topics: [{ kind: "customer-visit", opaqueId: visit }],
+    topicChanges: { sql: `SELECT 'provider-job' AS kind, job_id AS opaque_id, NULL AS revoked_scope_id FROM visits WHERE id = ?`,
+      params: [visit] },
   };
 }
 

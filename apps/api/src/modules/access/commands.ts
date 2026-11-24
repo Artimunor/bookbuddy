@@ -240,7 +240,10 @@ export function revokeBusinessRole(ctx: RequestScope, access: SessionAccess, mem
       bumpVisibilityEpoch(guard, { sql: "SELECT id AS context_id FROM account_contexts WHERE role_grant_id = ?", params: [grant] }),
       scopedStatement(access, `INSERT INTO access_audit (id, business_id, actor_id, subject_account_id, kind, at)
         SELECT ?, g.business_id, g.revoked_by, g.account_id, 'role_revoked', ${at} FROM membership_roles g WHERE g.id = ? AND ${guard.sql}`, crypto.randomUUID(), grant, ...guard.params ?? []),
-    ] }),
+    ], topicChanges: { sql: `WITH revoked AS MATERIALIZED (
+      SELECT id, business_id, role FROM account_contexts WHERE role_grant_id = ?)
+      SELECT 'scope-inbox' AS kind, id AS opaque_id, id AS revoked_scope_id FROM revoked
+      UNION ALL SELECT 'provider-crew', business_id, id FROM revoked WHERE role IN ('provider_admin', 'foreman')`, params: [grant] } }),
   }, `SELECT json_object('revoked', ${revokedRoleProjection("m", "g")}, 'member', json(CASE WHEN m.state = 'active' THEN
     ${businessMemberProjection("m", "scope.account_id", "1")} END)) AS value
     FROM membership_roles g JOIN memberships m ON m.id = g.membership_id JOIN accounts a ON a.id = m.account_id

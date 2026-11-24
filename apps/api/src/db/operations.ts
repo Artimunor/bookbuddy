@@ -3,19 +3,21 @@ import type { ErrorBody, OperationId } from "@bookbuddy/api-contract";
 import type { OpOutcome } from "@bookbuddy/api-contract";
 import type { CommandInput, CommandStatement } from "./commit";
 import type { RequestScope } from "./scope";
-import type { LiveTopicKey } from "../realtime/live-topic";
+import type { LiveTopicSignal } from "../realtime/topics";
 
 export interface OperationResult {
   outcome: OpOutcome;
   workKeys: string[];
-  topics: readonly LiveTopicKey[];
+  topics: readonly LiveTopicSignal[];
 }
 
 export interface OperationWrites {
   statements: readonly CommandStatement[];
   changes?: CommandStatement;
   effects?: CommandStatement;
-  topics?: readonly LiveTopicKey[];
+  topics?: readonly LiveTopicSignal[];
+  // Selected after mutations, within the original D1 batch. Only a new commit can publish.
+  topicChanges?: CommandStatement; // kind, opaque_id, revoked_scope_id (nullable)
 }
 
 export interface OperationSpec {
@@ -95,7 +97,7 @@ export async function planOperation(ctx: Pick<RequestScope, "now">, spec: Operat
   const pending = `pending:${crypto.randomUUID()}`;
   const pendingWhere = "result_ref = ? AND result_ref GLOB 'pending:*'";
   const guard = { sql: `EXISTS (SELECT 1 FROM operation_receipts WHERE ${pendingWhere})`, params: [pending] };
-  const { statements: mutations, changes, effects, topics = [] } = spec.writes(guard);
+  const { statements: mutations, changes, effects, topics = [], topicChanges } = spec.writes(guard);
   const statements: [CommandStatement, ...CommandStatement[]] = [{
     sql: `${prefix}
           INSERT INTO operation_receipts (account_id, context_id, operation_id, input_hash, command, result_ref, committed_at)
@@ -108,6 +110,10 @@ export async function planOperation(ctx: Pick<RequestScope, "now">, spec: Operat
   }, ...mutations];
   if (changes) statements.push(recordSyncChanges(guard, changes));
   const effectIndex = effects ? statements.push(recordEffectIntents(guard, effects)) - 1 : -1;
+  const topicIndex = topicChanges ? statements.push({
+    sql: `SELECT kind, opaque_id, revoked_scope_id FROM (${topicChanges.sql}) WHERE ${guard.sql}`,
+    params: [...topicChanges.params ?? [], ...guard.params],
+  }) - 1 : -1;
   const finalizeIndex = statements.push({
     sql: `UPDATE operation_receipts SET result_ref = ? WHERE ${pendingWhere} RETURNING result_ref`,
     params: [resultRef, pending],
@@ -128,7 +134,12 @@ export async function planOperation(ctx: Pick<RequestScope, "now">, spec: Operat
     const finalized = results[finalizeIndex]?.results[0];
     if (finalized) {
       const workKeys = (results[effectIndex]?.results as { id: string }[] | undefined)?.map((row) => row.id) ?? [];
-      return { outcome: { operationId, status: "committed", resultRef }, workKeys, topics };
+      const signals = results[topicIndex]?.results as { kind: LiveTopicSignal["kind"]; opaque_id: string; revoked_scope_id: string | null }[] | undefined;
+      return { outcome: { operationId, status: "committed", resultRef }, workKeys, topics: signals?.length ? [
+        ...topics, ...signals.map(({ kind, opaque_id, revoked_scope_id }) => ({
+          kind, opaqueId: opaque_id, ...(revoked_scope_id === null ? {} : { revokedScopeIds: [revoked_scope_id] }),
+        })),
+      ] : topics };
     }
     const row = results[replayIndex]?.results[0] as StoredResult | undefined;
     let outcome: OpOutcome;

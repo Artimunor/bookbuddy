@@ -9,6 +9,7 @@ import { loadDeliveryKey, mac, sealDelivery } from "../auth/crypto";
 import type { SessionAccess } from "../auth/session";
 import { createLinkedNotifications } from "../links/notifications";
 import { stagedAttachmentSql } from "../media/policy";
+import { foreman } from "../schedule/policy";
 
 export interface JobCommandResult {
   operation: OperationResult;
@@ -376,6 +377,11 @@ export function planHandoffDecision(ctx: RequestScope, access: SessionAccess, jo
       handoff, handoff, ...notice.params, ...accept ? [job, handoff] : []),
       effects: notice.effects,
       topics: [{ kind: "provider-job", opaqueId: job }],
+      topicChanges: accept ? changesFor(ctx.now, job, `SELECT 'provider-job' AS kind, j.id AS opaque_id, s.context_id AS revoked_scope_id
+        FROM job_record j CROSS JOIN (SELECT c.id AS context_id, c.business_id, c.role FROM account_contexts c
+          WHERE c.id = (SELECT context_id FROM (${incumbentContext}))) s WHERE NOT ${foreman("s")}
+        UNION ALL SELECT 'thread', t.id, (SELECT context_id FROM (${incumbentContext})) FROM chat_threads t
+          WHERE t.job_id = (SELECT id FROM job_record)`, handoff, handoff) : undefined,
     }; },
   }, handoffReceipt(state, expectedRevision + 1), { sql: "SELECT revision FROM target_job", expected: expectedRevision });
 }

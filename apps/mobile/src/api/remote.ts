@@ -9,12 +9,12 @@ import type { ReadSnapshot } from "./requests";
 
 export type RemoteAccess<Data, Cached = never> = (Exclude<ReadSnapshot<Data>, { status: "offline" }> | {
   status: "offline"; data: Cached | null; error: null; lastConfirmedAt: number | null;
-}) & { refresh: () => Promise<void> };
+}) & { refresh: () => Promise<void>; seed: (data: Data, serverTime: number) => void };
 
 export function useRemote<Input extends RequestSchema, Output extends ResponseSchema, Kind extends RemoteCacheKind = never>(
   route: RouteDefinition<Input, Output> & { method: "GET" },
   input: NoInfer<RouteRequest<Input>>,
-  { enabled = true, cache }: { enabled?: boolean; cache?: { kind: Kind } } = {},
+  { enabled = true, cache, loadOnMount = true }: { enabled?: boolean; cache?: { kind: Kind }; loadOnMount?: boolean } = {},
 ): RemoteAccess<RouteResponse<Output>, CachedRead<Kind>> {
   const { client, requests, connection, getConnection } = useApiAccess();
   const repo = useRepository();
@@ -49,11 +49,14 @@ export function useRemote<Input extends RequestSchema, Output extends ResponseSc
     }, { refresh, getConnection: getFence });
     // `entry` changes with the canonical input, not with a freshly allocated equivalent object.
   }, [entry, client, requests, repo, route, getFence, kind, cacheKey]);
-  useEffect(() => { void read(false); }, [read]);
+  useEffect(() => { if (loadOnMount) void read(false); }, [read, loadOnMount]);
   const refresh = useCallback(() => read(true), [read]);
+  const seed = useCallback((data: RouteResponse<Output>, serverTime: number) => {
+    if (requests.allows(route.auth, repo)) entry?.seed(data, serverTime, getFence());
+  }, [entry, requests, route, repo, getFence]);
   if (allowed && connection.offline) {
-    return { ...offlineRead, data: cached?.data ?? null, lastConfirmedAt: cached?.confirmedAt ?? null, refresh };
+    return { ...offlineRead, data: cached?.data ?? null, lastConfirmedAt: cached?.confirmedAt ?? null, refresh, seed };
   }
-  if (allowed && client && key === null) return { status: "error", data: null, error: invalidRequest.error, lastConfirmedAt: null, refresh };
-  return { ...current, refresh };
+  if (allowed && client && key === null) return { status: "error", data: null, error: invalidRequest.error, lastConfirmedAt: null, refresh, seed };
+  return { ...current, refresh, seed };
 }

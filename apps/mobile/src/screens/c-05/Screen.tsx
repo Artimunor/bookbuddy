@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { View } from "react-native";
 import { useRemote } from "../../api";
+import { useLiveHints } from "../../api/live";
 import type { RemoteStatus } from "../../api/requests";
 import { useFormat, useT } from "../../i18n";
 import { useSession } from "../../session";
@@ -60,9 +61,11 @@ export default function JobHomeScreen() {
   const lastVisit = useRef<{ jobId: string; visitId: string } | null>(null);
   if (job?.hasTodayView && job.nextVisit) lastVisit.current = { jobId: job.jobId, visitId: job.nextVisit.visitId };
   const liveVisitId = job?.hasTodayView ? job.nextVisit?.visitId : remote.status === "offline" && lastVisit.current?.jobId === jobId ? lastVisit.current.visitId : undefined;
+  const subscribedVisit = liveVisitId ?? (remote.status === "loading" && lastVisit.current?.jobId === jobId ? lastVisit.current?.visitId : undefined);
+  const retryLive = useLiveHints(view === "whole" && subscribedVisit ? { kind: "customer-visit", opaqueId: subscribedVisit } : null, remote.refresh);
   const switcher = <JobViewSwitcher value={view} onChange={next => { setView(next); router.setParams({ view: next }); }} />;
   if (view === "today" && liveVisitId) return <LiveVisitScreen visitId={liveVisitId} twoClock={preferences?.twoClock ?? false} viewSwitcher={switcher} onBack={() => router.back()} onNavigate={path => router.push(path as Href)} />;
-  return <JobHomeView job={job} status={jobId ? remote.status : "error"} twoClock={preferences?.twoClock ?? false} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} onNavigate={(path) => router.push(path as Href)} viewSwitcher={switcher} />;
+  return <JobHomeView job={job} status={jobId ? remote.status : "error"} twoClock={preferences?.twoClock ?? false} onBack={() => router.back()} onRetry={() => { retryLive(); void remote.refresh(); }} onNavigate={(path) => router.push(path as Href)} viewSwitcher={switcher} />;
 }
 
 function JobViewSwitcher({ value, onChange }: { value: "today" | "whole"; onChange: (value: "today" | "whole") => void }) {

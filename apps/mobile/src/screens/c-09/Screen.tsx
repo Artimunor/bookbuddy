@@ -1,8 +1,9 @@
 import { getVisitLiveRoute, type CustomerLiveVisit, type CustomerUpdate } from "@bookbuddy/api-contract";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { AppState, RefreshControl, ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
 import { useRemote } from "../../api";
+import { useLiveHints } from "../../api/live";
 import type { RemoteStatus } from "../../api/requests";
 import { useFormat, useLocale, useT } from "../../i18n";
 import { loadPushSettings, savePushSettings } from "../../system/push/settings";
@@ -15,6 +16,7 @@ export function LiveVisitScreen({ visitId, twoClock, viewSwitcher, onBack, onNav
   visitId: string; twoClock: boolean; viewSwitcher: ReactNode; onBack: () => void; onNavigate: (path: string) => void;
 }) {
   const remote = useRemote(getVisitLiveRoute, { params: { id: visitId } }, { enabled: !!visitId });
+  const retryLive = useLiveHints(visitId ? { kind: "customer-visit", opaqueId: visitId } : null, remote.refresh);
   const visit = remote.data && "moments" in remote.data ? remote.data : null;
   const [cursor, setCursor] = useState<string | null>(null);
   const [history, setHistory] = useState<CustomerUpdate[]>([]);
@@ -43,11 +45,6 @@ export function LiveVisitScreen({ visitId, twoClock, viewSwitcher, onBack, onNav
   }, [visit?.live.status, visit?.live.arrival?.id]);
   const last = useRef<{ at: number; zone: string } | null>(null);
   if (remote.status === "ready" && visit) last.current = { at: remote.lastConfirmedAt, zone: visit.siteZone };
-  const refresh = useRef(remote.refresh); refresh.current = remote.refresh;
-  useEffect(() => {
-    const listener = AppState.addEventListener("change", state => { if (state === "active") void refresh.current(); });
-    return () => listener.remove();
-  }, []);
   const [following, setFollowing] = useState(false);
   const [saveError, setSaveError] = useState(false);
   useFocusEffect(useCallback(() => { let active = true; void loadPushSettings().then(settings => { if (active) setFollowing(settings.liveSurface); }); return () => { active = false; }; }, []));
@@ -56,7 +53,7 @@ export function LiveVisitScreen({ visitId, twoClock, viewSwitcher, onBack, onNav
     try { const settings = await loadPushSettings(); await savePushSettings({ ...settings, liveSurface: value }); setFollowing(value); if (value) onNavigate("/live-privacy"); }
     catch { setSaveError(true); }
   }, [onNavigate]);
-  return <LiveVisitView visit={displayedVisit} status={remote.status} lastConfirmed={last.current} twoClock={twoClock} now={now} viewSwitcher={viewSwitcher} following={following} saveError={saveError} onFollow={value => { void changeFollow(value); }} onBack={onBack} onRefresh={() => { void remote.refresh(); }} onNavigate={onNavigate} hasMore={!!nextPage} moreBusy={page.status === "loading"} onMore={() => { if (cursor) void page.refresh(); else if (nextPage) setCursor(nextPage); }} />;
+  return <LiveVisitView visit={displayedVisit} status={remote.status} lastConfirmed={last.current} twoClock={twoClock} now={now} viewSwitcher={viewSwitcher} following={following} saveError={saveError} onFollow={value => { void changeFollow(value); }} onBack={onBack} onRefresh={() => { retryLive(); void remote.refresh(); }} onNavigate={onNavigate} hasMore={!!nextPage} moreBusy={page.status === "loading"} onMore={() => { if (cursor) void page.refresh(); else if (nextPage) setCursor(nextPage); }} />;
 }
 
 export function LiveVisitView({ visit, status, lastConfirmed, twoClock = false, viewerZone, now = Date.now(), viewSwitcher, following = false, saveError = false, hasMore = false, moreBusy = false, onMore, onFollow, onBack, onRefresh, onNavigate }: {

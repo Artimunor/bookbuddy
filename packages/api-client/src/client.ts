@@ -1,5 +1,6 @@
-import { localeTagSchema, operationIdHeader, operationIdSchema, parseResult } from "@bookbuddy/api-contract";
+import { livePath, liveTopicName, localeTagSchema, operationIdHeader, operationIdSchema, parseResult } from "@bookbuddy/api-contract";
 import type {
+  LiveTopicKey,
   RequestParts,
   RequestSchema,
   ResponseSchema,
@@ -27,12 +28,20 @@ export type ClientError =
 export type ApiResult<T> = Result<T> | { ok: false; error: ClientError; meta?: never };
 export type RequestOptions = { signal?: NonNullable<RequestInit["signal"]> };
 
+type LiveSocketOptions = {
+  /** A browser supplies its origin; native supplies a connector that can set headers. */
+  origin?: string;
+  signal: AbortSignal;
+  connect: (url: string, headers?: Record<string, string>) => WebSocket;
+};
+
 export interface ApiClient {
   request<Input extends RequestSchema, Output extends ResponseSchema>(
     route: RouteDefinition<Input, Output>,
     input: NoInfer<RouteRequest<Input>>,
     options?: RequestOptions,
   ): Promise<ApiResult<RouteResponse<Output>>>;
+  openLiveSocket(topic: LiveTopicKey, options: LiveSocketOptions): Promise<WebSocket | null>;
 }
 
 function normalizeBaseUrl(value: string): string {
@@ -140,5 +149,15 @@ export function createApiClient({ baseUrl, getSession, getLocale, fetch: transpo
     return { ok: false, error: { code: "INVALID_RESPONSE", delivery: "unknown", status: response.status } };
   }
 
-  return { request };
+  async function openLiveSocket(topic: LiveTopicKey, { origin, signal, connect }: LiveSocketOptions): Promise<WebSocket | null> {
+    const url = new URL(`${base}${livePath}`, origin);
+    const credential = await getSession();
+    if (signal.aborted) return null;
+    const serverOrigin = url.origin;
+    if (origin ? origin !== serverOrigin || credential !== null : credential === null) return null;
+    const socketUrl = `${url.href.replace(/^http/, "ws")}?topic=${encodeURIComponent(liveTopicName(topic))}`;
+    return connect(socketUrl, credential ? { Authorization: `Bearer ${credential}`, Origin: serverOrigin } : undefined);
+  }
+
+  return { request, openLiveSocket };
 }

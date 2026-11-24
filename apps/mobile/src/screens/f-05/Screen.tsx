@@ -5,6 +5,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo
 import { useCallback, useRef, useState } from "react";
 import { View } from "react-native";
 import { useCommand, useRemote } from "../../api";
+import { useLiveHints } from "../../api/live";
 import type { RemoteStatus } from "../../api/requests";
 import { useFormat, useLocale, useT } from "../../i18n";
 import { useSession } from "../../session";
@@ -27,6 +28,7 @@ export default function JobControlScreen() {
   const job = jobRead.data?.audience === "foreman" && jobRead.data.job.view === "whole" ? jobRead.data.job : null;
   const visitId = job?.nextVisit?.visitId;
   const visitRead = useRemote(getVisitLiveRoute, { params: { id: visitId ?? "" } }, { enabled: !!visitId });
+  const retryLive = useLiveHints(jobId ? { kind: "provider-job", opaqueId: jobId } : null, visitId ? visitRead.refresh : jobRead.refresh, { onScopeClosed: jobRead.refresh });
   const visit = visitRead.data && "workGate" in visitRead.data ? visitRead.data : null;
   const start = useCommand(startVisitWorkRoute), finish = useCommand(finishVisitWorkRoute);
   const focusedOnce = useRef(false);
@@ -40,7 +42,7 @@ export default function JobControlScreen() {
     const label = kind === "start" ? t("mobile.jobControl.start") : t("mobile.jobControl.finish");
     confirmAction(router, { title: label, actionLabel: label, actionLabelKey: kind === "start" ? "mobile.jobControl.start" : "mobile.jobControl.finish", item: job.reference, actor: bootstrap?.account.displayName ?? "", role: session?.activeContext?.businessName ?? "", effects: [t("mobile.jobControl.workEffect")], onReview: () => {}, onConfirm: async () => { const result = await command.run({ params: { id: visit.visitId }, body: { expectedRevision: visit.revision, payload: { id: uuid.v4(), bookedWindowId: visit.window.id } } }); if (result.ok) { await visitRead.refresh(); return "confirmed"; } return result.error.code === "INTERNAL_ERROR" || ("delivery" in result.error && result.error.delivery === "unknown") ? "uncertain" : "invalidated"; } });
   }
-  return <JobControlView job={job} visit={visit} status={jobRead.status} visitStatus={visitRead.status} busy={busy} checking={start.state === "checking" || finish.state === "checking"} failed={[start.state, finish.state].some(s => s === "failed" || s === "conflict")} onBack={() => router.back()} onRetry={() => { void jobRead.refresh(); if (visitId) void visitRead.refresh(); }} onNavigate={path => router.push(path as Href)} onWork={work} />;
+  return <JobControlView job={job} visit={visit} status={jobRead.status} visitStatus={visitRead.status} busy={busy} checking={start.state === "checking" || finish.state === "checking"} failed={[start.state, finish.state].some(s => s === "failed" || s === "conflict")} onBack={() => router.back()} onRetry={() => { retryLive(); void jobRead.refresh(); if (visitId) void visitRead.refresh(); }} onNavigate={path => router.push(path as Href)} onWork={work} />;
 }
 export function JobControlView({ job, visit, status, visitStatus, busy, checking, failed, onBack, onRetry, onNavigate, onWork, initialView }: { job: Job | null; visit: ForemanVisitControl | null; status: RemoteStatus; visitStatus: RemoteStatus; busy: boolean; checking: boolean; failed: boolean; onBack: () => void; onRetry: () => void; onNavigate: (path: string) => void; onWork: (kind: "start" | "finish") => void; initialView?: ViewMode }) {
   const t = useT(), { locale } = useLocale(); const [view, setView] = useState<ViewMode>(initialView ?? "today");

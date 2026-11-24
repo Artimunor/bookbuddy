@@ -158,7 +158,7 @@ test("live arrival corrections append and customer read never contains private r
     const withdrawal = operation("withdraw-estimate", { id: "withdrawn", kind: "arrival_withdrawn", correctsId: "corrected" }, 2);
     expect((await f.call("foreman", updatePath, withdrawal)).body).toMatchObject({ data: { revision: 3,
       customerPreview: { live: { step: "confirmed", arrival: null } } } });
-    expect(f.topics).toEqual(["customer-visit:visit", "customer-visit:visit", "customer-visit:visit"]);
+    expect(f.topics).toEqual(Array.from({ length: 3 }, () => ["customer-visit:visit", "provider-job:job"]).flat());
     expect(f.wakes.map((keys) => keys.length)).toEqual([1, 1, 1]);
     const notices = await f.db.prepare(`SELECT n.context_id, n.link_token, t.kind, t.resource_id FROM notifications n
       JOIN link_targets t ON t.token = n.link_token ORDER BY n.event_key`).all();

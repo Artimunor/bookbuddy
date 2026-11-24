@@ -80,6 +80,17 @@ export class RemoteRead<Data> {
     for (const listener of this.listeners) listener();
   }
 
+  seed(data: Data, serverTime: number, fence: ReadFence): void {
+    if (fence.offline) return;
+    if (this.snapshot.status === "ready" && this.fence && sameReadGeneration(this.fence, fence) &&
+      this.snapshot.lastConfirmedAt > serverTime) return;
+    this.inFlight?.abort.abort();
+    this.inFlight = null;
+    this.fence = fence;
+    this.confirmedAt = this.now();
+    this.publish({ status: "ready", data, error: null, lastConfirmedAt: serverTime });
+  }
+
   load(call: Call<Data>, { refresh = false, getConnection }: { refresh?: boolean; getConnection: () => ReadFence }): Promise<void> {
     const fence = getConnection();
     if (this.inFlight && sameReadGeneration(this.inFlight.fence, fence)) return this.inFlight.promise;
