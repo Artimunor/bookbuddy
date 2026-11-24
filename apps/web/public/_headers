@@ -1,0 +1,5 @@
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api-origin.example.invalid wss://api-origin.example.invalid https://r2-media-origin.example.invalid; img-src 'self' https://r2-media-origin.example.invalid; media-src 'self' https://r2-media-origin.example.invalid; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: same-origin
+  Permissions-Policy: camera=(self), microphone=(self)
