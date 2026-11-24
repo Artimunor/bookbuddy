@@ -17,21 +17,26 @@ export type PickResult =
   | { status: "cancelled" | "denied" | "tooLarge" | "draftLimit" | "unavailable" };
 const emptyTransfers: readonly MediaTransfer[] = [];
 
-export function useTransferRows(query: TransferQuery | null): readonly MediaTransfer[] | null {
+export function useTransferRows(query: TransferQuery | null) {
   const repo = useRepository();
   const subscribe = useCallback((listener: () => void) => query ? repo?.subscribe("media", listener) ?? (() => {}) : () => {}, [repo, query]);
   const getRevision = useCallback(() => query ? repo?.revision("media") ?? 0 : 0, [repo, query]);
   const revision = useSyncExternalStore(subscribe, getRevision, getRevision);
-  const [result, setResult] = useState<{ repo: ScopedRepository; query: TransferQuery; rows: MediaTransfer[] }>();
+  const [result, setResult] = useState<{ repo: ScopedRepository; query: TransferQuery; revision: number; rows: MediaTransfer[] | null }>();
   useEffect(() => {
     if (!repo?.isActive || !query) return;
     let live = true;
-    void repo.listMediaTransfers(query).then((rows) => { if (live) setResult({ repo, query, rows }); }, () => {
-      if (live) setResult({ repo, query, rows: [] });
+    void repo.listMediaTransfers(query).then((rows) => { if (live) setResult({ repo, query, revision, rows }); }, () => {
+      if (live) setResult({ repo, query, revision, rows: null });
     });
     return () => { live = false; };
   }, [repo, query, revision]);
-  return repo?.isActive && query && result?.repo === repo && result.query === query ? result.rows : null;
+  const current = repo?.isActive && query && result?.repo === repo && result.query === query ? result : null;
+  return {
+    rows: current?.rows ?? null,
+    loaded: current?.revision === revision && current.rows !== null,
+    failed: current?.revision === revision && current.rows === null,
+  };
 }
 
 async function normalizePhoto({ uri, width, height }: ImagePicker.ImagePickerAsset) {
@@ -99,10 +104,11 @@ export function useAttach(caller: MediaCaller | undefined, parentScopeId: string
   const { queue } = useMediaAccess();
   const scope = useMemo(() => mediaScopeSchema.safeParse({ caller, parentScopeId }).data, [caller, parentScopeId]);
   const stageId = useMemo(() => mediaStageIdSchema.safeParse(draftStageId).data, [draftStageId]);
-  const query = useMemo(() => scope ? { ...scope, stageId } : null, [scope, stageId]);
-  const items = useTransferRows(query) ?? emptyTransfers;
-  const pick = useCallback((source: AttachSource): Promise<PickResult> => repo?.isActive && scope
-    ? stage(repo, scope, source, stageId) : Promise.resolve({ status: "unavailable" }), [repo, scope, stageId]);
+  const validStage = draftStageId === undefined || stageId !== undefined;
+  const query = useMemo(() => scope && validStage ? { ...scope, stageId } : null, [scope, validStage, stageId]);
+  const { rows, loaded } = useTransferRows(query);
+  const pick = useCallback((source: AttachSource): Promise<PickResult> => repo?.isActive && scope && validStage
+    ? stage(repo, scope, source, stageId) : Promise.resolve({ status: "unavailable" }), [repo, scope, validStage, stageId]);
   const retry = useCallback(async (id: string) => {
     const attachmentId = attachmentIdSchema.safeParse(id).data;
     if (repo?.isActive && attachmentId) await queue(repo)?.retry(attachmentId);
@@ -111,7 +117,7 @@ export function useAttach(caller: MediaCaller | undefined, parentScopeId: string
     const attachmentId = attachmentIdSchema.safeParse(id).data;
     return repo?.isActive && attachmentId ? repo.removeMediaTransfer(attachmentId, transferFiles.erase) : false;
   }, [repo]);
-  return { pick, items, retry, remove };
+  return { pick, items: rows ?? emptyTransfers, loaded, retry, remove };
 }
 
 export function useDraftMediaActions() {

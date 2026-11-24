@@ -30,8 +30,8 @@ export function useMediaRead(attachmentId: string | undefined, scope?: MediaScop
   const caller = scope?.caller;
   const parentScopeId = scope?.parentScopeId;
   const remote = useMemo(() => id && mediaScopeSchema.safeParse({ caller, parentScopeId }).data, [id, caller, parentScopeId]);
-  const draftQuery = useMemo(() => scope === undefined && id ? { attachmentId: id } : null, [scope === undefined, id]);
-  const drafts = useTransferRows(draftQuery);
+  const draftQuery = useMemo(() => scope === undefined && id ? { attachmentId: id } : null, [scope === undefined, id, attempt]);
+  const { rows: drafts, failed: draftFailed } = useTransferRows(draftQuery);
   const active = !!repository?.isActive && focused && requests.active;
   const identity = useMemo(() => ({ id, remote, repository, visibility, connection, requests, client, attempt }),
     [id, remote, repository, visibility, connection, requests, client, attempt]);
@@ -89,7 +89,7 @@ export function useMediaRead(attachmentId: string | undefined, scope?: MediaScop
     const item = drafts?.[0];
     result = item?.fileUri ? { status: "ready", uri: item.fileUri, file: item.file, draft: item }
       : item && isSentDraft(item) ? { status: "sent", kind: item.file.kind }
-      : { status: drafts === null ? "loading" : "unavailable" };
+      : { status: draftFailed ? "error" : drafts === null ? "loading" : "unavailable" };
   } else if (connection.offline) result = { status: "offline" };
   else if (!client) result = { status: "error" };
   else if (snapshot?.identity !== identity) result = { status: "loading" };
