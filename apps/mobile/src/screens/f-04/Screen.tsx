@@ -1,4 +1,4 @@
-import { createQuoteVersionRoute, getQuoteVersionRoute, listQuoteVersionsRoute, submitQuoteReviewRoute, type QuoteVersion } from "@bookbuddy/api-contract";
+import { createQuoteVersionRoute, getQuoteVersionRoute, issueQuoteVersionRoute, listQuoteVersionsRoute, submitQuoteReviewRoute, type QuoteVersion } from "@bookbuddy/api-contract";
 import { uuid } from "expo";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useState } from "react";
@@ -28,15 +28,19 @@ function QuoteRoute() {
   const latest = versions.reduce<(typeof versions)[number] | null>((a, b) => !a || b.no > a.no ? b : a, null);
   const remote = useRemote(getQuoteVersionRoute, { params: { j: jobId ?? "", id: latest?.id ?? "" } }, { enabled: !!jobId && !!latest });
   const read = remote.data?.audience === "foreman" ? remote.data : null;
-  const create = useCommand(createQuoteVersionRoute); const submit = useCommand(submitQuoteReviewRoute);
-  const [created, setCreated] = useState<StaffQuote | null>(null); const [revision, setRevision] = useState(false);
+  const create = useCommand(createQuoteVersionRoute);
+  const submit = useCommand(submitQuoteReviewRoute);
+  const issue = useCommand(issueQuoteVersionRoute);
+  const [written, setWritten] = useState<StaffQuote | null>(null);
+  const [revision, setRevision] = useState(false);
   const local = useLocalDraft<QuoteDraft>(`quote:${jobId ?? "missing"}`, emptyQuote);
   const offline = useOffline(); const { bootstrap } = useSession();
-  const data = created ? (submit.result?.id === created.id ? submit.result : created) : submit.result ?? read;
+  const data = written ?? read;
   const terms = list.data?.audience === "foreman" ? list.data.currentTerms : null;
-  const busy = [create.state, submit.state].some(s => s === "sending" || s === "checking");
-  const checking = [create.state, submit.state].includes("checking");
-  const failed = [create.state, submit.state].some(s => s === "failed" || s === "conflict");
+  const states = [create.state, submit.state, issue.state];
+  const busy = states.includes("sending") || states.includes("checking");
+  const checking = states.includes("checking");
+  const failed = states.includes("failed") || states.includes("conflict");
   const editable = (!data || revision) && (offline || (list.status === "ready" && (!latest || remote.status === "ready")));
   async function prepare() {
     if (!jobId || !terms || offline || busy) return;
@@ -44,14 +48,47 @@ function QuoteRoute() {
     if (!local.value.scope.trim() || !local.value.locale.trim() || items.some(x => !x.originalLabel || !x.evidenceRule || x.netMinor === null) || items.reduce((n, x) => n + (x.netMinor ?? 0), 0) <= 0) return;
     const result = await create.run({ params: { j: jobId }, body: { payload: { id: uuid.v4(), termsVersionId: terms.id, originalLocale: local.value.locale.trim(), scope: local.value.scope.trim(), exclusions: local.value.exclusions.trim(), evidence: [], items: items.map(x => ({ ...x, netMinor: x.netMinor! })) } } });
     if (!result.ok) return;
-    setCreated(result.data); setRevision(false); void local.remove().catch(() => {}); askReview(result.data);
+    setWritten(result.data);
+    setRevision(false);
+    void local.remove().catch(() => {});
+    confirmNext(result.data);
   }
-  function askReview(version: StaffQuote) {
-    if (!version.actions.submitReview || offline || busy) return;
-    confirmAction(router, { title: t("mobile.foremanQuote.review"), actionLabel: t("mobile.foremanQuote.review"), actionLabelKey: "mobile.foremanQuote.review", item: [version.job.reference, t("mobile.foremanQuote.version", { number: version.no, status: t("mobile.foremanQuote.draft") }), version.scope, version.exclusions, ...version.items.map(item => `${item.originalLabel} · ${format.money(item.netMinor + item.taxMinor, version.currency)}`), format.money(version.totalMinor, version.currency), version.terms.originalText].filter(Boolean).join("\n"), actor: bootstrap?.account.displayName ?? version.authorDisplayName, role: version.job.providerDisplayName, effects: [t("mobile.foremanQuote.effect"), ...(version.reviewRouting ? [t("mobile.foremanQuote.reviewContext", { name: version.reviewRouting.reviewerDisplayName })] : [])], offline, onReview: () => { void remote.refresh(); }, onConfirm: async () => { const result = await submit.run({ params: { id: version.id }, body: { payload: {} } }); if (result.ok) return "confirmed"; return "delivery" in result.error && result.error.delivery === "unknown" ? "uncertain" : "invalidated"; } });
+  function refresh() {
+    setWritten(null);
+    void list.refresh();
+    if (latest) void remote.refresh();
+  }
+  function confirmNext(version: StaffQuote) {
+    const publishing = version.actions.issue;
+    if ((!publishing && !version.actions.submitReview) || offline || busy) return;
+    const actionLabelKey = publishing ? "mobile.foremanQuote.issue" : "mobile.foremanQuote.review";
+    confirmAction(router, {
+      title: t(actionLabelKey), actionLabel: t(actionLabelKey), actionLabelKey,
+      item: [
+        version.job.reference,
+        t("mobile.foremanQuote.version", { number: version.no, status: t("mobile.foremanQuote.draft") }),
+        t("mobile.foremanQuote.namedApprover", { name: version.job.namedApproverDisplayName }),
+        version.scope, version.exclusions,
+        ...version.items.map(item => `${item.originalLabel} · ${format.money(item.netMinor + item.taxMinor, version.currency)}`),
+        format.money(version.totalMinor, version.currency), version.terms.originalText,
+      ].filter(Boolean).join("\n"),
+      actor: bootstrap?.account.displayName ?? version.authorDisplayName,
+      role: version.job.providerDisplayName,
+      effects: publishing ? [t("mobile.foremanQuote.issueEffect")]
+        : [t("mobile.foremanQuote.effect"), ...(version.reviewRouting ? [t("mobile.foremanQuote.reviewContext", { name: version.reviewRouting.reviewerDisplayName })] : [])],
+      offline, onReview: refresh,
+      onConfirm: async () => {
+        const params = { id: version.id };
+        const result = publishing
+          ? await issue.run({ params, body: { payload: { termsHash: version.terms.hash } } })
+          : await submit.run({ params, body: { payload: {} } });
+        if (result.ok) { setWritten(result.data); return "confirmed"; }
+        return "delivery" in result.error && result.error.delivery === "unknown" ? "uncertain" : "invalidated";
+      },
+    });
   }
   const status = offline && editable ? "ready" : list.status !== "ready" ? list.status : latest && !data && remote.status !== "ready" ? remote.status : "ready";
-  return <QuoteView data={revision ? null : data} draft={local.value} change={local.change} editable={editable} saved={local.saved} saveFailed={local.failed} status={status} offline={offline} busy={busy} checking={checking} failed={failed} hasTerms={offline || !!terms} onBack={() => router.back()} onJob={() => router.replace(`/f/jobs/${jobId}` as Href)} onRetry={() => { void list.refresh(); if (latest) void remote.refresh(); }} onSend={() => { if (data && !revision) askReview(data); else void prepare(); }} onRevision={() => setRevision(true)} onChange={() => router.push(`/f/jobs/${jobId}/change` as Href)} />;
+  return <QuoteView data={revision ? null : data} draft={local.value} change={local.change} editable={editable} saved={local.saved} saveFailed={local.failed} status={status} offline={offline} busy={busy} checking={checking} failed={failed} hasTerms={offline || !!terms} onBack={() => router.back()} onJob={() => router.replace(`/f/jobs/${jobId}` as Href)} onRetry={refresh} onSend={() => { if (data && !revision) confirmNext(data); else void prepare(); }} onRevision={() => setRevision(true)} onChange={() => router.push(`/f/jobs/${jobId}/change` as Href)} />;
 }
 
 type Props = { data: StaffQuote | null; draft: QuoteDraft; change: (draft: QuoteDraft) => void; editable: boolean; saved: boolean; saveFailed: boolean; status: string; offline: boolean; busy: boolean; checking: boolean; failed: boolean; hasTerms: boolean; onBack: () => void; onJob: () => void; onRetry: () => void; onSend: () => void; onRevision: () => void; onChange: () => void };
@@ -60,8 +97,14 @@ export function QuoteView(p: Props) {
   const state = !d ? t("mobile.foremanQuote.draft") : d.state === "approved" ? t("mobile.foremanQuote.approved") : d.state === "issued" ? t("mobile.foremanQuote.sent") : d.state === "declined" ? t("mobile.foremanQuote.rejected") : d.state === "expired" ? t("mobile.customerQuote.expired") : d.state === "superseded" ? t("mobile.customerQuote.superseded") : d.state === "withdrawn" ? t("mobile.provider.withdrawn") : review?.state === "returned" ? t("mobile.foremanQuote.returned") : review?.state === "pending" ? t("mobile.foremanQuote.inReview") : t("mobile.foremanQuote.draft");
   const amount = p.draft.lines.reduce((sum, line) => sum + (minorAmount(line.amount) ?? 0), 0);
   const valid = !!p.draft.scope.trim() && !!p.draft.locale.trim() && p.draft.lines.every(x => !!x.label.trim() && !!x.evidence.trim() && minorAmount(x.amount) !== null) && amount > 0;
-  const submitAllowed = p.editable ? valid && p.hasTerms : !!d?.actions.submitReview;
-  const dock = p.status === "ready" ? d?.state === "approved" ? <Dock primary={{ label: t("mobile.foremanQuote.newChange"), onPress: p.onChange }} /> : d && !d.actions.submitReview && !p.editable ? <Dock primary={{ label: t("mobile.foremanQuote.backJob"), onPress: p.onJob }} /> : <Dock context={d?.reviewRouting ? t("mobile.foremanQuote.reviewContext", { name: d.reviewRouting.reviewerDisplayName }) : t("mobile.foremanQuote.effect")} primary={{ label: t("mobile.foremanQuote.review"), onPress: p.onSend, disabled: !submitAllowed || p.offline || p.busy }} /> : undefined;
+  const submitAllowed = p.editable ? valid && p.hasTerms : d?.actions.issue || d?.actions.submitReview;
+  const actionLabel = p.editable ? t("mobile.foremanQuote.reviewDraft") : d?.actions.issue ? t("mobile.foremanQuote.issue") : t("mobile.foremanQuote.review");
+  const actionContext = d?.actions.issue ? t("mobile.foremanQuote.issueEffect") : d?.reviewRouting
+    ? t("mobile.foremanQuote.reviewContext", { name: d.reviewRouting.reviewerDisplayName }) : undefined;
+  const dock = p.status !== "ready" ? undefined
+    : d?.state === "approved" ? <Dock primary={{ label: t("mobile.foremanQuote.newChange"), onPress: p.onChange }} />
+    : d && !submitAllowed && !p.editable ? <Dock primary={{ label: t("mobile.foremanQuote.backJob"), onPress: p.onJob }} />
+    : <Dock context={actionContext} primary={{ label: actionLabel, onPress: p.onSend, disabled: !submitAllowed || p.offline || p.busy }} />;
   return <Screen title={t("mobile.foremanQuote.title")} navigation={{ kind: "back", label: t("mobile.customerQuote.back"), onPress: p.onBack }} dock={dock}>
     {(p.status === "loading" || p.status === "idle") && <Copy>{t("mobile.customerQuote.loading")}</Copy>}{p.status === "offline" && <Copy>{t("mobile.foremanQuote.offline")}</Copy>}{p.status === "error" && <><Copy>{t("mobile.customerQuote.error")}</Copy><Button label={t("mobile.customerQuote.retry")} onPress={p.onRetry} /></>}
     {p.status === "ready" && <>{d && <Copy variant="supporting">{d.job.reference} · {d.job.jobTitle}</Copy>}<Badge label={d ? t("mobile.foremanQuote.version", { number: d.no, status: state }) : state} tone="neutral" />
