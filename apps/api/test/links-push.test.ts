@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { notificationsRoute, openLinkRoute, resultSchema, syncRoute } from "@bookbuddy/api-contract";
+import { notificationsRoute, openLinkRoute, operationIdHeader, putPushInstallationRoute, resultSchema, syncRoute } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { runEffectBatch } from "../src/effects";
@@ -194,9 +194,10 @@ test("push claims once, localizes opaque-only notices and batches Expo tickets a
         ('wrong-scope','recipient-customer','Wrong context event','bill_issued','other-link',?)`).bind(now, now, now, now, now),
       db.prepare(`INSERT INTO effect_outbox SELECT 'effect-' || id, 'notification_push', event_key, id, ?, 'pending', ? FROM notifications`)
         .bind(now, expiry),
-      db.prepare(`INSERT INTO sessions (id,account_id,secret_hash,device_id,issued_at,expires_at)
-        SELECT 'push-' || value, 'recipient', 'test-hash-' || value, 'device-' || value, 1, ? FROM json_each(?)`)
-        .bind(expiry, JSON.stringify(Array.from({ length: 101 }, (_, i) => i))),
+      db.prepare(`INSERT INTO sessions (id,account_id,secret_hash,device_id,issued_at,expires_at,revoked_at)
+        SELECT 'push-' || value, 'recipient', 'test-hash-' || value, 'device-' || value, 1,
+          CASE WHEN value = 102 THEN ? ELSE ? END, CASE WHEN value = 101 THEN ? END FROM json_each(?)`)
+        .bind(now, expiry, now, JSON.stringify(Array.from({ length: 103 }, (_, i) => i))),
       db.prepare(`INSERT INTO push_installations (id,account_id,device_id,session_id,token,token_epoch,platform,state,updated_at)
         SELECT 'i-' || substr(id, 6), account_id, device_id, id, 'ExpoPushToken[i-' || substr(id, 6) || ']', 1,
         'ios', CASE WHEN id='push-100' THEN 'revoked' ELSE 'active' END, ? FROM sessions WHERE account_id='recipient'`).bind(now),
@@ -234,7 +235,7 @@ test("push claims once, localizes opaque-only notices and batches Expo tickets a
     expect(sends.flat().find(({ to }) => to === "ExpoPushToken[i-other]")).toEqual({
       to: "ExpoPushToken[i-other]", title: "BookBuddy", body: "You have an update.", data: { url: `${origin}/l/other-link` },
     });
-    expect(JSON.stringify(sends)).not.toMatch(/Private Street|private-job-id|100 EUR|accept|i-100/);
+    expect(JSON.stringify(sends)).not.toMatch(/Private Street|private-job-id|100 EUR|accept|i-10[0-2]/);
     expect(await db.prepare("SELECT state FROM push_installations WHERE id='i-0'").first("state")).toBe("disabled");
     expect(await db.prepare("SELECT count(*) AS n FROM push_tickets WHERE state='due'").first("n")).toBe(100);
     expect(await db.prepare("SELECT count(*) AS n FROM effect_outbox WHERE state='skipped'").first("n")).toBe(3);
@@ -268,6 +269,66 @@ test("push claims once, localizes opaque-only notices and batches Expo tickets a
     expect(await db.prepare("SELECT state FROM push_tickets WHERE id='ticket-i-1'").first("state")).toBe("rejected");
     expect(await db.prepare("SELECT count(*) AS n FROM push_tickets WHERE state='delivered'").first("n")).toBe(999);
   } finally { db.close(); }
+});
+
+test("a same-device login cannot receive a push until it takes ownership with a fresh PUT", async () => {
+  const { db, env } = await fixture();
+  const clock = spyOn(Date, "now").mockReturnValue(now);
+  const app = createApp().onError((error) => { throw error; });
+  const sessionA = randomToken(), sessionB = randomToken();
+  const expiry = now + minute;
+  const token = "ExpoPushToken[phone]";
+  try {
+    await seedBillRecipient(db);
+    const [hashA, hashB] = await Promise.all([sessionA, sessionB].map(hashSessionCredential));
+    await db.prepare(`INSERT INTO sessions (id,account_id,secret_hash,active_context_id,device_id,issued_at,expires_at)
+      VALUES ('session-a','recipient',?,'recipient-customer','device',1,?)`).bind(hashA, expiry).run();
+    async function register(credential: string, operationId: string, expectedRevision: number) {
+      const { batch, query } = db.calls;
+      const response = await app.request(`${origin}/api/v1/push/installations/phone`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${credential}`, "Content-Type": "application/json", [operationIdHeader]: operationId },
+        body: JSON.stringify({ operationId, expectedRevision, payload: { token, platform: "ios" } }),
+      }, env);
+      expect(db.calls.batch - batch).toBe(1);
+      expect(db.calls.query - query).toBe(0);
+      expect(response.status).toBe(200);
+      return resultSchema(putPushInstallationRoute.output).parse(await response.json());
+    }
+    expect(await register(sessionA, "original-opt-in", 0)).toMatchObject({ data: { status: "committed", tokenEpoch: 1 } });
+    // Revoke only the session here to exercise the dispatch gate independently
+    // of sign-out also updating the installation.
+    await db.batch([
+      db.prepare("UPDATE sessions SET revoked_at = ? WHERE id = 'session-a'").bind(now),
+      db.prepare(`INSERT INTO sessions (id,account_id,secret_hash,active_context_id,device_id,issued_at,expires_at)
+        SELECT 'session-b',account_id,?,active_context_id,device_id,?,expires_at FROM sessions WHERE id = 'session-a'`).bind(hashB, now),
+      db.prepare("INSERT INTO link_targets VALUES ('dest','bill_issued','bill','recipient-customer',?)").bind(expiry),
+      db.prepare(`INSERT INTO notifications VALUES
+        ('before','recipient-customer','before-opt-in','bill_issued','dest',?,NULL),
+        ('after','recipient-customer','after-opt-in','bill_issued','dest',?,NULL)`).bind(now, now),
+      db.prepare(`INSERT INTO effect_outbox
+        SELECT 'effect-' || id, 'notification_push', event_key, id, ?, 'pending', ? FROM notifications`).bind(now, expiry),
+    ]);
+    const sends: string[] = [];
+    const send: ExpoFetch = async (_url, request) => {
+      const messages = JSON.parse(request.body as string) as ExpoMessage[];
+      sends.push(...messages.map(({ to }) => to));
+      return Response.json({ data: messages.map((_, i) => ({ status: "ok", id: `ticket-${i}` })) });
+    };
+    const { batch, query } = db.calls;
+    await runEffectBatch(env, ["effect-before"], now, send);
+    expect(sends).toEqual([]);
+    expect(db.calls.batch - batch).toBe(1);
+    expect(db.calls.query - query).toBe(0);
+    expect(await db.prepare("SELECT state, session_id, token_epoch FROM push_installations").first())
+      .toEqual({ state: "active", session_id: "session-a", token_epoch: 1 });
+
+    expect(await register(sessionB, "replacement-opt-in", 1)).toMatchObject({ data: { status: "committed", tokenEpoch: 2 } });
+    await runEffectBatch(env, ["effect-after"], now, send);
+    expect(sends).toEqual([token]);
+    expect((await db.prepare("SELECT id, state FROM effect_outbox ORDER BY id").all()).results)
+      .toEqual([{ id: "effect-after", state: "delivered" }, { id: "effect-before", state: "skipped" }]);
+  } finally { clock.mockRestore(); db.close(); }
 });
 
 test("an ambiguous Expo send is not retried by a duplicate wake or due sweep", async () => {

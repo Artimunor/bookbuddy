@@ -9,7 +9,7 @@ import type { ExpoFetch, ExpoMessage } from "../providers/expo-push";
 import type { ClaimedEffect } from ".";
 
 // Notifications are durable recipient intents, not a transport payload. An
-// orphaned, read or expired intent, or a disabled installation, needs no send.
+// orphaned, read or expired intent, or an installation without a live owner, needs no send.
 const input = `FROM notifications n JOIN (
     SELECT c.id AS context_id, c.account_id, c.business_id, c.role, g.membership_id
     FROM account_contexts c JOIN accounts a ON a.id = c.account_id AND a.state = 'active'
@@ -18,14 +18,15 @@ const input = `FROM notifications n JOIN (
   ) scope ON scope.context_id = n.context_id
   JOIN link_targets l ON ${noticeLink}`;
 const eligible = `n.id = e.resource_ref AND n.read_at IS NULL AND (${pushNoticeAllowed})`;
+const liveInstallations = `FROM push_installations i JOIN sessions owner ON owner.id = i.session_id
+  WHERE i.account_id = scope.account_id AND i.state = 'active' AND owner.revoked_at IS NULL AND owner.expires_at > ${at}`;
 export const pushNotificationEffect = {
   kind: "notification_push",
-  eligible: `EXISTS (SELECT 1 ${input} WHERE ${eligible} AND EXISTS (
-    SELECT 1 FROM push_installations i WHERE i.account_id = scope.account_id AND i.state = 'active'))`,
+  eligible: `EXISTS (SELECT 1 ${input} WHERE ${eligible} AND EXISTS (SELECT 1 ${liveInstallations}))`,
   scrub: "resource_ref", // Retain only the notification ID in the ledger, never a device token.
   claimResource: `coalesce((SELECT json_object('kind', n.kind, 'token', l.token, 'locale', p.ui_locale,
     'installations', json((SELECT json_group_array(json_object('id', i.id, 'epoch', i.token_epoch, 'token', i.token))
-      FROM push_installations i WHERE i.account_id = scope.account_id AND i.state = 'active')))
+      ${liveInstallations})))
     ${input} LEFT JOIN account_preferences p ON p.account_id = scope.account_id WHERE n.id = e.resource_ref), '')`,
 } as const;
 
