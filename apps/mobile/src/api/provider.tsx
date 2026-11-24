@@ -14,22 +14,26 @@ import type { ReadConnection } from "./requests";
 
 interface ApiAccess {
   client: ApiClient | null;
+  cookieSession: boolean;
   locale: LocaleTag;
   requests: RequestBook;
   connection: ReadConnection;
   offline: boolean;
   getConnection: () => ReadConnection;
   isOffline: () => boolean;
-  bindSession: (credential: string | null, uiLocale: string | null) => void;
+  bindSession: (credential: string | null, sessionId: string | null, uiLocale: string | null) => void;
   setRequestLocale: (locale: LocaleTag) => void;
 }
 const ApiContext = createContext<ApiAccess | null>(null);
 
 export function ApiProvider({ children, baseUrl, fetch }: { children: ReactNode; baseUrl?: string; fetch?: ApiFetch }) {
-  const extraUrl: unknown = Constants.expoConfig?.extra?.apiBaseUrl;
-  const url = baseUrl ?? (Platform.OS !== "web" && typeof extraUrl === "string" ? extraUrl : undefined);
+  const extra = Constants.expoConfig?.extra;
+  const cookieSession = Platform.OS === "web" && extra?.localWebApi === true && typeof window !== "undefined"
+    && window.location.protocol === "http:" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  const url = cookieSession ? "/api/v1" : baseUrl ?? (Platform.OS !== "web" && typeof extra?.apiBaseUrl === "string" ? extra.apiBaseUrl : undefined);
   const locales = useLocales();
   const credential = useRef<string | null>(null);
+  const sessionId = useRef<string | null>(null);
   const [requests, setRequests] = useState(() => new RequestBook(false));
   const currentRequests = useRef(requests);
   const [connection, setConnection] = useState(initialReadConnection);
@@ -63,18 +67,19 @@ export function ApiProvider({ children, baseUrl, fetch }: { children: ReactNode;
   const client = useMemo(() => url ? createApiClient({
     baseUrl: url, getSession: () => credential.current, getLocale: () => explicitHeader.current ?? fallbackHeader.current, fetch,
   }) : null, [url, fetch]);
-  const bindSession = useCallback((token: string | null, preferred: string | null) => {
-    if (credential.current !== token) {
+  const bindSession = useCallback((token: string | null, id: string | null, preferred: string | null) => {
+    if (sessionId.current !== id || credential.current !== token) {
+      sessionId.current = id;
       credential.current = token;
       currentRequests.current.active = false;
-      currentRequests.current = new RequestBook(token !== null);
+      currentRequests.current = new RequestBook(id !== null);
       setRequests(currentRequests.current);
     }
     setPreference(preferred);
   }, []);
   const locale = effectiveLocale ?? fallbackLocale;
-  const access = useMemo<ApiAccess>(() => ({ client, locale, requests, connection, offline: connection.offline, getConnection, isOffline, bindSession, setRequestLocale }),
-    [client, locale, requests, connection, getConnection, isOffline, bindSession, setRequestLocale]);
+  const access = useMemo<ApiAccess>(() => ({ client, cookieSession, locale, requests, connection, offline: connection.offline, getConnection, isOffline, bindSession, setRequestLocale }),
+    [client, cookieSession, locale, requests, connection, getConnection, isOffline, bindSession, setRequestLocale]);
   return <ApiContext.Provider value={access}>{children}</ApiContext.Provider>;
 }
 

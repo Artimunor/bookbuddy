@@ -11,11 +11,15 @@ config.resolver.nodeModulesPaths = [join(__dirname, "node_modules"), workspaceMo
 
 const parser = "@formatjs/icu-messageformat-parser";
 const resolveRequest = config.resolver.resolveRequest;
-config.resolver.resolveRequest = (context, moduleName, platform) =>
-  (resolveRequest ?? context.resolveRequest)(
-    context,
-    moduleName === parser ? "@formatjs/icu-messageformat-parser/no-parser.js" : moduleName,
-    platform,
-  );
+const localWeb = process.env.APP_ENV === "local";
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  let target = moduleName;
+  if (moduleName === parser) target = "@formatjs/icu-messageformat-parser/no-parser.js";
+  // Only explicitly local exports run the real app routes on web.
+  if (localWeb && platform === "web" && moduleName === "./src/entry" && context.originModulePath === join(__dirname, "index.ts")) {
+    target = "expo-router/entry";
+  }
+  return (resolveRequest ?? context.resolveRequest)(context, target, platform);
+};
 
 module.exports = config;

@@ -17,7 +17,7 @@ import { sessionStorage } from "./storage";
 const deviceSessionSchema = sessionBootstrapSchema.pick({ sessionId: true, expiresAt: true, setup: true, activeContext: true })
   .extend({ accountId: accountIdSchema });
 export type DeviceSession = Pick<SessionBootstrap, "sessionId" | "expiresAt" | "setup" | "activeContext"> & { accountId: SessionBootstrap["account"]["id"] };
-type StoredSession = { state: "active"; credential: string; session: DeviceSession } | { state: "ending"; accountId: DeviceSession["accountId"] };
+type StoredSession = { state: "active"; credential: string | null; session: DeviceSession } | { state: "ending"; accountId: DeviceSession["accountId"] };
 interface SessionState {
   status: "loading" | "ready" | "storage_error";
   session: DeviceSession | null;
@@ -32,12 +32,15 @@ const initialState: SessionState = { status: "loading", session: null, bootstrap
 const signedOut: SessionState = { ...initialState, status: "ready" };
 const SessionContext = createContext<SessionAccess | null>(null);
 
-function parseStoredSession(raw: string): StoredSession {
+function parseStoredSession(raw: string, cookieSession: boolean): StoredSession {
   const value: unknown = JSON.parse(raw);
   if (value && typeof value === "object" && "state" in value) {
     if (value.state === "ending" && "accountId" in value) return { state: "ending", accountId: accountIdSchema.parse(value.accountId) };
-    if (value.state === "active" && "credential" in value && typeof value.credential === "string" && authTokenPattern.test(value.credential) && "session" in value) {
-      return { state: "active", credential: value.credential, session: deviceSessionSchema.parse(value.session) };
+    if (value.state === "active" && "credential" in value && "session" in value) {
+      const token = value.credential;
+      if (cookieSession ? token === null : typeof token === "string" && authTokenPattern.test(token)) {
+        return { state: "active", credential: typeof token === "string" ? token : null, session: deviceSessionSchema.parse(value.session) };
+      }
     }
   }
   throw new Error("Invalid saved session");
@@ -54,7 +57,7 @@ async function finishLocalSignOut(db: MobileRepository, accountId: DeviceSession
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const { bindSession, client } = useApiAccess();
+  const { bindSession, client, cookieSession } = useApiAccess();
   const [state, setState] = useState<SessionState>(initialState);
   const [scope, setScope] = useState<ScopedRepository | null>(null);
   const [schedule] = useState(serialize);
@@ -90,7 +93,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
     }
     current.current = record;
-    bindSession(record?.credential ?? null, preferences?.uiLocale ?? null);
+    bindSession(record?.credential ?? null, next?.sessionId ?? null, preferences?.uiLocale ?? null);
     setState({ status: "ready", session: next, preferences, bootstrap });
   }, [bindSession, closeScope]);
 
@@ -101,7 +104,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const raw = await sessionStorage.read();
       if (!live) return;
       repo.current = db;
-      const stored = raw === null ? null : parseStoredSession(raw);
+      const stored = raw === null ? null : parseStoredSession(raw, cookieSession);
       if (stored?.state === "ending") {
         ending.current = stored.accountId;
         await finishLocalSignOut(db, stored.accountId);
@@ -118,7 +121,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (live) adopt(null, null, null);
     }).catch(() => { if (live) setState({ ...signedOut, status: "storage_error" }); });
     return () => { live = false; closeScope(); };
-  }, [adopt, closeScope, schedule]);
+  }, [adopt, closeScope, cookieSession, schedule]);
 
   useEffect(() => {
     const session = state.session;
@@ -147,15 +150,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const { account, activeContext, sessionId, setup, expiresAt } = bootstrap;
     const previous = current.current;
     if (previous && previous.session.accountId !== account.id) throw new Error("Sign out before changing accounts");
-    const token = credential ?? (previous?.session.sessionId === sessionId ? previous.credential : undefined);
-    if (!token || !authTokenPattern.test(token) || expiresAt <= Date.now()) throw new Error("A valid native session credential is required");
+    const token = cookieSession ? null : credential ?? (previous?.session.sessionId === sessionId ? previous.credential : null);
+    const validTransport = cookieSession ? credential === undefined : token !== null && authTokenPattern.test(token);
+    if (!validTransport || expiresAt <= Date.now()) throw new Error("A valid session for this transport is required");
     const session = deviceSessionSchema.parse({ accountId: account.id, sessionId, setup, expiresAt, activeContext });
     const record: Extract<StoredSession, { state: "active" }> = { state: "active", credential: token, session };
     const cached = await repo.current.saveSessionBootstrap(bootstrap);
     const encoded = JSON.stringify(record);
     if (encoded !== JSON.stringify(previous)) await sessionStorage.save(encoded);
     adopt(record, cached.preferences, cached);
-  }), [adopt, schedule]);
+  }), [adopt, cookieSession, schedule]);
 
   const signOut = useCallback(() => schedule(async () => {
     const accountId = current.current?.session.accountId ?? ending.current;

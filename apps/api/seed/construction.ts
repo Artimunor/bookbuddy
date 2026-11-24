@@ -1,6 +1,6 @@
 import { ids, sql } from "./cast";
 
-export const checkpoints = ["request-sent", "quote-issued", "quote-approved", "visit-booked", "crew-confirmed", "dropout", "cover-offered", "cover-accepted", "cover-confirmed", "on-the-way", "checked-in", "briefed", "work-started", "work-finished", "checked-out", "completion-submitted", "signed-off", "bill-issued", "paid-recorded"] as const;
+export const checkpoints = ["request-sent", "assessment-done", "quote-issued", "quote-approved", "visit-booked", "crew-confirmed", "dropout", "cover-offered", "cover-accepted", "cover-confirmed", "on-the-way", "checked-in", "briefed", "work-started", "work-finished", "checked-out", "completion-submitted", "signed-off", "bill-issued", "paid-recorded"] as const;
 export type Checkpoint = typeof checkpoints[number];
 const timestamp = (value: string) => Date.parse(`2026-11-${value}+01:00`);
 const mon = (time: string) => timestamp(`23T${time}:00`);
@@ -14,6 +14,8 @@ export function constructionSql(until: Checkpoint): string {
       `INSERT INTO jobs (id,reference,business_id,place_id,requester_id,trade,origin,state) VALUES (${q(ids.otherJob)},'BB-1031',${q(ids.business)},${q(ids.casa)},${q(ids.claire)},'carpentry','bookbuddy','open');`,
       `INSERT INTO requests (job_id,original_text,original_language,arrival_arrangement,submitted_at) VALUES (${q(ids.otherJob)},'Please inspect the door.','en','requester',${mon("08:00")});`,
       `INSERT INTO job_handoffs (id,job_id,business_id,recipient_id,issuer_id,policy,offered_at,expires_at,state) VALUES ('seed-handoff-1031',${q(ids.otherJob)},${q(ids.business)},${q(`${ids.ines}-member`)},${q(ids.mateo)},'standard',${mon("08:00")},${mon("10:00")},'offered');`],
+    [`INSERT INTO visits (id,job_id,kind,state) VALUES ('seed-assessment-1042',${q(ids.job)},'assessment','finished');`,
+      `INSERT INTO visit_windows (id,visit_id,starts_at,ends_at,expires_at,provider_authorized,proposed_at,proposed_by,confirmed_at,confirmed_by,state) VALUES ('seed-assessment-window-1042','seed-assessment-1042',${mon("08:09")},${mon("08:14")},${mon("08:09")},1,${mon("08:06")},${q(ids.mateo)},${mon("08:07")},${q(ids.claire)},'confirmed');`],
     [`INSERT INTO quotes (id,job_id) VALUES (${q(ids.quote)},${q(ids.job)});`,
       `INSERT INTO quote_versions (id,quote_id,job_id,business_id,no,author_id,terms_id,original_locale,scope,exclusions,net_minor,tax_minor,total_minor,currency,state) VALUES (${q(ids.version)},${q(ids.quote)},${q(ids.job)},${q(ids.business)},1,${q(ids.mateo)},${q(ids.terms)},'es','Ajustar la puerta de la terraza y sustituir los rodillos.','No incluye la sustitución del vidrio.',24000,0,24000,'EUR','draft');`,
       `INSERT INTO quote_items (version_id,line_no,original_label,quantity,net_minor,tax_minor,evidence_rule) VALUES (${q(ids.version)},1,'Mano de obra',1,16000,0,'Fotografía final'),(${q(ids.version)},2,'Rodillos',1,8000,0,'Fotografía final');`,
