@@ -1,12 +1,11 @@
 import { getVisitLiveRoute, type CustomerLiveVisit, type CustomerUpdate } from "@bookbuddy/api-contract";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { useRemote } from "../../api";
 import { useLiveHints } from "../../api/live";
 import type { RemoteStatus } from "../../api/requests";
 import { useFormat, useLocale, useT } from "../../i18n";
-import { loadPushSettings, savePushSettings } from "../../system/push/settings";
+import { useStatusCards, visitCardSource } from "../../system/status-cards";
 import { Button, Card, Dock, Screen, StatusBanner, SwitchRow } from "../../ui/controls";
 import { Copy, Target } from "../../ui/controls/shared";
 import { ArrivalBand, LiveCapsule, Stamp, type LiveCapsuleState } from "../../ui/live";
@@ -45,20 +44,30 @@ export function LiveVisitScreen({ visitId, twoClock, viewSwitcher, onBack, onNav
   }, [visit?.live.status, visit?.live.arrival?.id]);
   const last = useRef<{ at: number; zone: string } | null>(null);
   if (remote.status === "ready" && visit) last.current = { at: remote.lastConfirmedAt, zone: visit.siteZone };
-  const [following, setFollowing] = useState(false);
+  const { preferences, active, start, stop, refresh } = useStatusCards();
+  const card = active?.target.kind === "customer_visit" && active.target.id === visitId ? active : null;
+  const [followBusy, setFollowBusy] = useState(false);
   const [saveError, setSaveError] = useState(false);
-  useFocusEffect(useCallback(() => { let active = true; void loadPushSettings().then(settings => { if (active) setFollowing(settings.liveSurface); }); return () => { active = false; }; }, []));
-  const changeFollow = useCallback(async (value: boolean) => {
-    setSaveError(false);
-    try { const settings = await loadPushSettings(); await savePushSettings({ ...settings, liveSurface: value }); setFollowing(value); if (value) onNavigate("/live-privacy"); }
-    catch { setSaveError(true); }
-  }, [onNavigate]);
-  return <LiveVisitView visit={displayedVisit} status={remote.status} lastConfirmed={last.current} twoClock={twoClock} now={now} viewSwitcher={viewSwitcher} following={following} saveError={saveError} onFollow={value => { void changeFollow(value); }} onBack={onBack} onRefresh={() => { retryLive(); void remote.refresh(); }} onNavigate={onNavigate} hasMore={!!nextPage} moreBusy={page.status === "loading"} onMore={() => { if (cursor) void page.refresh(); else if (nextPage) setCursor(nextPage); }} />;
+  useEffect(() => {
+    if (!card) return;
+    if (visit) void refresh(visitCardSource(visit)).catch(() => undefined);
+    else if (remote.error?.code === "NOT_FOUND" || remote.error?.code === "UNAUTHENTICATED") void stop(card.id).catch(() => undefined);
+  }, [card, visit, remote.error, refresh, stop]);
+  async function changeFollow(value: boolean) {
+    if (followBusy) return;
+    setFollowBusy(true); setSaveError(false);
+    try {
+      if (!value && card) await stop(card.id);
+      else if (value && visit && remote.status === "ready" && !await start(visitCardSource(visit))) setSaveError(true);
+    } catch { setSaveError(true); }
+    finally { setFollowBusy(false); }
+  }
+  return <LiveVisitView visit={displayedVisit} status={remote.status} lastConfirmed={last.current} twoClock={twoClock} now={now} viewSwitcher={viewSwitcher} statusCardsAvailable={preferences.statusCardsEnabled} following={!!card} followBusy={followBusy} saveError={saveError} onFollow={value => { void changeFollow(value); }} onBack={onBack} onRefresh={() => { retryLive(); void remote.refresh(); }} onNavigate={onNavigate} hasMore={!!nextPage} moreBusy={page.status === "loading"} onMore={() => { if (cursor) void page.refresh(); else if (nextPage) setCursor(nextPage); }} />;
 }
 
-export function LiveVisitView({ visit, status, lastConfirmed, twoClock = false, viewerZone, now = Date.now(), viewSwitcher, following = false, saveError = false, hasMore = false, moreBusy = false, onMore, onFollow, onBack, onRefresh, onNavigate }: {
+export function LiveVisitView({ visit, status, lastConfirmed, twoClock = false, viewerZone, now = Date.now(), viewSwitcher, statusCardsAvailable = false, following = false, followBusy = false, saveError = false, hasMore = false, moreBusy = false, onMore, onFollow, onBack, onRefresh, onNavigate }: {
   visit: CustomerLiveVisit | null; status: RemoteStatus; lastConfirmed?: { at: number; zone: string } | null; twoClock?: boolean; viewerZone?: string; now?: number; viewSwitcher?: ReactNode;
-  following?: boolean; saveError?: boolean; hasMore?: boolean; moreBusy?: boolean; onMore?: () => void; onFollow: (value: boolean) => void; onBack: () => void; onRefresh: () => void; onNavigate: (path: string) => void;
+  statusCardsAvailable?: boolean; following?: boolean; followBusy?: boolean; saveError?: boolean; hasMore?: boolean; moreBusy?: boolean; onMore?: () => void; onFollow: (value: boolean) => void; onBack: () => void; onRefresh: () => void; onNavigate: (path: string) => void;
 }) {
   const t = useT(); const format = useFormat(); const { locale } = useLocale(); const { space } = useBeaconTheme();
   const zone = visit?.siteZone ?? lastConfirmed?.zone;
@@ -129,7 +138,7 @@ export function LiveVisitView({ visit, status, lastConfirmed, twoClock = false, 
         <LiveCapsule size="hero" state={state} stateLabel={label} source={visit.providerName} reference={visitDate} time={time} estimate={estimateLabel} zoneLine={[zoneLabel, second].filter(Boolean).join(" · ")} provenance={provenance} accessibilityLabel={[label, time, zoneLabel, second, t("mobile.liveVisit.step", { step: index + 1, stage: labels[index] }), provenance].filter(Boolean).join(", ")} line={{ kind: "visit", steps: labels, ...(index === 1 ? { current: 1 as const, estimate: estimateLabel ? { fraction, label: estimateLabel } : undefined } : { current: index }), accessibilityLabel: t("mobile.liveVisit.step", { step: index + 1, stage: labels[index] }), ...(state === "coverBeingArranged" ? { status: { state: "cover" as const, label } } : {}) }} crew={{ audience: "customer", people: crew }} />
         {changed && <Copy variant="supporting">{t("mobile.liveVisit.sameWindow")}</Copy>}
         {arrival && (live?.status === "on_the_way" || passed) && bandClock && <ArrivalBand state={passed ? "noUpdateSince" : "onTheWay"} label={passed ? t("mobile.liveVisit.passed") : t("mobile.liveVisit.arrival")} time={{ siteTime: bandClock.site, siteZone: zoneLabel, viewerLine: bandClock.other }} provenance={provenance} />}
-        {live?.status !== "finished" && <Card><SwitchRow label={t("mobile.liveVisit.follow")} description={t("mobile.liveVisit.followLater")} value={following} onValueChange={onFollow} /><Button variant="quiet" label={t("mobile.liveVisit.privacy")} onPress={() => onNavigate("/live-privacy")} />{saveError && <Copy accessibilityRole="alert">{t("mobile.liveVisit.followError")}</Copy>}</Card>}
+        {statusCardsAvailable && live?.status !== "finished" && <Card><SwitchRow label={t("mobile.liveVisit.follow")} description={t("mobile.statusCards.visitDescription")} value={following} disabled={followBusy || (!following && status !== "ready")} onValueChange={onFollow} /><Button variant="quiet" label={t("mobile.liveVisit.privacy")} onPress={() => onNavigate("/live-privacy")} />{saveError && <Copy accessibilityRole="alert">{t("mobile.statusCards.unavailable")}</Copy>}</Card>}
         <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.liveVisit.moments")}</Copy><Copy variant="supporting">{zoneLabel}</Copy>
         {!newest.length && <Copy>{t("mobile.liveVisit.empty")}</Copy>}
         {newest.map(item => {

@@ -38,6 +38,7 @@ export default function configureApp({ projectRoot }: ConfigContext): ExpoConfig
       ["expo-localization", { supportedLocales, supportsRTL }],
       ["expo-sqlite", { useSQLCipher: true }],
       "./src/repository/with-ios-offline-directory.cjs",
+      "./plugins/with-live-activities/index.cjs",
     ],
     experiments: { typedRoutes: true },
   };

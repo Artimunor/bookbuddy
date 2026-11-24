@@ -1,13 +1,14 @@
 import { closeCoverRoute, getCoverRoute, getShiftRoute, issueCoverRoute, type ForemanCover } from "@bookbuddy/api-contract";
 import type { SiteDateTime } from "@bookbuddy/domain";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
-import { useCommand, useRemote } from "../../api";
+import { useEffect, useState, type ReactNode } from "react";
+import { AppState, Pressable, View } from "react-native";
+import { useCommand, useRemote, useSeedRemote } from "../../api";
 import type { CommandStatus, RemoteStatus } from "../../api/requests";
 import { useFormat, useT } from "../../i18n";
 import { useSession } from "../../session";
-import { Button, Card, Dock, Screen } from "../../ui/controls";
+import { coverCardSource, useStatusCards } from "../../system/status-cards";
+import { Button, Card, Dock, Screen, SwitchRow } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { LiveCapsule } from "../../ui/live/LiveCapsule";
 import { OfferClock } from "../../ui/live/OfferClock";
@@ -22,6 +23,15 @@ export default function CoverScreen() {
   const remote = useRemote(getCoverRoute, { params: { g: gapId ?? "" } }, { enabled: !!gapId });
   const data = remote.data?.audience === "foreman" ? remote.data : null;
   const [selected, setSelected] = useState<string[]>([]); const [openSchedule, setOpenSchedule] = useState(false);
+  const { preferences, active, start, refresh, stop, changePreferences } = useStatusCards();
+  const seedRemote = useSeedRemote();
+  const card = active?.target.kind === "foreman_cover" && active.target.id === gapId ? active : null;
+  const [cardFailed, setCardFailed] = useState(false);
+  useEffect(() => {
+    if (!card) return;
+    if (data) void refresh(coverCardSource(data)).catch(() => undefined);
+    else if (remote.error?.code === "NOT_FOUND" || remote.error?.code === "UNAUTHENTICATED") void stop(card.id).catch(() => undefined);
+  }, [card, data, remote.error, refresh, stop]);
   const shift = useRemote(getShiftRoute, { params: { s: data?.shift.shiftId ?? "" } }, { enabled: !!data && openSchedule });
   const issue = useCommand(issueCoverRoute); const close = useCommand(closeCoverRoute);
   useEffect(() => { if (!openSchedule || shift.status !== "ready") return; setOpenSchedule(false); router.push(`/f/jobs/${shift.data.shift.job.id}/schedule` as Href); }, [openSchedule, shift.status, shift.data, router]);
@@ -32,18 +42,31 @@ export default function CoverScreen() {
     const title = kind === "issue" ? t("mobile.cover.send", { count: selected.length }) : kind === "delivery" ? t("mobile.cover.closeDelivery") : t("mobile.cover.closeSafety");
     confirmAction(router, { title, actionLabel: title, actionLabelKey: kind === "issue" ? "mobile.cover.sendOffers" : kind === "delivery" ? "mobile.cover.closeDelivery" : "mobile.cover.closeSafety", item: `${data.shift.reference} · ${kind === "issue" ? names : data.shift.task}`, actor: bootstrap?.account.displayName ?? "", role: t("mobile.cover.foreman"), effects: [kind === "issue" ? t("mobile.cover.sendEffect") : t("mobile.cover.closeEffect")], destructive: kind !== "issue", onReview: () => { void remote.refresh(); }, onConfirm: async () => {
       const basis = { expectedRevision: data.revision, expectedRoundNo: data.currentRoundNo };
+      const showCard = kind === "issue" && preferences.statusCardsEnabled && preferences.coverOptIn && AppState.currentState === "active";
       const result = kind === "issue" ? await issue.run({ params: { g: data.gapId }, body: { ...basis, payload: { recipientMembershipIds: selected } } }) : await close.run({ params: { g: data.gapId }, body: { ...basis, payload: { reason: kind } } });
+      if (result.ok) {
+        seedRemote(getCoverRoute, { params: { g: data.gapId } }, result.data, result.meta.serverTime);
+        setSelected([]);
+        if (showCard) void start(coverCardSource(result.data)).then(shown => setCardFailed(!shown), () => setCardFailed(true));
+        return "confirmed";
+      }
       await remote.refresh();
-      if (result.ok) { setSelected([]); return "confirmed"; }
       if (result.error.code === "INTERNAL_ERROR" || ("delivery" in result.error && result.error.delivery === "unknown")) return "uncertain";
       return "invalidated";
     } });
   }
   const commandState = issue.state === "idle" ? close.state : issue.state;
-  return <CoverView data={data} status={remote.status} selected={selected} commandState={commandState} onToggle={id => setSelected(current => current.includes(id) ? current.filter(x => x !== id) : current.length < 3 ? [...current, id] : current)} onSend={() => ask("issue")} onCloseRound={reason => ask(reason)} onReview={() => router.push(`/f/cover/${gapId}/confirm` as Href)} onShift={() => data && router.push(`/f/shifts/${data.shift.shiftId}` as Href)} onPropose={() => setOpenSchedule(true)} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} />;
+  const cardControls = preferences.statusCardsEnabled ? <>
+    {data?.actions.canIssue && <SwitchRow label={t("mobile.statusCards.coverPreference")} description={t("mobile.statusCards.coverDescription")} value={preferences.coverOptIn} onValueChange={coverOptIn => {
+      setCardFailed(false);
+      void changePreferences({ coverOptIn }).catch(() => setCardFailed(true));
+    }} />}
+    {cardFailed && <Copy accessibilityRole="alert">{t("mobile.statusCards.unavailable")}</Copy>}
+  </> : undefined;
+  return <CoverView data={data} status={remote.status} selected={selected} commandState={commandState} cardControls={cardControls} onToggle={id => setSelected(current => current.includes(id) ? current.filter(x => x !== id) : current.length < 3 ? [...current, id] : current)} onSend={() => ask("issue")} onCloseRound={reason => ask(reason)} onReview={() => router.push(`/f/cover/${gapId}/confirm` as Href)} onShift={() => data && router.push(`/f/shifts/${data.shift.shiftId}` as Href)} onPropose={() => setOpenSchedule(true)} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} />;
 }
 
-export function CoverView({ data, status, selected, commandState = "idle", now: fixedNow, onToggle, onSend, onCloseRound, onReview, onShift, onPropose, onBack, onRetry }: { data: ForemanCover | null; status: RemoteStatus; selected: string[]; commandState?: CommandStatus; now?: number; onToggle: (id: string) => void; onSend: () => void; onCloseRound: (reason: "delivery" | "safety") => void; onReview: () => void; onShift: () => void; onPropose: () => void; onBack: () => void; onRetry: () => void }) {
+export function CoverView({ data, status, selected, commandState = "idle", now: fixedNow, cardControls, onToggle, onSend, onCloseRound, onReview, onShift, onPropose, onBack, onRetry }: { data: ForemanCover | null; status: RemoteStatus; selected: string[]; commandState?: CommandStatus; now?: number; cardControls?: ReactNode; onToggle: (id: string) => void; onSend: () => void; onCloseRound: (reason: "delivery" | "safety") => void; onReview: () => void; onShift: () => void; onPropose: () => void; onBack: () => void; onRetry: () => void }) {
   const t = useT(); const format = useFormat(); const { color, radius, space } = useBeaconTheme();
   const [clock, setClock] = useState(() => Date.now());
   const state = data?.status.state; const active = state === "offers_out" || state === "accepted_pending_confirmation";
@@ -63,6 +86,7 @@ export function CoverView({ data, status, selected, commandState = "idle", now: 
     {data && <><Copy variant="supporting">{data.shift.reference} · {data.shift.task}</Copy>
       <LiveCapsule state={active ? "crewConfirmed" : "quiet"} stateLabel={statusLabel} source={t("mobile.cover.search")} reference={data.shift.reference} time={deadline === null ? time(data.shift.window.startsAt) : time(deadline)} zoneLine={data.shift.siteZone} provenance={t("mobile.cover.visitStarts", { time: time(data.shift.window.startsAt) })} accessibilityLabel={[t("mobile.cover.search"), statusLabel, deadline === null ? time(data.shift.window.startsAt) : time(deadline), data.shift.siteZone].join(", ")} />
       <Copy variant="supporting">{t("mobile.cover.stages")}</Copy>
+      {cardControls}
       {deadline !== null && start !== null && (deadline > now && ready ? <OfferClock state="running" remaining={t("mobile.cover.minutes", { count: Math.max(0, Math.ceil((deadline - now) / 60000)) })} fraction={Math.max(0, Math.min(1, (deadline - now) / (deadline - start)))} deadline={data.status.state === "offers_out" ? t("mobile.cover.replyBy", { time: time(deadline) }) : t("mobile.cover.confirmBy", { time: time(deadline) })} /> : <OfferClock state="expired" statusLabel={t("mobile.cover.checking")} deadline={data.status.state === "offers_out" ? t("mobile.cover.replyBy", { time: time(deadline) }) : t("mobile.cover.confirmBy", { time: time(deadline) })} />)}
       <Card><Copy variant="label">{t("mobile.cover.customer")}</Copy><Copy>{data.customerUpdate.state === "not_shared" ? t("mobile.cover.notShared") : data.customerUpdate.kind === "cover_arranging" ? t("mobile.cover.coverArranging") : t("mobile.cover.crewUpdated")}</Copy>{data.customerUpdate.state === "published" && <Copy variant="supporting">{t("mobile.cover.shared", { time: time(data.customerUpdate.publishedAt) })}</Copy>}</Card>
       <Card><Copy variant="sectionTitle">{t("mobile.cover.crew")}</Copy><Copy variant="supporting">{t("mobile.cover.select")}</Copy>

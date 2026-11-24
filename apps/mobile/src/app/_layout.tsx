@@ -8,6 +8,7 @@ import { LocaleProvider } from "../i18n";
 import { SessionProvider, useSession } from "../session";
 import { DisplaySettingsProvider } from "../screens/s-12/preferences";
 import { pushPath, refreshPush } from "../system/push";
+import { StatusCardHost } from "../system/status-cards";
 
 function PushResponses() {
   const router = useRouter();
@@ -40,6 +41,7 @@ export default function RootLayout() {
         <LocaleProvider>
           <DisplaySettingsProvider>
             <PushResponses />
+            <StatusCardHost />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(sheets)" options={{ presentation: "formSheet" }} />
               <Stack.Screen name="(modals)" options={{ presentation: "fullScreenModal" }} />

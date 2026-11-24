@@ -1,9 +1,10 @@
 import { confirmCoverRoute, getCoverRoute, type ForemanCover } from "@bookbuddy/api-contract";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useState } from "react";
-import { useCommand, useRemote } from "../../api";
+import { useCommand, useRemote, useSeedRemote } from "../../api";
 import type { CommandStatus, RemoteStatus } from "../../api/requests";
 import { useFormat, useT } from "../../i18n";
+import { coverCardSource, useStatusCards } from "../../system/status-cards";
 import { Button, Card, Dock, Screen, Sheet } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { formatTime } from "../f-10/Screen";
@@ -12,13 +13,18 @@ type Outcome = "confirmed" | "already_filled" | "not_confirmed" | null;
 export default function ConfirmCoverScreen() {
   const { gapId } = useLocalSearchParams<{ gapId: string }>(); const router = useRouter();
   const remote = useRemote(getCoverRoute, { params: { g: gapId ?? "" } }, { enabled: !!gapId }); const command = useCommand(confirmCoverRoute);
+  const seedRemote = useSeedRemote(); const { active, refresh } = useStatusCards();
   const [outcome, setOutcome] = useState<Outcome>(null);
   const data = remote.data?.audience === "foreman" ? remote.data : null;
   async function confirm() {
     if (!data || remote.status !== "ready" || data.status.state !== "accepted_pending_confirmation" || !data.actions.canConfirm || data.currentRoundNo === null || command.state === "checking" || command.state === "sending") return;
     const result = await command.run({ params: { g: data.gapId }, body: { expectedRevision: data.revision, expectedRoundNo: data.currentRoundNo, payload: {} } });
-    if (result.ok) setOutcome(result.data.outcome);
-    await remote.refresh();
+    if (result.ok) {
+      const { cover, outcome } = result.data;
+      setOutcome(outcome);
+      seedRemote(getCoverRoute, { params: { g: data.gapId } }, cover, result.meta.serverTime);
+      if (active?.target.kind === "foreman_cover" && active.target.id === data.gapId) void refresh(coverCardSource(cover)).catch(() => undefined);
+    } else await remote.refresh();
   }
   return <ConfirmCoverView data={data} status={remote.status} outcome={outcome} commandState={command.state} onClose={() => router.back()} onConfirm={() => { void confirm(); }} onShift={() => data && router.replace(`/f/shifts/${data.shift.shiftId}` as Href)} onRetry={() => { void remote.refresh(); }} />;
 }
