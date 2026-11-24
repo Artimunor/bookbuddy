@@ -207,6 +207,11 @@ WHEN NEW.state <> 'held' OR NOT EXISTS (
     AND NEW.places <= slot.capacity
       - COALESCE((SELECT sum(places) FROM session_holds WHERE slot_id = slot.id AND state = 'held' AND expires_at > NEW.held_at), 0)
       - COALESCE((SELECT sum(places) FROM session_bookings WHERE slot_id = slot.id AND state IN ('booked', 'completed')), 0)
+      - COALESCE((SELECT sum(booking.places) FROM session_change_proposals AS offer
+        JOIN session_bookings AS booking ON booking.id = offer.booking_id AND booking.state = 'booked'
+          AND booking.slot_id = offer.booked_slot_id AND booking.listing_version_id = offer.booked_listing_version_id
+        WHERE offer.proposed_slot_id = slot.id AND offer.booked_slot_id <> slot.id
+          AND offer.state = 'pending' AND offer.respond_by > NEW.held_at), 0)
 )
 BEGIN SELECT RAISE(ABORT, 'session hold unavailable'); END;
 CREATE TRIGGER session_holds_close BEFORE UPDATE ON session_holds
@@ -224,6 +229,11 @@ CREATE TRIGGER session_slots_capacity_floor BEFORE UPDATE OF capacity ON session
 WHEN NEW.capacity < OLD.capacity AND NEW.capacity <
     COALESCE((SELECT sum(places) FROM session_holds WHERE slot_id = OLD.id AND state = 'held' AND expires_at > NEW.updated_at), 0)
     + COALESCE((SELECT sum(places) FROM session_bookings WHERE slot_id = OLD.id AND state IN ('booked', 'completed')), 0)
+    + COALESCE((SELECT sum(booking.places) FROM session_change_proposals AS offer
+      JOIN session_bookings AS booking ON booking.id = offer.booking_id AND booking.state = 'booked'
+        AND booking.slot_id = offer.booked_slot_id AND booking.listing_version_id = offer.booked_listing_version_id
+      WHERE offer.proposed_slot_id = OLD.id AND offer.booked_slot_id <> OLD.id
+        AND offer.state = 'pending' AND offer.respond_by > NEW.updated_at), 0)
 BEGIN SELECT RAISE(ABORT, 'session capacity is committed'); END;
 
 CREATE TRIGGER session_bookings_book_held_terms BEFORE INSERT ON session_bookings
@@ -280,6 +290,7 @@ CREATE TABLE session_change_proposals (
 );
 CREATE UNIQUE INDEX session_change_proposals_pending ON session_change_proposals (booking_id) WHERE state = 'pending';
 CREATE INDEX session_change_proposals_due ON session_change_proposals (respond_by, id) WHERE state = 'pending';
+CREATE INDEX session_change_proposals_target ON session_change_proposals (proposed_slot_id, respond_by) WHERE state = 'pending';
 CREATE TRIGGER session_change_proposals_keep_offer BEFORE UPDATE ON session_change_proposals
 WHEN OLD.state <> 'pending' OR NEW.state = 'pending' OR NEW.id IS NOT OLD.id OR NEW.booking_id IS NOT OLD.booking_id
   OR NEW.listing_id IS NOT OLD.listing_id OR NEW.version IS NOT OLD.version OR NEW.booked_slot_id IS NOT OLD.booked_slot_id
@@ -299,11 +310,30 @@ CREATE TABLE session_host_assignments (
   state TEXT NOT NULL CHECK (state IN ('proposed', 'confirmed', 'released')),
   changed_at INTEGER NOT NULL CHECK (typeof(changed_at) = 'integer'),
   changed_by_id TEXT NOT NULL REFERENCES accounts (id),
+  confirmed_at INTEGER,
+  offer_expires_at INTEGER,
+  offer_responded_at INTEGER,
+  offer_decision TEXT,
+  CONSTRAINT session_host_assignments_confirmation CHECK (
+    (state <> 'confirmed' OR confirmed_at IS NOT NULL)
+    AND (confirmed_at IS NULL OR (typeof(confirmed_at) = 'integer' AND confirmed_at <= changed_at AND state <> 'proposed'))
+  ),
+  CONSTRAINT session_host_assignments_offer CHECK (
+    (offer_expires_at IS NULL OR typeof(offer_expires_at) = 'integer') AND (
+      (offer_responded_at IS NULL AND offer_decision IS NULL)
+      OR (offer_expires_at IS NOT NULL AND typeof(offer_responded_at) = 'integer'
+        AND offer_responded_at < offer_expires_at AND offer_responded_at <= changed_at
+        AND offer_decision IS NOT NULL AND offer_decision IN ('accepted', 'declined'))
+    ) AND (confirmed_at IS NULL OR offer_expires_at IS NULL OR offer_decision IS 'accepted')
+  ),
   FOREIGN KEY (slot_id, business_id) REFERENCES session_slots (id, business_id),
   FOREIGN KEY (business_id, membership_id) REFERENCES memberships (business_id, id)
 );
 CREATE UNIQUE INDEX session_hosts_confirmed_position ON session_host_assignments (slot_id, position) WHERE state = 'confirmed';
-CREATE UNIQUE INDEX session_hosts_current_member ON session_host_assignments (slot_id, membership_id) WHERE state IN ('proposed', 'confirmed');
+CREATE UNIQUE INDEX session_hosts_current_member ON session_host_assignments (slot_id, membership_id)
+  WHERE state IN ('proposed', 'confirmed') AND offer_decision IS NOT 'declined';
+CREATE UNIQUE INDEX session_hosts_cover_reservation ON session_host_assignments (slot_id, position)
+  WHERE state = 'proposed' AND offer_decision = 'accepted';
 CREATE INDEX session_hosts_roster ON session_host_assignments (slot_id, state, id);
 
 CREATE TABLE session_attendance (

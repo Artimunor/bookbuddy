@@ -237,6 +237,7 @@ export const sessionChangeProposals = sqliteTable("session_change_proposals", {
   unique().on(t.bookingId, t.version),
   uniqueIndex("session_change_proposals_pending").on(t.bookingId).where(sql`${t.state} = 'pending'`),
   index("session_change_proposals_due").on(t.respondBy, t.id).where(sql`${t.state} = 'pending'`),
+  index("session_change_proposals_target").on(t.proposedSlotId, t.respondBy).where(sql`${t.state} = 'pending'`),
 ]);
 
 export const sessionHostAssignments = sqliteTable("session_host_assignments", {
@@ -250,16 +251,33 @@ export const sessionHostAssignments = sqliteTable("session_host_assignments", {
   state: text({ enum: SESSION_HOST_ASSIGNMENT_STATES }).notNull(),
   changedAt: integer("changed_at").notNull(),
   changedById: text("changed_by_id").notNull().references(() => accounts.id),
+  confirmedAt: integer("confirmed_at"),
+  offerExpiresAt: integer("offer_expires_at"),
+  offerRespondedAt: integer("offer_responded_at"),
+  offerDecision: text("offer_decision", { enum: ["accepted", "declined"] }),
 }, (t) => [
   check("session_host_assignments_position", sql`typeof(${t.position}) = 'integer' AND ${t.position} > 0`),
   check("session_host_assignments_role_label", sql`length(trim(${t.roleLabel})) > 0`),
   check("session_host_assignments_language", sql`length(${t.language}) > 0`),
   check("session_host_assignments_state", sql`${t.state} IN ('proposed', 'confirmed', 'released')`),
   check("session_host_assignments_changed_at", sql`typeof(${t.changedAt}) = 'integer'`),
+  check("session_host_assignments_confirmation", sql`(${t.state} <> 'confirmed' OR ${t.confirmedAt} IS NOT NULL)
+    AND (${t.confirmedAt} IS NULL OR (typeof(${t.confirmedAt}) = 'integer' AND ${t.confirmedAt} <= ${t.changedAt}
+      AND ${t.state} <> 'proposed'))`),
+  check("session_host_assignments_offer", sql`
+    (${t.offerExpiresAt} IS NULL OR typeof(${t.offerExpiresAt}) = 'integer') AND (
+      (${t.offerRespondedAt} IS NULL AND ${t.offerDecision} IS NULL)
+      OR (${t.offerExpiresAt} IS NOT NULL AND typeof(${t.offerRespondedAt}) = 'integer'
+        AND ${t.offerRespondedAt} < ${t.offerExpiresAt} AND ${t.offerRespondedAt} <= ${t.changedAt}
+        AND ${t.offerDecision} IS NOT NULL AND ${t.offerDecision} IN ('accepted', 'declined'))
+    ) AND (${t.confirmedAt} IS NULL OR ${t.offerExpiresAt} IS NULL OR ${t.offerDecision} IS 'accepted')`),
   foreignKey({ columns: [t.slotId, t.businessId], foreignColumns: [sessionSlots.id, sessionSlots.businessId] }),
   foreignKey({ columns: [t.businessId, t.membershipId], foreignColumns: [memberships.businessId, memberships.id] }),
   uniqueIndex("session_hosts_confirmed_position").on(t.slotId, t.position).where(sql`${t.state} = 'confirmed'`),
-  uniqueIndex("session_hosts_current_member").on(t.slotId, t.membershipId).where(sql`${t.state} IN ('proposed', 'confirmed')`),
+  uniqueIndex("session_hosts_current_member").on(t.slotId, t.membershipId).where(
+    sql`${t.state} IN ('proposed', 'confirmed') AND ${t.offerDecision} IS NOT 'declined'`),
+  uniqueIndex("session_hosts_cover_reservation").on(t.slotId, t.position).where(
+    sql`${t.state} = 'proposed' AND ${t.offerDecision} = 'accepted'`),
   index("session_hosts_roster").on(t.slotId, t.state, t.id),
 ]);
 

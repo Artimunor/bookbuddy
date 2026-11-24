@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
 import {
-  bookSessionHoldRoute, cancelSessionBookingRoute, changeSessionHostRoute, createSessionHoldRoute, getSessionBookingRoute,
-  getSessionRoute, listSessionsRoute, moveSessionBookingRoute, publishSessionRoute, recordSessionAttendanceRoute,
-  releaseSessionHoldRoute, respondToSessionChangeRoute, updateSessionRosterRoute,
+  bookSessionHoldRoute, cancelSessionBookingRoute, changeSessionHostRoute, createSessionHoldRoute, getSessionBookingFeedbackRoute,
+  getSessionBookingRoute, getSessionHostOffersRoute, getSessionRosterRoute, getSessionRoute, listSessionsRoute, moveSessionBookingRoute,
+  publishSessionRoute, recordSessionAttendanceRoute, releaseSessionHoldRoute, replyToSessionHostOfferRoute, respondToSessionChangeRoute,
+  updateSessionRosterRoute,
 } from "@bookbuddy/api-contract";
 import {
   isSessionHoldActive, requiresSessionChangeConsent, sessionFeatureScopeKey, sessionHoldExpiresAt, sessionTotalMinor,
@@ -141,10 +142,25 @@ test("attendance has one verified result and a linear append-only correction his
 
 test("session assignments cannot cross businesses", () => withSchedule(async (db) => {
   const assignment = db.prepare(`INSERT INTO session_host_assignments
-    (id, slot_id, business_id, membership_id, position, role_label, language, state, changed_at, changed_by_id)
-    VALUES ('host', 'morning', 'provider', ?, 1, 'Instructor', 'en', 'confirmed', 1, 'coordinator')`);
+    (id, slot_id, business_id, membership_id, position, role_label, language, state, changed_at, changed_by_id, confirmed_at)
+    VALUES ('host', 'morning', 'provider', ?, 1, 'Instructor', 'en', 'confirmed', 1, 'coordinator', 1)`);
   await expect(writeOnce(db, assignment.bind("other-team"))).rejects.toThrow(/FOREIGN KEY constraint failed/);
   await writeOnce(db, assignment.bind("team"));
+}));
+
+test("only one own-team cover offer can reserve a host position", () => withSchedule(async (db) => {
+  const offer = db.prepare(`INSERT INTO session_host_assignments
+    (id, slot_id, business_id, membership_id, position, role_label, language, state, changed_at, changed_by_id, offer_expires_at)
+    VALUES (?, 'morning', 'provider', ?, 1, 'Instructor', 'en', 'proposed', 1, 'coordinator', 20)`);
+  await writeOnce(db,
+    db.prepare("INSERT INTO memberships (id, business_id, account_id, state) VALUES ('cover-team', 'provider', 'booker', 'active')"),
+    offer.bind("first-cover", "team"), offer.bind("second-cover", "cover-team"));
+  const accept = db.prepare(`UPDATE session_host_assignments
+    SET offer_decision = 'accepted', offer_responded_at = 10, changed_at = 10 WHERE id = ?`);
+  await writeOnce(db, accept.bind("first-cover"));
+  await expect(writeOnce(db, accept.bind("second-cover"))).rejects.toThrow(/UNIQUE constraint failed/);
+  await expect(writeOnce(db, db.prepare(`UPDATE session_host_assignments
+    SET state = 'confirmed', confirmed_at = 11, changed_at = 11 WHERE id = 'second-cover'`))).rejects.toThrow(/session_host_assignments_offer/);
 }));
 
 test("the market/category flag defaults off and is checked in the scoped read", () => withSchedule(async (db) => {
@@ -166,7 +182,8 @@ test("the market/category flag defaults off and is checked in the scoped read", 
 test("all Later route descriptors carry the default-off sessions gate", () => {
   const routes = [listSessionsRoute, getSessionRoute, getSessionBookingRoute, createSessionHoldRoute, bookSessionHoldRoute,
     releaseSessionHoldRoute, moveSessionBookingRoute, cancelSessionBookingRoute, respondToSessionChangeRoute,
-    publishSessionRoute, updateSessionRosterRoute, changeSessionHostRoute, recordSessionAttendanceRoute];
+    publishSessionRoute, getSessionRosterRoute, updateSessionRosterRoute, getSessionHostOffersRoute, replyToSessionHostOfferRoute,
+    changeSessionHostRoute, recordSessionAttendanceRoute, getSessionBookingFeedbackRoute];
   expect(routes.every((route) => route.featureFlag === "sessions")).toBe(true);
 });
 

@@ -108,9 +108,14 @@ const notBooked = z.discriminatedUnion("reason", [
   z.strictObject({ reason: z.literal("terms_changed"), current: agreement }),
 ]);
 
+const coverOffer = z.strictObject({
+  expiresAt: timestampSchema, repliedAt: timestampSchema.nullable(),
+  status: z.enum(["offered", "accepted", "declined", "expired", "withdrawn", "confirmed"]),
+});
 const hostAssignment = z.strictObject({
   id: sessionHostAssignmentIdSchema, membershipId, name: display, position: positive, roleLabel: display,
   language: localeTagSchema, state: z.enum(SESSION_HOST_ASSIGNMENT_STATES), changed: z.strictObject(confirmation),
+  cover: coverOffer.nullable(),
 });
 const providerSlot = z.strictObject({
   id: sessionSlotIdSchema, listingVersionId: sessionListingVersionIdSchema, ...slotTime, ...places,
@@ -133,6 +138,12 @@ export const providerSessionDetailSchema = z.strictObject({
   version: versionDetails.extend({ no: positive, guaranteedHostMembershipId: membershipId.nullable() }).nullable(),
   slots: z.array(providerSlot).max(100), page: paginationSchema, roster: providerSessionRosterSchema.nullable(),
   actions: z.strictObject({ publish: z.boolean(), roster: z.boolean(), changeHost: z.boolean(), recordAttendance: z.boolean() }),
+});
+const rosterQuery = z.strictObject({ slotId: sessionSlotIdSchema, cursor: cursorSchema.optional() });
+const workerHostOffer = z.strictObject({
+  id: sessionHostAssignmentIdSchema, slotId: sessionSlotIdSchema, slotRevision: revisionSchema,
+  title: display, ...slotTime, siteZone, position: positive, roleLabel: display,
+  language: localeTagSchema, cover: coverOffer,
 });
 
 // The Worker must join against an enabled `feature_flags` row for the market/category
@@ -191,6 +202,26 @@ export const respondToSessionChangeRoute = sessionCommand("/session-bookings/:id
   decision: z.enum(["accept", "decline"]),
 }), customerSessionBookingSchema);
 
+export const getSessionRosterRoute = defineSessionRoute({
+  method: "GET", path: "/sessions/:id/roster", auth: "context",
+  input: z.strictObject({ params: listingParams, query: rosterQuery }), output: providerSessionRosterSchema,
+});
+export const getSessionHostOffersRoute = defineSessionRoute({
+  method: "GET", path: "/sessions/:id/host-offers", auth: "context",
+  input: z.strictObject({ params: listingParams, query: z.strictObject({ slotId: sessionSlotIdSchema }) }),
+  output: z.strictObject({ offers: z.array(workerHostOffer) }),
+});
+export const getSessionBookingFeedbackRoute = defineSessionRoute({
+  method: "GET", path: "/sessions/:id/feedback", auth: "context",
+  input: z.strictObject({ params: listingParams, query: rosterQuery }),
+  output: z.strictObject({
+    feedback: z.array(z.strictObject({
+      bookingId: sessionBookingIdSchema, stars: z.int().min(1).max(5), comment: text.nullable(), submittedAt: timestampSchema,
+    })).max(100),
+    page: paginationSchema,
+  }),
+});
+
 const slotTarget = { slotId: sessionSlotIdSchema, slotRevision: revisionSchema };
 const listingDraft = z.strictObject({
   kind: z.literal("save_listing"), listingVersionId: sessionListingVersionIdSchema,
@@ -210,16 +241,19 @@ export const publishSessionRoute = sessionCommand("/sessions/:id/publish", listi
 ]), providerSessionDetailSchema);
 export const updateSessionRosterRoute = sessionCommand("/sessions/:id/roster", listingParams, z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("propose_host"), ...slotTarget, id: sessionHostAssignmentIdSchema, membershipId,
-    position: positive, roleLabel: display, language: localeTagSchema }),
+    position: positive, roleLabel: display, language: localeTagSchema, offerExpiresAt: timestampSchema.optional() }),
   z.strictObject({ kind: z.enum(["confirm_host", "release_host"]), ...slotTarget, assignmentId: sessionHostAssignmentIdSchema }),
   z.strictObject({ kind: z.literal("confirm_stage"), ...slotTarget, stage: z.enum(SESSION_DAY_STAGES) }),
 ]), providerSessionRosterSchema);
+export const replyToSessionHostOfferRoute = sessionCommand("/sessions/:id/host-offers", listingParams, z.strictObject({
+  kind: z.literal("reply_cover"), slotId: sessionSlotIdSchema, assignmentId: sessionHostAssignmentIdSchema,
+  decision: z.enum(["accept", "decline"]),
+}), workerHostOffer);
 export const changeSessionHostRoute = sessionCommand("/sessions/:id/host-change", listingParams, z.discriminatedUnion("kind", [
   // Confirmation is own-team only. A guaranteed-host or other terms change is not a substitute update.
   z.strictObject({ kind: z.literal("substitute"), ...slotTarget,
     replacedAssignmentId: sessionHostAssignmentIdSchema, replacementAssignmentId: sessionHostAssignmentIdSchema }),
-  z.strictObject({ kind: z.literal("propose_change"), ...slotTarget, id: sessionChangeProposalIdSchema,
-    bookingId: sessionBookingIdSchema, bookingRevision: revisionSchema, proposedSlotId: sessionSlotIdSchema,
+  z.strictObject({ kind: z.literal("propose_change"), ...slotTarget, proposedSlotId: sessionSlotIdSchema,
     proposedListingVersionId: sessionListingVersionIdSchema, respondBy: timestampSchema }),
   z.strictObject({ kind: z.literal("withdraw_change"), ...slotTarget, bookingId: sessionBookingIdSchema,
     proposalId: sessionChangeProposalIdSchema, version: positive }),
