@@ -1,6 +1,6 @@
 import {
   APPROVAL_DECISIONS, CHANGE_VERSION_STATES, COMMERCIAL_REVIEW_STATES, CONTRACT_NOTICE_KINDS,
-  CUSTOMER_CHANGE_VERSION_STATES, CUSTOMER_QUOTE_VERSION_STATES, QUOTE_VERSION_STATES,
+  CUSTOMER_CHANGE_VERSION_STATES, CUSTOMER_QUOTE_VERSION_STATES, EFFECT_STATES, QUOTE_VERSION_STATES,
 } from "@bookbuddy/domain";
 import { z } from "zod";
 import {
@@ -323,6 +323,17 @@ export const contractNoticeReceiptSchema = z.object({
   at: timestampSchema,
 });
 export type ContractNoticeReceipt = z.output<typeof contractNoticeReceiptSchema>;
+
+export const contractNoticeSchema = contractNoticeReceiptSchema.extend({
+  noticeText: z.string(),
+  deliveryState: z.enum(EFFECT_STATES).nullable(),
+});
+export type ContractNotice = z.output<typeof contractNoticeSchema>;
+
+export const listContractNoticesRoute = defineRoute({
+  method: "GET", path: "/jobs/:j/contract/notices", auth: "context",
+  input: z.object({ params: jobParams }), output: z.object({ notices: z.array(contractNoticeSchema) }),
+});
 
 // Applicability and entitled party come from the configured contract and live scope. Withdrawal
 // is a notice, not an appointment command or a request for the provider's permission.

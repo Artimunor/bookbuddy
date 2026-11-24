@@ -1,7 +1,7 @@
 import {
   approveChangeVersionRoute, approveQuoteVersionRoute, createChangeVersionRoute, createQuoteVersionRoute,
   declineChangeVersionRoute, declineQuoteVersionRoute, getChangeVersionRoute, getQuoteVersionRoute,
-  issueChangeVersionRoute, issueQuoteVersionRoute, listChangeVersionsRoute, listQuoteVersionsRoute,
+  issueChangeVersionRoute, issueQuoteVersionRoute, listChangeVersionsRoute, listContractNoticesRoute, listQuoteVersionsRoute,
   requestEarlyStartRoute, returnChangeVersionRoute, returnQuoteVersionRoute, submitChangeReviewRoute,
   submitQuoteReviewRoute, withdrawContractRoute,
 } from "@bookbuddy/api-contract";
@@ -40,6 +40,7 @@ export function createCommercialClient(api: ApiClient) {
       api.request(approveChangeVersionRoute, { params: { id }, body }, options),
     declineChangeVersion: (id: string, body: RouteRequest<typeof declineChangeVersionRoute.input>["body"], options?: RequestOptions) =>
       api.request(declineChangeVersionRoute, { params: { id }, body }, options),
+    listContractNotices: (j: string, options?: RequestOptions) => api.request(listContractNoticesRoute, { params: { j } }, options),
     requestEarlyStart: (j: string, body: RouteRequest<typeof requestEarlyStartRoute.input>["body"], options?: RequestOptions) =>
       api.request(requestEarlyStartRoute, { params: { j }, body }, options),
     withdrawContract: (j: string, body: RouteRequest<typeof withdrawContractRoute.input>["body"], options?: RequestOptions) =>

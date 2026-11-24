@@ -1,7 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
 import {
   approveChangeVersionRoute, approveQuoteVersionRoute, createQuoteVersionRoute, getQuoteVersionRoute,
-  listQuoteVersionsRoute, openLinkRoute, operationIdHeader, requestEarlyStartRoute, resultSchema, submitQuoteReviewRoute, withdrawContractRoute,
+  listContractNoticesRoute, listQuoteVersionsRoute, openLinkRoute, operationIdHeader, requestEarlyStartRoute, resultSchema,
+  submitQuoteReviewRoute, withdrawContractRoute,
 } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
@@ -266,5 +267,14 @@ test("early start and withdrawal require the exact reviewed contract and keep du
     expect(await f.request(withdrawal, "customer", "duplicate", v)).toMatchObject(conflict);
     expect(await f.db.prepare("SELECT count(*) FROM contract_notices").first("count(*)")).toBe(3);
     expect(await f.db.prepare("SELECT count(*) FROM effect_outbox WHERE kind = ?").bind(commercialMailEffect.kind).first("count(*)")).toBe(4);
+    const history = "/jobs/job/contract/notices";
+    const own = resultSchema(listContractNoticesRoute.output).parse((await f.request(history, "customer")).body);
+    expect([own, await f.request(history, "guest")]).toMatchObject([
+      { data: { notices: expect.arrayContaining([
+        { ...(receipt.ok ? receipt.data : {}), noticeText: "Exact original terms", deliveryState: "pending" },
+        { ...(ack.ok ? ack.data.acknowledgement : {}), noticeText: "Exact contractual consent", deliveryState: "pending" },
+      ]) } },
+      missing,
+    ]);
   } finally { clock.mockRestore(); f.db.close(); }
 });

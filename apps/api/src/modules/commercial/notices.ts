@@ -6,7 +6,7 @@ import type { SessionAccess } from "../auth/session";
 import { insideNoticePeriod, withSiteClock } from "./deadlines";
 import { commercialAccess, customer, decisionGrant, jobOpen } from "./policy";
 import { commercialReceipt, revisionGuard } from "./receipts";
-import { mailIntent } from "./signals";
+import { commercialMailKind, mailIntent } from "./signals";
 
 type EarlyStartBody = RouteResponse<typeof requestEarlyStartRoute.input>["body"];
 type WithdrawalBody = RouteResponse<typeof withdrawContractRoute.input>["body"];
@@ -18,10 +18,31 @@ type NoticeCommand = { action: "early_start"; body: EarlyStartBody } | { action:
 const termsPolicy = "commercial_consumer_distance_14_day";
 const request = "early_start_request";
 const acknowledgement = "early_start_acknowledgement";
+const noticeMailKey = "notice";
+const receiptFields = `'id', n.id, 'jobId', n.job_id, 'quoteVersionId', n.quote_version_id,
+  'termsHash', n.terms_hash, 'kind', n.kind, 'actorDisplayName', ${displayName("a")}, 'at', n.at`;
+
+export function readContractNotices(session: SessionAccess, now: number, job: string): CommandStatement {
+  const access = commercialAccess(session, now, job);
+  // Only the original contract wording is retained: the acknowledgement uses
+  // the exact consent text, and the other notices reference the immutable original.
+  return scopedStatement(access, `SELECT (
+    SELECT (SELECT json_object('notices', json_group_array(json(receipt))) FROM (
+      SELECT json_object(${receiptFields}, 'noticeText', CASE n.kind
+        WHEN '${acknowledgement}' THEN t.consent_text ELSE t.original_text END, 'deliveryState', e.state) AS receipt
+      FROM contract_notices n JOIN accounts a ON a.id = n.account_id
+      JOIN quote_versions v ON v.id = n.quote_version_id AND v.job_id = n.job_id
+      JOIN terms_versions t ON t.id = v.terms_id AND t.business_id = j.business_id AND t.hash = n.terms_hash
+      LEFT JOIN effect_outbox e ON e.dedupe_key = '${commercialMailKind}:${noticeMailKey}:' || n.id
+      WHERE n.job_id = j.id AND n.account_id = scope.account_id
+      ORDER BY n.at DESC, n.id DESC
+    )) FROM commercial_job j CROSS JOIN commercial_actor scope
+    WHERE ${customer("scope")} AND EXISTS (${decisionGrant("scope")})
+  ) AS value FROM acting_session`);
+}
 
 function noticeProjection(quoteId: string, action: NoticeCommand["action"], acknowledge: boolean): CommandStatement {
-  const notice = `SELECT json_object('id', n.id, 'jobId', n.job_id, 'quoteVersionId', n.quote_version_id,
-    'termsHash', n.terms_hash, 'kind', n.kind, 'actorDisplayName', ${displayName("a")}, 'at', n.at)
+  const notice = `SELECT json_object(${receiptFields})
     FROM contract_notices n JOIN accounts a ON a.id = n.account_id
     WHERE n.job_id = j.id AND n.quote_version_id = ? AND n.account_id = scope.account_id AND n.kind =`;
   return action === "withdrawal" ? { sql: `${notice} 'withdrawal'`, params: [quoteId] }
@@ -62,7 +83,7 @@ export function recordContractNotice(ctx: RequestScope, session: SessionAccess, 
         WHERE ${guard.sql} AND NOT EXISTS (SELECT 1 FROM contract_notices WHERE quote_version_id = ? AND kind = ?)`,
       id, quoteVersionId, termsHash, kind, ...guard.params ?? [], quoteVersionId, kind);
       const states = [primaryId, ...(ackId ? [ackId] : [])];
-      const mail = mailIntent("notice", "notice");
+      const mail = mailIntent(noticeMailKey, noticeMailKey);
       const statements = [insert(primaryKind, primaryId)];
       if (ackId) statements.push(insert(acknowledgement, ackId));
       return { statements, effects: scopedStatement(access, `SELECT lower(hex(randomblob(16))) AS id, m.kind,

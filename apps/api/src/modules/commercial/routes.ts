@@ -1,7 +1,7 @@
 import {
   approveChangeVersionRoute, approveQuoteVersionRoute, createChangeVersionRoute, createQuoteVersionRoute,
   declineChangeVersionRoute, declineQuoteVersionRoute, getChangeVersionRoute, getQuoteVersionRoute,
-  issueChangeVersionRoute, issueQuoteVersionRoute, listChangeVersionsRoute, listQuoteVersionsRoute,
+  issueChangeVersionRoute, issueQuoteVersionRoute, listChangeVersionsRoute, listContractNoticesRoute, listQuoteVersionsRoute,
   operationIdHeader, requestEarlyStartRoute, returnChangeVersionRoute, returnQuoteVersionRoute,
   submitChangeReviewRoute, submitQuoteReviewRoute, withdrawContractRoute,
 } from "@bookbuddy/api-contract";
@@ -17,7 +17,7 @@ import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import { createVersion, transitionVersion } from "./commands";
-import { recordContractNotice } from "./notices";
+import { readContractNotices, recordContractNotice } from "./notices";
 import { decodeVersionList, readVersion, readVersionList } from "./read";
 import type { CommercialResult } from "./receipts";
 
@@ -75,6 +75,7 @@ get(listQuoteVersionsRoute, (session, now, { params, query }) => readVersionList
 get(listChangeVersionsRoute, (session, now, { params, query }) => readVersionList(session, now, "change", params.j, query?.cursor), decodeVersionList);
 get(getQuoteVersionRoute, (session, now, { params }) => readVersion(session, now, "quote", params.j, params.id));
 get(getChangeVersionRoute, (session, now, { params }) => readVersion(session, now, "change", params.j, params.id));
+get(listContractNoticesRoute, (session, now, { params }) => readContractNotices(session, now, params.j));
 
 post(createQuoteVersionRoute, (ctx, session, { params, body }) => createVersion(ctx, session, params.j, { kind: "quote", body }));
 post(createChangeVersionRoute, (ctx, session, { params, body }) => createVersion(ctx, session, params.j, { kind: "change", body }));
