@@ -221,12 +221,14 @@ test("bootstrap restores identity and role labels without retaining a credential
       preferences: { uiLocale: "pt-PT", readingLocale: null, revision: 2, theme: "system", fieldMode: null, twoClock: false },
       activeContext: { contextId: "staff", role: "foreman", businessId: "business", businessName: "Test Provider" },
       contexts: [{ contextId: "staff", role: "foreman", businessId: "business", businessName: "Test Provider" }],
+      capabilities: { sessions: { businessId: "business" } },
       credential: "discard-me",
     } as const;
     await mobile.saveSessionBootstrap(bootstrap);
     const restored = await mobile.getSessionBootstrap(accountId);
     expect(restored?.account.displayName).toBe("Test Profile");
     expect(restored?.activeContext?.businessName).toBe("Test Provider");
+    expect(restored?.capabilities).toEqual({ sessions: { businessId: "business" } });
     expect(restored?.preferences.uiLocale).toBe("pt-PT");
     expect(await mobile.getSessionBootstrap("another-account")).toBeNull();
     expect(database.query<{ value: string }, []>("SELECT value FROM local_settings").get()!.value).not.toContain("discard-me");

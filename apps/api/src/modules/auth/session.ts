@@ -1,6 +1,9 @@
 import { authTokenPattern, sessionBootstrapSchema } from "@bookbuddy/api-contract";
 import type { SessionBootstrap } from "@bookbuddy/api-contract";
+import { SESSIONS_FEATURE_FLAG } from "@bookbuddy/domain";
 import type { CommandStatement } from "../../db/commit";
+import { at } from "../access/policy";
+import { currentPerson, placeViewer } from "../places/policy";
 
 export const sessionCookieName = "__Host-bookbuddy_session";
 const encoder = new TextEncoder();
@@ -74,24 +77,44 @@ const contextOrder = `ORDER BY c.role <> 'customer', c.role, c.business_id, c.id
 export const defaultContextSql = `(SELECT c.id FROM account_contexts c
   WHERE c.account_id = a.id AND ${liveContextPredicate} ${contextOrder} LIMIT 1)`;
 
-export function sessionProjection(prefix: CommandStatement): CommandStatement {
+const sessionsCapability = `CASE
+  WHEN active.role = 'customer' THEN (
+    SELECT CASE WHEN count(*) > 0 THEN json_object('areaIds', json_group_array(area_id)) END
+    FROM (SELECT DISTINCT p.area_id FROM place_people pp JOIN places p ON p.id = pp.place_id
+      WHERE pp.account_id = s.account_id AND p.state = 'in_area'
+        AND ${currentPerson("pp")} AND ${placeViewer("p", "pp.account_id")}
+        AND EXISTS (SELECT 1 FROM feature_flags f WHERE f.key = '${SESSIONS_FEATURE_FLAG}' AND f.enabled = 1
+          AND f.scope_key > p.area_id || ':' AND f.scope_key < p.area_id || ';')
+      ORDER BY p.area_id)
+  )
+  WHEN active.granted_at <= ${at} AND EXISTS (
+    SELECT 1 FROM feature_flags f WHERE f.key = '${SESSIONS_FEATURE_FLAG}' AND f.enabled = 1 AND f.scope_key = active.business_id
+  ) THEN json_object('businessId', active.business_id)
+END`;
+
+export function sessionProjection(prefix: CommandStatement, now: number): CommandStatement {
   return {
-    params: prefix.params,
-    sql: `${prefix.sql}
+    params: [...prefix.params ?? [], now],
+    sql: `${prefix.sql}, clock AS (SELECT ? AS at), session_contexts AS MATERIALIZED (
+      SELECT c.id, c.role, c.business_id, b.public_name, g.membership_id, g.granted_at
+      FROM acting_session s JOIN account_contexts c ON c.account_id = s.account_id
+      LEFT JOIN membership_roles g ON g.id = c.role_grant_id
+      LEFT JOIN memberships m ON m.id = g.membership_id
+      LEFT JOIN businesses b ON b.id = m.business_id
+      WHERE c.role = 'customer' OR (${liveStaffGrant})
+    )
       SELECT s.session_id, s.expires_at, s.context_id, a.id AS account_id, a.email_normalized,
              a.display_name, a.setup_at, p.ui_locale, p.reading_locale, p.display_zone,
              p.theme, p.field_mode, p.two_clock, p.revision,
+             ${sessionsCapability} AS sessions_capability,
              (SELECT json_group_array(json(choice)) FROM (
                SELECT json_patch(json_object('contextId', c.id, 'role', c.role, 'businessId', c.business_id),
-                                 json_object('businessName', b.public_name, 'membershipId', g.membership_id)) AS choice
-               FROM account_contexts c
-               LEFT JOIN membership_roles g ON g.id = c.role_grant_id
-               LEFT JOIN memberships m ON m.id = g.membership_id
-               LEFT JOIN businesses b ON b.id = m.business_id
-               WHERE c.account_id = a.id AND (c.role = 'customer' OR (${liveStaffGrant})) ${contextOrder}
+                                 json_object('businessName', c.public_name, 'membershipId', c.membership_id)) AS choice
+               FROM session_contexts c ${contextOrder}
              )) AS contexts
       FROM acting_session s JOIN accounts a ON a.id = s.account_id
-      JOIN account_preferences p ON p.account_id = a.id`,
+      JOIN account_preferences p ON p.account_id = a.id
+      LEFT JOIN session_contexts active ON active.id = s.context_id`,
   };
 }
 
@@ -110,6 +133,7 @@ interface SessionRow {
   field_mode: number | null;
   two_clock: number;
   revision: number;
+  sessions_capability: string | null;
   contexts: string;
 }
 
@@ -127,6 +151,7 @@ export function decodeSession(result?: D1Result): SessionBootstrap | null {
     },
     activeContext: contexts.find(({ contextId }) => contextId === row.context_id) ?? null,
     contexts,
+    capabilities: { sessions: row.sessions_capability === null ? null : JSON.parse(row.sessions_capability) },
   });
 }
 

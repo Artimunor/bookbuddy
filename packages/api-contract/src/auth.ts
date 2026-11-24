@@ -1,7 +1,7 @@
 import { THEMES } from "@bookbuddy/domain";
 import { z } from "zod";
 import {
-  accountIdSchema, activeContextSchema, commandInputSchema, contextIdSchema, idSchema,
+  accountIdSchema, activeContextSchema, businessIdSchema, commandInputSchema, contextIdSchema, idSchema,
   localePreferencesSchema, localeTagSchema, revisionSchema, timestampSchema,
 } from "./common";
 import { defineRoute } from "./route";
@@ -34,6 +34,11 @@ export const accountSettingsSchema = localePreferencesSchema.extend({
   revision: revisionSchema,
 });
 
+const sessionsCapabilitySchema = z.union([
+  z.strictObject({ areaIds: z.array(idSchema).min(1) }),
+  z.strictObject({ businessId: businessIdSchema }),
+]);
+
 export const sessionBootstrapSchema = z.object({
   sessionId: idSchema,
   expiresAt: timestampSchema,
@@ -42,6 +47,8 @@ export const sessionBootstrapSchema = z.object({
   preferences: accountSettingsSchema,
   activeContext: activeContextSchema.nullable(),
   contexts: z.array(activeContextSchema),
+  // Optional for previously cached bootstraps; current responses always include it.
+  capabilities: z.object({ sessions: sessionsCapabilitySchema.nullable() }).optional(),
 });
 
 export const accountSettingsPatchSchema = z.strictObject({

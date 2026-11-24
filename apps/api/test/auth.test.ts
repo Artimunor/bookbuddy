@@ -241,6 +241,30 @@ test("settings validate viewer zones and revisions; sign-out revokes the bearer 
   await error(await req(emailPath(attemptId, "verify"), "POST", verify(await code())), 409);
 });
 
+test("sessions capability includes only enabled markets of live verified places", async () => {
+  const { db, req, code } = await fixture();
+  const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
+  const { credential, session } = await data<Verified>(await req(emailPath(attemptId, "verify"), "POST", verify(await code())));
+  expect(session.capabilities).toEqual({ sessions: null });
+  const { id } = session.account;
+  await db.batch([
+    db.prepare(`INSERT INTO operating_areas (id, name, site_zone, polygon) VALUES
+      ('market', 'Market', 'Europe/Madrid', '[[0,0]]'), ('other', 'Other', 'Europe/Madrid', '[[0,0]]')`),
+    db.prepare(`INSERT INTO places (id, owner_id, alias, normalized_address, pin, area_id, site_zone, state) VALUES
+      ('place', ?, 'Home', 'Home', '{"latitude":0,"longitude":0}', 'market', 'Europe/Madrid', 'pending_verification'),
+      ('pending', ?, 'Pending', 'Pending', '{"latitude":0,"longitude":0}', 'other', 'Europe/Madrid', 'pending_verification')`).bind(id, id),
+    db.prepare(`INSERT INTO place_people (place_id, account_id, verified_from, history_from)
+      VALUES ('place', ?, ?, ?), ('pending', ?, ?, ?)`).bind(id, now, now, id, now, now),
+    db.prepare("UPDATE places SET state = 'in_area', named_approver_id = ? WHERE id = 'place'").bind(id),
+    db.prepare(`INSERT INTO feature_flags (key, scope_key, enabled, config_version) VALUES
+      ('sessions', 'market:pilates', 1, 1), ('sessions', 'market:yoga', 1, 1), ('sessions', 'other:yoga', 1, 1)`),
+  ]);
+  const read = () => req("/session", "GET", undefined, auth(credential!)).then(data<SessionBootstrap>);
+  expect((await read()).capabilities).toEqual({ sessions: { areaIds: ["market"] } });
+  await db.prepare("UPDATE feature_flags SET enabled = 0 WHERE scope_key IN ('market:pilates', 'market:yoga')").run();
+  expect((await read()).capabilities).toEqual({ sessions: null });
+});
+
 test("context switching uses current grant authority and cannot replay a revoked role", async () => {
   const { db, req, code } = await fixture();
   const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
@@ -256,17 +280,21 @@ test("context switching uses current grant authority and cannot replay a revoked
       VALUES ('grant', 'membership', 'business', ?, 'worker', ?)`).bind(id, now),
     db.prepare(`INSERT INTO account_contexts (id, account_id, role, business_id, role_grant_id)
       VALUES ('worker-context', ?, 'worker', 'business', 'grant')`).bind(id),
+    db.prepare(`INSERT INTO feature_flags (key, scope_key, enabled, config_version) VALUES ('sessions', 'business', 1, 1)`),
   ]);
   const worker = { operationId: "switch-worker", payload: { contextId: "worker-context" } };
   const switchTo = (input: unknown) => req("/session/context", "POST", input, headers);
   const before = db.calls.batch;
-  expect((await data<SessionBootstrap>(await switchTo(worker))).activeContext)
-    .toMatchObject({ role: "worker", businessName: "Public Name", membershipId: "membership" });
+  expect(await data<SessionBootstrap>(await switchTo(worker))).toMatchObject({
+    activeContext: { role: "worker", businessName: "Public Name", membershipId: "membership" },
+    capabilities: { sessions: { businessId: "business" } },
+  });
   expect(db.calls.batch).toBe(before + 1);
   await db.prepare("UPDATE membership_roles SET revoked_at = ?, revoked_by = ? WHERE id = 'grant'").bind(now, id).run();
   await error(await switchTo(worker), 404);
   const revoked = await data<SessionBootstrap>(await req("/session", "GET", undefined, headers));
   expect(revoked.activeContext).toBeNull();
+  expect(revoked.capabilities).toEqual({ sessions: null });
   expect(revoked.contexts).toEqual(session.contexts);
   expect((await data<SessionBootstrap>(await switchTo({ operationId: "switch-customer", payload: { contextId: session.activeContext!.contextId } }))).activeContext?.role).toBe("customer");
 });

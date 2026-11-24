@@ -11,7 +11,7 @@ const missing = { error: { code: "NOT_FOUND" } } as const;
 const reused = { error: { code: "OPERATION_ID_REUSED", current: { kind: "operation_id_reused" } } } as const;
 
 export async function readSession(ctx: RequestScope, access: SessionAccess): Promise<SessionBootstrap | null> {
-  const select = sessionProjection(access);
+  const select = sessionProjection(access, ctx.now);
   return decodeSession(await ctx.binding.prepare(select.sql).bind(...select.params ?? []).all());
 }
 
@@ -41,7 +41,7 @@ export async function switchContext(ctx: RequestScope, access: SessionAccess, op
         sql: `${access.sql} UPDATE operation_receipts SET result_ref = (SELECT session_id FROM acting_session) WHERE result_ref = ?`,
         params: [...access.params, marker],
       },
-      sessionProjection(access),
+      sessionProjection(access, ctx.now),
       {
         sql: `${target} SELECT r.input_hash, r.command, r.result_ref FROM target t LEFT JOIN operation_receipts r
           ON r.account_id = t.account_id AND r.context_id = t.context_id AND r.operation_id = ?`,
@@ -141,7 +141,7 @@ export async function changeSettings(ctx: RequestScope, access: SessionAccess, o
         sql: `UPDATE operation_receipts SET result_ref = ? WHERE result_ref = ?`,
         params: [String(revision + 1), marker],
       },
-      sessionProjection(access),
+      sessionProjection(access, ctx.now),
       {
         sql: `${prefix} SELECT r.input_hash, r.command, r.result_ref FROM self s LEFT JOIN operation_receipts r
           ON r.account_id = s.account_id AND r.context_id = s.receipt_context AND r.operation_id = ?`,

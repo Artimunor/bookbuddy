@@ -267,7 +267,7 @@ export async function verifyOtp(ctx: RequestScope, key: CryptoKey, token: string
           WHERE a.email_normalized = ? AND a.state = 'active' AND ${consumed}`,
         params: [sessionId, secretHash, proof.device, now, now + sessionLifetime, payload.email, proof.id, claimed],
       },
-      sessionProjection(scope),
+      sessionProjection(scope, now),
       {
         sql: `${prefix.sql} SELECT a.state, a.expires_at, (SELECT until FROM active_lock) AS lock_until, ${wrongCount} AS wrong
           FROM challenge a WHERE NOT EXISTS (SELECT 1 FROM sessions s WHERE s.id = ? AND s.revoked_at IS NULL AND s.issued_at > ?)`,
