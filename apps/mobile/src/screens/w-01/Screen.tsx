@@ -1,4 +1,4 @@
-import { getHomeRoute, listShiftsRoute, type HomeProjection, type ShiftAgenda } from "@bookbuddy/api-contract";
+import { getHomeRoute, listShiftsRoute, type HomeProjection, type ShiftAgenda, type WorkerSessionHostOffer } from "@bookbuddy/api-contract";
 import { useRouter, type Href } from "expo-router";
 import { Pressable, View } from "react-native";
 import { useRemote, type CachedRead } from "../../api";
@@ -11,6 +11,7 @@ import { HoldBanner } from "../../ui/live/HoldBanner";
 import { LiveCapsule } from "../../ui/live/LiveCapsule";
 import { useBeaconTheme } from "../../ui/theme";
 import { siteTime } from "../f-01/Screen";
+import { useSessionHostOffers } from "../w-03/SessionOffer";
 import { Deadline, useClock } from "../w-03/Screen";
 
 type Home = Extract<HomeProjection, { audience: "worker" }>;
@@ -20,16 +21,21 @@ function sameDay(a: number, b: number, zone: string) { const f = new Intl.DateTi
 export default function NowScreen() {
   const home = useRemote(getHomeRoute, { query: {} }, { cache: { kind: "home" } });
   const agenda = useRemote(listShiftsRoute, { query: { segment: "upcoming" } }, { cache: { kind: "shift_agenda" } });
+  const { remote: hostOffers } = useSessionHostOffers();
   const router = useRouter(); const { bootstrap } = useSession(); const { entries } = useOutbox(); const data = home.data?.audience === "worker" ? home.data : null;
-  return <NowView data={data} status={home.status} lastConfirmedAt={home.lastConfirmedAt} agenda={agenda.data} pendingCount={entries.filter(entry => entry.status === "queued").length} name={bootstrap?.account.displayName ?? ""} now={useClock()} onRetry={() => void home.refresh()} onNavigate={path => router.push(path as Href)} />;
+  return <NowView data={data} status={home.status} lastConfirmedAt={home.lastConfirmedAt} agenda={agenda.data}
+    hostOffers={hostOffers.status === "ready" ? hostOffers.data.offers : undefined}
+    pendingCount={entries.filter(entry => entry.status === "queued").length} name={bootstrap?.account.displayName ?? ""} now={useClock()}
+    onRetry={() => void home.refresh()} onNavigate={path => router.push(path as Href)} />;
 }
-export function NowView(p: { data: Home | CachedHome | null; status: Status; lastConfirmedAt: number | null; agenda: ShiftAgenda | CachedRead<"shift_agenda"> | null; pendingCount?: number; name: string; now: number; onRetry: () => void; onNavigate: (path: string) => void }) {
+export function NowView(p: { data: Home | CachedHome | null; status: Status; lastConfirmedAt: number | null; agenda: ShiftAgenda | CachedRead<"shift_agenda"> | null; hostOffers?: readonly WorkerSessionHostOffer[]; pendingCount?: number; name: string; now: number; onRetry: () => void; onNavigate: (path: string) => void }) {
   const t = useT(); const format = useFormat(); const { color, radius, space } = useBeaconTheme(); const d = p.data; const zone = d?.siteZone ?? "";
   const current = d?.assignment && d.assignment.assignment.state === "confirmed" && sameDay(d.assignment.assignment.window.startsAt, p.now, d.assignment.siteZone) ? d.assignment : null;
   const upcoming = !current && p.agenda?.segment === "upcoming" ? p.agenda.rows.filter(row => sameDay(row.shift.startsAt, p.now, row.shift.siteZone)) : [];
   const urgent = upcoming.find(row => row.nextAction === "check_in" || row.nextAction === "check_out" || row.nextAction === "check_briefing");
   const offer = !current && !urgent ? d?.offers[0] : null;
   const shift = urgent ?? (!offer ? upcoming[0] : null);
+  const hostOffers = p.hostOffers?.filter(item => item.cover.expiresAt > p.now);
   const shiftId = current?.assignment.shiftId ?? shift?.shift.id; const next = current?.assignment.nextStep ?? shift?.nextAction;
   const onSite = next === "check_out";
   const shiftAction = next === "travel" || next === "depart" ? { label: t("mobile.workerOffer.onWay"), path: "depart" } : next === "check_in" ? { label: t("mobile.workerOffer.checkIn"), path: "attendance" } : next === "check_out" ? { label: t("mobile.workerOffer.checkOut"), path: "attendance" } : next === "open_briefing" || next === "check_briefing" ? { label: t("mobile.workerOffer.openBriefing"), path: "briefing" } : { label: t("mobile.workerOffer.openShift"), path: "" };
@@ -48,7 +54,17 @@ export function NowView(p: { data: Home | CachedHome | null; status: Status; las
     {offer && !offer.awaitingConfirmationUntil && <Copy>{offer.kind === "cover" ? t("mobile.workerOffer.provisional") : t("mobile.workerOffer.ordinaryEffect")}</Copy>}
     {shiftId && <><LiveCapsule size="hero" state={onSite ? "onSite" : "crewConfirmed"} stateLabel={onSite ? t("mobile.workerOffer.onSite") : t("mobile.workerOffer.confirmed")} source={title} reference={current?.reference ?? shift?.shift.job.reference} time={when} provenance={t("mobile.workerOffer.confirmed")} accessibilityLabel={`${title} · ${when} · ${t("mobile.workerOffer.confirmed")}`} onPress={() => p.onNavigate(`/w/shifts/${shiftId}${assignmentQuery}`)} />{current?.assignment.safetyHold && <><HoldBanner state="briefingRequired" label={t("mobile.workerOffer.briefingHold")} blocked={t("mobile.workerOffer.holdEffect")} action={t("mobile.workerOffer.openBriefing")} /><Button label={t("mobile.workerOffer.openBriefing")} variant="quiet" onPress={() => p.onNavigate(`/w/shifts/${shiftId}/briefing${assignmentQuery}`)} /></>}</>}
     {shiftId && (next === "travel" || next === "depart") && <Button label={t("mobile.workerOffer.alreadyOnSite")} variant="quiet" onPress={() => p.onNavigate(`/w/shifts/${shiftId}/attendance${assignmentQuery}`)} />}
-    {p.status === "ready" && d && !offer && !shiftId && <Card><Copy>{t("mobile.workerOffer.empty")}</Copy></Card>}
+    {!!hostOffers?.length && <View style={{ gap: space.grid[3] }}>
+      <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.sessionHostOffer.section")}</Copy>
+      {hostOffers.map(item => {
+        const when = `${siteTime(format, item.startsAt, item.siteZone)} – ${siteTime(format, item.endsAt, item.siteZone)} · ${item.siteZone}`;
+        const path = `/w/offers/${item.id}?sessionHost=1&listingId=${encodeURIComponent(item.listingId)}&slotId=${encodeURIComponent(item.slotId)}`;
+        return <Card key={item.id} accessibilityLabel={`${item.title} · ${item.roleLabel} · ${when}`} onPress={() => p.onNavigate(path)}>
+          <Copy variant="label">{item.title}</Copy><Copy>{item.roleLabel}</Copy><Copy variant="supporting">{when}</Copy>
+        </Card>;
+      })}
+    </View>}
+    {p.status === "ready" && d && !offer && !shiftId && !hostOffers?.length && <Card><Copy>{t("mobile.workerOffer.empty")}</Copy></Card>}
     {d && <View><Button variant="quiet" label={d.openToCoverUntil ? t("mobile.workerOffer.coverUntil", { time: `${siteTime(format, d.openToCoverUntil, d.siteZone)} · ${d.siteZone}` }) : t("mobile.workerOffer.availability")} onPress={() => p.onNavigate("/w/availability")} /></View>}
   </Screen>;
 }

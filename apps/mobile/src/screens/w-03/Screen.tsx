@@ -10,6 +10,7 @@ import { OfferClock } from "../../ui/live/OfferClock";
 import { siteTime } from "../f-01/Screen";
 import { useOffline } from "../s-02/flow";
 import { DecisionSheet, type DecisionMode, type Reason } from "../w-05/Screen";
+import SessionHostOfferScreen from "./SessionOffer";
 
 export type Offer = WorkerAssignmentOffer | WorkerCoverOffer;
 type Status = "idle" | "loading" | "ready" | "error" | "offline";
@@ -20,8 +21,11 @@ export function Deadline({ deadline, starts, zone, now, confirmation = false, fi
   return <OfferClock state="running" surface={field ? "fieldCapsule" : "neutral"} deadline={label} remaining={t("mobile.workerOffer.minutes", { count: Math.ceil(remaining / 60000) })} fraction={deadline > starts ? Math.max(0, Math.min(1, remaining / (deadline - starts))) : 0} />;
 }
 export default function OfferScreen() {
-  const { session } = useSession(); const { offerId, gapId } = useLocalSearchParams<{ offerId: string; gapId?: string }>();
-  return <OfferRoute key={`${session?.sessionId}:${session?.activeContext?.contextId}:${offerId}:${gapId}`} />;
+  const { session } = useSession();
+  const { offerId, gapId, sessionHost, listingId, slotId } = useLocalSearchParams<{ offerId: string; gapId?: string; sessionHost?: string; listingId?: string; slotId?: string }>();
+  const scope = `${session?.sessionId}:${session?.activeContext?.contextId}`;
+  if (sessionHost === "1") return <SessionHostOfferScreen key={`${scope}:${listingId}:${slotId}:${offerId}`} offerId={offerId ?? ""} listingId={listingId ?? ""} slotId={slotId ?? ""} />;
+  return <OfferRoute key={`${scope}:${offerId}:${gapId}`} />;
 }
 function OfferRoute() {
   const { offerId, gapId, accept: acceptParam, decision: initialDecision } = useLocalSearchParams<{ offerId: string; gapId?: string; accept?: string; decision?: string }>(); const router = useRouter(); const offline = useOffline();

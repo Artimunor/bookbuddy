@@ -43,11 +43,11 @@ export const hold = sessionHoldProjectionSchema.parse({ status: "held", id: "hel
 export const booking = customerSessionBookingSchema.parse({ id: "booked-place", reference: "BB-S1042", listingId: listing.id, provider, revision: 1,
   state: "booked", bookerName: hold.bookerName, bookedAt, original: { slotId: firstSlot.id, listingVersionId: version.id, termsHash: version.terms.hash }, agreement,
   day: null, host: { status: "confirmed", host, isSubstitute: false }, coordinatorName: "Marina Serra", threadId: "session-04413edc7996425fadb02bd82f312949", proposal: null, cancellation: null,
-  actions: { move: true, cancel: true, respond: false, leaveFeedback: false } });
+  canGiveFeedback: false, actions: { move: true, cancel: true, respond: false } });
 export const todayBooking = customerSessionBookingSchema.parse({ ...booking, day: { stage: "today", at: startsAt - 90 * 60_000, byName: host.name } });
 export const substituteBooking = customerSessionBookingSchema.parse({ ...booking, host: { status: "confirmed", isSubstitute: true,
   host: { name: "Lucía Vidal", language: "en", confirmed: { at: Date.UTC(2026, 10, 27, 17, 10), byName: "Marina Serra" } } } });
-export const proposedBooking = customerSessionBookingSchema.parse({ ...booking, actions: { move: false, cancel: true, respond: true, leaveFeedback: false },
+export const proposedBooking = customerSessionBookingSchema.parse({ ...booking, actions: { move: false, cancel: true, respond: true },
   proposal: { id: "proposal-1", version: 1, state: "pending", respondBy: Date.UTC(2026, 10, 27, 9),
     proposed: { ...agreement, slotId: laterSlot.id, startsAt: laterSlot.startsAt, endsAt: laterSlot.endsAt, freeCancellationUntil: laterSlot.startsAt },
     sent: { at: Date.UTC(2026, 10, 26, 9, 30), byName: "Marina Serra" }, decidedAt: null } });

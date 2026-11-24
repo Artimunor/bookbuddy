@@ -1,4 +1,4 @@
-import { cancelSessionBookingRoute, getSessionBookingRoute, respondToSessionChangeRoute, sessionBookingIdSchema, type CustomerSessionBooking } from "@bookbuddy/api-contract";
+import { cancelSessionBookingRoute, getSessionBookingRoute, respondToSessionChangeRoute, sessionBookingIdSchema, submitSessionBookingFeedbackRoute, type CustomerSessionBooking } from "@bookbuddy/api-contract";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useRef, useState } from "react";
 import { AppState, Linking, View } from "react-native";
@@ -7,6 +7,7 @@ import { useApiAccess } from "../../api/provider";
 import { useFormat, useT } from "../../i18n";
 import type { CachedSessionBooking } from "../../repository/cache";
 import { useLastConfirmed, useProjection } from "../../repository/hooks";
+import { useSession } from "../../session";
 import { useStatusCards } from "../../system/status-cards";
 import { Button, Card, Dock, ListRow, Screen, Sheet } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
@@ -14,12 +15,19 @@ import { LiveCapsule, TwoClock, type LiveCapsuleProps } from "../../ui/live";
 import { dayKey, holdHref, Notice, Separator, SessionState, useSessionDisplay, useSessionsBack, type Agreement } from "../l-01/common";
 import { useDeadline } from "../s-02/flow";
 import { confirmAction } from "../s-17/confirmAction";
+import { FeedbackSheet, type FeedbackDraft } from "./Feedback";
 
 type Choice = "accept" | "decline" | "cancel";
 type Attempt = { booking: CustomerSessionBooking; choice: Choice };
+const emptyFeedback: FeedbackDraft = { stars: 0, comment: "" };
 
 export default function CustomerSessionBookingScreen() {
   const { id = "" } = useLocalSearchParams<{ id: string }>();
+  const { session } = useSession();
+  return <BookingRoute key={`${session?.sessionId}:${session?.activeContext?.contextId}:${id}`} id={id} />;
+}
+
+function BookingRoute({ id }: { id: string }) {
   const router = useRouter();
   const onBack = useSessionsBack();
   const t = useT();
@@ -30,6 +38,10 @@ export default function CustomerSessionBookingScreen() {
   const lastConfirmed = useLastConfirmed();
   const respond = useCommand(respondToSessionChangeRoute, { resourceId: id });
   const cancel = useCommand(cancelSessionBookingRoute, { resourceId: id });
+  const feedback = useCommand(submitSessionBookingFeedbackRoute, { resourceId: id });
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [draft, setDraft] = useState(emptyFeedback);
+  const [pendingFeedback, setPendingFeedback] = useState<{ stars: number; comment?: string }>();
   const { startSessionCard, active } = useStatusCards();
   const [followFailed, setFollowFailed] = useState(false);
   const [following, setFollowing] = useState(false);
@@ -40,7 +52,8 @@ export default function CustomerSessionBookingScreen() {
   const current = useRef(booking);
   current.current = booking;
   const checking = respond.state === "checking" || cancel.state === "checking";
-  const busy = respond.state === "sending" || cancel.state === "sending";
+  const checkingFeedback = feedback.state === "checking" && !!pendingFeedback && !!booking?.canGiveFeedback;
+  const busy = respond.state === "sending" || cancel.state === "sending" || feedback.state === "sending";
 
   async function send(intent: Attempt) {
     if (locked.current) return "uncertain";
@@ -87,6 +100,40 @@ export default function CustomerSessionBookingScreen() {
     });
   }
 
+  async function sendFeedback(payload: { stars: number; comment?: string }) {
+    if (locked.current || offline) return "invalidated";
+    locked.current = true;
+    try {
+      const result = await feedback.run({ params: { id }, body: { payload } });
+      if (result.ok) {
+        remote.seed(result.data, result.meta.serverTime);
+        setPendingFeedback(undefined);
+        setDraft(emptyFeedback);
+        return "confirmed";
+      }
+      if (result.error.code === "INTERNAL_ERROR" || ("delivery" in result.error && result.error.delivery === "unknown")) {
+        setPendingFeedback(payload);
+        return "uncertain";
+      }
+      setPendingFeedback(undefined);
+      return "invalidated";
+    } finally { locked.current = false; }
+  }
+
+  function reviewFeedback() {
+    if (!booking?.canGiveFeedback || offline || busy || checkingFeedback || draft.stars < 1 || draft.stars > 5) return;
+    const comment = draft.comment.trim();
+    const payload = { stars: draft.stars, ...(comment ? { comment } : {}) };
+    setFeedbackOpen(false);
+    confirmAction(router, {
+      title: t("mobile.laterCustomer.rateSession"), actionLabel: t("mobile.aftercare.send"), actionLabelKey: "mobile.aftercare.send",
+      item: `${booking.reference} · ${booking.agreement.version.title}`, actor: booking.bookerName, role: booking.provider.name,
+      effects: [t("mobile.aftercare.stars", { count: payload.stars }), ...(comment ? [comment] : []), t("mobile.laterCustomer.feedbackAudience")],
+      onConfirm: async () => current.current?.id === booking.id && current.current.canGiveFeedback ? sendFeedback(payload) : "invalidated",
+      onReview: () => { void remote.refresh(); },
+    });
+  }
+
   async function follow() {
     if (AppState.currentState !== "active" || offline || following) return;
     setFollowing(true);
@@ -102,10 +149,16 @@ export default function CustomerSessionBookingScreen() {
       remote.status === "offline" ? "offline" : remote.status === "error" ? "error" : "loading";
     return <SessionState title={t("mobile.laterCustomer.bookingPass")} state={state} onBack={onBack} retry={() => { void remote.refresh(); }} />;
   }
-  return <BookingView booking={booking} onBack={onBack} onRespond={ask} onMove={() => { if (booking.actions.move) router.push(holdHref(booking.listingId, booking.id)); }}
+  return <><BookingView booking={booking} onBack={onBack} onRespond={ask} onMove={() => { if (booking.actions.move) router.push(holdHref(booking.listingId, booking.id)); }}
     onMessage={booking.threadId ? () => router.push({ pathname: "/threads/[threadId]", params: { threadId: booking.threadId } } as Href) : undefined}
     onFollow={() => { void follow(); }} following={following} isFollowing={active?.target.kind === "session" && active.target.id === id} followFailed={followFailed}
-    busy={busy} checking={checking} commandFailed={commandFailed} onCheck={pending ? () => { void send(pending); } : undefined} />;
+    onFeedback={booking.canGiveFeedback ? () => setFeedbackOpen(true) : undefined} feedbackSent={!!feedback.result}
+    busy={busy} checking={checking || checkingFeedback} commandFailed={commandFailed}
+    onCheck={checkingFeedback && pendingFeedback ? () => { void sendFeedback(pendingFeedback); } :
+      pending ? () => { void send(pending); } : undefined} />
+    {feedbackOpen && booking.canGiveFeedback && !checkingFeedback && <FeedbackSheet booking={booking} draft={draft} onChange={setDraft}
+      onClose={() => setFeedbackOpen(false)} onReview={reviewFeedback} />}
+  </>;
 }
 
 function CachedPass({ snapshot, lastConfirmed, onBack }: { snapshot: CachedSessionBooking; lastConfirmed: number | null; onBack: () => void }) {
@@ -135,11 +188,12 @@ function CachedPass({ snapshot, lastConfirmed, onBack }: { snapshot: CachedSessi
 type BookingViewProps = {
   booking: CustomerSessionBooking; viewerZone?: string; now?: number;
   onBack: () => void; onRespond: (choice: Choice) => void; onMove: () => void; onMessage?: () => void;
+  onFeedback?: () => void; feedbackSent?: boolean;
   onFollow?: () => void; following?: boolean; isFollowing?: boolean; followFailed?: boolean; busy?: boolean; checking?: boolean;
   onCheck?: () => void; commandFailed?: boolean;
 };
 
-export function BookingView({ booking, viewerZone, now, onBack, onRespond, onMove, onMessage, onFollow, following, isFollowing, followFailed, busy, checking, onCheck, commandFailed }: BookingViewProps) {
+export function BookingView({ booking, viewerZone, now, onBack, onRespond, onMove, onMessage, onFeedback, feedbackSent, onFollow, following, isFollowing, followFailed, busy, checking, onCheck, commandFailed }: BookingViewProps) {
   const t = useT();
   const format = useFormat();
   const display = useSessionDisplay(viewerZone);
@@ -177,7 +231,8 @@ export function BookingView({ booking, viewerZone, now, onBack, onRespond, onMov
   const newTime = proposal && (proposal.proposed.startsAt !== startsAt || proposal.proposed.endsAt !== endsAt);
   const zoneLine = [clock.zone, clock.viewer].filter(Boolean).join(" · ");
   const message = { label: t("mobile.laterCustomer.messageStudio"), onPress: onMessage ?? onBack, disabledReason: onMessage ? undefined : t("mobile.laterCustomer.messageUnavailable") };
-  const dock = cancelled || done ? undefined : checking ? <Dock context={t("mobile.laterCustomer.checkingResponse")} primary={{ label: t("mobile.laterCustomer.checkResult"), onPress: onCheck ?? onBack, disabled: !onCheck, busy }} /> :
+  const dock = cancelled ? undefined : checking ? <Dock context={t("mobile.laterCustomer.checkingResponse")} primary={{ label: t("mobile.laterCustomer.checkResult"), onPress: onCheck ?? onBack, disabled: !onCheck, busy }} /> :
+    done ? onFeedback ? <Dock primary={{ label: t("mobile.laterCustomer.rateSession"), onPress: onFeedback, busy }} /> : undefined :
     proposal && actions.respond && proposalOpen ? <Dock context={t("mobile.laterCustomer.respondBy", { time: display.absolute(proposal.respondBy, siteZone) })}
       primary={{ label: newTime ? t("mobile.laterCustomer.acceptNewTime") : t("mobile.laterCustomer.acceptChange"), onPress: () => onRespond("accept"), busy }} secondary={{ label: t("mobile.laterCustomer.declineChange"), onPress: () => onRespond("decline"), disabled: busy }} /> :
     today ? <Dock primary={{ label: t("mobile.laterCustomer.directions"), onPress: () => { setMapsFailed(false); setSheet("directions"); } }} secondary={onMessage ? { ...message, iconOnly: true, glyph: "◫" } : undefined} /> : <Dock primary={message} />;
@@ -203,6 +258,7 @@ export function BookingView({ booking, viewerZone, now, onBack, onRespond, onMov
       </Notice>}
       {proposal && !cancelled && <ChangeCard agreement={agreement} proposal={proposal} viewerZone={viewerZone} />}
       {commandFailed && <Notice tone="critical" title={t("mobile.laterCustomer.changeFailed")} />}
+      {feedbackSent && <Notice tone="success" title={t("mobile.laterCustomer.feedbackSent")} />}
       {today && <Notice tone="info" title={t("mobile.laterCustomer.followTitle")}>
         <Copy>{t("mobile.laterCustomer.followBody")}</Copy>
         <Button variant="neutral" label={isFollowing ? t("mobile.laterCustomer.following") : t("mobile.laterCustomer.turnOn")} onPress={onFollow ?? onBack} busy={following} disabled={isFollowing || !onFollow} />
