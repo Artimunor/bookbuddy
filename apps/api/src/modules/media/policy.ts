@@ -33,8 +33,9 @@ export const linkTables = {
 } as const satisfies Record<MediaCaller, string>;
 
 export function attachmentHasLink(id: string) {
-  return `EXISTS (${Object.values(linkTables).map((table) =>
-    `SELECT 1 FROM ${table} link WHERE link.attachment_id = ${id}`).join(" UNION ALL ")})`;
+  // Keep each indexed junction probe independent of D1's compound SELECT limit.
+  return `(${Object.values(linkTables).map((table) =>
+    `EXISTS (SELECT 1 FROM ${table} link WHERE link.attachment_id = ${id})`).join(" OR ")})`;
 }
 
 const job = `(SELECT base.*, p.state AS place_state, p.owner_id, p.named_approver_id,
