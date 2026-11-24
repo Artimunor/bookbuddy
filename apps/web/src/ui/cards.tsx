@@ -41,10 +41,12 @@ export function BookingCard({ to, title, place, reference, stage, stageLine, nex
       <Link to={to} className="bb-card bb-booking-card">
         <div className="bb-card-heading">
           <div className="min-w-0">
-            <h3 className="text-section-title" dir="auto">{title}</h3>
-            <p className="text-supporting text-muted"><bdi>{place}</bdi>{reference && <> · <bdi>{reference}</bdi></>}</p>
+            <h3 className="text-label" dir="auto">{title}</h3>
+            <p className="text-supporting text-muted"><bdi>{place}</bdi></p>
           </div>
-          <Glyph name="chevron" />
+          {reference
+            ? <bdi className="text-caption text-muted tabular-nums">{reference}</bdi>
+            : <Glyph name="chevron" />}
         </div>
         <div><Badge {...stage} /></div>
         {stageLine && <JobLine {...stageLine} compact />}
@@ -55,7 +57,7 @@ export function BookingCard({ to, title, place, reference, stage, stageLine, nex
 }
 
 export type NeedsYouCardProps = {
-  status: string;
+  status?: string;
   title: string;
   detail: string;
   deadline?: ReactNode;
@@ -65,7 +67,7 @@ export type NeedsYouCardProps = {
 export function NeedsYouCard({ status, title, detail, deadline, action }: NeedsYouCardProps) {
   return (
     <article className="bb-card bb-tone" data-tone="attention">
-      <div><Badge label={status} tone="attention" /></div>
+      {status && <div><Badge label={status} tone="attention" /></div>}
       <div>
         <h3 className="text-section-title" dir="auto">{title}</h3>
         <p className="mt-1" dir="auto">{detail}</p>
@@ -138,7 +140,7 @@ function TwinText({ original, reading }: TwinContent) {
 
 export type TwinBubbleProps = TwinContent & {
   author: { name: string; role?: string };
-  time: string;
+  time: ReactNode;
   outgoing?: boolean;
   correction?: string;
   delivery?: { label: string; state: "queued" | "failed" };
@@ -148,7 +150,8 @@ export function TwinBubble({ author, time, outgoing, correction, delivery, ...co
   return (
     <article className="bb-twin-bubble" data-outgoing={outgoing || undefined}>
       <p className="text-supporting text-muted">
-        <bdi>{author.name}</bdi>{author.role && <> · {author.role}</>} · <bdi className="tabular-nums">{time}</bdi>
+        <bdi>{author.name}</bdi>{author.role && <> · {author.role}</>}
+        {typeof time === "string" ? time && <> · <bdi className="tabular-nums">{time}</bdi></> : time}
       </p>
       <div className="bb-twin-surface"><TwinText {...content} /></div>
       {(correction || delivery) && <div className="flex flex-wrap gap-2">

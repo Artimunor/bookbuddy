@@ -1,12 +1,8 @@
-.auth-page { min-block-size: 100vh; padding: clamp(1.5rem, 5vw, 4rem); background: var(--beacon-color-subtle); color: var(--beacon-color-ink); font-family: var(--font-system); overflow-wrap: anywhere; }
-.auth-brand { font-weight: 750; font-size: 1.25rem; color: var(--beacon-color-brand-ink); }
-.auth-panel { display: flex; flex-direction: column; gap: 1rem; max-inline-size: 32rem; margin: clamp(2rem, 8vh, 5rem) auto; padding: clamp(1.5rem, 5vw, 3rem); border-radius: 1.5rem; background: var(--beacon-color-surface); box-shadow: 0 12px 40px #1b252212; }
-.auth-panel h1 { font-size: clamp(1.8rem, 4vw, 2.5rem); line-height: 1.1; font-weight: 700; }
-.auth-panel form { display: flex; flex-direction: column; gap: 1.25rem; }
-.auth-panel a, .auth-link { color: var(--beacon-color-brand-ink); text-decoration: underline; text-underline-offset: .2em; text-align: start; }
-.auth-link { align-self: start; cursor: pointer; }
-.auth-link:disabled { color: var(--beacon-color-muted); cursor: not-allowed; }
+.auth-page { min-block-size: 100vh; padding: clamp(1.25rem, 5vw, 3rem); background: var(--beacon-color-canvas); color: var(--beacon-color-ink); font-family: var(--font-system); overflow-wrap: anywhere; }
+.auth-brand { max-inline-size: 32rem; margin-inline: auto; font-size: var(--text-section-title); font-weight: 800; }
+.auth-panel { display: flex; flex-direction: column; gap: 1rem; max-inline-size: 32rem; margin: clamp(1.5rem, 6vh, 4rem) auto; padding: var(--spacing-card-padding); border: 1px solid var(--beacon-color-separator); border-radius: var(--radius-card); background: var(--beacon-color-surface); }
+.auth-panel h1 { font-size: var(--text-page-title); line-height: var(--text-page-title--line-height); font-weight: var(--text-page-title--font-weight); text-wrap: balance; }
+.auth-panel form { display: flex; flex-direction: column; gap: 1.25rem; min-inline-size: 0; }
+.auth-panel a:not(.bb-button) { color: var(--beacon-color-brand-ink); text-decoration: underline; text-underline-offset: .2em; }
+.auth-panel .bb-dock { padding-inline: 0; padding-block-end: 0; }
 .auth-critical { padding: 1rem; border-radius: 1rem; color: var(--beacon-color-critical-ink); background: var(--beacon-color-critical-soft); }
-.auth-select { display: grid; gap: .5rem; font-weight: 600; }
-.auth-select select { min-block-size: 3rem; padding: .75rem; border: 1px solid var(--beacon-color-outline); border-radius: .75rem; background: var(--beacon-color-surface); }
-.auth-context:empty { display: none; }

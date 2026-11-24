@@ -1,7 +1,9 @@
 import { createCommercialClient, createJobsClient } from "@bookbuddy/api-client";
 import type { HomeProjection } from "@bookbuddy/api-contract";
+import { VISIT_STEPS, tradeLabelKey } from "@bookbuddy/domain";
 import type { Translator } from "@bookbuddy/i18n";
 import { createWebTranslator } from "@bookbuddy/i18n/web";
+import { sharedEnumLabel } from "@bookbuddy/i18n/shared";
 import { useMemo, type ReactNode } from "react";
 import { BookingCard, Button, PortalShell, TwoClock, type JobLineProps } from "../../ui";
 import { useSession } from "../session";
@@ -17,6 +19,11 @@ export function usePortal() {
   return { ...session, t, ...clients };
 }
 export type T = Translator<"web">["t"];
+
+// Current customer projections use the trade code as the short job title.
+export function jobTitle(t: T, trade: string | null | undefined, reference: string) {
+  return !trade || trade === reference ? t("web.portal.work.untitled") : sharedEnumLabel(t, tradeLabelKey(trade));
+}
 export type Journey = Extract<HomeProjection, { audience: "customer" }>["upcoming"][number]["journey"];
 export function stageLabel(t: T, step: Journey["step"]) {
   switch (step) {
@@ -59,7 +66,27 @@ export function momentLabel(t: T, kind: Extract<HomeProjection, { audience: "cus
 export function line(t: T, journey: Journey): JobLineProps {
   const stages = (["requested", "quoted", "booked", "visit", "signed_off", "paid"] as const).map((id) => ({ id, label: stageLabel(t, id) }));
   const label = journey.cancelled ? t("web.portal.work.cancelled") : stageLabel(t, journey.step);
-  return { stages, currentId: journey.step, ariaLabel: t("web.portal.work.journey", { stage: label }), quiet: journey.cancelled || journey.complete };
+  return { stages, currentId: journey.step, ariaLabel: t("web.portal.work.stepCount", { index: stages.findIndex(stage => stage.id === journey.step) + 1, count: stages.length, stage: label }), quiet: journey.cancelled || journey.complete };
+}
+export function visitLabels(t: T) {
+  return {
+    confirmed: t("web.portal.schedule.confirmed"),
+    on_the_way: t("web.portal.schedule.onWay"),
+    on_site: t("web.portal.schedule.onSite"),
+    working: t("web.portal.schedule.working"),
+    finished: t("web.portal.schedule.finished"),
+    cover_arranging: t("web.portal.schedule.cover"),
+    no_crew_available: t("web.portal.schedule.noCrew"),
+    paused: t("web.portal.schedule.paused"),
+  };
+}
+export function dayLine(labels: Record<(typeof VISIT_STEPS)[number], string>, step: (typeof VISIT_STEPS)[number] | null, t: T): JobLineProps {
+  const current = step ?? "confirmed";
+  return {
+    stages: VISIT_STEPS.map(id => ({ id, label: labels[id] })),
+    currentId: current,
+    ariaLabel: t("web.portal.work.stepCount", { index: VISIT_STEPS.indexOf(current) + 1, count: VISIT_STEPS.length, stage: labels[current] }),
+  };
 }
 export function date(locale: string, at: number, zone: string) {
   return formatPortalTime(at, zone, locale)?.site ?? "";
@@ -86,7 +113,7 @@ export function SignOutControl() {
   </>;
 }
 
-export function Frame({ current, children }: { current?: "now" | "bookings"; children: ReactNode }) {
+export function Frame({ current, children }: { current?: "now" | "bookings" | "messages" | "places" | "settings"; children: ReactNode }) {
   const { account, t } = usePortal();
   const name = account?.displayName ?? account?.email ?? "";
   const nav = {
@@ -96,11 +123,11 @@ export function Frame({ current, children }: { current?: "now" | "bookings"; chi
     places: { label: t("web.portal.work.places"), to: "/portal/places" },
     settings: { label: t("web.portal.work.settings"), to: "/portal/settings" },
   };
-  return <PortalShell identity={{ name, initials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), to: "/portal/settings" }} accountActions={account ? <SignOutControl /> : undefined} nav={nav} current={current} navLabel={t("web.portal.work.navigation")} skipLabel={t("web.portal.work.skip")}><div className="space-y-6">{children}</div></PortalShell>;
+  return <PortalShell identity={{ name, initials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), to: "/portal/settings" }} accountActions={account ? <SignOutControl /> : undefined} nav={nav} current={current} navLabel={t("web.portal.work.navigation")} skipLabel={t("web.portal.work.skip")}><div className="bb-portal-frame">{children}</div></PortalShell>;
 }
 type CustomerCard = Extract<HomeProjection, { audience: "customer" }>["upcoming"][number];
 export function Booking({ item, viewerZone }: { item: CustomerCard; viewerZone?: string }) {
   const { t, locale } = usePortal();
   const label = item.journey.cancelled ? t("web.portal.work.cancelled") : stageLabel(t, item.journey.step);
-  return <BookingCard to={`/portal/jobs/${encodeURIComponent(item.jobId)}`} title={item.title ?? t("web.portal.work.untitled")} reference={item.reference} place={`${item.place.alias} · ${item.providerName}`} stage={{ label }} stageLine={line(t, item.journey)} next={item.nextVisit && <PortalClock at={item.nextVisit.window.startsAt} zone={item.siteZone} locale={locale} viewerZone={viewerZone} />} />;
+  return <BookingCard to={`/portal/jobs/${encodeURIComponent(item.jobId)}`} title={jobTitle(t,item.title,item.reference)} reference={item.reference} place={[item.place.alias, item.providerName].filter(Boolean).join(" · ")} stage={{ label }} stageLine={line(t, item.journey)} next={item.nextVisit && <PortalClock at={item.nextVisit.window.startsAt} end={item.nextVisit.window.endsAt} zone={item.siteZone} locale={locale} viewerZone={viewerZone} />} />;
 }

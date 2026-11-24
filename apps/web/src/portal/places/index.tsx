@@ -3,12 +3,12 @@ import type { PlaceDetails, PlaceList, PlacePersonPatch } from "@bookbuddy/api-c
 import { looksLikeAccessCode } from "@bookbuddy/domain";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
-import { Button, Dialog, TextField } from "../../ui";
-import { Frame, usePortal } from "../now/common";
+import { Button, Card, Dialog, Dock, Glyph, Select, TextField } from "../../ui";
+import { Frame, stageLabel, usePortal } from "../now/common";
 import { storeCheckedOpening, takeCheckedOpening } from "../notifications/handoff";
 import { usePendingOperation } from "../session/pending-operation";
 import { PendingReceiptNotice } from "../session/pending-receipt";
-import { formatPortalTime } from "../time";
+import { formatPortalTime, siteZoneLabel } from "../time";
 import { PlacePersonDialog } from "./people";
 import { placeSearch } from "./search";
 
@@ -17,7 +17,7 @@ function usePlaces() {
   return useMemo(() => createPlacesClient(api), [api]);
 }
 export function Places() {
-  const { t } = usePortal(); const api = usePlaces();
+  const { t, locale } = usePortal(); const api = usePlaces();
   const [query, setQuery] = useState(() => placeSearch.query);
   const location = useLocation(); const navigate = useNavigate();
   useEffect(() => {
@@ -30,10 +30,21 @@ export function Places() {
     return () => { window.clearTimeout(timer); controller.abort(); }; }, [api,query]);
   const shown = page?.places.slice().sort((a,b) => b.liveBookingCount - a.liveBookingCount || b.openBookingCount - a.openBookingCount || a.alias.localeCompare(b.alias));
   async function more() { if (!page?.cursor) return; const r = await api.listPlaces({ cursor: page.cursor, ...(query.trim() ? {q:query.trim()} : {}) }); if (r.ok) setPage({ ...r.data, places: [...page.places, ...r.data.places] }); else setFailed(true); }
-  return <Frame><h1 className="text-page-title">{t("web.portal.work.places")}</h1><TextField label={t("web.portal.ps.search")} value={query} onChange={e => { placeSearch.query = e.target.value; setQuery(placeSearch.query); }}/>
+  return <Frame current="places"><h1 className="text-page-title">{t("web.portal.work.places")}</h1><TextField label={t("web.portal.ps.search")} value={query} onChange={e => { placeSearch.query = e.target.value; setQuery(placeSearch.query); }}/>
     {failed && <p role="alert">{t("web.portal.work.failed")}</p>}{!page && !failed && <p role="status">{t("web.portal.work.loading")}</p>}
-    {page && <><p>{t("web.portal.ps.placeCount", { count: page.total })}</p>{shown?.length ? shown.map(p => <article key={p.id} className="rounded-2xl border p-5"><Link to={`/portal/places/${encodeURIComponent(p.id)}`}><h2 className="text-section-title">{p.alias}</h2><p>{[p.areaName,p.siteZone].filter(Boolean).join(" · ")}</p><p>{p.relationship === "manager" && p.ownerDisplayName ? t("web.portal.ps.managedFor", { name: p.ownerDisplayName }) : p.relationship === "owner" ? t("web.portal.ps.owner") : t("web.portal.ps.viewer")}{p.viewerIsNamedApprover ? ` · ${t("web.portal.ps.namedApprover")}` : ""}</p><p>{t("web.portal.ps.bookingsCount", { count: p.openBookingCount })}</p></Link></article>) : <p>{query ? t("web.portal.ps.noMatch") : t("web.portal.ps.noPlaces")}</p>}{page.hasMore && <Button onClick={() => void more()}>{t("web.portal.work.more")}</Button>}</>}
-    <Link to="/portal/places/new">{t("web.portal.ps.addPlace")}</Link><p>{t("web.portal.ps.separatePeople")}</p></Frame>;
+    {page && <>
+      <p className="text-supporting text-muted">{t("web.portal.ps.placeCount", { count: page.total })}</p>
+      {shown?.length ? <ul className="space-y-3">{shown.map(p => <li key={p.id}>
+        <Link className="bb-card bb-booking-card" to={`/portal/places/${encodeURIComponent(p.id)}`}>
+          <div className="bb-card-heading"><div><h2 className="text-section-title" dir="auto">{p.alias}</h2><p className="text-supporting text-muted">{[p.areaName,siteZoneLabel(p.siteZone,locale)].filter(Boolean).join(" · ")}</p></div><Glyph name="chevron" /></div>
+          <p>{p.relationship === "manager" && p.ownerDisplayName ? t("web.portal.ps.managedFor", { name: p.ownerDisplayName }) : p.relationship === "owner" ? t("web.portal.ps.owner") : t("web.portal.ps.viewer")}{p.viewerIsNamedApprover ? ` · ${t("web.portal.ps.namedApprover")}` : ""}</p>
+          <p className="text-supporting text-muted">{t("web.portal.ps.bookingsCount", { count: p.openBookingCount })}</p>
+        </Link>
+      </li>)}</ul> : <Card>{query ? t("web.portal.ps.noMatch") : t("web.portal.ps.noPlaces")}</Card>}
+      {page.hasMore && <Button variant="secondary" onClick={() => void more()}>{t("web.portal.work.more")}</Button>}
+    </>}
+    <Dock context={t("web.portal.ps.separatePeople")} primary={{ to:"/portal/places/new", label:t("web.portal.ps.addPlace") }} />
+  </Frame>;
 }
 type PlaceEdit = { alias: string; address: string; safeArrivalNote: string | null };
 const placeRoutes = {
@@ -166,13 +177,29 @@ function PlaceDetailPage({ id }: { id: string }) {
   const title = place?.alias ?? t("web.portal.ps.addPlace");
   const back = location.pathname.startsWith("/portal/new/") ? "/portal/new/place" : "/portal/places";
   const viewerZone = bootstrap?.preferences.twoClock ? bootstrap.preferences.displayZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
-  return <Frame><Link to={back}>{t("web.portal.ps.backPlaces")}</Link><h1 className="text-page-title">{title}</h1>{place && <p>{[place.areaName,place.siteZone].filter(Boolean).join(" · ")}</p>}
+  return <Frame current="places"><Link to={back}>{t("web.portal.ps.backPlaces")}</Link>
+    <header className="space-y-1"><h1 className="text-page-title" dir="auto">{title}</h1>{place && <p className="text-supporting text-muted">{[place.areaName,siteZoneLabel(place.siteZone,locale)].filter(Boolean).join(" · ")}</p>}</header>
     {(failed || command.state === "failed") && <p role="alert">{t("web.portal.work.failed")}</p>}
     <PendingReceiptNotice state={command.state} />
     {checking && <><p role="status">{t("web.portal.auth.uncertain")}</p><Button onClick={command.check}>{t("web.portal.work.checkAgain")}</Button></>}
     {id !== "new" && !place && !failed && <p role="status">{t("web.portal.work.loading")}</p>}
-    {editing ? <section className="space-y-4"><TextField label={t("web.portal.ps.placeName")} value={alias} maxLength={100} readOnly={busy || checking} onChange={e=>setAlias(e.target.value)}/><TextField label={t("web.portal.ps.address")} value={address} maxLength={500} readOnly={busy || checking} onChange={e=>setAddress(e.target.value)}/><TextField label={t("web.portal.ps.safeNote")} value={note} maxLength={500} readOnly={busy || checking} onChange={e=>setNote(e.target.value)} error={blocked ? t("web.portal.ps.noCodesError") : undefined}/><p>{t("web.portal.ps.noCodes")}</p><Button disabled={blocked || busy || checking} onClick={save}>{t("web.portal.ps.save")}</Button>{place && <Button variant="text" disabled={busy || checking} onClick={()=>setEditing(false)}>{t("web.portal.work.close")}</Button>}</section> : place && <><section className="rounded-2xl border p-5 space-y-2"><h2 className="text-section-title">{t("web.portal.ps.placeDetails")}</h2>{place.address && <p dir="auto">{place.address}</p>}{place.safeArrivalNote && <p dir="auto">{place.safeArrivalNote}</p>}<p>{t("web.portal.ps.noCodes")}</p>{place.actions.edit && <Button disabled={busy || checking} onClick={()=>setEditing(true)}>{t("web.portal.ps.edit")}</Button>}</section>
-    <section className="space-y-3"><h2 className="text-section-title">{t("web.portal.ps.people")}</h2>{place.people.map(person => <div className="rounded-2xl border p-4" key={person.accountId}><strong>{person.displayName}</strong><p>{[person.isOwner && t("web.portal.ps.owner"),person.isNamedApprover && t("web.portal.ps.namedApprover"),...person.capabilities.map(capability => capability === "view" ? t("web.portal.ps.personView") : capability === "message" ? t("web.portal.ps.personMessage") : capability === "approve" ? t("web.portal.ps.personApprove") : capability)].filter(Boolean).join(" · ")}</p>{canEditPeople && <Button variant="text" disabled={busy || checking} onClick={() => setPersonId(person.accountId)}>{t("web.portal.ps.editPerson")}</Button>}</div>)}
+    {editing ? <>
+      <Card><div className="space-y-4">
+        <TextField label={t("web.portal.ps.placeName")} value={alias} maxLength={100} readOnly={busy || checking} onChange={e=>setAlias(e.target.value)}/>
+        <TextField label={t("web.portal.ps.address")} value={address} maxLength={500} readOnly={busy || checking} onChange={e=>setAddress(e.target.value)}/>
+        <TextField label={t("web.portal.ps.safeNote")} hint={t("web.portal.ps.noCodes")} value={note} maxLength={500} readOnly={busy || checking} onChange={e=>setNote(e.target.value)} error={blocked ? t("web.portal.ps.noCodesError") : undefined}/>
+      </div></Card>
+      {place && <Button variant="text" disabled={busy || checking} onClick={()=>setEditing(false)}>{t("web.portal.work.close")}</Button>}
+      <Dock primary={{ label:t("web.portal.ps.save"), disabled:blocked || busy || checking, onClick:save }} />
+    </> : place && <>
+    <Card title={t("web.portal.ps.placeDetails")} footer={place.actions.edit && <Button variant="secondary" disabled={busy || checking} onClick={()=>setEditing(true)}>{t("web.portal.ps.edit")}</Button>}>
+      {place.address && <p dir="auto">{place.address}</p>}{place.safeArrivalNote && <p dir="auto">{place.safeArrivalNote}</p>}<p className="text-supporting text-muted">{t("web.portal.ps.noCodes")}</p>
+    </Card>
+    <section className="space-y-3"><h2 className="text-section-title">{t("web.portal.ps.people")}</h2>
+    {place.people.map(person => <Card key={person.accountId} footer={canEditPeople && <Button variant="text" disabled={busy || checking} onClick={() => setPersonId(person.accountId)}>{t("web.portal.ps.editPerson")}</Button>}>
+      <p className="text-label" dir="auto">{person.displayName}</p>
+      <p className="text-supporting text-muted">{[person.isOwner && t("web.portal.ps.owner"),person.isNamedApprover && t("web.portal.ps.namedApprover"),...person.capabilities.map(capability => capability === "view" ? t("web.portal.ps.personView") : capability === "message" ? t("web.portal.ps.personMessage") : capability === "approve" ? t("web.portal.ps.personApprove") : null)].filter(Boolean).join(" · ")}</p>
+    </Card>)}
     {canEditPeople && person && <PlacePersonDialog key={person.accountId} person={person} place={place} busy={busy || checking} close={() => setPersonId(null)} save={editPerson} />}
     {place.pendingInvitations?.map(invite => {
       const zone = invite.siteZone ?? place.siteZone;
@@ -184,8 +211,15 @@ function PlaceDetailPage({ id }: { id: string }) {
       return <div className="rounded-2xl border p-4" key={invite.id}><strong>{invite.email}</strong><p>{t("web.portal.ps.invitePending")} · {issuedLabel}</p>{issued?.viewer && <p>{issued.viewer}</p>}{invite.reissue.status === "wait" && <><p>{t("web.portal.ps.reissueAt",{date:retryLabel})}</p>{retry?.viewer && <p>{retry.viewer}</p>}</>}{invite.reissue.status === "available" && <Button disabled={busy || checking} onClick={()=>setInvitationAction({id:invite.id,email:invite.email,action:"reissue"})}>{t("web.portal.ps.reissueInvite")}</Button>}{invite.canWithdraw && <Button variant="text" disabled={busy || checking} onClick={()=>setInvitationAction({id:invite.id,email:invite.email,action:"withdraw"})}>{t("web.portal.ps.withdrawInvite")}</Button>}</div>;
     })}
     <Dialog open={!!invitationAction} onOpenChange={open=>{if(!open) setInvitationAction(null);}} title={invitationAction?.action === "reissue" ? t("web.portal.ps.reissueInvite") : t("web.portal.ps.withdrawInvite")} description={invitationAction?.action === "reissue" ? t("web.portal.ps.reissueEffect",{email:invitationAction.email}) : t("web.portal.ps.withdrawEffect",{email:invitationAction?.email ?? ""})} closeLabel={t("web.portal.work.close")}><Button disabled={busy || checking} onClick={manageInvitation}>{t("web.portal.ps.confirm")}</Button></Dialog>
-    {place.actions.changeApprover && <><label>{t("web.portal.ps.changeApprover")} <select value={successor} disabled={busy || checking} onChange={e=>setSuccessor(e.target.value)}><option value="">{t("web.portal.ps.choosePerson")}</option>{place.people.filter(p=>!p.isNamedApprover).map(p=><option key={p.accountId} value={p.accountId}>{p.displayName}</option>)}</select></label><Button disabled={!successor || busy || checking} onClick={()=>setConfirm(true)}>{t("web.portal.ps.changeApprover")}</Button><Dialog open={confirm} onOpenChange={setConfirm} title={t("web.portal.ps.confirmApprover")} description={t("web.portal.ps.approverEffect", { name: place.people.find(p=>p.accountId===successor)?.displayName ?? "" })} closeLabel={t("web.portal.work.close")}><Button disabled={busy} onClick={changeApprover}>{t("web.portal.ps.confirm")}</Button></Dialog></>}
-    {place.actions.invite && <form onSubmit={e=>{e.preventDefault(); invite();}}><TextField type="email" required label={t("web.portal.ps.inviteEmail")} value={email} readOnly={busy || checking} onChange={e=>setEmail(e.target.value)}/><p>{t("web.portal.ps.inviteView")}</p><Button type="submit" disabled={busy || checking}>{t("web.portal.ps.invite")}</Button></form>}</section>
-    <section><h2 className="text-section-title">{t("web.portal.ps.bookingsHere")}</h2>{place.bookings.length ? place.bookings.map(b=><p key={b.jobId}><Link to={`/portal/jobs/${encodeURIComponent(b.jobId)}`}>{b.title} · {b.reference} · {b.journeyStep}</Link></p>) : <p>{t("web.portal.work.empty")}</p>}</section></>}
+    {place.actions.changeApprover && <>
+      <Card footer={<Button variant="secondary" disabled={!successor || busy || checking} onClick={()=>setConfirm(true)}>{t("web.portal.ps.changeApprover")}</Button>}>
+        <Select label={t("web.portal.ps.changeApprover")} value={successor} disabled={busy || checking} onChange={e=>setSuccessor(e.target.value)}>
+          <option value="">{t("web.portal.ps.choosePerson")}</option>{place.people.filter(p=>!p.isNamedApprover).map(p=><option key={p.accountId} value={p.accountId}>{p.displayName}</option>)}
+        </Select>
+      </Card>
+      <Dialog open={confirm} onOpenChange={setConfirm} title={t("web.portal.ps.confirmApprover")} description={t("web.portal.ps.approverEffect", { name: place.people.find(p=>p.accountId===successor)?.displayName ?? "" })} closeLabel={t("web.portal.work.close")}><Button disabled={busy} onClick={changeApprover}>{t("web.portal.ps.confirm")}</Button></Dialog>
+    </>}
+    {place.actions.invite && <Card><form className="space-y-3" onSubmit={e=>{e.preventDefault(); invite();}}><TextField type="email" required label={t("web.portal.ps.inviteEmail")} hint={t("web.portal.ps.inviteView")} value={email} readOnly={busy || checking} onChange={e=>setEmail(e.target.value)}/><Button type="submit" disabled={busy || checking}>{t("web.portal.ps.invite")}</Button></form></Card>}</section>
+    <Card title={t("web.portal.ps.bookingsHere")}>{place.bookings.length ? <ul className="bb-inset-list">{place.bookings.map(b=><li key={b.jobId}><Link to={`/portal/jobs/${encodeURIComponent(b.jobId)}`}>{[b.reference,stageLabel(t,b.journeyStep)].filter(Boolean).join(" · ")}</Link></li>)}</ul> : <p>{t("web.portal.work.empty")}</p>}</Card></>}
   </Frame>;
 }

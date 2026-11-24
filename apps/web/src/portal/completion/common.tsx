@@ -15,7 +15,16 @@ export function useCloseout() {
 type AuthoredValue = { original: { text: string; language: string }; reading: { status: "ready"; language: string; text: string } | { status: "pending" | "unavailable" } | null };
 export function Authored({ value }: { value: AuthoredValue }) {
   const { t } = usePortal();
-  return <div className="space-y-1">{value.reading?.status === "ready" && <><p className="text-supporting text-muted">{t("web.portal.closeout.translation", { language: value.reading.language })}</p><p lang={value.reading.language} dir="auto">{value.reading.text}</p></>}{value.reading?.status === "pending" && <p>{t("web.portal.closeout.pendingTranslation")}</p>}{value.reading?.status === "unavailable" && <p>{t("web.portal.closeout.unavailableTranslation")}</p>}<p className="text-supporting text-muted">{t("web.portal.closeout.original", { language: value.original.language })}</p><p lang={value.original.language} dir="auto">{value.original.text}</p></div>;
+  const { original, reading } = value;
+  return <div className="bb-twin-card">
+    <div className="bb-twin-reading">
+      {reading?.status === "ready" ? <><p className="mb-1 text-caption text-muted">{t("web.portal.closeout.translation", {language:reading.language})}</p><p className="bb-passage" lang={reading.language} dir="auto">{reading.text}</p></>
+        : <p className="bb-passage" lang={original.language} dir="auto">{original.text}</p>}
+    </div>
+    {reading?.status === "ready" && <div className="bb-twin-original"><p className="mb-1 text-caption text-muted">{t("web.portal.closeout.original", {language:original.language})}</p><p className="bb-passage" lang={original.language} dir="auto">{original.text}</p></div>}
+    {reading?.status === "pending" && <p className="bb-twin-original text-supporting text-muted">{t("web.portal.closeout.pendingTranslation")}</p>}
+    {reading?.status === "unavailable" && <p className="bb-twin-original text-supporting text-muted">{t("web.portal.closeout.unavailableTranslation")}</p>}
+  </div>;
 }
 
 

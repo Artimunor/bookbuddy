@@ -1,8 +1,7 @@
 import { createFieldClient, createScheduleClient } from "@bookbuddy/api-client";
 import type { JobWindows } from "@bookbuddy/api-contract";
 import { useEffect, useMemo, useState } from "react";
-import { usePortal } from "../now/common";
-import { formatPortalTime } from "../time";
+import { usePortal, PortalClock, usePortalViewerZone } from "../now/common";
 
 export function useScheduleClients() {
   const { api } = usePortal();
@@ -18,8 +17,7 @@ export function useWindows(id: string) {
   return { schedule, data, setData, failed, refresh };
 }
 export function WindowTime({ start, end, zone }: { start: number; end: number; zone: string }) {
-  const { locale, bootstrap } = usePortal(); const viewer = bootstrap?.preferences.twoClock ? bootstrap.preferences.displayZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
-  const a = formatPortalTime(start, zone, locale, viewer); const b = formatPortalTime(end, zone, locale, viewer);
-  if (!a || !b) return null;
-  return <div><div><bdi>{a.site} – {b.site}</bdi></div>{a.viewer && b.viewer && <div><bdi>{a.viewer} – {b.viewer}</bdi></div>}</div>;
+  const { locale } = usePortal();
+  const viewerZone = usePortalViewerZone();
+  return <PortalClock at={start} end={end} zone={zone} locale={locale} viewerZone={viewerZone} />;
 }

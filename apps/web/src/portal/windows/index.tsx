@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { Button, Card, Dialog, StatusBanner } from "../../ui";
-import { Frame, money, usePortal } from "../now/common";
+import { Button, Card, ChoiceGroup, Dialog, Dock, StatusBanner } from "../../ui";
+import { jobTitle, Frame, money, usePortal } from "../now/common";
 import { usePendingOperation } from "../session/pending-operation";
 import { PendingReceiptNotice } from "../session/pending-receipt";
 import { currentVisit, useWindows, WindowTime } from "./common";
@@ -18,14 +18,23 @@ export function Windows() {
   useEffect(() => { if (!taken && visit?.offeredWindows.length === 1 && visit.offeredWindows[0]?.confirmationMode) setSelection(visit.offeredWindows[0].id); }, [visit?.id, visit?.revision, taken]);
   const windows = visit?.offeredWindows ?? []; const selected = windows.find(w => w.id === selection); const booked = visit?.bookedWindow; const busy = command.state === "sending" || command.state === "checking";
   const action = booked ? t("web.portal.schedule.acceptWindow") : t("web.portal.schedule.confirmWindow");
-  return <Frame><Link to={`/portal/jobs/${encodeURIComponent(id)}`}>{t("web.portal.work.untitled")}</Link><h1 className="text-page-title">{t("web.portal.schedule.windows")}</h1>
+  const manage = { to: `/portal/jobs/${encodeURIComponent(id)}/cancel${visit ? `?visit=${encodeURIComponent(visit.id)}` : ""}`, label: t("web.portal.schedule.manage") };
+  return <Frame><Link to={`/portal/jobs/${encodeURIComponent(id)}`}>{t("web.portal.closeout.back")}</Link><h1 className="text-page-title">{t("web.portal.schedule.windows")}</h1>
     {failed && <StatusBanner title={t("web.portal.work.failed")} action={<Button onClick={() => void refresh()}>{t("web.portal.work.retry")}</Button>} />}{!data && !failed && <p role="status">{t("web.portal.work.loading")}</p>}
     {taken && <p role="alert">{t("web.portal.schedule.taken")}</p>}{command.state === "checking" && <StatusBanner title={t("web.portal.work.checking")} action={<Button onClick={command.check}>{t("web.portal.work.checkAgain")}</Button>} />}{command.state === "failed" && !taken && <p role="alert">{t("web.portal.work.notRecorded")}</p>}
     <PendingReceiptNotice state={command.state} />
-    {data && <><p>{data.job.title} · {data.job.reference}</p>{data.approvedQuote && <p>{t("web.portal.work.approved")} · {t("web.portal.work.version", {version:data.approvedQuote.number})} · {money(locale,data.approvedQuote.totalMinor,data.approvedQuote.currency)}</p>}
+    {data && <><p>{jobTitle(t,data.job.title,data.job.reference)} · {data.job.reference}</p>{data.approvedQuote && <p>{t("web.portal.work.approved")} · {t("web.portal.work.version", {version:data.approvedQuote.number})} · {money(locale,data.approvedQuote.totalMinor,data.approvedQuote.currency)}</p>}
     {booked && <Card title={booked.crewAvailability === "no_crew_available" ? t("web.portal.schedule.agreedNoCrew") : t("web.portal.schedule.current")}><WindowTime start={booked.startsAt} end={booked.endsAt} zone={data.siteZone}/></Card>}
-    {windows.length ? <><h2 className="text-section-title">{t("web.portal.schedule.proposed")}</h2><p>{t("web.portal.schedule.clockRule")}</p><fieldset className="space-y-3"><legend>{t("web.portal.schedule.choose")}</legend>{[...windows].sort((a,b)=>a.startsAt-b.startsAt).map(w => <label key={w.id} className="flex gap-3 rounded-2xl border p-4"><input type="radio" name="window" checked={selection === w.id} disabled={!w.confirmationMode || busy} onChange={() => {setSelection(w.id);setTaken(false);}}/><WindowTime start={w.startsAt} end={w.endsAt} zone={data.siteZone}/></label>)}</fieldset><p>{t("web.portal.schedule.arrivalNote")}</p><Button disabled={!selected?.confirmationMode || busy} onClick={() => setDialog(true)}>{action}</Button></> : !booked && <Card><p>{t("web.portal.schedule.none")}</p></Card>}
-    {booked && <p>{t("web.portal.schedule.keep")}</p>}<p><Link to={`/portal/jobs/${encodeURIComponent(id)}/cancel${visit ? `?visit=${encodeURIComponent(visit.id)}` : ""}`}>{t("web.portal.schedule.manage")}</Link></p>
-    <Dialog open={dialog} onOpenChange={setDialog} title={action} closeLabel={t("web.portal.work.close")} footer={<Button disabled={!selected || !visit || busy} onClick={() => { if (selected && visit) command.start({windowId:selected.id, operationId:crypto.randomUUID(),expectedRevision:visit.revision,approvedQuoteVersionId:data.approvedQuote?.id ?? null}); }}>{action}</Button>}><p>{data.job.reference} · {data.job.title}</p>{selected && <WindowTime start={selected.startsAt} end={selected.endsAt} zone={data.siteZone}/>}<p>{t("web.portal.schedule.keep")}</p></Dialog></>}
+    {windows.length ? <>
+      <h2 className="text-section-title">{t("web.portal.schedule.proposed")}</h2>
+      <p className="text-supporting text-muted">{t("web.portal.schedule.clockRule")}</p>
+      <ChoiceGroup label={t("web.portal.schedule.choose")} value={selection} disabled={busy} onValueChange={value => { setSelection(value); setTaken(false); }}
+        options={[...windows].sort((a,b)=>a.startsAt-b.startsAt).map(w => ({
+          value:w.id, disabled:!w.confirmationMode, label:<WindowTime start={w.startsAt} end={w.endsAt} zone={data.siteZone}/>,
+        }))} />
+    </> : !booked && <Card><p>{t("web.portal.schedule.none")}</p></Card>}
+    {booked && <p className="text-supporting text-muted">{t("web.portal.schedule.keep")}</p>}
+    {windows.length ? <Dock context={t("web.portal.schedule.arrivalNote")} primary={{ label: action, disabled: !selected?.confirmationMode || busy, onClick: () => setDialog(true) }} secondary={manage} /> : <Dock primary={manage} />}
+    <Dialog open={dialog} onOpenChange={setDialog} title={action} closeLabel={t("web.portal.work.close")} footer={<Button disabled={!selected || !visit || busy} onClick={() => { if (selected && visit) command.start({windowId:selected.id, operationId:crypto.randomUUID(),expectedRevision:visit.revision,approvedQuoteVersionId:data.approvedQuote?.id ?? null}); }}>{action}</Button>}><p>{data.job.reference} · {jobTitle(t,data.job.title,data.job.reference)}</p>{selected && <WindowTime start={selected.startsAt} end={selected.endsAt} zone={data.siteZone}/>}<p>{t("web.portal.schedule.keep")}</p></Dialog></>}
   </Frame>;
 }

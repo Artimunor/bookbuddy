@@ -12,10 +12,11 @@ export type JobLineProps = {
   notice?: { kind: "delayed" | "cover" | "cancelled"; label: string };
   quiet?: boolean;
   compact?: boolean;
+  labelAll?: boolean;
   surface?: "neutral" | "capsule";
 };
 
-export function JobLine({ stages, currentId, ariaLabel, fractionToNext = 0, estimateLabel, notice, quiet, compact, surface = "neutral" }: JobLineProps) {
+export function JobLine({ stages, currentId, ariaLabel, fractionToNext = 0, estimateLabel, notice, quiet, compact, labelAll, surface = "neutral" }: JobLineProps) {
   const current = stages.findIndex((stage) => stage.id === currentId);
   if (!stages.length) return null;
   const last = stages.length - 1;
@@ -28,14 +29,14 @@ export function JobLine({ stages, currentId, ariaLabel, fractionToNext = 0, esti
   } as CSSProperties;
 
   return (
-    <div className="bb-job-line" data-surface={surface}>
+    <div className="bb-job-line" data-surface={surface} data-labels={labelAll && !compact ? "all" : undefined}>
       <div className="bb-job-diagram" style={style} data-quiet={paused || undefined} role="img" aria-label={ariaLabel}>
         {last > 0 && <div className="bb-job-track" aria-hidden="true"><span /></div>}
         <ol className="bb-job-stages" aria-hidden="true">
           {stages.map((stage, index) => (
             <li className="bb-job-stage" key={stage.id} data-step={index < current ? "done" : index === current ? "current" : "next"}>
               <span className="bb-job-bead">{index < current && <Glyph name="check" />}</span>
-              {!compact && index >= current && <span className="bb-job-label">{stage.label}</span>}
+              {!compact && (labelAll || index >= current) && <span className="bb-job-label">{stage.label}</span>}
             </li>
           ))}
         </ol>
@@ -48,22 +49,22 @@ export function JobLine({ stages, currentId, ariaLabel, fractionToNext = 0, esti
 }
 
 export type LiveCapsuleProps = {
-  to: To;
+  to?: To;
   ariaLabel: string;
   source: string;
   sourceGlyph?: GlyphName;
   reference: string;
   state: { kind: "live" | "quiet" | "paused" | "finished"; label: string };
   time?: string;
+  clocks?: Omit<TwoClockProps, "size">;
   provenance: string;
   stageLine: Omit<JobLineProps, "surface" | "quiet">;
   size?: "hero" | "card" | "pill";
 };
 
-export function LiveCapsule({ to, ariaLabel, source, sourceGlyph = "van", reference, state, time, provenance, stageLine, size = "hero" }: LiveCapsuleProps) {
-  return (
-    <Link to={to} aria-label={ariaLabel} className="bb-live-capsule" data-size={size} data-state={state.kind}>
-      <div className="bb-live-content" aria-hidden="true">
+export function LiveCapsule({ to, ariaLabel, source, sourceGlyph = "van", reference, state, time, clocks, provenance, stageLine, size = "hero" }: LiveCapsuleProps) {
+  const content = (
+      <div className="bb-live-content" aria-hidden={to !== undefined || undefined}>
         {size !== "pill" && <div className="bb-live-line text-supporting text-live-capsule-supporting-text">
           <span className="bb-live-source"><Glyph name={sourceGlyph} /><bdi>{source}</bdi></span>
           <bdi className="tabular-nums">{reference}</bdi>
@@ -77,16 +78,19 @@ export function LiveCapsule({ to, ariaLabel, source, sourceGlyph = "van", refere
           </span>
           <span className="bb-live-trailing">
             {time && <bdi className="bb-live-time tabular-nums">{time}</bdi>}
-            <Glyph name="chevron" />
+            {to !== undefined && <Glyph name="chevron" />}
           </span>
         </div>
+        {clocks && <TwoClock {...clocks} size={size === "hero" ? "display" : "label"} />}
         {size !== "pill" && <>
           <JobLine {...stageLine} surface="capsule" quiet={state.kind !== "live"} />
-          <p className="text-supporting text-live-capsule-supporting-text">{provenance}</p>
+          {provenance && <p className="text-supporting text-live-capsule-supporting-text">{provenance}</p>}
         </>}
       </div>
-    </Link>
   );
+  return to !== undefined
+    ? <Link to={to} aria-label={ariaLabel} className="bb-live-capsule" data-size={size} data-state={state.kind}>{content}</Link>
+    : <section className="bb-live-capsule" data-size={size} data-state={state.kind}>{content}</section>;
 }
 
 type ClockReading = { value: string; zoneLabel: string; dateTime?: string };
@@ -104,15 +108,15 @@ function ClockValue({ value, dateTime }: ClockReading) {
 
 export function TwoClock({ site, viewer, size = "label" }: TwoClockProps) {
   return (
-    <div className="bb-clock">
-      <p className="bb-clock-site">
+    <span className="bb-clock">
+      <span className="bb-clock-site">
         <span className={size === "display" ? "text-display" : "text-label"}><ClockValue {...site} /></span>
         <span className="text-supporting text-muted">{site.zoneLabel}</span>
-      </p>
-      {viewer && <p className="bb-clock-viewer text-supporting text-muted">
+      </span>
+      {viewer && <span className="bb-clock-viewer text-supporting text-muted">
         <ClockValue {...viewer} /> <span>{viewer.zoneLabel}</span>
-      </p>}
-    </div>
+      </span>}
+    </span>
   );
 }
 
@@ -158,7 +162,7 @@ export function CrewDots({ people, status, statusLabel, overflowLabel }: CrewDot
       <div className="min-w-0">
         <p className="bb-crew-status text-label"><Glyph name={crewGlyph[status]} />{statusLabel}</p>
         {people.length > 0 && <ul className="bb-crew-names text-supporting text-muted">
-          {people.map(({ id, name, role }) => <li key={id}><bdi>{name}</bdi> · {role}</li>)}
+          {people.map(({ id, name, role }) => <li key={id}><bdi>{name}</bdi>{role && <> · {role}</>}</li>)}
         </ul>}
       </div>
     </div>
@@ -183,7 +187,7 @@ export function Stamp({ kind, title, actor, time, dateTime, delivery, photo }: S
       <span className="bb-stamp-icon"><Glyph name={delivery?.state === "rejected" ? "alert" : stampGlyph[kind]} /></span>
       <div className="min-w-0">
         <p className="text-label">{title}</p>
-        {actor && <p className="text-supporting text-muted"><bdi>{actor.name}</bdi> · {actor.role}</p>}
+        {actor && <p className="text-supporting text-muted"><bdi>{actor.name}</bdi>{actor.role && <> · {actor.role}</>}</p>}
         {delivery && <p className={`text-supporting ${delivery.state === "rejected" ? "text-critical-ink" : "text-attention-ink"}`}>{delivery.label}</p>}
         {typeof time === "string" ? <p className="text-supporting text-muted"><ClockValue value={time} dateTime={dateTime} zoneLabel="" /></p> : time}
       </div>

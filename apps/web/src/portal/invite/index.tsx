@@ -1,8 +1,8 @@
 import { createAccessClient } from "@bookbuddy/api-client";
 import type { InvitationOpening } from "@bookbuddy/api-contract";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useParams } from "react-router";
-import { Button, Card, Dialog } from "../../ui";
+import { useLocation, useParams } from "react-router";
+import { Button, Card, Dialog, Dock, StatusBanner } from "../../ui";
 import { Frame, usePortal } from "../now/common";
 import { takeCheckedOpening } from "../notifications/handoff";
 import { usePendingOperation } from "../session/pending-operation";
@@ -49,6 +49,23 @@ function InvitationPage({ opaque, loading }: { opaque: string; loading: boolean 
     {(failed || command.state === "failed") && <p role="alert">{t("web.portal.work.failed")}</p>}
     <PendingReceiptNotice state={command.state} />
     {command.state === "checking" && <><p role="status">{t("web.portal.auth.uncertain")}</p><Button onClick={command.check}>{t("web.portal.work.checkAgain")}</Button></>}
-    {declined ? <p>{t("web.portal.ps.invitationDeclined")}</p> : opening?.status === "unavailable" ? <p role="alert">{opening.reason === "expired" ? t("web.portal.ps.invitationExpired") : opening.reason === "wrong_account" ? t("web.portal.ps.invitationWrongAccount") : t("web.portal.ps.linkUnavailable")}</p> : opening?.status === "accepted" ? <Card><h2>{t("web.portal.ps.invitationAccepted")}</h2><p>{opening.currentAccess.kind === "place" ? opening.currentAccess.placeAlias : opening.currentAccess.context.businessName}</p>{opening.currentAccess.kind === "place" && <Link to={`/portal/places/${encodeURIComponent(opening.currentAccess.placeId)}`}>{t("web.portal.work.open")}</Link>}</Card> : opening?.status === "pending" && <Card><p>{t("web.portal.ps.invitedBy",{name:opening.inviterDisplayName})}</p><p>{opening.grant.kind === "business_role" ? `${opening.grant.businessName} · ${opening.grant.role}` : opening.grant.placeAlias}</p><p>{opening.grant.kind === "place_view" ? t("web.portal.ps.inviteView") : opening.grant.kind === "place_transfer" ? t("web.portal.ps.inviteTransfer") : t("web.portal.ps.inviteBusiness")}</p><p>{t("web.portal.ps.invitationExpiry",{date:expiryLabel})}</p>{expires?.viewer && <p>{expires.viewer}</p>}<Button disabled={busy || !bootstrap} onClick={()=>setDialog("accept")}>{t("web.portal.ps.acceptInvite")}</Button><Button variant="text" disabled={busy || !bootstrap} onClick={()=>setDialog("decline")}>{t("web.portal.ps.declineInvite")}</Button></Card>}
-    <Dialog open={dialog !== null} onOpenChange={open=>{if(!open) setDialog(null);}} title={dialog === "accept" ? t("web.portal.ps.acceptInvite") : t("web.portal.ps.declineInvite")} description={dialog === "accept" ? t("web.portal.ps.acceptEffect") : t("web.portal.ps.declineEffect")} closeLabel={t("web.portal.work.close")}><Button disabled={busy || !dialog} onClick={()=>{if(dialog) void decide(dialog);}}>{t("web.portal.ps.confirm")}</Button></Dialog></Frame>;
+    {declined ? <StatusBanner tone="neutral" title={t("web.portal.ps.invitationDeclined")} />
+      : opening?.status === "unavailable" ? <StatusBanner tone="attention" announce="assertive" title={opening.reason === "expired" ? t("web.portal.ps.invitationExpired") : opening.reason === "wrong_account" ? t("web.portal.ps.invitationWrongAccount") : t("web.portal.ps.linkUnavailable")} />
+      : opening?.status === "accepted" ? <>
+        <Card title={t("web.portal.ps.invitationAccepted")}><p dir="auto">{opening.currentAccess.kind === "place" ? opening.currentAccess.placeAlias : opening.currentAccess.context.businessName}</p></Card>
+        {opening.currentAccess.kind === "place" && <Dock primary={{ to:`/portal/places/${encodeURIComponent(opening.currentAccess.placeId)}`, label:t("web.portal.work.open") }} />}
+      </> : opening?.status === "pending" && <>
+        <Card><div className="space-y-3">
+          <p className="text-supporting text-muted">{t("web.portal.ps.invitedBy",{name:opening.inviterDisplayName})}</p>
+          <p className="text-section-title" dir="auto">{opening.grant.kind === "business_role" ? opening.grant.businessName : opening.grant.placeAlias}</p>
+          {opening.grant.kind === "business_role" && <p className="text-label">{opening.grant.role === "foreman" ? t("web.portal.work.crew") : t("web.portal.ps.worker")}</p>}
+          <p>{opening.grant.kind === "place_view" ? t("web.portal.ps.inviteView") : opening.grant.kind === "place_transfer" ? t("web.portal.ps.inviteTransfer") : t("web.portal.ps.inviteBusiness")}</p>
+          <p className="text-supporting text-muted">{t("web.portal.ps.invitationExpiry",{date:expiryLabel})}</p>
+          {expires?.viewer && <p className="text-supporting text-muted">{expires.viewer}</p>}
+        </div></Card>
+        <Dock primary={{ label:t("web.portal.ps.acceptInvite"), disabled:busy || !bootstrap, onClick:()=>setDialog("accept") }}
+          secondary={{ label:t("web.portal.ps.declineInvite"), disabled:busy || !bootstrap, onClick:()=>setDialog("decline") }} />
+      </>}
+    <Dialog open={dialog !== null} onOpenChange={open=>{if(!open) setDialog(null);}} title={dialog === "accept" ? t("web.portal.ps.acceptInvite") : t("web.portal.ps.declineInvite")} description={dialog === "accept" ? t("web.portal.ps.acceptEffect") : t("web.portal.ps.declineEffect")} closeLabel={t("web.portal.work.close")} footer={<Button disabled={busy || !dialog} onClick={()=>{if(dialog) void decide(dialog);}}>{t("web.portal.ps.confirm")}</Button>}>{null}</Dialog>
+  </Frame>;
 }

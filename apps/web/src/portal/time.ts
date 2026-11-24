@@ -1,4 +1,4 @@
-import { formatSiteDateTime, formatTwoClock, type ClockParts } from "@bookbuddy/domain";
+import { formatSiteDateTime, formatTwoClock, formatZoneName, type ClockParts } from "@bookbuddy/domain";
 import { resolveLocale } from "@bookbuddy/i18n/locales";
 import { createWebTranslator } from "@bookbuddy/i18n/web";
 
@@ -9,25 +9,34 @@ const regions: Record<string, string> = {
 };
 
 export function zoneLabel(zone: string | null | undefined, parts: ClockParts, locale: string): string {
-  const t = createWebTranslator(resolveLocale([locale])).t;
-  if (parts.zoneLabelKind === "viewer") return t("shared.time.viewerZone");
+  if (parts.zoneLabelKind === "viewer") return createWebTranslator(resolveLocale([locale])).t("shared.time.viewerZone");
+  return siteZoneLabel(zone, locale, parts.zoneName);
+}
+
+export function siteZoneLabel(zone: string | null | undefined, locale: string, name?: string | null): string {
   const region = zone ? regions[zone] : undefined;
   if (region && typeof Intl.DisplayNames === "function") {
     const country = new Intl.DisplayNames(locale, { type: "region" }).of(region);
-    if (country) return t("shared.time.siteZone", { country, region });
+    if (country) return createWebTranslator(resolveLocale([locale])).t("shared.time.siteZone", { country, region });
   }
-  return parts.zoneName ?? zone ?? "";
+  return (name === undefined ? formatZoneName(Date.now(), zone, locale) : name) ?? "";
 }
 
-export function formatPortalClock(at: number, zone: string | null | undefined, locale: string, viewerZone?: string | null, end?: number) {
+export function formatPortalClock(at: number, zone: string | null | undefined, locale: string, viewerZone?: string | null, end?: number, timeOnly = false) {
   const clock = formatTwoClock(at, zone, viewerZone, locale);
   if (clock.kind !== "available") return null;
   const until = end === undefined ? null : formatTwoClock(end, zone, viewerZone, locale);
-  const siteEnd = until?.kind === "available" ? ` – ${until.site.date === clock.site.date ? until.site.time : until.siteTime}` : "";
-  const viewerEnd = until?.kind === "available" && until.viewerTime ? ` – ${until.viewerTime}` : "";
+  const includeSiteDate = !timeOnly || (until?.kind === "available" && until.site.date !== clock.site.date);
+  const siteEnd = until?.kind === "available" ? `–${until.site.date === clock.site.date ? until.site.time : until.siteTime}` : "";
+  let viewerEnd = "";
+  if (until?.kind === "available" && until.viewer && clock.viewer) {
+    const endDate = until.viewer.date ?? until.site.date;
+    const sameDate = endDate === (clock.viewer.date ?? clock.site.date);
+    viewerEnd = `–${sameDate ? until.viewer.time : `${endDate} · ${until.viewer.time}`}`;
+  }
   const dateTime = end === undefined ? new Date(at).toISOString() : undefined;
   return {
-    site: { value: `${clock.siteTime}${siteEnd}`, dateTime, zoneLabel: zoneLabel(zone, clock.site, locale) },
+    site: { value: `${includeSiteDate ? clock.siteTime : clock.site.time}${siteEnd}`, dateTime, zoneLabel: zoneLabel(zone, clock.site, locale) },
     viewer: clock.viewer ? { value: `${clock.viewerTime}${viewerEnd}`, dateTime, zoneLabel: zoneLabel(viewerZone, clock.viewer, locale) } : undefined,
   };
 }

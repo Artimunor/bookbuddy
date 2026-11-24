@@ -1,13 +1,12 @@
 import { emailStartRoute, opaqueLinkPathSchema, type AccountSettingsPatch, type EmailAttempt, type SessionBootstrap } from "@bookbuddy/api-contract";
-import { formatTwoClock } from "@bookbuddy/domain";
 import { createWebTranslator } from "@bookbuddy/i18n/web";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
-import { Button, Card, CodeField, SwitchRow, TextField } from "../../ui";
+import { Button, Card, CodeField, Dock, Select, SwitchRow, TextField, TwoClock } from "../../ui";
 import { usePortalAuth, useSession } from "../session";
 import { usePendingOperation } from "../session/pending-operation";
 import { PendingReceiptNotice } from "../session/pending-receipt";
-import { formatViewerTime, zoneLabel } from "../time";
+import { formatPortalClock, formatViewerTime } from "../time";
 import { authDraft, type Device } from "./flow";
 import "./styles.css";
 
@@ -113,8 +112,8 @@ export function SignIn() {
     {remaining > 0 && <p role="status">{t("web.portal.auth.rate", { time: viewerTime(locale, retryAt) })}</p>}
     {error === "uncertain" && <p role="alert">{t("web.portal.auth.uncertain")}</p>}
     {error === "unavailable" && <p role="alert">{t("web.portal.auth.unavailable")}</p>}
-    <Button type="submit" disabled={busy || offline || remaining > 0 || status === "loading"}>{pending.current ? t("web.portal.auth.check") : t("web.portal.auth.send")}</Button>
-    <Link to={`/portal/help${query}`}>{t("web.portal.auth.help")}</Link>
+    <Dock primary={{ type:"submit", label:pending.current ? t("web.portal.auth.check") : t("web.portal.auth.send"),
+      disabled:busy || offline || remaining > 0 || status === "loading" }} secondary={{ to:`/portal/help${query}`, label:t("web.portal.auth.help") }} />
   </form></Frame>;
 }
 
@@ -188,15 +187,16 @@ export function Verify() {
       <div ref={field} aria-live="polite"><CodeField label={t("web.portal.auth.code")} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
         error={wrong !== null ? t("web.portal.auth.wrong", { count: wrong }) : expired ? t("web.portal.auth.expired") : undefined} disabled={busy || !!pending.current || expired} /></div>
       <p>{left > 0 ? t("web.portal.auth.resendIn", { seconds: Math.ceil(left / 1000) }) : t("web.portal.auth.spam")}</p>
-      <button className="auth-link" type="button" disabled={busy || offline || left > 0 || !!pending.current} onClick={() => void run("resend")}>{t("web.portal.auth.resend")}</button>
+      <Button variant="text" className="self-start" disabled={busy || offline || left > 0 || !!pending.current} onClick={() => void run("resend")}>{t("web.portal.auth.resend")}</Button>
     </>}
     {issue && <p role="alert">{issue === "uncertain" ? t("web.portal.auth.uncertain") : t("web.portal.auth.unavailable")}</p>}
     {offline && <p role="status">{t("web.portal.auth.offline")}</p>}
     <Link to={`/portal/sign-in${query}`} onClick={() => { authDraft.challenge = null; }}>{t("web.portal.auth.changeEmail")}</Link>
     <Link to={`/portal/help${query}`}>{t("web.portal.auth.help")}</Link>
-    {pending.current ? <Button disabled={busy || offline} onClick={() => void run("check")}>{t("web.portal.auth.check")}</Button>
-      : locked || current.attempt.state === "locked" ? <Button disabled={busy || offline || locked} onClick={() => void run("resend")}>{t("web.portal.auth.resend")}</Button>
-        : <><p className="auth-context">{code.length !== 6 && !expired ? t("web.portal.auth.enterSix") : ""}</p><Button disabled={busy || offline || expired || code.length !== 6} onClick={() => void run("verify")}>{t("web.portal.auth.verify")}</Button></>}
+    {pending.current ? <Dock primary={{ label:t("web.portal.auth.check"), disabled:busy || offline, onClick:()=>void run("check") }} />
+      : locked || current.attempt.state === "locked" ? <Dock primary={{ label:t("web.portal.auth.resend"), disabled:busy || offline || locked, onClick:()=>void run("resend") }} />
+        : <Dock context={code.length !== 6 && !expired ? t("web.portal.auth.enterSix") : undefined}
+          primary={{ label:t("web.portal.auth.verify"), disabled:busy || offline || expired || code.length !== 6, onClick:()=>void run("verify") }} />}
   </Frame>;
 }
 
@@ -236,16 +236,17 @@ function SetupForm({ session, next, accept, locale }: { session: SessionBootstra
     command.start({ operationId: crypto.randomUUID(), expectedRevision: session.preferences.revision,
       payload: { displayName: name.trim(), readingLocale: reading || null, twoClock, displayZone: twoClock ? viewerZone ?? null : null } });
   }
-  const start = formatTwoClock(Date.UTC(2026, 10, 24, 8), "Europe/Madrid", twoClock ? viewerZone : undefined, locale);
-  const end = formatTwoClock(Date.UTC(2026, 10, 24, 9), "Europe/Madrid", twoClock ? viewerZone : undefined, locale);
+  const example = formatPortalClock(Date.UTC(2026, 10, 24, 8), "Europe/Madrid", locale, twoClock ? viewerZone : undefined, Date.UTC(2026, 10, 24, 9));
   const names = new Intl.DisplayNames([locale], { type: "language" });
   return <Frame><h1>{t("web.portal.auth.setupTitle")}</h1><form onSubmit={save}>
     <TextField label={t("web.portal.auth.name")} hint={t("web.portal.auth.nameHint")} value={name} maxLength={100} readOnly={checking || busy} onChange={(event) => setName(event.target.value)} />
-    <label className="auth-select">{t("web.portal.auth.reading")}<select value={reading} disabled={checking || busy} onChange={(event) => setReading(event.target.value)}><option value="">{t("web.portal.auth.original")}</option>{readingLanguages.map((tag) => <option key={tag} value={tag}>{names.of(tag)}</option>)}</select></label>
-    <p>{t("web.portal.auth.originalHint")}</p><Card><SwitchRow label={t("web.portal.auth.twoClock")} checked={twoClock} disabled={checking || busy} onCheckedChange={setTwoClock} />{start.kind === "available" && end.kind === "available" && <><p>{start.site.date} · {start.site.time}–{end.site.time} · {zoneLabel("Europe/Madrid", start.site, locale)}</p>{start.viewer && end.viewer && <p>{start.viewer.date && `${start.viewer.date} · `}{start.viewer.time}–{end.viewer.time} {zoneLabel(viewerZone, start.viewer, locale)}</p>}</>}</Card>
+    <Select label={t("web.portal.auth.reading")} hint={t("web.portal.auth.originalHint")} value={reading} disabled={checking || busy} onChange={(event) => setReading(event.target.value)}>
+      <option value="">{t("web.portal.auth.original")}</option>{readingLanguages.map((tag) => <option key={tag} value={tag}>{names.of(tag)}</option>)}
+    </Select>
+    <Card><div className="space-y-3"><SwitchRow label={t("web.portal.auth.twoClock")} checked={twoClock} disabled={checking || busy} onCheckedChange={setTwoClock} />{example && <TwoClock {...example} />}</div></Card>
     <p>{t("web.portal.auth.permissions")}</p>{offline && <p role="status">{t("web.portal.auth.offline")}</p>}
     {checking && <p role="status">{t("web.portal.auth.uncertain")}</p>}{command.state === "failed" && <p role="alert">{t("web.portal.auth.notSaved")}</p>}
     <PendingReceiptNotice state={command.state} />
-    <Button type="submit" disabled={busy || offline || (!checking && !name.trim())}>{checking ? t("web.portal.auth.check") : t("web.portal.auth.continue")}</Button>
+    <Dock primary={{ type:"submit", label:checking ? t("web.portal.auth.check") : t("web.portal.auth.continue"), disabled:busy || offline || (!checking && !name.trim()) }} />
   </form></Frame>;
 }

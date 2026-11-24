@@ -1,5 +1,6 @@
 import { useId, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { Link, type To } from "react-router";
+import { Glyph } from "./glyph";
 
 const buttonVariants = {
   primary: "bb-button--primary",
@@ -42,8 +43,8 @@ export function ActionLink({ children, variant = "primary", className = "", to }
 
 type ActionBarProps = {
   context?: string;
-  primary: Pick<ButtonProps, "type" | "onClick" | "form" | "disabled" | "pending"> & { label: string; live?: boolean };
-  secondary?: { label: string; onClick: NonNullable<ButtonProps["onClick"]> } | { label: string; to: To };
+  primary: ({ to: To } | Pick<ButtonProps, "type" | "onClick" | "form" | "disabled" | "pending">) & { label: string; live?: boolean };
+  secondary?: { label: string; onClick: NonNullable<ButtonProps["onClick"]>; disabled?: boolean } | { label: string; to: To };
 };
 
 export function Dock({ context, primary: { label, live, ...primary }, secondary }: ActionBarProps) {
@@ -54,8 +55,10 @@ export function Dock({ context, primary: { label, live, ...primary }, secondary 
       <div className="bb-dock-actions">
         {secondary && ("to" in secondary
           ? <ActionLink variant="text" to={secondary.to}>{secondary.label}</ActionLink>
-          : <Button variant="text" onClick={secondary.onClick}>{secondary.label}</Button>)}
-        <Button {...primary} aria-describedby={context ? contextId : undefined} variant={live ? "live" : "primary"}>{label}</Button>
+          : <Button variant="text" disabled={secondary.disabled} onClick={secondary.onClick}>{secondary.label}</Button>)}
+        {"to" in primary
+          ? <ActionLink to={primary.to} variant={live ? "live" : "primary"}>{label}</ActionLink>
+          : <Button {...primary} aria-describedby={context ? contextId : undefined} variant={live ? "live" : "primary"}>{label}</Button>}
       </div>
     </div>
   );
@@ -96,6 +99,47 @@ export type CodeFieldProps = Omit<TextFieldProps, "type" | "inputMode" | "dir" |
 export function CodeField({ length = 6, ...props }: CodeFieldProps) {
   return <LabeledInput {...props} type="text" dir="ltr" inputMode="numeric" autoComplete="one-time-code"
     maxLength={length} pattern={`[0-9]{${length}}`} data-code="true" />;
+}
+
+type SelectProps = Omit<ComponentPropsWithoutRef<"select">, "className" | "size"> & { label: string; hint?: string };
+
+export function Select({ label, hint, children, id, "aria-describedby": description, ...select }: SelectProps) {
+  const fieldId = useId();
+  const selectId = id ?? fieldId;
+  const hintId = `${fieldId}-hint`;
+  return <div className="bb-field">
+    <label htmlFor={selectId} className="text-label">{label}</label>
+    <div className="bb-select">
+      <select {...select} id={selectId} className="bb-input"
+        aria-describedby={[description, hint ? hintId : undefined].filter(Boolean).join(" ") || undefined}>{children}</select>
+      <Glyph name="chevron" />
+    </div>
+    {hint && <p id={hintId} className="text-supporting text-muted">{hint}</p>}
+  </div>;
+}
+
+type ChoiceOption<T> = { value: T; label: ReactNode; disabled?: boolean };
+type ChoiceGroupProps<T extends string> = {
+  label: string;
+  options: readonly ChoiceOption<T>[];
+  value: T | null;
+  onValueChange: (value: T) => void;
+  disabled?: boolean;
+};
+
+export function ChoiceGroup<T extends string>({ label, options, value, onValueChange, disabled }: ChoiceGroupProps<T>) {
+  const groupId = useId();
+  return <fieldset disabled={disabled} className="bb-field bb-choices">
+    <legend className="mb-2 text-label">{label}</legend>
+    {options.map(option => <label className="bb-choice" key={option.value}>
+      <input className="sr-only" type="radio" name={groupId} value={option.value}
+        checked={value === option.value} disabled={option.disabled} onChange={() => onValueChange(option.value)} />
+      <span className="bb-choice-body">
+        <span className="bb-choice-indicator" aria-hidden="true">{value === option.value && <Glyph name="check" />}</span>
+        <span className="min-w-0">{option.label}</span>
+      </span>
+    </label>)}
+  </fieldset>;
 }
 
 export type SegmentedControlProps<T extends string> = {

@@ -35,7 +35,7 @@ export function PortalShell({ identity, accountActions, nav, current, navLabel, 
         <div className="bb-portal-header-inner">
           {accountActions ? <details className="relative">
             <summary className="bb-identity cursor-pointer list-none">{person}</summary>
-            <div className="absolute start-0 top-full z-20 mt-2 min-w-44 space-y-2 rounded-xl border bg-surface p-3 shadow-lg">
+            <div className="absolute start-0 top-full z-20 mt-2 min-w-44 space-y-2 rounded-xl border border-separator bg-surface p-3">
               {identity.to && <Link className="block p-2" to={identity.to}>{nav.settings.label}</Link>}
               {accountActions}
             </div>

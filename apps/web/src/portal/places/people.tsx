@@ -1,6 +1,6 @@
 import type { PlaceDetails, PlacePersonPatch } from "@bookbuddy/api-contract";
 import { useState } from "react";
-import { Button, Dialog } from "../../ui";
+import { Button, Dialog, Select, SwitchRow } from "../../ui";
 import { usePortal } from "../now/common";
 
 type Person = PlaceDetails["people"][number];
@@ -34,14 +34,14 @@ export function PlacePersonDialog({ person, place, busy, close, save }: {
     closeLabel={t("web.portal.work.close")}
     footer={<Button disabled={disabled} onClick={() => save(patch)}>{t("web.portal.ps.confirmPermissions")}</Button>}>
     <fieldset disabled={busy} className="space-y-3">
-      <legend>{t("web.portal.ps.personPermissions")}</legend>
-      <label className="block"><input type="checkbox" checked={view} disabled={person.isOwner || message || approve} onChange={event => setView(event.target.checked)} /> {t("web.portal.ps.personView")}</label>
-      <label className="block"><input type="checkbox" checked={message} disabled={!view} onChange={event => setMessage(event.target.checked)} /> {t("web.portal.ps.personMessage")}</label>
-      <label className="block"><input type="checkbox" checked={approve} disabled={!place.actions.changeApprover || !view || !canView} onChange={event => setApprove(event.target.checked)} /> {t("web.portal.ps.personApprove")}</label>
-      {needsSuccessor && <label className="block">{t("web.portal.ps.changeApprover")} <select value={successor} onChange={event => setSuccessor(event.target.value)}>
+      <legend className="text-label">{t("web.portal.ps.personPermissions")}</legend>
+      <SwitchRow label={t("web.portal.ps.personView")} checked={view} disabled={person.isOwner || message || approve} onCheckedChange={setView} />
+      <SwitchRow label={t("web.portal.ps.personMessage")} checked={message} disabled={!view} onCheckedChange={setMessage} />
+      <SwitchRow label={t("web.portal.ps.personApprove")} checked={approve} disabled={!place.actions.changeApprover || !view || !canView} onCheckedChange={setApprove} />
+      {needsSuccessor && <Select label={t("web.portal.ps.changeApprover")} value={successor} onChange={event => setSuccessor(event.target.value)}>
         <option value="">{t("web.portal.ps.choosePerson")}</option>
         {replacements.map(other => <option key={other.accountId} value={other.accountId}>{other.displayName}</option>)}
-      </select></label>}
+      </Select>}
     </fieldset>
     {(needsSuccessor || (approve && !person.isNamedApprover)) && <p>{t("web.portal.ps.verifiedApprover")}</p>}
     {nextApprover && <p>{t("web.portal.ps.approverEffect", { name: nextApprover.displayName })}</p>}
