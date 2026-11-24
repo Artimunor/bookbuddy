@@ -554,11 +554,12 @@ export class ScopedRepository {
         ...(existingStage && { stage_id: existingStage }) }, { order: ["created_at", "attachment_id"] });
       const stageId = existingStage ?? rows.at(-1)?.stage_id ?? mediaStageIdSchema.parse(this.newId());
       if (!fitsDraft(caller, rows.filter((row) => row.stage_id === stageId).map((row) => decodeTransfer(row).file), item.file)) return null;
+      const capturedAt = this.now();
       const next: MediaTransfer = {
-        ...item, stageId, state: "queued", selected: false, started: false, generation: null,
+        ...item, stageId, capturedAt, state: "queued", selected: false, started: false, generation: null,
         probe: null, settlement: null, completedParts: [], terminal: false,
       };
-      await db.put(mediaTransfers, { ...this.partition, ...encodeTransfer(next), created_at: this.now() });
+      await db.put(mediaTransfers, { ...this.partition, ...encodeTransfer(next), created_at: capturedAt });
       return next;
     });
     if (transfer) this.notify("media");

@@ -72,8 +72,10 @@ test("grants and settles a same-stage batch once, deleting files only after read
 });
 
 test("an unknown PUT survives a new runner and recovers the same stage and generation before sending bytes", async () => {
-  const { mobile, repository: repo, database } = await testRepository();
+  const { mobile, repository: repo, database, clock } = await testRepository();
   const id = await staged(repo, "unknown-photo");
+  const capturedAt = clock.now;
+  clock.now += 750;
   const events: string[] = [];
   const files: TransferFiles = {
     size: () => photo.bytes,
@@ -101,7 +103,7 @@ test("an unknown PUT survives a new runner and recovers the same stage and gener
   }, files, () => true, () => 1_000);
   await resumed.kick();
   expect(events).toEqual(["grant", "put:unknown", "recover", "erase"]);
-  expect((await restored.listMediaTransfers())[0]).toMatchObject({ state: "ready", fileUri: null });
+  expect((await restored.listMediaTransfers())[0]).toMatchObject({ state: "ready", fileUri: null, capturedAt });
   database.close();
 });
 

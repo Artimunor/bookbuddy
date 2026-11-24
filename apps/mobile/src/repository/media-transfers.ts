@@ -12,16 +12,16 @@ type MediaTransferColumns = {
   value: string;
 };
 
-export function decodeTransfer(row: MediaTransferColumns): MediaTransfer {
+export function decodeTransfer(row: MediaTransferColumns & { created_at: number }): MediaTransfer {
   return {
     ...JSON.parse(row.value) as MediaTransferValue,
     attachmentId: row.attachment_id, stageId: row.stage_id, caller: row.caller, parentScopeId: row.parent_scope_id,
-    state: row.state, selected: row.selected === 1, fileUri: row.file_uri,
+    state: row.state, selected: row.selected === 1, fileUri: row.file_uri, capturedAt: row.created_at,
   };
 }
 
 export function encodeTransfer(transfer: MediaTransfer): MediaTransferColumns {
-  const { attachmentId, stageId, caller, parentScopeId, state, selected, fileUri, ...value } = transfer;
+  const { attachmentId, stageId, caller, parentScopeId, state, selected, fileUri, capturedAt: _capturedAt, ...value } = transfer;
   return {
     attachment_id: attachmentId, stage_id: stageId, caller, parent_scope_id: parentScopeId,
     state, selected: selected ? 1 : 0, file_uri: fileUri, value: JSON.stringify(value),

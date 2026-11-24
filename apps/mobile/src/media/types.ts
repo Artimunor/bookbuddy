@@ -23,9 +23,11 @@ export type MediaTransfer = MediaScope & TransferProgress & {
   attachmentId: AttachmentId;
   stageId: MediaStageId;
   operationId: OperationId;
+  /** Local staging time, not capture metadata from the picked file. */
+  readonly capturedAt?: number;
   file: MediaFile;
 };
-export type NewMediaTransfer = Omit<MediaTransfer, keyof TransferProgress | "stageId"> & {
+export type NewMediaTransfer = Omit<MediaTransfer, keyof TransferProgress | "stageId" | "capturedAt"> & {
   fileUri: string;
   stageId?: MediaStageId;
 };
