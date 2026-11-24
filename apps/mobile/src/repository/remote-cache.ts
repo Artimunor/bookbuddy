@@ -25,7 +25,7 @@ const job = {
   ...heading, journey, state: true, place: { placeId: true }, nextVisit: window, finalAt: true, providerName: true, live: true,
   nextStep: action, assignment, handoff: { handoffId: true, state: true, policy: true, offeredAt: true, expiresAt: true, endedAt: true },
 } as const;
-const offer = { offerId: true, kind: true, town: true, skill: true, briefingLanguage: true, siteZone: true, window: span,
+const offer = { offerId: true, kind: true, gapId: true, town: true, skill: true, briefingLanguage: true, siteZone: true, window: span,
   replyBy: true, awaitingConfirmationUntil: true } as const;
 const policies = {
   home: {
@@ -50,7 +50,7 @@ const policies = {
   shift_agenda: {
     segment: true, cursor: true, hasMore: true, total: true,
     rows: {
-      kind: true, id: true, source: true, ...span, siteZone: true, areaName: true, replyBy: true, state: true,
+      kind: true, id: true, source: true, gapId: true, ...span, siteZone: true, areaName: true, replyBy: true, state: true,
       endedAt: true, outcome: true, nextAction: true,
       shift: { id: true, visitId: true, job: { id: true, reference: true, title: true }, ...span, siteZone: true, skill: true,
         briefingLanguage: true, state: true },

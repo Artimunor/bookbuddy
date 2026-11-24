@@ -1,7 +1,7 @@
 import { getHomeRoute, getJobRoute, notificationsRoute } from "@bookbuddy/api-contract";
 import { expect, test } from "bun:test";
 import { draftExpiresAfter, draftWarnAfter, snapshotWindow } from "./cache";
-import { remoteReadKey } from "./remote-cache";
+import { cacheRemoteResponse, remoteReadKey } from "./remote-cache";
 import { accountId, context, notification, page, testRepository } from "./sqlite.test-kit";
 
 const read = { kind: "notification_read_mark", payload: { ids: ["notice"] } } as const;
@@ -122,6 +122,39 @@ test("stores only allowlisted GET fields and rejects a detail route as a cache s
     expect(saved).not.toContain("drop-");
     expect(saved).not.toContain("alias");
   } finally { database.close(); }
+});
+
+test("keeps offline cover identifiers without storing offer addresses or giving ordinary offers a gap", () => {
+  const siteZone = "Europe/Lisbon";
+  const window = { startsAt: 1_500, endsAt: 2_000 };
+  const detail = { task: "not-cached", address: "not-cached", replyBy: 1_200 };
+  const homeOffer = { ...detail, town: "Lisbon", skill: "plumbing", briefingLanguage: "pt-PT",
+    siteZone, window, awaitingConfirmationUntil: null };
+  const home = cacheRemoteResponse("home", {
+    audience: "worker", unreadCount: 0, businessName: "Provider", siteZone, assignment: null, openToCoverUntil: null,
+    offers: [
+      { ...homeOffer, kind: "ordinary", offerId: "offer-1", gapId: "ignore" },
+      { ...homeOffer, kind: "cover", offerId: "offer-2", gapId: "gap-1" },
+    ],
+  });
+  const safeHomeOffer = { town: "Lisbon", skill: "plumbing", briefingLanguage: "pt-PT", siteZone, window,
+    replyBy: 1_200, awaitingConfirmationUntil: null };
+  expect(home).toMatchObject({ audience: "worker" });
+  expect(home && "offers" in home ? home.offers : null).toEqual([
+    { ...safeHomeOffer, kind: "ordinary", offerId: "offer-1" },
+    { ...safeHomeOffer, kind: "cover", offerId: "offer-2", gapId: "gap-1" },
+  ]);
+
+  const agendaRow = { kind: "offer", state: "offered", ...window, siteZone, areaName: "Lisbon", ...detail };
+  const agenda = cacheRemoteResponse("shift_agenda", { segment: "offers", cursor: null, hasMore: false, rows: [
+    { ...agendaRow, id: "offer-1", source: "ordinary", gapId: "ignore" },
+    { ...agendaRow, id: "offer-2", source: "cover", gapId: "gap-1" },
+  ] });
+  const safeAgendaRow = { kind: "offer", state: "offered", ...window, siteZone, areaName: "Lisbon", replyBy: 1_200 };
+  expect(agenda).toEqual({ segment: "offers", cursor: null, hasMore: false, rows: [
+    { ...safeAgendaRow, id: "offer-1", source: "ordinary" },
+    { ...safeAgendaRow, id: "offer-2", source: "cover", gapId: "gap-1" },
+  ] });
 });
 
 test("cached GET expiry and scope barriers cannot be bypassed by late old replies", async () => {
