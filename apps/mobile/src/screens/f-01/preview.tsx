@@ -1,0 +1,9 @@
+import { homeProjectionSchema } from "@bookbuddy/api-contract";
+import type { ScreenPreview } from "../../preview/screens/types";
+import { HomeView } from "./Screen";
+
+const home = homeProjectionSchema.parse({ audience: "foreman", unreadCount: 2, businessName: "Reformas Ruiz", siteZone: "Europe/Madrid", gaps: [], liveVisits: [{ jobId: "job1", reference: "BB-1042", title: "Terrace door repair", siteZone: "Europe/Madrid", place: { placeId: "villa", alias: "Villa Mar" }, visit: { visitId: "visit1", window: { startsAt: 1795510800000, endsAt: 1795514400000 }, step: "on_the_way", status: "on_the_way", arrival: { startsAt: 1795511400000, endsAt: 1795512000000 }, nextUpdateAt: null, source: { at: 1795510320000, by: "Mateo Ruiz" } }, customerStatus: null, crew: [{ membershipId: "mateo", displayName: "Mateo Ruiz", state: "on_the_way", at: 1795510320000, briefing: "acknowledged" }, { membershipId: "diego", displayName: "Diego Torres", state: "confirmed", at: 1795509600000, briefing: "due" }] }], laterVisits: [], needsYou: [], needsYouCount: 0 });
+if (home.audience !== "foreman") throw new Error("Invalid preview");
+const gap = homeProjectionSchema.parse({ ...home, gaps: [{ gapId: "gap1", jobId: "job1", reference: "BB-1042", title: "Terrace door repair", siteZone: "Europe/Madrid", worker: { membershipId: "nadia", displayName: "Nadia Benali" }, skill: "Door fitting", reportedAt: 1795509120000, visitStartsAt: 1795510800000, customerNotified: false }] });
+if (gap.audience !== "foreman") throw new Error("Invalid preview");
+export const previews: ScreenPreview[] = (["visit-live", "crew-gap", "quiet-day", "offline"] as const).map(state => ({ id: "F-01", state, render: () => <HomeView data={state === "offline" ? null : state === "crew-gap" ? gap : state === "quiet-day" ? { ...home, liveVisits: [] } : home} status={state === "offline" ? "offline" : "ready"} name="Mateo Ruiz" onRetry={() => {}} onNavigate={() => {}} /> }));
