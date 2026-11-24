@@ -2,9 +2,11 @@ import { requireOptionalNativeModule } from "expo-modules-core";
 import * as Notifications from "expo-notifications";
 import { uuid } from "expo";
 import { AppState, Platform } from "react-native";
+import type { ReportCardRemoval } from "../../repository/repository";
 import type { DeviceSession } from "../../session";
 import { localPreferenceStorage } from "../../i18n/storage";
 import { cardExpiry, nativeCard, type CardCopy, type StatusCardSource, type StatusCardTarget } from "./model";
+import { createCardStopJournal } from "./stop-journal";
 
 interface StatusCardsNative {
   start(id: string, payload: string): Promise<boolean>;
@@ -18,7 +20,7 @@ const bridge = Platform.OS === "ios" || Platform.OS === "android" ? requireOptio
 const preferenceKey = "bookbuddy-status-cards-v1";
 export type CardPreferences = { statusCardsEnabled: boolean; hideDetails: boolean; workerOptIn: boolean | null; coverOptIn: boolean };
 export type CardScope = { key: string; expiresAt: number; role: "customer" | "worker" | "foreman" };
-export type ActiveCard = { id: string; scopeKey: string; target: StatusCardTarget; expiresAt: number };
+export type ActiveCard = { id: string; scopeKey: string; target: StatusCardTarget; expiresAt: number; stopPending?: true };
 const defaults: CardPreferences = { statusCardsEnabled: false, hideDetails: true, workerOptIn: null, coverOptIn: false };
 let state: { preferences: CardPreferences; preferenceScope: string | null; active: ActiveCard | null } = { preferences: defaults, preferenceScope: null, active: null };
 let scope: CardScope | null | undefined;
@@ -64,6 +66,29 @@ async function persist(next: typeof state) {
   publish(next);
 }
 
+const stopJournal = createCardStopJournal<ActiveCard>((active) => persist({ ...state, active }), (id) => bridge!.stop(id));
+
+async function finishStop(card: ActiveCard) {
+  await stopJournal.finish(card);
+  applied = null;
+  armExpiry(null);
+}
+
+export function cardRemovalReporter(expected: string): ReportCardRemoval | undefined {
+  if (!bridge) return undefined;
+  return (removed) => serialize(async () => {
+    await hydrate();
+    const card = state.active;
+    if (!card || card.scopeKey !== expected || card.stopPending) return;
+    const kind = card.target.kind === "worker_shift" ? "worker_field_shift" : card.target.kind === "session" ? "session_booking" : null;
+    if (!await removed(kind, card.target.id)) return;
+    await stopJournal.mark(card);
+    // Only the durable mark is required to commit a sync page. Native work
+    // runs on the same card queue and can be retried independently.
+    void reconcileStatusCards().catch(() => undefined);
+  });
+}
+
 function armExpiry(card: ActiveCard | null) {
   clearTimeout(expiry);
   if (card) expiry = setTimeout(() => { void reconcileStatusCards().catch(() => undefined); }, Math.max(0, card.expiresAt - Date.now()));
@@ -82,15 +107,18 @@ export function setStatusCardScope(next: CardScope | null | undefined) {
 
 export function reconcileStatusCards() {
   return serialize(async () => {
-    if (!bridge || scope === undefined) return;
+    if (!bridge) return;
     try { await hydrate(); }
     catch (error) { await bridge.clear(null); throw error; }
+    const pending = state.active?.stopPending ? state.active : null;
+    if (pending) await finishStop(pending);
+    if (scope === undefined) return;
     const { active, preferenceScope } = state;
     const key = scope?.key ?? null;
     const sameScope = key === preferenceScope;
     const keep = sameScope && state.preferences.statusCardsEnabled && active && scope?.key === active.scopeKey &&
       active.expiresAt > Date.now() && active.expiresAt <= scope.expiresAt ? active : null;
-    if (await bridge.clear(keep?.id ?? null) && keep) { armExpiry(keep); return; }
+    if (!pending && await bridge.clear(keep?.id ?? null) && keep) { armExpiry(keep); return; }
     applied = null;
     armExpiry(null);
     if (active || (!sameScope && (preferenceScope !== null || state.preferences.statusCardsEnabled))) {
@@ -111,6 +139,7 @@ export function setStatusCardPreferences(prefs: Partial<CardPreferences>, expect
   return serialize(async () => {
     if (!bridge) return;
     await hydrate();
+    if (state.active?.stopPending) await finishStop(state.active);
     const key = scope?.key ?? null;
     // The internal pilot switch is device-wide; card content and role opt-ins are not.
     if ((prefs.hideDetails !== undefined || prefs.workerOptIn !== undefined || prefs.coverOptIn !== undefined) &&
@@ -168,6 +197,7 @@ export function startStatusCard(source: StatusCardSource, copy: CardCopy, expect
     if (!bridge || AppState.currentState !== "active" || !authorized(source.target, expected)) return false;
     await hydrate();
     if (!authorized(source.target, expected) || state.preferenceScope !== expected) return false;
+    if (state.active?.stopPending) return false;
     const prefs = state.preferences;
     if (!prefs.statusCardsEnabled || (source.target.kind === "foreman_cover" && !prefs.coverOptIn) || (source.target.kind === "worker_shift" && prefs.workerOptIn !== true)) return false;
     const now = Date.now();
@@ -202,7 +232,8 @@ export function startStatusCard(source: StatusCardSource, copy: CardCopy, expect
 
 async function applyRefresh(source: StatusCardSource, copy: CardCopy, expected: string | undefined) {
   const active = state.active;
-  if (!bridge || !active || active.scopeKey !== expected || active.target.kind !== source.target.kind || active.target.id !== source.target.id || !authorized(source.target, expected)) return;
+  if (!bridge || !active || active.stopPending || active.scopeKey !== expected || active.target.kind !== source.target.kind ||
+      active.target.id !== source.target.id || !authorized(source.target, expected)) return;
   const now = Date.now();
   const expiresAt = Math.min(active.expiresAt, cardExpiry(source, now, scope!.expiresAt));
   if (!source.terminal && now < expiresAt) {
@@ -222,10 +253,7 @@ async function applyRefresh(source: StatusCardSource, copy: CardCopy, expected: 
       if (AppState.currentState !== "active") return;
     }
   }
-  await bridge.stop(active.id);
-  applied = null;
-  armExpiry(null);
-  await persist({ ...state, active: null });
+  await finishStop(await stopJournal.mark(active));
 }
 
 export function refreshStatusCard(source: StatusCardSource, copy: CardCopy, expected: string | undefined) {
@@ -236,9 +264,6 @@ export function stopStatusCard(id: string, expected: string | undefined) {
   return serialize(async () => {
     const card = state.active;
     if (!bridge || !card || card.id !== id || card.scopeKey !== expected) return;
-    await bridge.stop(id);
-    applied = null;
-    armExpiry(null);
-    await persist({ ...state, active: null });
+    await finishStop(await stopJournal.mark(card));
   });
 }

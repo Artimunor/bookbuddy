@@ -103,18 +103,37 @@ test("sign-out counts uncertain receipts once and keeps or discards only the ori
   expect(await other.getDraft("request:other")).not.toBeNull();
 });
 
-test("status projections distinguish initial and paged loading from definitive scope or record removal", async () => {
+test("only definitive sync removal, completed absence or denial is journaled for a card", async () => {
   const mobile = new MobileRepository(createMemoryExecutor(), () => "id", () => 1_000, erase);
-  const repo = mobile.openScope({ accountId, contextId: "staff" }, "worker");
-  const projectionAbsent = { data: null, removed: true };
-  expect(await repo.getCardProjection("worker_field_shift", "shift")).toBeNull();
+  const stops: string[] = [];
+  let target = "shift";
+  const repo = mobile.openScope({ accountId, contextId: "staff" }, "worker", async (removed) => {
+    if (await removed("worker_field_shift", target)) stops.push(target);
+  });
   await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "reset", hasMore: true,
     removals: [{ kind: "scope", resourceId: "staff" }] }), 1_000);
-  expect(await repo.getCardProjection("worker_field_shift", "shift")).toBeNull();
+  expect(stops).toEqual([]);
+  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", upserts: [],
+    removals: [{ kind: "worker_field_shift", resourceId: "unrelated" }] }), 1_000);
+  expect(stops).toEqual([]);
   await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", upserts: [],
     removals: [{ kind: "worker_field_shift", resourceId: "shift" }] }), 1_000);
-  expect(await repo.getCardProjection("worker_field_shift", "shift")).toEqual(projectionAbsent);
-  expect(await repo.getCardProjection("worker_field_shift", "other")).toBeNull();
+  expect(stops).toEqual(["shift"]);
+  target = "absent";
+  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "reset", upserts: [] }), 1_000);
+  expect(stops).toEqual(["shift", "absent"]);
+  target = "another";
   await repo.recordSyncFailure([], true);
-  expect(await repo.getCardProjection("worker_field_shift", "other")).toEqual(projectionAbsent);
+  expect(stops).toEqual(["shift", "absent", "another"]);
+});
+
+test("a sync cursor cannot advance past a removal that has not been journaled", async () => {
+  const mobile = new MobileRepository(createMemoryExecutor(), () => "id", () => 1_000, erase);
+  const repo = mobile.openScope({ accountId, contextId: "staff" }, "worker", async (removed) => {
+    if (await removed("worker_field_shift", "shift")) throw new Error("Stop marker not saved");
+  });
+  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", cursor: "before" }), 1_000);
+  await expect(repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", cursor: "after",
+    removals: [{ kind: "worker_field_shift", resourceId: "shift" }] }), 1_000)).rejects.toThrow("Stop marker not saved");
+  expect((await repo.prepareSyncBatch()).cursor).toBe("before");
 });

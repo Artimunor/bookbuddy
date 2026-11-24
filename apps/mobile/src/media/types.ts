@@ -7,6 +7,7 @@ export type MediaScope = { caller: MediaCaller; parentScopeId: string };
 export type MediaTransferState = "queued" | "uploading" | "verifying" | "ready" | "failed";
 export type RecoveryProbe = "put" | "parts" | "completion";
 export type CompletedPart = Extract<MediaSettlement, { kind: "multipart" }>["parts"][number];
+export type MediaCancellation = { attachmentId: AttachmentId; stageId: MediaStageId; generation: number; probe: RecoveryProbe };
 
 export type TransferProgress = {
   state: MediaTransferState;

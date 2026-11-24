@@ -1,7 +1,7 @@
 import { errorBodySchema, mediaLimits, mediaStageIdSchema, operationIdSchema, submitRequestRoute, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
 import type { ActiveContext, ErrorBody, LocalePreferences, OpOutcome, OperationId, ProgressPhotoOutcome, SessionBootstrap, SubmitRequest, SyncOp, SyncPage } from "@bookbuddy/api-contract";
 import { fitsDraft } from "../media/types";
-import type { AttachmentId, MediaTransfer, NewMediaTransfer, RecoveryProbe, TransferProgress, TransferQuery } from "../media/types";
+import type { AttachmentId, MediaCancellation, MediaTransfer, NewMediaTransfer, RecoveryProbe, TransferProgress, TransferQuery } from "../media/types";
 import { offlineBootstrapIsFresh, offlineBootstrapSchema } from "../session/offline-bootstrap";
 import type { OfflineBootstrap } from "../session/offline-bootstrap";
 import { attendanceProgress } from "./attendance";
@@ -16,7 +16,7 @@ import { createMemoryExecutor } from "./memory";
 import { pendingAge, pendingHoldAfter, pendingReviewAfter } from "./pending-work";
 import { cacheRemoteResponse, decodeRemoteSnapshot } from "./remote-cache";
 import type { CachedRead, RemoteCacheKind } from "./remote-cache";
-import { attendanceReceipts, drafts, localSettings, mediaTransfers, outbox, pendingOnlineReceipts, progressReceipts, projection, stagedMedia, syncState } from "./schema";
+import { attendanceReceipts, drafts, localSettings, mediaCancellations, mediaTransfers, outbox, pendingOnlineReceipts, progressReceipts, projection, stagedMedia, syncState } from "./schema";
 import { requestReconciliations } from "./schema";
 import type { OutboxStatus, ProgressReceiptState } from "./schema";
 
@@ -63,6 +63,10 @@ function cancelMedia(item: MediaTransfer): MediaTransfer {
   return { ...item, cancelled: true, selected: false, probe: unresolvedMedia(item) };
 }
 
+function cancellationReceipt({ stageId, generation, probe }: MediaTransfer) {
+  return probe && generation !== null ? { stage_id: stageId, generation, probe } : null;
+}
+
 function transferFor(media: ProgressMedia, assignmentId: string, attachmentId: AttachmentId) {
   const row = media.get(attachmentId);
   return row?.parent_scope_id === assignmentId ? row : undefined;
@@ -101,10 +105,9 @@ export interface StagedMedia {
 export interface OnlineReceipt { operationId: string; kind: string; resourceId: string; createdAt: number }
 export interface Confirmation { confirmedAt: number; expiresAt: number }
 export type CachedRemoteSnapshot<Kind extends RemoteCacheKind> = Confirmation & { data: CachedRead<Kind> };
-export type CardProjectionKind = "worker_field_shift" | "session_booking";
-type CardProjection<Kind extends CardProjectionKind> =
-  | { data: CachedProjections[Kind]; expiresAt: number; removed: false }
-  | { data: null; removed: true };
+type CardProjectionKind = "worker_field_shift" | "session_booking";
+/** Null kind denotes a card backed by an online-only record, not a sync projection. */
+export type ReportCardRemoval = (removed: (kind: CardProjectionKind | null, id: string) => boolean | Promise<boolean>) => Promise<void>;
 export interface SyncBatch {
   cursor: string | null;
   operations: SyncOp[];
@@ -129,10 +132,10 @@ export class MobileRepository {
   constructor(private readonly db: Executor, private readonly newId: () => string, readonly now = Date.now,
     private readonly eraseMedia: EraseMedia, readonly persistentAuthoring = false) {}
 
-  openScope(scope: Scope, role?: ActiveContext["role"]) {
+  openScope(scope: Scope, role?: ActiveContext["role"], reportCardRemoval?: ReportCardRemoval) {
     const db = this.persistentAuthoring && cachePolicy(role, true) === "memory"
       ? (this.split ??= withVolatileCache(this.db, this.volatileCache ??= createMemoryExecutor())) : this.db;
-    return new ScopedRepository(db, { ...scope }, this.newId, this.now, this.eraseMedia, this.persistentAuthoring);
+    return new ScopedRepository(db, { ...scope }, this.newId, this.now, this.eraseMedia, this.persistentAuthoring, reportCardRemoval);
   }
 
   async reconcileStagedFiles(list: () => readonly string[], erase: (uris: readonly string[]) => Promise<void>): Promise<void> {
@@ -161,11 +164,12 @@ export class MobileRepository {
         let item = decodeTransfer(row);
         if (item.caller === "request" && !item.cancelled && omitted.get(JSON.stringify([row.account_id, row.context_id]))?.has(row.attachment_id)) {
           item = cancelMedia(item);
-          const { selected, value } = encodeTransfer(item);
-          await db.update(mediaTransfers, key, { selected, value });
         }
-        if (item.staging || (item.cancelled && !item.probe)) interrupted.push(key);
-        else if (item.fileUri) referenced.add(item.fileUri);
+        if (item.staging || item.cancelled) {
+          const receipt = item.cancelled && cancellationReceipt(item);
+          if (receipt) await db.put(mediaCancellations, { ...key, ...receipt });
+          interrupted.push(key);
+        } else if (item.fileUri) referenced.add(item.fileUri);
       }
       const orphaned = list().filter((uri) => !referenced.has(uri));
       if (orphaned.length) await erase(orphaned);
@@ -231,6 +235,7 @@ export class MobileRepository {
       await db.remove(progressReceipts, account);
       await db.remove(stagedMedia, account);
       await db.remove(mediaTransfers, account);
+      await db.remove(mediaCancellations, account);
       await db.remove(pendingOnlineReceipts, account);
       await db.remove(requestReconciliations, account);
     });
@@ -241,16 +246,13 @@ export class MobileRepository {
 export class ScopedRepository {
   private active = true;
   private snapshotHidden = false;
-  private snapshotComplete = false;
-  private projectionDenied = false;
-  private readonly definitivelyRemoved = new Set<string>();
   private visibility = 0;
   private readonly events = new Map<RepositoryTopic, RepositoryEvent>();
   private readonly progressReadyListeners = new Set<(ids: ReadonlySet<AttachmentId>) => void>();
   private readonly partition: { account_id: string; context_id: string };
 
   constructor(private readonly db: Executor, readonly scope: Scope, private readonly newId: () => string, readonly now: () => number,
-    private readonly eraseMedia: EraseMedia, readonly persistentAuthoring: boolean) {
+    private readonly eraseMedia: EraseMedia, readonly persistentAuthoring: boolean, private readonly reportCardRemoval?: ReportCardRemoval) {
     this.partition = { account_id: scope.accountId, context_id: scope.contextId };
   }
 
@@ -320,19 +322,6 @@ export class ScopedRepository {
       if (!confirmation) return null;
       const [row] = await db.select(projection, { ...this.partition, kind, id });
       return row && this.active && !this.snapshotHidden ? { data: JSON.parse(row.value) as CachedProjections[Kind], expiresAt: confirmation.expiresAt } : null;
-    });
-  }
-
-  getCardProjection<Kind extends CardProjectionKind>(kind: Kind, id: string): Promise<CardProjection<Kind> | null> {
-    return this.db.read(async (db) => {
-      if (!this.active) return null;
-      if (this.projectionDenied || this.definitivelyRemoved.has(`${kind}:${id}`)) return { data: null, removed: true };
-      const confirmation = await this.confirmation(db);
-      if (!confirmation) return null;
-      const [row] = await db.select(projection, { ...this.partition, kind, id });
-      if (!this.active || this.snapshotHidden) return null;
-      if (row) return { data: JSON.parse(row.value) as CachedProjections[Kind], expiresAt: confirmation.expiresAt, removed: false };
-      return this.snapshotComplete ? { data: null, removed: true } : null;
     });
   }
 
@@ -873,8 +862,6 @@ export class ScopedRepository {
     // A known denial must hide the old snapshot even when the disk write fails.
     if (hideSnapshot) {
       this.snapshotHidden = true;
-      this.projectionDenied = true;
-      this.snapshotComplete = false;
       this.visibility++;
       this.notify("projection", "attendance");
     }
@@ -883,6 +870,7 @@ export class ScopedRepository {
         ...this.partition, operation_id: { op: "in", value: newlyChecking }, status: "checking",
       }, { status: "queued" });
       if (hideSnapshot) {
+        await this.reportCardRemoval?.(() => true);
         await db.remove(projection, this.partition);
         await db.update(syncState, this.partition, { authorized_at: null, confirmed_at: null });
       }
@@ -898,19 +886,9 @@ export class ScopedRepository {
     const mayBeRevoked = barrier && page.mode === "reset" && page.upserts.length === 0 && !page.hasMore;
     if (barrier) {
       this.snapshotHidden = true;
-      this.snapshotComplete = false;
-      this.projectionDenied = mayBeRevoked;
       this.visibility++;
+      this.notify("projection", "attendance");
     }
-    let removed = false;
-    for (const { kind, resourceId } of page.removals) {
-      if (kind !== "worker_field_shift" && kind !== "session_booking") continue;
-      const key = `${kind}:${resourceId}`;
-      if (this.definitivelyRemoved.has(key)) continue;
-      this.definitivelyRemoved.add(key);
-      removed = true;
-    }
-    if (barrier || removed) this.notify("projection", "attendance");
     const progressChanged = await this.write(async (db) => {
       if (barrier) await db.remove(projection, this.partition);
       else for (const removal of page.removals) {
@@ -961,14 +939,18 @@ export class ScopedRepository {
         ...this.partition, cursor: page.cursor, confirmed_at: mayBeRevoked ? null : confirmedAt,
         authorized_at: mayBeRevoked ? null : this.now(),
       });
+      const completeSnapshot = page.mode !== "delta" && !page.hasMore;
+      if (this.reportCardRemoval && (mayBeRevoked || completeSnapshot ||
+          page.removals.some(({ kind }) => kind === "worker_field_shift" || kind === "session_booking"))) {
+        // Journal an authoritative stop before publishing a cursor that can no
+        // longer deliver the removal, including when the projection is volatile.
+        await this.reportCardRemoval(async (kind, id) => mayBeRevoked || (kind !== null &&
+          (page.removals.some((row) => row.kind === kind && row.resourceId === id) ||
+            (completeSnapshot && !await db.count(projection, { ...this.partition, kind, id })))));
+      }
       return progressChanged;
     });
     this.snapshotHidden = mayBeRevoked;
-    this.projectionDenied = mayBeRevoked;
-    if (page.mode !== "delta") this.snapshotComplete = !page.hasMore;
-    for (const row of page.upserts) {
-      if (row.kind === "worker_field_shift" || row.kind === "session_booking") this.definitivelyRemoved.delete(`${row.kind}:${row.resourceId}`);
-    }
     const shiftChanged = barrier || page.upserts.some(({ kind }) => kind === "worker_field_shift") ||
       page.removals.some(({ kind }) => kind === "worker_field_shift");
     this.notify("projection", ...(page.outcomes.length ? ["outbox", "attendance"] as const : shiftChanged ? ["attendance"] as const : []));
@@ -1004,7 +986,7 @@ export class ScopedRepository {
       const stageId = existingStage ?? rows.at(-1)?.stage_id ?? mediaStageIdSchema.parse(this.newId());
       const files = rows.filter((row) => row.stage_id === stageId).map(decodeTransfer).filter((row) => !row.cancelled).map(({ file }) => file);
       if (!fitsDraft(caller, files, item.file)) return { status: "draftLimit" };
-      if (await db.count(mediaTransfers, key)) throw new Error("An attachment ID cannot be used twice");
+      if (await db.count(mediaTransfers, key) || await db.count(mediaCancellations, key)) throw new Error("An attachment ID cannot be used twice");
       const account = { account_id: this.scope.accountId };
       let bytes = item.file.bytes;
       for (const row of await db.select(mediaTransfers, { ...account, file_uri: { op: ">", value: "" } })) {
@@ -1097,32 +1079,44 @@ export class ScopedRepository {
     });
     if (!cancelled) return false;
     this.notify("media", ...(cancelled.caller === "progress" ? ["outbox" as const] : []));
-    if (!cancelled.probe) await this.finishMediaCancellation(attachmentId, erase);
+    await this.finishMediaCancellation(attachmentId, erase);
     return true;
   }
 
-  async finishMediaCancellation(attachmentId: AttachmentId, erase: EraseMedia, recovered?: { generation: number | null; probe: RecoveryProbe }) {
+  async finishMediaCancellation(attachmentId: AttachmentId, erase: EraseMedia) {
     const changed = await this.write(async (db) => {
       const key = { ...this.partition, attachment_id: attachmentId };
       const [row] = await db.select(mediaTransfers, key);
       if (!row) return false;
       const item = decodeTransfer(row);
       if (!item.cancelled) return false;
-      if (item.probe) {
-        if (!recovered || recovered.generation !== item.generation || recovered.probe !== item.probe) return false;
-        const { value } = encodeTransfer({ ...item, probe: null, settlement: null });
-        await db.update(mediaTransfers, key, { value });
-      }
-      // A failed deletion retains its locator and byte reservation, but a
-      // successful recovery never needs to contact the server a second time.
+      // The locator still owns bytes if local deletion fails. Never make
+      // deletion or release of this reservation depend on remote authority.
       if (row.file_uri) {
         try { await erase(row.file_uri); } catch { return false; }
       }
+      const receipt = cancellationReceipt(item);
+      if (receipt) await db.put(mediaCancellations, { ...key, ...receipt });
       await db.remove(mediaTransfers, key);
       return true;
     });
     if (changed) this.notify("media");
     return changed;
+  }
+
+  listMediaCancellations(): Promise<MediaCancellation[]> {
+    return this.db.read(async (db) => {
+      if (!this.active) return [];
+      const rows = await db.select(mediaCancellations, this.partition);
+      return this.active ? rows.map(({ attachment_id, stage_id, generation, probe }) =>
+        ({ attachmentId: attachment_id, stageId: stage_id, generation, probe })) : [];
+    });
+  }
+
+  acknowledgeMediaCancellation({ attachmentId, stageId, generation, probe }: MediaCancellation) {
+    return this.write((db) => db.remove(mediaCancellations, {
+      ...this.partition, attachment_id: attachmentId, stage_id: stageId, generation, probe,
+    }));
   }
 
   getOnlineReceipt(kind: string, resourceId: string): Promise<OnlineReceipt | null> {

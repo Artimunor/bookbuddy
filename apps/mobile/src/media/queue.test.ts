@@ -239,7 +239,7 @@ test("removal while a grant is in flight fences off the first PUT", async () => 
   } finally { grant.resolve(); queue.stop(); database.close(); }
 });
 
-test("durable cancellation during a PUT recovers the known generation before deleting local bytes", async () => {
+test("durable cancellation during a PUT erases bytes before recovery, even if recovery is denied", async () => {
   const { repository: repo, mobile, database } = await testRepository();
   const id = await staged(repo, "cancel-during-put");
   const events: string[] = [];
@@ -263,27 +263,37 @@ test("durable cancellation during a PUT recovers the known generation before del
     await entered.promise;
     expect(await queue.remove(id)).toBeTrue();
     expect(await repo.listMediaTransfers()).toEqual([]);
-    expect((await repo.listMediaTransfers({}, true))[0]).toMatchObject({ cancelled: true, selected: false, generation: 3, probe: "put" });
-    expect(events).toEqual(["grant", "put"]);
+    const receipt = { attachmentId: id, stageId, generation: 3, probe: "put" };
+    expect(await repo.listMediaTransfers({}, true)).toEqual([]);
+    expect(await repo.listMediaCancellations()).toEqual([receipt]);
+    expect(database.query("SELECT * FROM media_transfers").all()).toEqual([]);
+    expect(events).toEqual(["grant", "put", "erase"]);
     queue.stop();
     put.resolve();
     await draining;
     repo.close();
     const reopened = mobile.openScope(repo.scope);
+    let mayRecover = false;
     const restored = new MediaQueue(reopened, {
       async createGrants() { throw new Error("Never grant a cancelled item"); },
       async settle() { throw new Error("Never settle a cancelled item"); },
       async recover(body) {
         events.push("recover");
         expect(body).toEqual({ stageId, files: [{ attachmentId: id, uploadGeneration: 3, unknown: "put" }] });
+        if (!mayRecover) return { ok: false, error: { code: "NOT_FOUND" } };
         return ok({ stageId, files: [{ attachmentId: id, uploadGeneration: 3, state: "uploading",
           transfer: { kind: "single", object: "missing" } }] });
       },
     }, files, () => true, () => 1_000);
     await restored.kick();
-    expect(events).toEqual(["grant", "put", "recover", "erase"]);
-    expect(await reopened.listMediaTransfers({}, true)).toEqual([]);
+    expect(events).toEqual(["grant", "put", "erase", "recover"]);
     expect(await reopened.countStagedMedia()).toBe(0);
+    expect(await reopened.listMediaCancellations()).toEqual([receipt]);
+    expect(await mobile.openScope({ ...repo.scope, accountId: "different-account" }).listMediaCancellations()).toEqual([]);
+    mayRecover = true;
+    await restored.kick();
+    expect(events).toEqual(["grant", "put", "erase", "recover", "recover"]);
+    expect(await reopened.listMediaCancellations()).toEqual([]);
   } finally { put.resolve(); queue.stop(); database.close(); }
 });
 

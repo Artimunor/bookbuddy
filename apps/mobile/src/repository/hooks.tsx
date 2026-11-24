@@ -9,7 +9,6 @@ import { draftExpiresAfter, snapshotWindow } from "./cache";
 import type { CachedProjections, ProjectionKind } from "./cache";
 import type { RemoteCacheKind } from "./remote-cache";
 import type { Draft, DraftKey, DraftValue, NewOperation, OutboxEntry, PendingDraft, ProgressReceipt, ProjectionQuery, RepositoryTopic, Scope, ScopedRepository } from "./repository";
-import type { CardProjectionKind } from "./repository";
 
 const RepositoryContext = createContext<ScopedRepository | null>(null);
 const empty: readonly never[] = [];
@@ -79,12 +78,6 @@ export function useCachedRead<Kind extends RemoteCacheKind>(kind: Kind | undefin
 export function useProjection<Kind extends ProjectionKind>(kind: Kind, id: string): CachedProjections[Kind] | null {
   const result = useRead("projection", useCallback((repo: ScopedRepository) => repo.getProjection(kind, id), [kind, id]));
   return useSnapshotVisible(result?.expiresAt) ? result?.data ?? null : null;
-}
-
-export function useCardProjection<Kind extends CardProjectionKind>(kind: Kind, id: string) {
-  const result = useRead("projection", useCallback((repo: ScopedRepository) => repo.getCardProjection(kind, id), [kind, id]));
-  const visible = useSnapshotVisible(result?.removed === false ? result.expiresAt : undefined);
-  return { data: visible ? result?.data ?? null : null, removed: result?.removed === true };
 }
 
 export function useProjectionList<Kind extends ProjectionKind>(kind: Kind, { afterId, limit }: ProjectionQuery = {}): readonly CachedProjections[Kind][] {

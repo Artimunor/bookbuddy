@@ -24,14 +24,11 @@ export async function eraseStagedFile(uri: string) {
   if (staged.exists) staged.delete();
 }
 
-let ephemeralCleared = false;
 export function clearEphemeralStagedFiles() {
-  if (ephemeralCleared) return;
   for (const uri of listStagedFiles(false)) {
     const file = new File(uri);
     if (file.exists) file.delete();
   }
-  ephemeralCleared = true;
 }
 
 export function prepareLocalMediaFile(uri: string, attachmentId: AttachmentId, mime: string, limit: number, persistent: boolean): PreparedMedia | null {

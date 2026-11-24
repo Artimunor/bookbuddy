@@ -5,7 +5,7 @@ import { useRemote } from "../../api";
 import { useApiAccess } from "../../api/provider";
 import { remoteRequestKey } from "../../api/requests";
 import { useLocale, useT } from "../../i18n";
-import { useAttendanceStatus, useCardProjection, useRepository } from "../../repository/hooks";
+import { useAttendanceStatus, useProjection, useRepository } from "../../repository/hooks";
 import { useSession } from "../../session";
 import { cardScope, getStatusCards, reconcileStatusCards, refreshStatusCard, setStatusCardPreferences, setStatusCardScope, startStatusCard, stopStatusCard, subscribeStatusCards, type ActiveCard, type CardPreferences } from "./controller";
 import { coverCardSource, sessionCardSource, shiftCardSource, visitCardSource, type StatusCardSource } from "./model";
@@ -49,7 +49,7 @@ export function useStatusCards() {
   const stop = useCallback((id: string) => stopStatusCard(id, key), [key]);
   const changePreferences = useCallback((patch: Partial<CardPreferences>) => setStatusCardPreferences(patch, key), [key]);
   const scopedPreferences = preferenceScope === (key ?? null) ? preferences : { ...preferences, hideDetails: true, workerOptIn: null, coverOptIn: false };
-  return { preferences: scopedPreferences, active: active?.scopeKey === key ? active : null, start, startSessionCard, refresh, stop, changePreferences };
+  return { preferences: scopedPreferences, active: active && !active.stopPending && active.scopeKey === key ? active : null, start, startSessionCard, refresh, stop, changePreferences };
 }
 
 export function StatusCardHost() {
@@ -64,7 +64,7 @@ export function StatusCardHost() {
     const focus = Platform.OS === "android" ? AppState.addEventListener("focus", onActive) : null;
     return () => { change.remove(); focus?.remove(); };
   }, []);
-  if (!preferences.statusCardsEnabled || !active || active.scopeKey !== context?.key) return null;
+  if (!preferences.statusCardsEnabled || !active || active.stopPending || active.scopeKey !== context?.key) return null;
   switch (active.target.kind) {
     case "customer_visit": return <VisitStatus key={active.id} card={active} />;
     case "worker_shift": return <ShiftStatus key={active.id} card={active} />;
@@ -96,12 +96,12 @@ function VisitStatus({ card }: { card: ActiveCard }) {
 
 function SessionStatus({ card }: { card: ActiveCard }) {
   const read = useRemote(getSessionBookingRoute, { params: { id: card.target.id } }, { loadOnMount: false });
-  const { data: synced, removed } = useCardProjection("session_booking", card.target.id);
+  const synced = useProjection("session_booking", card.target.id);
   const seen = useRef<typeof synced>(null);
   const { refresh, stop } = useStatusCards();
   const foreground = useForeground();
   useEffect(() => {
-    if (removed || (synced && (synced.state !== "booked" || Date.now() >= synced.slotEnd)) ||
+    if ((synced && (synced.state !== "booked" || Date.now() >= synced.slotEnd)) ||
         read.error?.code === "NOT_FOUND" || read.error?.code === "UNAUTHENTICATED") {
       void stop(card.id).catch(() => undefined);
       return;
@@ -114,20 +114,20 @@ function SessionStatus({ card }: { card: ActiveCard }) {
     // A sync-host change lacks confirmation provenance: reconcile it in one authorised read.
     if (changed || read.status === "idle") { void read.refresh(); return; }
     if (read.status === "ready") void refresh(sessionCardSource(read.data)).catch(() => undefined);
-  }, [foreground, card.id, read.status, read.data, read.error, read.refresh, synced, removed, refresh, stop]);
+  }, [foreground, card.id, read.status, read.data, read.error, read.refresh, synced, refresh, stop]);
   return null;
 }
 
 function ShiftStatus({ card }: { card: ActiveCard }) {
-  const { data: shift, removed } = useCardProjection("worker_field_shift", card.target.id);
+  const shift = useProjection("worker_field_shift", card.target.id);
   const { arrival, departure, lastConfirmedAt } = useAttendanceStatus(card.target.id);
   const { refresh, stop } = useStatusCards();
   const foreground = useForeground();
   useEffect(() => {
-    if (removed || (departure && ["saved_on_device", "checking", "sent", "recorded"].includes(departure.status))) {
+    if (departure && ["saved_on_device", "checking", "sent", "recorded"].includes(departure.status)) {
       void stop(card.id).catch(() => undefined);
     } else if (foreground && shift) void refresh(shiftCardSource(shift, { arrival, departure, lastConfirmedAt })).catch(() => undefined);
-  }, [foreground, card.id, shift, removed, arrival, departure, lastConfirmedAt, refresh, stop]);
+  }, [foreground, card.id, shift, arrival, departure, lastConfirmedAt, refresh, stop]);
   return null;
 }
 

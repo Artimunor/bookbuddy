@@ -123,9 +123,11 @@ test("reserves account bytes before copying across contexts and frees them only 
     expect(final.map(({ status }) => status).sort()).toEqual(["staged", "storageFull"]);
     expect(copies).toBe(1);
     expect((await other.createMediaTransfer(photo("other-account-asset"), copy)).status).toBe("staged");
+    await repo.updateMediaTransfer(first.attachmentId, () => ({ selected: true, started: true, state: "verifying", generation: 1, probe: "put" }));
     await repo.removeMediaTransfer(first.attachmentId, async () => { throw new Error("Staged file is busy"); });
     expect((await sibling.createMediaTransfer(photo("still-full"), copy)).status).toBe("storageFull");
     expect(await repo.finishMediaCancellation(first.attachmentId, async () => {})).toBeTrue();
+    expect(await repo.listMediaCancellations()).toMatchObject([{ attachmentId: first.attachmentId, generation: 1, probe: "put" }]);
     expect((await sibling.createMediaTransfer(photo("space-freed"), copy)).status).toBe("staged");
     expect(copies).toBe(3);
   } finally { database.close(); }
@@ -143,13 +145,14 @@ test("startup erases orphaned and interrupted copies without touching other acco
     await other.createMediaTransfer(foreign, () => {});
     for (const item of [unknown, partial, discarded]) await repo.createMediaTransfer(item, () => {});
     await repo.updateMediaTransfer(unknown.attachmentId, () => ({ selected: true, started: true, state: "verifying", generation: 5, probe: "put" }));
-    await repo.updateMediaTransfer(discarded.attachmentId, () => ({ selected: true, started: true, state: "uploading" }));
+    await repo.updateMediaTransfer(discarded.attachmentId, () => ({ selected: true, started: true, state: "verifying", generation: 6, probe: "put" }));
     await repo.saveDraft("request:abandoned", { omittedMedia: [discarded.attachmentId] });
     database.query("UPDATE media_transfers SET value = json_set(value, '$.staging', json('true')) WHERE attachment_id = ?").run(partial.attachmentId);
     const files = new Set([orphan, unknown.fileUri, foreign.fileUri, partial.fileUri, discarded.fileUri]);
     await mobile.reconcileStagedFiles(() => [...files], async (paths) => { for (const uri of paths) files.delete(uri); });
     expect([...files]).toEqual([unknown.fileUri, foreign.fileUri]);
     expect(await repo.listMediaTransfers({}, true)).toMatchObject([{ attachmentId: unknown.attachmentId, probe: "put", generation: 5 }]);
+    expect(await repo.listMediaCancellations()).toMatchObject([{ attachmentId: discarded.attachmentId, generation: 6, probe: "put" }]);
     expect(await other.countStagedMedia()).toBe(1);
     expect(await repo.countStagedMedia()).toBe(1);
   } finally { database.close(); }

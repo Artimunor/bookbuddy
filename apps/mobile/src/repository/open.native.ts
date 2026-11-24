@@ -6,6 +6,7 @@ import { openDatabaseAsync } from "expo-sqlite";
 import { Platform } from "react-native";
 import { clearEphemeralStagedFiles, eraseStagedFile, listStagedFiles } from "../media/files.native";
 import { createMemoryExecutor } from "./memory";
+import { createRepositoryAccess } from "./open-policy";
 import { MobileRepository } from "./repository";
 import { createSqliteExecutor } from "./sqlite";
 
@@ -13,7 +14,6 @@ const databaseName = "bookbuddy.sqlite";
 const keyName = "bookbuddy.sqlite-key.v1";
 let opening: Promise<MobileRepository> | undefined;
 let memory: MobileRepository | undefined;
-let unlocked = false;
 
 async function open() {
   const directory = new Directory(Paths.document, "BookBuddyOffline");
@@ -54,32 +54,22 @@ function openPersistentRepository(): Promise<MobileRepository> {
 
 function openMemoryRepository(): MobileRepository {
   if (!memory) {
-    clearEphemeralStagedFiles();
     memory = new MobileRepository(createMemoryExecutor(), uuid.v4, Date.now, eraseStagedFile);
   }
   return memory;
 }
 
-export async function openMobileRepository(promptMessage: string): Promise<MobileRepository> {
-  if (!unlocked) {
-    try {
-      const enrolled = await getEnrolledLevelAsync();
-      if (enrolled === SecurityLevel.NONE) return openMemoryRepository();
-      const directory = new Directory(Paths.document, "BookBuddyOffline");
-      if (new File(directory, databaseName).exists &&
-          !(await authenticateAsync({ promptMessage, disableDeviceFallback: false })).success) return openMemoryRepository();
-    } catch {
-      return openMemoryRepository();
-    }
-    unlocked = true;
-  }
-  return openPersistentRepository();
-}
-
-// Resume disposal after a crash without exposing a repository scope or cached data to the UI.
-export async function openSignOutRepository(persistent: boolean): Promise<MobileRepository> {
-  return persistent ? openPersistentRepository() : openMemoryRepository();
-}
+const access = createRepositoryAccess({
+  eligible: async () => await getEnrolledLevelAsync() !== SecurityLevel.NONE,
+  existing: () => new File(new Directory(Paths.document, "BookBuddyOffline"), databaseName).exists,
+  authenticate: async (promptMessage) => (await authenticateAsync({ promptMessage, disableDeviceFallback: false })).success,
+  sweepEphemeral: clearEphemeralStagedFiles,
+  persistent: openPersistentRepository,
+  memory: openMemoryRepository,
+});
+export const openMobileRepository = access.open;
+export const lockMobileRepository = access.lock;
+export const openSignOutRepository = access.openForSignOut;
 
 export async function removeStagedFiles(uris: readonly string[]) {
   for (const uri of uris) await eraseStagedFile(uri);

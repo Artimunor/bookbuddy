@@ -8,23 +8,21 @@ import { AppState } from "react-native";
 import { useApiAccess } from "../api/provider";
 import { serialize } from "../repository/executor";
 import { RepositoryProvider } from "../repository/hooks";
-import { openMobileRepository, openSignOutRepository, removeStagedFiles } from "../repository/open";
-import type { DevicePreferences, MobileRepository, PendingWork, ScopedRepository } from "../repository/repository";
+import { lockMobileRepository, openMobileRepository, openSignOutRepository, removeStagedFiles } from "../repository/open";
+import type { MobileRepository, PendingWork, ScopedRepository } from "../repository/repository";
 import { SyncProvider } from "../sync/provider";
 import { SyncRunner } from "../sync/runner";
 import { disablePushForSignedOutAccount, lockPushForSignedOutAccount } from "../system/push";
+import { cardRemovalReporter, cardScope } from "../system/status-cards/controller";
+import { expireOfflineView, readUnlockedSession, sessionView, watchBackgroundLock } from "./lifecycle";
+import type { SessionView } from "./lifecycle";
 import { contextSummarySchema, offlineWindow, projectOfflineBootstrap } from "./offline-bootstrap";
-import type { OfflineBootstrap } from "./offline-bootstrap";
 import { beginSignOut, parseStoredSession, settleSignOut } from "./sign-out";
-import type { ActiveSession, DeviceSession, Disposition, SignOutProgress } from "./sign-out";
+import type { ActiveSession, Disposition, SignOutProgress } from "./sign-out";
 import { sessionStorage } from "./storage";
 
-interface SessionState {
+interface SessionState extends SessionView {
   status: "loading" | "ready" | "storage_error";
-  session: DeviceSession | null;
-  bootstrap: SessionBootstrap | null;
-  offlineBootstrap: OfflineBootstrap | null;
-  preferences: DevicePreferences | null;
 }
 export interface SessionAccess extends SessionState {
   acceptBootstrap: (bootstrap: SessionBootstrap, credential?: string) => Promise<void>;
@@ -42,10 +40,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const { bindSession, client, connection, cookieSession, getConnection, locale } = useApiAccess();
   const [state, setState] = useState<SessionState>(initialState);
   const [scope, setScope] = useState<ScopedRepository | null>(null);
+  const [viewGeneration, setViewGeneration] = useState(0);
   const [schedule] = useState(serialize);
   const repo = useRef<MobileRepository | null>(null);
   const activeScope = useRef<ScopedRepository | null>(null);
+  const scopeSessionId = useRef<string | null>(null);
   const current = useRef<ActiveSession | null>(null);
+  const locked = useRef<ActiveSession | null>(null);
   const confirmed = useRef(false);
   const ending = useRef<SignOutProgress | null>(null);
   const endingFlight = useRef<Promise<void> | null>(null);
@@ -60,10 +61,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return api ? sync(api, request, { signal }) : Promise.resolve({ ok: false, error: { code: "REQUEST_SETUP_FAILED", delivery: "not_sent" } });
   }));
 
-  const repository = useCallback(async () => {
+  const repository = useCallback(async (requirePersistent = false) => {
     if (!repo.current) {
       const prompt = createMobileTranslator(promptLocale.current).t("mobile.you.unlockOfflineWork");
-      repo.current = await openMobileRepository(prompt);
+      repo.current = await openMobileRepository(prompt, requirePersistent);
     }
     return repo.current;
   }, []);
@@ -72,25 +73,40 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const previous = activeScope.current;
     if (!previous) return;
     activeScope.current = null;
+    scopeSessionId.current = null;
     previous.close();
     runner.cancel(previous);
     setScope(null);
   }, [runner]);
 
-  const adopt = useCallback((record: ActiveSession | null, session: DeviceSession | null, bootstrap: SessionBootstrap | null, offlineBootstrap: OfflineBootstrap | null) => {
+  const adopt = useCallback((record: ActiveSession | null, view: SessionView = signedOut) => {
+    const { session, preferences } = view;
     const context = session?.activeContext;
-    if (activeScope.current?.scope.accountId !== session?.accountId || activeScope.current?.scope.contextId !== context?.contextId) {
+    if (scopeSessionId.current !== (session?.sessionId ?? null) || activeScope.current?.scope.accountId !== session?.accountId ||
+        activeScope.current?.scope.contextId !== context?.contextId) {
       closeScope();
       if (repo.current && session && context) {
-        const opened = repo.current.openScope({ accountId: session.accountId, contextId: context.contextId }, context.role);
+        const card = cardScope(session);
+        const opened = repo.current.openScope({ accountId: session.accountId, contextId: context.contextId }, context.role,
+          card ? cardRemovalReporter(card.key) : undefined);
         activeScope.current = opened;
+        scopeSessionId.current = session.sessionId;
         setScope(opened);
       }
     }
-    const preferences = bootstrap?.preferences ?? offlineBootstrap?.preferences ?? null;
     bindSession(session ? record?.credential ?? null : null, session?.sessionId ?? null, preferences?.uiLocale ?? null, context?.contextId ?? null);
-    setState({ status: "ready", session, bootstrap, offlineBootstrap, preferences });
+    setState({ ...view, status: "ready" });
   }, [bindSession, closeScope]);
+
+  const restoreStored = useCallback(async (stored: ActiveSession, live: () => boolean, requirePersistent = false) => {
+    const restored = await readUnlockedSession(stored, () => repository(requirePersistent));
+    if (!live()) return;
+    if (!restored) { adopt(null); return; }
+    const { record, cached } = restored;
+    current.current = record;
+    if (cached) adopt(record, sessionView({ ...record.session, activeContext: cached.activeContext }, null, cached));
+    else adopt(null);
+  }, [adopt, repository]);
 
   const applyBootstrap = useCallback(async (bootstrap: SessionBootstrap, generation: number, credential?: string) => {
     if (ending.current || epoch.current !== generation) throw new Error("The local session is locked");
@@ -105,7 +121,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       && sessionRevocationProofSchema.safeParse(proof).success;
     if (!valid || expiresAt <= Date.now()) throw new Error("A valid session for this transport is required");
     const db = await repository();
-    if (ending.current || epoch.current !== generation) throw new Error("The local session is locked");
+    if (!db || ending.current || epoch.current !== generation) throw new Error("The local session is locked");
     const offlineBootstrap = projectOfflineBootstrap(bootstrap, Date.now());
     if (offlineBootstrap) await db.saveOfflineBootstrap(account.id, offlineBootstrap);
     if (ending.current || epoch.current !== generation) throw new Error("The local session is locked");
@@ -116,8 +132,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (encoded !== JSON.stringify(previous)) await sessionStorage.save(encoded);
     if (ending.current || epoch.current !== generation) throw new Error("The local session is locked");
     current.current = record;
+    locked.current = null;
     confirmed.current = true;
-    adopt(record, session, { ...fields, account, activeContext, sessionId, setup, expiresAt }, offlineBootstrap);
+    adopt(record, sessionView(session, { ...fields, account, activeContext, sessionId, setup, expiresAt }, offlineBootstrap));
   }, [adopt, cookieSession, repository]);
 
   const acceptBootstrap = useCallback((bootstrap: SessionBootstrap, credential?: string) => {
@@ -175,7 +192,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const { sessionId, accountId, activeContext, expiresAt } = record.session;
       if (expiresAt <= Date.now()) {
         current.current = null;
-        adopt(null, null, null, null);
+        adopt(null);
         await schedule(() => sessionStorage.remove());
         return;
       }
@@ -189,13 +206,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
         if (result.ok || result.error.code === "UNAUTHENTICATED" || result.error.code === "NOT_FOUND") {
           current.current = null;
-          adopt(null, null, null, null);
+          adopt(null);
           await sessionStorage.remove();
           await repo.current?.sealAccount(accountId);
-        } else if (!activeScope.current) adopt(null, null, null, null);
+        } else if (!activeScope.current) adopt(null);
       });
-    }).catch(() => { if (!abort.signal.aborted && !ending.current && !activeScope.current) adopt(null, null, null, null); })
-      .finally(() => { restoreFlight.current = null; restoreAbort.current = null; });
+    }).catch(() => { if (!abort.signal.aborted && !ending.current && !activeScope.current) adopt(null); })
+      .finally(() => {
+        if (restoreAbort.current === abort) {
+          restoreFlight.current = null;
+          restoreAbort.current = null;
+        }
+      });
     restoreFlight.current = flight;
     return flight;
   }, [adopt, applyBootstrap, bindSession, getConnection, schedule]);
@@ -215,29 +237,55 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         ending.current = { intent: stored, persisted: true };
         lockPushForSignedOutAccount(stored.accountId);
       } else if (stored && stored.session.expiresAt > Date.now()) {
-        const { accountId, sessionId, activeContext } = stored.session;
-        const db = await repository();
-        if (!live) return;
-        current.current = stored;
-        const cached = activeContext && await db.getOfflineBootstrap(accountId, sessionId, activeContext.contextId);
-        if (!live) return;
-        if (cached && cached.activeContext.role === activeContext?.role) {
-          adopt(stored, { ...stored.session, activeContext: cached.activeContext }, null, cached);
-          return;
-        }
+        const generation = epoch.current;
+        await restoreStored(stored, () => live && epoch.current === generation);
+        return;
       } else if (stored) await sessionStorage.remove();
-      if (live) adopt(null, null, null, null);
+      if (live) adopt(null);
     }).then(() => { if (live) resume(); }, () => { if (live) setState({ ...signedOut, status: "storage_error" }); });
     return () => { live = false; closeScope(); };
-  }, [adopt, closeScope, cookieSession, repository, resume, schedule]);
+  }, [adopt, closeScope, cookieSession, restoreStored, resume, schedule]);
 
   useEffect(() => {
     if (!connection.offline && inForeground()) resume();
   }, [connection.offline, resume]);
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", (next) => { if (next === "active") resume(); });
-    return () => subscription.remove();
-  }, [resume]);
+    let live = true;
+    const lock = watchBackgroundLock(() => {
+      lockMobileRepository();
+      if (!repo.current?.persistentAuthoring) return;
+      repo.current = null;
+      if (ending.current) return;
+      locked.current = current.current;
+      current.current = null;
+      confirmed.current = false;
+      epoch.current++;
+      restoreAbort.current?.abort();
+      restoreAbort.current = null;
+      restoreFlight.current = null;
+      adopt(null);
+      setViewGeneration((value) => value + 1);
+    });
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next === "background") lock.background();
+      if (next !== "active") return;
+      lock.foreground();
+      const stored = locked.current;
+      if (!stored) { resume(); return; }
+      // Try only once per foreground entry. A cancelled prompt cannot
+      // be retried by reconnects or rebind the saved bearer.
+      locked.current = null;
+      const generation = epoch.current;
+      const valid = () => live && !ending.current && epoch.current === generation && !current.current;
+      void schedule(async () => {
+        if (!valid()) return;
+        if (stored.session.expiresAt <= Date.now()) { await sessionStorage.remove(); return; }
+        await restoreStored(stored, valid, true);
+      }).then(() => { if (live) resume(); }, () => { if (valid()) setState({ ...signedOut, status: "storage_error" }); });
+    });
+    if (AppState.currentState === "background") lock.background();
+    return () => { live = false; lock.dispose(); subscription.remove(); };
+  }, [adopt, restoreStored, resume, schedule]);
 
   useEffect(() => {
     const session = state.session;
@@ -253,13 +301,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         current.current = null;
         confirmed.current = false;
         epoch.current++;
-        adopt(null, null, null, null);
+        adopt(null);
         void schedule(() => sessionStorage.remove()).catch(() => setState({ ...signedOut, status: "storage_error" }));
         return;
       }
       if (offlineExpiry !== null && offlineExpiry <= now) {
-        if (confirmed.current) setState((previous) => ({ ...previous, offlineBootstrap: null }));
-        else adopt(null, null, null, null);
+        const record = current.current;
+        if (record?.session.sessionId !== session.sessionId || ending.current) return;
+        adopt(record, expireOfflineView(confirmed.current ? session : null));
+        setViewGeneration((value) => value + 1);
+        confirmed.current = false;
+        void refreshSession();
         return;
       }
       timer = setTimeout(check, Math.min(Math.min(offlineExpiry ?? Infinity, session.expiresAt) - now, 2 ** 31 - 1));
@@ -267,7 +319,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     check();
     const subscription = AppState.addEventListener("change", (next) => { if (next === "active") check(); });
     return () => { clearTimeout(timer); subscription.remove(); };
-  }, [state.session, state.offlineBootstrap, adopt, schedule]);
+  }, [state.session, state.offlineBootstrap, adopt, refreshSession, schedule]);
 
   const inspectPendingWork = useCallback(async () => {
     const account = current.current?.session.accountId;
@@ -285,7 +337,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     current.current = null;
     confirmed.current = false;
     lockPushForSignedOutAccount(record.session.accountId);
-    adopt(null, null, null, null);
+    adopt(null);
     return advanceEnding();
   }, [adopt, advanceEnding]);
 
@@ -294,7 +346,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [state, connection.offline, acceptBootstrap, refreshSession, inspectPendingWork, signOut]);
   return (
     <SessionContext.Provider value={access}>
-      <RepositoryProvider repository={scope}>
+      {/* Paged lists and forms can retain private data outside the repository hooks. */}
+      <RepositoryProvider key={viewGeneration} repository={scope}>
         <SyncProvider runner={client ? runner : null} repository={scope}>{children}</SyncProvider>
       </RepositoryProvider>
     </SessionContext.Provider>

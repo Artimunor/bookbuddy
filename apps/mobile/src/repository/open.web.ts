@@ -5,9 +5,11 @@ import { MobileRepository } from "./repository";
 
 let repository: MobileRepository | undefined;
 
-export async function openMobileRepository(_promptMessage: string): Promise<MobileRepository> {
-  return repository ??= new MobileRepository(createMemoryExecutor(), uuid.v4, Date.now, transferFiles.erase);
+export async function openMobileRepository(_promptMessage: string, requirePersistent = false): Promise<MobileRepository | null> {
+  return requirePersistent ? null : repository ??= new MobileRepository(createMemoryExecutor(), uuid.v4, Date.now, transferFiles.erase);
 }
+
+export function lockMobileRepository() { /* The preview only opens a volatile store. */ }
 
 export async function openSignOutRepository(_persistent: boolean): Promise<MobileRepository> {
   return repository ??= new MobileRepository(createMemoryExecutor(), uuid.v4, Date.now, transferFiles.erase);
