@@ -12,6 +12,7 @@ import { accessClock, at, currentCheck, displayName, eligibilityCutoff, eligibil
 import { randomToken } from "../auth/crypto";
 import { liveContextPredicate } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
+import { workerFieldShiftChangeRows } from "../field/attendance";
 import { currentMembership, memberJson } from "../jobs/projections";
 import { foreman, jobOpen } from "../schedule/policy";
 import { crewAvailabilityKind, workerAgendaKind } from "../schedule/projections";
@@ -390,12 +391,13 @@ function noticeWrites(access: SessionAccess, guard: CommandStatement, kind: keyo
 function coverSignals(access: SessionAccess, workerWhere: string, options?: { notices?: CommandStatement; assignment?: string }) {
   const { notices, assignment } = options ?? {};
   const source = notices ? `, cover_notices AS MATERIALIZED (${notices.sql})` : "";
+  const fieldSource = assignment ? `, confirmed_worker_changes AS MATERIALIZED (${workerFieldShiftChangeRows("SELECT ? AS id")})` : "";
   const noticeChanges = notices ? ` UNION ALL SELECT 'notification', notice_id, context_id, 'upsert', ${at} FROM cover_notices` : "";
-  const crewChanges = assignment ? ` UNION ALL SELECT '${crewAvailabilityKind}', a.worker_membership_id, c.id, 'upsert', ${at}
-    FROM assignments a JOIN membership_roles r ON r.membership_id = a.worker_membership_id AND r.role = 'worker' AND r.revoked_at IS NULL
-    JOIN account_contexts c ON c.role_grant_id = r.id WHERE a.id = ?` : "";
+  const crewChanges = assignment ? ` UNION ALL SELECT kind, resource_id, partition_key, op, at FROM confirmed_worker_changes
+    UNION ALL SELECT '${crewAvailabilityKind}', a.worker_membership_id, field.partition_key, field.op, field.at
+    FROM confirmed_worker_changes field JOIN assignments a ON a.id = field.resource_id` : "";
   return {
-    changes: scopedStatement(access, `${source} ${changedCover(workerWhere)}${noticeChanges}${crewChanges}`,
+    changes: scopedStatement(access, `${source}${fieldSource} ${changedCover(workerWhere)}${noticeChanges}${crewChanges}`,
       ...notices?.params ?? [], ...assignment ? [assignment] : []),
     effects: notices && scopedStatement(access, `${source} SELECT 'push-' || notice_id AS id, 'notification_push' AS kind,
       'notification_push:' || notice_id AS dedupe_key, notice_id AS resource_ref, ${at} AS due_at, expires_at FROM cover_notices`,
