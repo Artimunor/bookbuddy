@@ -22,7 +22,7 @@ export type LiveCapsuleProps = {
   provenance: string;
   /** A single sentence with state, time and zone, and provenance. */
   accessibilityLabel: string;
-  line?: JobLineStage & Pick<JobLineProps, "accessibilityLabel" | "compact" | "status">;
+  line?: JobLineStage & Pick<JobLineProps, "accessibilityLabel" | "compact" | "hideEstimateLabel" | "status">;
   /** Five session stages with the same rail, semantics and motion as the visit line. */
   sessionLine?: Pick<Extract<JobLineStage, { kind: "visit" }>, "steps" | "current"> & Pick<JobLineProps, "accessibilityLabel" | "status">;
   crew?: CrewDotsProps;
@@ -47,6 +47,7 @@ export function LiveCapsule({
     : state === "noUpdateSince" || state === "quiet" || state === "paused" || state === "coverBeingArranged" ? "quiet"
     : "live";
   const pill = size === "pill";
+  const card = size === "card";
   const lineSurface = field ? "fieldCapsule" : "capsule";
   const accent = activity === "live" || activity === "upcoming" ? polarity.accent : polarity.text.color;
   const baseStyle = [polarity.surface, {
@@ -77,7 +78,8 @@ export function LiveCapsule({
       </View>
       <View style={{ gap: space.grid[1] }}>
         <View style={[styles.row, { gap: space.grid[2] }]}>
-          <Text style={[time ? type.label : size === "hero" ? type.display : type.sectionTitle, { color: time ? accent : polarity.text.color }, styles.fill]}>{stateLabel}</Text>
+          <Text style={[card ? type.pageTitle : time ? type.label : type.display, { color: card || !time ? polarity.text.color : accent }, styles.fill]}>{stateLabel}</Text>
+          {card && !!time && <DirectedText dir="ltr" style={[type.label, native.tabularNumbers, { color: accent }, styles.trailing]}>{time}</DirectedText>}
           {estimate && (activity === "live" || sessionLine) && (
             <Text style={[type.supporting, native.tabularNumbers, styles.estimate, {
               backgroundColor: field ? color.onLive : color.nightLine,
@@ -86,7 +88,7 @@ export function LiveCapsule({
             }]}>{estimate}</Text>
           )}
         </View>
-        {time && <DirectedText dir="ltr" style={[size === "hero" ? type.display : type.sectionTitle, native.tabularNumbers, polarity.text, styles.leading]}>{time}</DirectedText>}
+        {!card && !!time && <DirectedText dir="ltr" style={[type.display, native.tabularNumbers, polarity.text, styles.leading]}>{time}</DirectedText>}
         {zoneLine && <Text style={[type.supporting, native.tabularNumbers, polarity.supportingText]}>{zoneLine}</Text>}
       </View>
       {sessionLine ? <JobLine kind="visit" {...sessionLine} pulse={pulse} surface={lineSurface} activity={activity} />

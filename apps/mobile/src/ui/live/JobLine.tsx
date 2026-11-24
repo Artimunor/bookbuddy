@@ -19,6 +19,8 @@ export type JobLineProps = JobLineStage & {
   pulse?: boolean;
   /** Glance surfaces may omit labels when they show the state separately. */
   compact?: boolean;
+  /** Keep the estimate in accessibilityLabel when it is already visible alongside the rail. */
+  hideEstimateLabel?: boolean;
   surface?: "neutral" | "capsule" | "fieldCapsule";
 };
 
@@ -27,7 +29,7 @@ const gap = native.spacing.grid[1];
 const railOffset = (metrics.currentRingSize - metrics.railThickness) / 2;
 
 export function JobLine({
-  steps, current, estimate, accessibilityLabel, status, activity = "live", pulse: animate = true, compact = false, surface = "neutral",
+  steps, current, estimate, accessibilityLabel, status, activity = "live", pulse: animate = true, compact = false, hideEstimateLabel = false, surface = "neutral",
 }: JobLineProps) {
   const { scheme, color, type, motion, space } = useBeaconTheme();
   const palette = native.jobLineColors[scheme][surface];
@@ -133,7 +135,7 @@ export function JobLine({
             ))}
           </View>
         )}
-        {live && estimate && <Text style={[type.caption, { color: palette.label }]}>{estimate.label}</Text>}
+        {live && estimate && !hideEstimateLabel && <Text style={[type.caption, { color: palette.label }]}>{estimate.label}</Text>}
         {status && <Text style={[type.supporting, { color: palette.label }]}>{status.label}</Text>}
       </View>
     </View>
