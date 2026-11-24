@@ -1,5 +1,6 @@
 import {
   changeSessionHostRoute, getSessionBookingFeedbackRoute, getSessionHostOffersRoute, getSessionRosterRoute, operationIdHeader,
+  listBusinessSessionsRoute,
   publishSessionRoute, recordSessionAttendanceRoute, replyToSessionHostOfferRoute, updateSessionRosterRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
@@ -14,7 +15,7 @@ import { boundedBody, scheduleOperationSignals, transportFailure, transportSucce
 import { recordSessionAttendance } from "./attendance";
 import {
   changeSessionHost, publishSession, readProviderSessionRoster, readSessionBookingFeedback, readSessionHostOffers,
-  replyToSessionHostOffer, updateSessionRoster,
+  readBusinessSessions, replyToSessionHostOffer, updateSessionRoster,
 } from "./hosting";
 import type { HostingResult } from "./hosting";
 
@@ -58,6 +59,7 @@ function command<Input extends { body: { operationId: string } }>(route: Definit
   });
 }
 
+get(listBusinessSessionsRoute, readBusinessSessions);
 get(getSessionRosterRoute, readProviderSessionRoster);
 get(getSessionBookingFeedbackRoute, readSessionBookingFeedback);
 get(getSessionHostOffersRoute, readSessionHostOffers);

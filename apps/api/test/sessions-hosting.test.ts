@@ -1,14 +1,14 @@
 import { expect, spyOn, test } from "bun:test";
 import {
   changeSessionHostRoute, getSessionBookingFeedbackRoute, getSessionHostOffersRoute, getSessionRosterRoute, operationIdHeader,
-  publishSessionRoute, recordSessionAttendanceRoute, replyToSessionHostOfferRoute, resultSchema, updateSessionRosterRoute,
+  listBusinessSessionsRoute, publishSessionRoute, recordSessionAttendanceRoute, replyToSessionHostOfferRoute, resultSchema,
+  updateSessionRosterRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
-import { Hono } from "hono";
-import type { ApiEnv, Bindings } from "../src/bindings";
+import { createApp } from "../src/app";
+import type { Bindings } from "../src/bindings";
 import { randomToken } from "../src/modules/auth/crypto";
 import { hashSessionCredential } from "../src/modules/auth/session";
-import { sessionsHostingRoutes } from "../src/modules/sessions/routes.hosting";
 import { createTestD1 } from "./d1";
 
 const now = Date.UTC(2026, 10, 24, 8);
@@ -30,10 +30,7 @@ const listing = {
 
 async function fixture(enabled = true) {
   const db = await createTestD1();
-  const app = new Hono<ApiEnv>();
-  app.onError((error) => { throw error; });
-  app.use("*", (c, next) => { c.set("requestId", "hosting-test"); return next(); });
-  app.route("/api/v1", sessionsHostingRoutes);
+  const app = createApp().onError((error) => { throw error; });
   const tokens = new Map((Object.keys(roles) as Actor[]).map((actor) => [actor, randomToken()]));
   const credentials = await Promise.all([...tokens].map(async ([actor, token]) => [actor, await hashSessionCredential(token)] as const));
   const wakes: string[][] = [];
@@ -83,13 +80,14 @@ async function fixture(enabled = true) {
   const clockMock = spyOn(Date, "now").mockImplementation(() => clock);
   let serial = 0;
   async function call<Schema extends ResponseSchema>(actor: Actor, route: { method: string; path: string; output: Schema },
-    options: { payload?: object; expectedRevision?: number; query?: Record<string, string>; operationId?: string } = {}) {
+    options: { payload?: object; expectedRevision?: number; query?: Record<string, string>; operationId?: string; businessId?: string } = {}) {
     const search = options.query ? `?${new URLSearchParams(options.query)}` : "";
     const command = options.payload === undefined ? undefined : {
       operationId: options.operationId ?? `hosting-${++serial}`, payload: options.payload, expectedRevision: options.expectedRevision,
     };
     const { batch, query } = db.calls;
-    const response = await app.request(`https://bookbuddy.test/api/v1${route.path.replace(":id", "listing")}${search}`, {
+    const path = route.path.replace(":id", "listing").replace(":b", options.businessId ?? "studio");
+    const response = await app.request(`https://bookbuddy.test/api/v1${path}${search}`, {
       method: route.method, headers: { Authorization: `Bearer ${tokens.get(actor)}`, "Content-Type": "application/json",
         ...(command ? { [operationIdHeader]: command.operationId } : {}) }, body: command ? JSON.stringify(command) : undefined,
     }, env, execution);
@@ -137,6 +135,58 @@ function data<T>({ status, result }: { status: number; result: { ok: true; data:
 
 const notFound = { status: 404, result: { ok: false, error: { code: "NOT_FOUND" } } };
 const conflict = { status: 409, result: { ok: false, error: { code: "CONFLICT" } } };
+
+test("business session discovery pages only enabled listings and respects coordinator assignments", async () => {
+  const f = await fixture(false);
+  try {
+    await f.db.prepare("INSERT INTO feature_flags VALUES ('sessions', 'area2:pilates', 1, 1)").run();
+    expect(await f.call("admin", listBusinessSessionsRoute)).toMatchObject(notFound);
+    await f.db.prepare("INSERT INTO feature_flags VALUES ('sessions', 'area:pilates', 1, 1)").run();
+    expect(data(await f.call("admin", listBusinessSessionsRoute))).toEqual({ sessions: [], page: { cursor: null, hasMore: false } });
+    expect(await f.call("outsider", listBusinessSessionsRoute)).toMatchObject(notFound);
+    expect(await f.call("admin", listBusinessSessionsRoute, { businessId: "outside" })).toMatchObject(notFound);
+    expect(await f.call("original", listBusinessSessionsRoute)).toMatchObject(notFound);
+
+    const draft = data(await f.call("admin", publishSessionRoute, { payload: listing }));
+    await f.publish("morning");
+    data(await f.call("admin", publishSessionRoute, {
+      payload: { ...listing, listingVersionId: "v2", title: "Pilates edited" }, expectedRevision: draft.revision,
+    }));
+    data(await f.call("admin", publishSessionRoute, { payload: {
+      ...f.slotDraft("other-draft", start + 60 * minute), listingVersionId: "v2", coordinatorMembershipId: "otherCoordinator-member",
+    } }));
+    await f.db.batch([
+      f.db.prepare(`WITH RECURSIVE copies(n) AS (VALUES (1) UNION ALL SELECT n + 1 FROM copies WHERE n < 50)
+        INSERT INTO session_listings (id, business_id, category) SELECT printf('listing-%02d', n), 'studio', 'pilates' FROM copies
+        UNION ALL SELECT 'hidden-listing', 'studio', 'coaching'`),
+      f.db.prepare(`INSERT INTO session_listing_versions (id, listing_id, business_id, no, venue_id, title, description,
+        original_locale, language, format, duration_ms, price_minor, currency, price_basis, terms_text, terms_locale, terms_hash,
+        cancellation_notice_ms, created_by_id, created_at)
+        SELECT 'draft-' || l.id, l.id, l.business_id, 1, v.venue_id, v.title, v.description, v.original_locale, v.language, v.format,
+          v.duration_ms, v.price_minor, v.currency, v.price_basis, v.terms_text, v.terms_locale, v.terms_hash, 0, v.created_by_id, v.created_at
+        FROM session_listings l JOIN session_listing_versions v ON v.id = 'v1' WHERE l.id <> 'listing'`),
+    ]);
+    const first = data(await f.call("admin", listBusinessSessionsRoute));
+    expect(first.sessions).toHaveLength(50);
+    expect(first.sessions[0]).toMatchObject({
+      id: "listing", version: { id: "v2", no: 2, title: "Pilates edited", venue: { id: "venue" } },
+      nextSlots: [
+        { id: "morning", listingVersionId: "v1", siteZone: "Europe/Madrid", state: "published" },
+        { id: "other-draft", listingVersionId: "v2", siteZone: "Europe/Madrid", state: "draft" },
+      ],
+    });
+    expect(first.sessions[0]?.version).not.toHaveProperty("terms");
+    expect(first.page).toEqual({ cursor: "pilates~listing-49", hasMore: true });
+    const second = data(await f.call("admin", listBusinessSessionsRoute, { query: { cursor: first.page.cursor! } }));
+    expect(second.sessions).toMatchObject([{ id: "listing-50", nextSlots: [] }]);
+    expect(second.page).toEqual({ cursor: null, hasMore: false });
+    expect(data(await f.call("coordinator", listBusinessSessionsRoute)).sessions).toMatchObject([
+      { id: "listing", version: { id: "v1" }, nextSlots: [{ id: "morning" }] },
+    ]);
+    await f.db.prepare("UPDATE feature_flags SET enabled = 0 WHERE scope_key = 'area:pilates'").run();
+    expect(await f.call("admin", listBusinessSessionsRoute)).toMatchObject(notFound);
+  } finally { f.close(); }
+});
 
 test("sessions flag defaults off for provider writes and reads", async () => {
   const f = await fixture(false);

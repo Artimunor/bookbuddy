@@ -1,7 +1,7 @@
-import { idSchema, timestampSchema } from "@bookbuddy/api-contract";
+import { idSchema, sessionCategorySchema, timestampSchema } from "@bookbuddy/api-contract";
 import type {
   RouteResponse, changeSessionHostRoute, getSessionBookingFeedbackRoute, getSessionHostOffersRoute, getSessionRosterRoute,
-  getSessionRoute, publishSessionRoute, replyToSessionHostOfferRoute, updateSessionRosterRoute,
+  getSessionRoute, listBusinessSessionsRoute, publishSessionRoute, replyToSessionHostOfferRoute, updateSessionRosterRoute,
 } from "@bookbuddy/api-contract";
 import { SESSION_PAYMENT_METHOD, SESSIONS_FEATURE_FLAG } from "@bookbuddy/domain";
 import type { SessionCommitment } from "@bookbuddy/domain";
@@ -54,20 +54,21 @@ const reservedPlaces = (slotId: string) => `coalesce((SELECT sum(b.places) FROM 
   WHERE p.proposed_slot_id = ${slotId} AND p.booked_slot_id <> ${slotId} AND p.state = 'pending' AND p.respond_by > ${at}), 0)`;
 const committedPlaces = (slotId: string) => `${heldPlaces(slotId)} + ${bookedPlaces(slotId)} + ${reservedPlaces(slotId)}`;
 
-function versionValue(v: string, venue: string) {
-  return `json_object('id', ${v}.id, 'no', ${v}.no, 'title', ${v}.title, 'description', ${v}.description,
-    'originalLocale', ${v}.original_locale, 'language', ${v}.language, 'format', ${v}.format, 'durationMs', ${v}.duration_ms,
+function versionValue(v: string, venue: string, detail = true) {
+  const venueDetail = detail ? `, 'accessNote', ${venue}.access_note, 'address', ${venue}.address, 'arrivalNote', ${venue}.arrival_note` : "";
+  const terms = detail ? `, 'description', ${v}.description, 'originalLocale', ${v}.original_locale,
     'hostGuaranteed', ${boolean(`${v}.guaranteed_host_membership_id IS NOT NULL`)},
     'guaranteedHostMembershipId', ${v}.guaranteed_host_membership_id,
-    'venue', json_object('id', ${venue}.id, 'name', ${venue}.name, 'locality', ${venue}.locality, 'siteZone', ${venue}.site_zone,
-      'accessNote', ${venue}.access_note, 'address', ${venue}.address, 'arrivalNote', ${venue}.arrival_note),
-    'price', json_object('currency', ${v}.currency, 'unitMinor', ${v}.price_minor, 'basis', ${v}.price_basis,
-      'paymentMethod', '${SESSION_PAYMENT_METHOD}'),
     'terms', json_object('text', ${v}.terms_text, 'locale', ${v}.terms_locale, 'hash', ${v}.terms_hash,
-      'cancellationNoticeMs', ${v}.cancellation_notice_ms))`;
+      'cancellationNoticeMs', ${v}.cancellation_notice_ms)` : "";
+  return `json_object('id', ${v}.id, 'no', ${v}.no, 'title', ${v}.title,
+    'language', ${v}.language, 'format', ${v}.format, 'durationMs', ${v}.duration_ms,
+    'venue', json_object('id', ${venue}.id, 'name', ${venue}.name, 'locality', ${venue}.locality, 'siteZone', ${venue}.site_zone${venueDetail}),
+    'price', json_object('currency', ${v}.currency, 'unitMinor', ${v}.price_minor, 'basis', ${v}.price_basis,
+      'paymentMethod', '${SESSION_PAYMENT_METHOD}')${terms})`;
 }
 
-function slotValue(sl: string) {
+function slotValue(sl: string, includeSiteZone = false) {
   return `(WITH occupancy(held, booked, reserved) AS MATERIALIZED (
     SELECT ${heldPlaces(`${sl}.id`)}, ${bookedPlaces(`${sl}.id`)}, ${reservedPlaces(`${sl}.id`)}
   ) SELECT json_object('id', ${sl}.id, 'listingVersionId', ${sl}.listing_version_id,
@@ -78,7 +79,8 @@ function slotValue(sl: string) {
     'day', json((SELECT json_object('stage', ${sl}.day_stage, 'at', ${sl}.stage_at, 'byName', ${displayName("stage_actor")})
       FROM accounts stage_actor WHERE stage_actor.id = ${sl}.stage_by_id)),
     'coordinator', json((SELECT json_object('membershipId', m.id, 'name', ${displayName("a")})
-      FROM memberships m JOIN accounts a ON a.id = m.account_id WHERE m.id = ${sl}.coordinator_membership_id)))
+      FROM memberships m JOIN accounts a ON a.id = m.account_id WHERE m.id = ${sl}.coordinator_membership_id))
+    ${includeSiteZone ? `, 'siteZone', ${sl}.site_zone` : ""})
   FROM occupancy occ)`;
 }
 
@@ -199,6 +201,51 @@ function rosterProjection(cursor: string | null): CommandStatement {
 
 function scopedValue(access: SessionAccess, value: CommandStatement): CommandStatement {
   return scopedStatement(access, `SELECT (${value.sql}) AS value FROM acting_session`, ...value.params ?? []);
+}
+
+// An allowed empty worklist exists only if at least one category is on in the business's market or an owned venue's market.
+const marketEnabled = (area: string) => `EXISTS (SELECT 1 FROM feature_flags category_flag
+  WHERE category_flag.key = '${SESSIONS_FEATURE_FLAG}' AND category_flag.enabled = 1
+    AND category_flag.scope_key >= ${area} || ':' AND category_flag.scope_key < ${area} || ';')`;
+
+export function readBusinessSessions(session: SessionAccess, now: number,
+  { params, query }: RouteResponse<typeof listBusinessSessionsRoute.input>): CommandStatement | null {
+  const cursor = query?.cursor?.split("~");
+  if (cursor && (cursor.length !== 2 || !sessionCategorySchema.safeParse(cursor[0]).success || !idSchema.safeParse(cursor[1]).success)) return null;
+  return scopedValue(accessClock(session, now), { sql: `
+    WITH business_scope AS MATERIALIZED (
+      SELECT b.id, b.public_name, scope.role = 'provider_admin' AS is_admin, ${currentMembership("scope", at)} AS member_id
+      FROM live_scope scope JOIN businesses b ON b.id = scope.business_id AND b.id = ? AND b.state = 'approved'
+      WHERE scope.role IN ('provider_admin', 'foreman') AND (${marketEnabled("b.catchment_id")} OR EXISTS (
+        SELECT 1 FROM venues owned WHERE owned.business_id = b.id AND ${marketEnabled("owned.area_id")}))
+    ), listing_page AS MATERIALIZED (
+      SELECT l.id AS listing_id, l.category, l.revision, l.business_id, b.public_name, b.is_admin, b.member_id,
+        v.id, v.no, v.venue_id, v.title, v.language, v.format, v.duration_ms, v.price_minor, v.currency, v.price_basis
+      FROM business_scope b JOIN session_listings l ON l.business_id = b.id
+      JOIN session_listing_versions v ON v.id = (
+        SELECT candidate.id FROM session_listing_versions candidate JOIN venues site ON site.id = candidate.venue_id
+        WHERE candidate.listing_id = l.id AND ${enabled("site.area_id", "l.category")} AND (b.is_admin OR EXISTS (
+          SELECT 1 FROM session_slots assigned WHERE assigned.listing_id = l.id AND assigned.listing_version_id = candidate.id
+            AND assigned.coordinator_membership_id = b.member_id))
+        ORDER BY candidate.no DESC LIMIT 1)
+      WHERE b.member_id IS NOT NULL ${cursor ? "AND (l.category, l.id) > (?, ?)" : ""}
+      ORDER BY l.category, l.id LIMIT ${pageSize + 1}
+    )
+    SELECT json_object('sessions', json((SELECT json_group_array(json(value)) FROM (
+      SELECT json_object('id', l.listing_id, 'category', l.category, 'revision', l.revision,
+        'provider', json_object('id', l.business_id, 'name', l.public_name), 'version', ${versionValue("l", "venue", false)},
+        'nextSlots', json((SELECT json_group_array(json(${slotValue("sl", true)})) FROM (
+          SELECT upcoming.*, slot_venue.site_zone FROM session_slots upcoming
+          JOIN session_listing_versions slot_version ON slot_version.id = upcoming.listing_version_id
+          JOIN venues slot_venue ON slot_venue.id = slot_version.venue_id
+          WHERE upcoming.listing_id = l.listing_id AND upcoming.ends_at > ${at}
+            AND upcoming.state IN ('draft', 'published', 'paused') AND (l.is_admin OR upcoming.coordinator_membership_id = l.member_id)
+            AND ${enabled("slot_venue.area_id", "l.category")}
+          ORDER BY upcoming.starts_at, upcoming.id LIMIT 3
+        ) sl))) AS value
+      FROM listing_page l JOIN venues venue ON venue.id = l.venue_id ORDER BY l.category, l.listing_id LIMIT ${pageSize}
+    ))), 'page', json(${pageValue("listing_page", "category || '~' || listing_id", "category, listing_id")}))
+    FROM business_scope WHERE member_id IS NOT NULL`, params: [params.b, ...cursor ?? []] });
 }
 
 export function readProviderSessionRoster(session: SessionAccess, now: number,

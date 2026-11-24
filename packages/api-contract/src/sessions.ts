@@ -140,6 +140,12 @@ export const providerSessionDetailSchema = z.strictObject({
   slots: z.array(providerSlot).max(100), page: paginationSchema, roster: providerSessionRosterSchema.nullable(),
   actions: z.strictObject({ publish: z.boolean(), roster: z.boolean(), changeHost: z.boolean(), recordAttendance: z.boolean() }),
 });
+export const providerSessionCardSchema = z.strictObject({
+  ...listing, revision: revisionSchema,
+  version: versionCard.extend({ no: positive, venue: venueSummary.omit({ accessNote: true }) }),
+  nextSlots: z.array(providerSlot.extend({ siteZone })).max(3),
+});
+export type ProviderSessionCard = z.output<typeof providerSessionCardSchema>;
 const rosterQuery = z.strictObject({ slotId: sessionSlotIdSchema, cursor: cursorSchema.optional() });
 const workerHostOffer = z.strictObject({
   id: sessionHostAssignmentIdSchema, slotId: sessionSlotIdSchema, slotRevision: revisionSchema,
@@ -208,6 +214,14 @@ export const respondToSessionChangeRoute = sessionCommand("/session-bookings/:id
   decision: z.enum(["accept", "decline"]),
 }), customerSessionBookingSchema);
 
+export const listBusinessSessionsRoute = defineSessionRoute({
+  method: "GET", path: "/businesses/:b/sessions", auth: "context",
+  input: z.strictObject({
+    params: z.strictObject({ b: businessIdSchema }),
+    query: z.strictObject({ cursor: cursorSchema.optional() }).optional(),
+  }),
+  output: z.strictObject({ sessions: z.array(providerSessionCardSchema).max(50), page: paginationSchema }),
+});
 export const getSessionRosterRoute = defineSessionRoute({
   method: "GET", path: "/sessions/:id/roster", auth: "context",
   input: z.strictObject({ params: listingParams, query: rosterQuery }), output: providerSessionRosterSchema,
