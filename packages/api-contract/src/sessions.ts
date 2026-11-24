@@ -35,6 +35,7 @@ const listingParams = z.strictObject({ id: sessionListingIdSchema });
 const bookingParams = z.strictObject({ id: sessionBookingIdSchema });
 const holdParams = z.strictObject({ id: sessionHoldIdSchema });
 const slotTime = { startsAt: timestampSchema, endsAt: timestampSchema };
+const queryTimestamp = z.union([timestampSchema, z.string().regex(/^-?\d{1,16}$/).transform(Number).pipe(timestampSchema)]);
 
 const provider = z.strictObject({ id: businessIdSchema, name: display });
 const listing = { id: sessionListingIdSchema, provider, category: sessionCategorySchema };
@@ -162,7 +163,12 @@ function sessionCommand<const Path extends `/${string}`, Params extends z.ZodTyp
 
 export const listSessionsRoute = defineSessionRoute({
   method: "GET", path: "/sessions", auth: "context",
-  input: z.strictObject({ query: z.strictObject({ areaId, locality: display.optional(), category: sessionCategorySchema.optional(), cursor: cursorSchema.optional() }) }),
+  input: z.strictObject({ query: z.strictObject({
+    areaId, locality: display.optional(), category: sessionCategorySchema.optional(),
+    startsFrom: queryTimestamp.optional(), startsBefore: queryTimestamp.optional(),
+    language: localeTagSchema.optional(), cursor: cursorSchema.optional(),
+  }).refine(({ startsFrom, startsBefore }) => startsFrom === undefined || startsBefore === undefined || startsFrom < startsBefore,
+    { path: ["startsBefore"] }) }),
   output: z.strictObject({ categories: z.array(sessionCategorySchema), sessions: z.array(customerSessionCardSchema).max(100), page: paginationSchema }),
 });
 export const getSessionRoute = defineSessionRoute({

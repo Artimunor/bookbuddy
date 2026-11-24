@@ -13,3 +13,4 @@ export * from "./media";
 export * from "./aftercare";
 export * from "./chat";
 export * from "./live";
+export * from "./sessions";

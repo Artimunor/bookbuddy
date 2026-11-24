@@ -10,6 +10,7 @@ import { jobDetailSchema } from "./jobs";
 import { placeDetailsSchema } from "./places";
 import { defineRoute } from "./route";
 import { crewAvailabilitySchema } from "./schedule";
+import { customerSessionBookingSchema } from "./sessions";
 import { coverViewSchema, workerAssignmentOfferSchema } from "./staffing";
 
 export const opaqueLinkRoute = "/l/:token";
@@ -60,9 +61,10 @@ export const linkOpeningSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("cover"), cover: coverViewSchema }),
   z.object({ kind: z.literal("assignment_offer"), offer: workerAssignmentOfferSchema }),
   z.object({ kind: z.literal("crew_availability"), date: z.iso.date(), availability: crewAvailabilitySchema }),
+  z.object({ kind: z.literal("session_booking"), booking: customerSessionBookingSchema }),
   z.strictObject({
     kind: z.literal("switch_context"),
-    targetKind: z.enum(["place", "business", "invitation", "job", "shift", "offer", "conversation", "update", "completion", "bill", "problem_case"]),
+    targetKind: z.enum(["place", "business", "invitation", "job", "shift", "offer", "conversation", "update", "completion", "bill", "problem_case", "session_booking"]),
     activeContextId: contextIdSchema.nullable(),
     choices: z.array(contextChoiceSchema).min(1),
   }),

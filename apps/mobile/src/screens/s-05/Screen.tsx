@@ -51,6 +51,7 @@ function destination(link: Destination, role: string | undefined, opaque: string
         : help();
     case "assignment_offer": return { pathname: "/w/offers/[offerId]", params: { offerId: link.offer.offerId } } as Href;
     case "crew_availability": return { pathname: "/w/availability", params: { date: link.date, opaque } } as Href;
+    case "session_booking": return help();
   }
 }
 
