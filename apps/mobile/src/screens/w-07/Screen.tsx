@@ -1,6 +1,7 @@
 import { idSchemaFor, localeTagSchema } from "@bookbuddy/api-contract";
 import { useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
+import { SymbolView } from "expo-symbols";
 import { View } from "react-native";
 import { useFormat, useLocale, useT } from "../../i18n";
 import { useAttach, useOpenMediaPreview } from "../../media";
@@ -97,7 +98,7 @@ function ProgressRoute({ shift: f }: { shift: { assignmentId: string; shiftId: s
     } catch { setFailed(true); }
     finally { guarding.current = false; setBusy(false); }
   }
-  const time = (value: number) => d ? format.lines(value, d.siteZone)?.site ?? d.siteZone : "";
+  const time = (value: number) => d ? format.lines(value, d.siteZone)?.site ?? "" : "";
   return <ProgressPhotosView job={d ? `${d.job.reference} · ${d.job.title ?? d.task}` : null} recipient={d?.foremanName ?? ""} offline={f.offline} confirmedTime={f.lastConfirmedAt !== null ? time(f.lastConfirmedAt) : undefined} time={time} items={result} canAdd={!!canCapture && transfer.loaded && transfer.items.length < 6} busy={busy} failed={failed || f.error} loading={f.loading} invalidLanguage={invalidLanguage} onBack={back} onReload={() => { void f.refresh(); }} onAdd={() => { if (d && canCapture) navigate.attach("progress", d.id, d.id); }} onSend={() => { void send(); }} onNote={(id, update) => {
     const current = latest.current; const note = current?.notes[id];
     if (current && note && !guarding.current) void save({ notes: { ...current.notes, [id]: { ...note, ...update } } }).catch(() => setFailed(true));
@@ -114,19 +115,26 @@ export function ProgressPhotosView(p: { job: string | null; recipient: string; o
   const primary = review.length ? { label: p.offline ? t("mobile.photos.queue", { count: review.length }) : t("mobile.photos.send", { count: review.length, name: p.recipient }), onPress: p.onSend, busy: p.busy, disabled: p.invalidLanguage }
     : p.items.length || !p.canAdd ? { label: t("mobile.liveShift.backToShift"), onPress: p.onBack } : { label: add, onPress: p.onAdd };
   const context = p.invalidLanguage ? t("mobile.photos.invalidLanguage") : !p.job ? undefined : waiting && p.offline && !review.length ? t("mobile.photos.awaiting", { count: waiting, name: p.recipient }) : t("mobile.photos.destination", { name: p.recipient });
-  return <Screen title={t("mobile.photos.progressTitle")} navigation={{ kind: "back", label: t("mobile.liveShift.back"), onPress: p.onBack }} dock={<Dock primary={primary} context={context} />}>
-    {p.job && <Copy variant="supporting">{p.job}</Copy>}
+  return <Screen title={t("mobile.photos.progressTitle")} subtitle={p.job ?? undefined} navigation={{ kind: "back", label: t("mobile.liveShift.back"), onPress: p.onBack }} dock={<Dock primary={primary} context={context} />}>
     {!p.job && <Copy>{p.loading ? t("mobile.liveShift.loading") : t("mobile.liveShift.unavailable")}</Copy>}
     {p.failed && <><Copy accessibilityRole="alert">{t("mobile.photos.failed")}</Copy>{!p.job && p.onReload && <Button label={t("shared.action.retry")} onPress={p.onReload} />}</>}
     {p.job && <>
       {p.offline && <View style={{ padding: space.grid[4], gap: space.grid[1], backgroundColor: color.attentionSoft, borderRadius: radius.card }}><Copy variant="sectionTitle" style={{ color: color.attentionInk }}>{p.confirmedTime ? t("mobile.liveShift.offlineAt", { time: p.confirmedTime }) : t("mobile.liveShift.offline")}</Copy>{waiting > 0 && <Copy style={{ color: color.attentionInk }}>{t("mobile.photos.waiting", { count: waiting })}</Copy>}</View>}
-      {(!p.offline || !queue.length) && <Card><Copy variant="sectionTitle">{t("mobile.photos.forRecipient", { name: p.recipient })}</Copy><Copy>{t("mobile.photos.privacy")}</Copy></Card>}
-      {review.map((item, i) => <Card key={item.id}>
+      {(!p.offline || !queue.length) && <View style={{ flexDirection: "row", gap: space.grid[3], alignItems: "flex-start", backgroundColor: color.infoSoft, borderRadius: radius.card, padding: space.grid[4] }}>
+        <SymbolView name={{ ios: "lock", android: "lock", web: "lock" }} size={24} tintColor={color.infoInk} accessible={false} />
+        <View style={{ flex: 1, gap: space.grid[1] }}>
+          <Copy variant="label" style={{ color: color.infoInk }}>{t("mobile.photos.forRecipient", { name: p.recipient })}</Copy>
+          <Copy variant="supporting" style={{ color: color.infoInk }}>{t("mobile.photos.privacy")}</Copy>
+        </View>
+      </View>}
+      {review.map((item, i) => <Card dense key={item.id}>
         <PhotoTile large label={t("mobile.photos.number", { number: i + 1 })} uri={item.uri} onOpen={item.open} />
-        <Copy variant="supporting">{t("mobile.photos.taken", { time: p.time(item.note.capturedAt) })} · {t("mobile.photos.review")}</Copy>
-        <TextField label={t("mobile.photos.caption")} multiline maxLength={500} value={item.note.text} disabled={p.busy} onChangeText={text => p.onNote(item.id, { text })} />
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.grid[2] }}>
+          <Copy variant="supporting" style={{ color: color.muted, flex: 1 }}>{t("mobile.photos.taken", { time: p.time(item.note.capturedAt) })} · {t("mobile.photos.review")}</Copy>
+          {item.remove && <Button variant="quiet" label={t("mobile.media.remove")} accessibilityLabel={t("mobile.photos.removeNamed", { name: t("mobile.photos.number", { number: i + 1 }) })} onPress={item.remove} />}
+        </View>
+        <TextField label={t("mobile.photos.caption")} maxLength={500} value={item.note.text} disabled={p.busy} onChangeText={text => p.onNote(item.id, { text })} />
         {!!item.note.text.trim() && <TextField label={t("mobile.request.language")} value={item.note.language} autoCapitalize="none" maxLength={255} disabled={p.busy} onChangeText={language => p.onNote(item.id, { language })} />}
-        {item.remove && <Button variant="quiet" label={t("mobile.media.remove")} onPress={item.remove} />}
       </Card>)}
       {queue.length > 0 && <Card><Copy variant="sectionTitle">{t("mobile.photos.uploadQueue")}</Copy>{waiting > 0 && <Copy variant="supporting">{t("mobile.photos.waiting", { count: waiting })}</Copy>}{queue.map((item, i) => <View key={item.id} style={{ gap: space.grid[2] }}>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.grid[3], alignItems: "center" }}><PhotoTile label={t("mobile.photos.number", { number: i + 1 })} uri={item.uri} pending={item.status === "queued"} onOpen={item.open} /><View style={{ flex: 1, minWidth: 100 }}>

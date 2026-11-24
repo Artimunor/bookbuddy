@@ -1,9 +1,10 @@
 import { emailStartRoute } from "@bookbuddy/api-contract";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
+import { SymbolView } from "expo-symbols";
 import { View } from "react-native";
 import { useLocale, useT } from "../../i18n";
-import { Button, Card, Dock, Screen, StatusBanner, TextField } from "../../ui/controls";
+import { Button, Dock, Screen, StatusBanner, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { useBeaconTheme } from "../../ui/theme";
 import { authFlow, emailDevice, newAttemptId, openAuthHelp, useAuthClient, useDeadline, useOffline, viewerTime, type EmailDevice } from "./flow";
@@ -86,7 +87,7 @@ export function SignInView({ email, state, retryAt, busy, readOnly, onChangeEmai
 }) {
   const t = useT();
   const { locale } = useLocale();
-  const { color, space } = useBeaconTheme();
+  const { color, radius, space } = useBeaconTheme();
   const blocked = state === "offline" || state === "rate-limited";
   const context = state === "offline" ? t("mobile.auth.email.offline")
     : state === "rate-limited" && retryAt ? t("mobile.auth.email.rate", { time: viewerTime(locale, retryAt) })
@@ -96,7 +97,7 @@ export function SignInView({ email, state, retryAt, busy, readOnly, onChangeEmai
       : state === "not-requested" ? t("mobile.auth.email.notRequested") : null;
 
   return (
-    <Screen title={t("mobile.auth.email.title")} navigation={{ kind: "back", label: t("shared.action.back"), onPress: onBack }}
+    <Screen title={t("mobile.auth.email.title")} subtitle={t("mobile.auth.email.roles")} navigation={{ kind: "back", label: t("shared.action.back"), onPress: onBack }}
       dock={<Dock context={context} primary={{ label: state === "uncertain" ? t("mobile.auth.common.check") : t("mobile.auth.email.send"),
         onPress: onSend, disabled: blocked, busy }} />}>
       <View style={{ gap: space.grid[2] }}>
@@ -108,11 +109,16 @@ export function SignInView({ email, state, retryAt, busy, readOnly, onChangeEmai
         autoComplete="email" inputMode="email" returnKeyType="go" autoCapitalize="none" autoCorrect={false}
         writingDirection="ltr" maxLength={254} readOnly={busy || readOnly} onSubmitEditing={onSend} />
       {issue && <StatusBanner state={state === "not-requested" ? "last-confirmed" : "not-sent"} label={issue} />}
-      <Card>
-        <Copy variant="sectionTitle">{t("mobile.auth.email.roles")}</Copy>
-        <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.auth.email.rolesDetail")}</Copy>
-      </Card>
-      <View style={{ alignSelf: "flex-start" }}><Button label={t("mobile.auth.email.trouble")} variant="quiet" onPress={onHelp} /></View>
+      <View style={{ flexDirection: "row", gap: space.grid[3], backgroundColor: color.subtle, padding: space.grid[4], borderRadius: radius.card, alignItems: "flex-start" }}>
+        <View style={{ backgroundColor: color.surface, borderRadius: radius.smallTile, padding: space.grid[2] }} aria-hidden>
+          <SymbolView name={{ ios: "person", android: "person", web: "person" }} tintColor={color.ink} size={20} />
+        </View>
+        <View style={{ flex: 1, gap: space.grid[1] }}>
+          <Copy variant="label">{t("mobile.auth.email.roles")}</Copy>
+          <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.auth.email.rolesDetail")}</Copy>
+        </View>
+      </View>
+      <View style={{ alignSelf: "flex-start", marginStart: -space.grid[4] }}><Button label={t("mobile.auth.email.trouble")} variant="quiet" onPress={onHelp} /></View>
     </Screen>
   );
 }

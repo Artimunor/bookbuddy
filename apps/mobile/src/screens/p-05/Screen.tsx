@@ -1,13 +1,16 @@
 import { getBusinessPeopleRoute, inviteBusinessMemberRoute, patchBusinessMemberRolesRoute, reissueInvitationRoute, revokeBusinessMemberRoute, withdrawInvitationRoute, type BusinessMemberRolesPatch, type businessMemberSchema, type RouteResponse } from "@bookbuddy/api-contract";
 import { Stack, useIsFocused, useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
+import { View } from "react-native";
 import { useCommand, useRemote } from "../../api";
-import { useT } from "../../i18n";
-import { Button, Dock, SegmentedControl, Sheet, SwitchRow, TextField } from "../../ui/controls";
+import { useFormat as useClockFormat, useT } from "../../i18n";
+import { Button, Card, Dock, ListRow, Sheet, SwitchRow, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { ReadState, useProvider, useProviderFormat as useFormat, useProviderLabels } from "../p-01/shared";
 import { useOffline } from "../s-02/flow";
 import { confirmAction } from "../s-17/confirmAction";
+import { ChoiceRadio } from "../s-12/ChoiceRadio";
+import { useBeaconTheme } from "../../ui/theme";
 
 type Action = "invite" | "reissue" | "withdraw" | "revoke";
 type Member = RouteResponse<typeof businessMemberSchema>;
@@ -44,9 +47,27 @@ export function MemberRoleFields({ member, draft, canManage, disabled, onChange 
   </>;
 }
 
+export function InviteFields({ business, email, role, disabled, onEmail, onRole }: {
+  business: string; email: string; role: "worker" | "foreman"; disabled?: boolean; onEmail: (email: string) => void; onRole: (role: "worker" | "foreman") => void;
+}) {
+  const t = useT(); const { space } = useBeaconTheme();
+  const label = t("mobile.provider.inviteRole", { business });
+  return <>
+    <TextField label={t("mobile.provider.email")} helper={t("mobile.provider.inviteEmailHint")} value={email} onChangeText={onEmail}
+      readOnly={disabled} inputMode="email" autoCapitalize="none" autoComplete="email" autoCorrect={false} writingDirection="ltr" />
+    <View accessibilityRole="radiogroup" accessibilityLabel={label} style={{ gap: space.grid[2] }}>
+      <Copy variant="label">{label}</Copy>
+      <ChoiceRadio label={t("mobile.provider.worker")} description={t("mobile.invitation.workerShifts")} selected={role === "worker"} disabled={disabled} onPress={() => onRole("worker")} />
+      <ChoiceRadio label={t("mobile.provider.foremanRole")} description={t("mobile.provider.foremanVerification")} selected={role === "foreman"} disabled={disabled} onPress={() => onRole("foreman")} />
+      <ChoiceRadio label={t("mobile.provider.admin")} description={t("mobile.provider.inviteAdminHint")} selected={false} disabled onPress={() => {}} />
+    </View>
+    <Card dense><ListRow glyph="◷" label={t("mobile.provider.inviteLifetime")} description={t("mobile.provider.inviteContext")} /></Card>
+  </>;
+}
+
 export default function ProviderMemberSheet() {
   const { kind, id, cursor } = useLocalSearchParams<{ kind?: string; id?: string; cursor?: string }>();
-  const { businessId, actor } = useProvider(); const router = useRouter(); const t = useT(); const format = useFormat(); const labels = useProviderLabels();
+  const { businessId, actor } = useProvider(); const router = useRouter(); const t = useT(); const format = useFormat(); const clock = useClockFormat(); const labels = useProviderLabels();
   const [email, setEmail] = useState(""); const [role, setRole] = useState<"worker" | "foreman">("worker"); const [completed, setCompleted] = useState(false);
   const [memberDraft, setMemberDraft] = useState<{ source: Member; value: MemberDraft } | null>(null);
   const [editFailed, setEditFailed] = useState(false);
@@ -114,9 +135,18 @@ export default function ProviderMemberSheet() {
     dock={kind === "new" ? <Dock context={t("mobile.provider.inviteContext")} primary={{ label: t("mobile.provider.sendInvite"), disabled: readOnly || !valid, onPress: () => act("invite") }} />
       : member && !completed ? <Dock primary={{ label: t("mobile.provider.saveRoles"), disabled: readOnly || (!rolesChanged && !backupChanged), onPress: saveRoles }} /> : undefined}>
     <ReadState status={remote.status} retry={() => { void remote.refresh(); }} />
-    {data && <><Copy variant="sectionTitle">{data.business.publicName}</Copy><Copy>{actor} · {t("mobile.provider.admin")}</Copy>
-      {kind === "new" && <><TextField label={t("mobile.provider.email")} value={email} onChangeText={setEmail} autoCapitalize="none" inputMode="email" /><SegmentedControl label={t("mobile.provider.role")} value={role} onChange={setRole} options={[{ value: "worker", label: t("mobile.provider.worker") }, { value: "foreman", label: t("mobile.provider.foremanRole") }]} /><Copy>{t("mobile.provider.adminLocked")}</Copy></>}
-      {invitation && <><Copy variant="sectionTitle">{invitation.email}</Copy><Copy>{labels.role(invitation.role)}</Copy><Copy>{t("mobile.provider.expires", { time: format.siteTime(invitation.expiresAt, invitation.siteZone ?? data.business.siteZone) })}</Copy>{invitation.reissue.status === "wait" && <Copy>{t("mobile.provider.waitUntil", { time: format.siteTime(invitation.reissue.retryAt, invitation.siteZone ?? data.business.siteZone) })}</Copy>}<Button label={t("mobile.provider.reissue")} disabled={invitation.reissue.status !== "available" || busy || completed} onPress={() => act("reissue")} /><Button variant="destructive" label={t("mobile.provider.withdrawInvite")} disabled={!invitation.canWithdraw || busy || completed} onPress={() => act("withdraw")} /></>}
+    {data && <><Copy variant="supporting">{data.business.publicName} · {actor} · {t("mobile.provider.admin")}</Copy>
+      {kind === "new" && <InviteFields business={data.business.publicName} email={email} role={role} disabled={readOnly} onEmail={setEmail} onRole={setRole} />}
+      {invitation && <>
+        <Card dense>
+          <Copy variant="sectionTitle">{invitation.email}</Copy>
+          <Copy variant="supporting">{labels.role(invitation.role)}</Copy>
+          <Copy variant="supporting">{t("mobile.provider.expires", { time: clock.lines(invitation.expiresAt, invitation.siteZone ?? data.business.siteZone)?.site ?? t("mobile.provider.unavailable") })}</Copy>
+          {invitation.reissue.status === "wait" && <Copy variant="supporting">{t("mobile.provider.waitUntil", { time: clock.lines(invitation.reissue.retryAt, invitation.siteZone ?? data.business.siteZone)?.site ?? t("mobile.provider.unavailable") })}</Copy>}
+        </Card>
+        <Button label={t("mobile.provider.reissue")} disabled={invitation.reissue.status !== "available" || busy || completed} onPress={() => act("reissue")} />
+        <Button variant="destructive" label={t("mobile.provider.withdrawInvite")} disabled={!invitation.canWithdraw || busy || completed} onPress={() => act("withdraw")} />
+      </>}
       {member && !completed && <>
         <MemberRoleFields member={member} draft={draft} canManage={data.canInvite} disabled={readOnly} onChange={value => { setEditFailed(false); setMemberDraft({ source: member, value }); }} />
         {member.roles.map(grant => grant.removal.status === "allowed" && !(member.isViewer && grant.role === "provider_admin") &&

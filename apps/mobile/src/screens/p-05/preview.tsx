@@ -1,18 +1,32 @@
 import { businessMemberSchema } from "@bookbuddy/api-contract";
 import { useState } from "react";
-import { useT } from "../../i18n";
+import { View } from "react-native";
+import { useFormat, useT } from "../../i18n";
 import type { ScreenPreview } from "../../preview/screens/types";
-import { Button, Dock, SegmentedControl, Sheet, TextField } from "../../ui/controls";
+import { Button, Card, Dock, Sheet } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
-import { MemberRoleFields } from "./Screen";
+import { previews as peoplePreviews } from "../p-03/preview";
+import { InviteFields, MemberRoleFields } from "./Screen";
 
 type State = "new" | "invite-pending" | "cannot-grant";
+const PeopleBackdrop = peoplePreviews.find(({ state }) => state === "active")!.render;
 function Fixture({ state }: { state: State }) {
-  const t = useT(); const [email, setEmail] = useState(""); const [role, setRole] = useState<"worker" | "foreman">("worker");
-  return <Sheet visible title={state === "invite-pending" ? t("mobile.provider.people") : t("mobile.provider.invite")} closeLabel={t("mobile.provider.close")} onClose={() => {}} dock={state !== "invite-pending" ? <Dock context={t("mobile.provider.inviteContext")} primary={{ label: t("mobile.provider.sendInvite"), disabled: true, onPress: () => {} }} /> : undefined}>
-    <Copy variant="sectionTitle">Reformas Ruiz</Copy><Copy>Mateo Ruiz · {t("mobile.provider.admin")}</Copy>
-    {state === "invite-pending" ? <><Copy variant="sectionTitle">diego@example.com</Copy><Copy>{t("mobile.provider.worker")}</Copy><Copy>{t("mobile.provider.expires", { time: "16 Nov 2026, 10:12 GMT+1" })}</Copy><Copy>{t("mobile.provider.waitUntil", { time: "15 Nov 2026, 10:12 GMT+1" })}</Copy><Button label={t("mobile.provider.reissue")} disabled onPress={() => {}} /><Button variant="destructive" label={t("mobile.provider.withdrawInvite")} onPress={() => {}} /></> : <><TextField label={t("mobile.provider.email")} value={email} onChangeText={setEmail} /><SegmentedControl label={t("mobile.provider.role")} value={role} onChange={setRole} options={[{ value: "worker", label: t("mobile.provider.worker") }, { value: "foreman", label: t("mobile.provider.foremanRole") }]} /><Copy>{t("mobile.provider.adminLocked")}</Copy>{state === "cannot-grant" && <Copy>{t("mobile.provider.roleUnavailable")}</Copy>}</>}
-  </Sheet>;
+  const t = useT(); const format = useFormat(); const [email, setEmail] = useState(state === "new" ? "diego@example.com" : "");
+  const [role, setRole] = useState<"worker" | "foreman">("worker");
+  return <View style={{ flex: 1 }}><PeopleBackdrop /><Sheet visible title={state === "invite-pending" ? t("mobile.provider.people") : t("mobile.provider.invite")} closeLabel={t("mobile.provider.close")} onClose={() => {}} dock={state !== "invite-pending" ? <Dock context={t("mobile.provider.inviteContext")} primary={{ label: t("mobile.provider.sendInvite"), disabled: state === "cannot-grant" || !email.trim(), onPress: () => {} }} /> : undefined}>
+    <Copy variant="supporting">Reformas Ruiz · Mateo Ruiz · {t("mobile.provider.admin")}</Copy>
+    {state === "invite-pending" ? <>
+      <Card dense><Copy variant="sectionTitle">diego@example.com</Copy><Copy variant="supporting">{t("mobile.provider.worker")}</Copy>
+        <Copy variant="supporting">{t("mobile.provider.expires", { time: format.lines(Date.UTC(2026, 10, 16, 9, 12), "Europe/Madrid")?.site ?? "" })}</Copy>
+        <Copy variant="supporting">{t("mobile.provider.waitUntil", { time: format.lines(Date.UTC(2026, 10, 15, 9, 12), "Europe/Madrid")?.site ?? "" })}</Copy>
+      </Card>
+      <Button label={t("mobile.provider.reissue")} disabled onPress={() => {}} />
+      <Button variant="destructive" label={t("mobile.provider.withdrawInvite")} onPress={() => {}} />
+    </> : <>
+      <InviteFields business="Reformas Ruiz" email={email} role={role} onEmail={setEmail} onRole={setRole} disabled={state === "cannot-grant"} />
+      {state === "cannot-grant" && <Copy>{t("mobile.provider.roleUnavailable")}</Copy>}
+    </>}
+  </Sheet></View>;
 }
 
 const member = businessMemberSchema.parse({

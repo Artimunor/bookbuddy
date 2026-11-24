@@ -11,6 +11,8 @@ import { useDraftMediaActions } from "../../media/attach";
 import type { MediaPreviewText } from "../../media/provider";
 import { useMediaPreviewDetails } from "../../media/read";
 import { Button } from "../../ui/controls";
+import { Stamp } from "../../ui/live/Stamp";
+import { readingLanguageLabel } from "../s-12/language";
 import { Copy } from "../../ui/controls/shared";
 import { useBeaconTheme } from "../../ui/theme";
 import { PhotoPreview } from "./Photo";
@@ -74,13 +76,7 @@ export default function MediaPreviewScreen() {
       <Button label={t("shared.action.retry")} variant="neutral" onPress={() => { setFailureUri(null); setAssetAttempt((count) => count + 1); }} />
     </View> : media.file.kind === "photo" ? <>
       <PhotoPreview key={assetAttempt} uri={media.uri} description={details?.author ? t("mobile.media.photoBy", { description, author: details.author }) : description} onError={onMediaError} />
-      {(caption || details?.author || details?.time) && <Panel>
-        {(details?.author || details?.time) && <>
-          <Copy variant="label">{t("mobile.media.photoShared")}</Copy>
-          <Copy variant="supporting" style={{ color: color.muted }}>{[details.author, details.time].filter(Boolean).join(" · ")}</Copy>
-        </>}
-        {caption && <TwinText value={caption} title={t("mobile.media.caption")} />}
-      </Panel>}
+      <PhotoContext author={details?.author} time={details?.time} caption={caption} />
     </> : <>
       {(details?.author || details?.time) && <Panel>
         {!!details.author && <Copy variant="label">{details.author}</Copy>}
@@ -102,7 +98,7 @@ export default function MediaPreviewScreen() {
   </PreviewFrame>;
 }
 
-function PreviewFrame({ title, context, close, children, dock }: {
+export function PreviewFrame({ title, context, close, children, dock }: {
   title: string; context?: string; close: () => void; children: ReactNode; dock?: ReactNode;
 }) {
   const t = useT();
@@ -132,6 +128,15 @@ function PreviewFrame({ title, context, close, children, dock }: {
   </SafeAreaView>;
 }
 
+export function PhotoContext({ author, time, caption }: { author?: string; time?: string; caption?: MediaPreviewText }) {
+  const t = useT(); const { space } = useBeaconTheme();
+  if (!author && !time && !caption) return null;
+  return <View style={{ gap: space.grid[2] }}>
+    {(author || time) && <Stamp kind="photo" title={t("mobile.media.photoShared")} attribution={author} time={time ?? ""} />}
+    {caption && <Panel><TwinText value={caption} title={t("mobile.media.caption")} /></Panel>}
+  </View>;
+}
+
 function Panel({ children }: { children: ReactNode }) {
   const { color, space, radius } = useBeaconTheme();
   return <View style={{ borderWidth: 1, borderColor: color.separator, borderRadius: radius.card, backgroundColor: color.surface,
@@ -144,11 +149,11 @@ function TwinText({ value, title }: { value: MediaPreviewText; title: string }) 
   return <View style={{ gap: space.grid[2] }}>
     <Copy variant="caption" style={{ color: color.muted }}>{title}</Copy>
     {!!value.translation && <>
-      <Copy variant="caption" style={{ color: color.infoInk }}>{t("mobile.media.translation")}</Copy>
+      <Copy variant="caption" style={{ color: color.infoInk }}>{value.translationLanguage ? t("mobile.briefing.translation", { language: readingLanguageLabel(t, value.translationLanguage) }) : t("mobile.media.translation")}</Copy>
       <Copy accessibilityLanguage={value.translationLanguage}>{value.translation}</Copy>
     </>}
     <View style={{ padding: space.grid[3], gap: space.grid[1], backgroundColor: color.subtle }}>
-      <Copy variant="caption" style={{ color: color.muted }}>{t("mobile.media.original")}</Copy>
+      <Copy variant="caption" style={{ color: color.muted }}>{value.originalLanguage ? t("mobile.media.originalLanguage", { language: readingLanguageLabel(t, value.originalLanguage) }) : t("mobile.media.original")}</Copy>
       <Copy accessibilityLanguage={value.originalLanguage}>{value.original}</Copy>
     </View>
   </View>;

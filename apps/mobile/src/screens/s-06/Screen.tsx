@@ -121,8 +121,7 @@ export function YouView({ account, active, contexts, readingLocale, place, named
   const back = { kind: "back", label: t("shared.action.back"), iconOnly: true, onPress: onBack } as const;
   const muted = { color: color.muted };
 
-  return <Screen title={t("mobile.you.title")} navigation={back}>
-    <Copy variant="supporting" style={muted}>{t("mobile.you.device")}</Copy>
+  return <Screen title={t("mobile.you.title")} subtitle={t("mobile.you.device")} navigation={back}>
     {account && name ? (
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: space.grid[3], rowGap: space.grid[2] }}>
         <View aria-hidden style={{ minWidth: 52, minHeight: 52, borderRadius: radius.pill,
@@ -140,7 +139,7 @@ export function YouView({ account, active, contexts, readingLocale, place, named
         label={loading ? t("mobile.you.loading") : t("mobile.you.unavailable")} />
       {onRetry && <Button variant="quiet" label={t("mobile.you.retry")} onPress={onRetry} />}
     </>}
-    {active && <Card>
+    {active && <Card dense>
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", gap: space.grid[3] }}>
         <View style={{ flexGrow: 1, flexShrink: 1, minWidth: "45%", gap: space.grid[1] }}>
           <Copy variant="caption" style={muted}>{t("mobile.you.role")}</Copy>
@@ -158,7 +157,7 @@ export function YouView({ account, active, contexts, readingLocale, place, named
         })),
       })}</Copy> : (contexts?.length === 1 && <Copy variant="supporting" style={muted}>{t("mobile.you.single")}</Copy>)}
     </Card>}
-    <Card>
+    <Card dense>
       {active?.role === "customer" && <ListRow glyph="⌖" label={t("mobile.you.places")}
         description={openingPlaces ? t("mobile.places.loading") : place ? isolated(place) : t("mobile.you.placesHint")} onPress={onPlaces} disabled={openingPlaces} />}
       <ListRow glyph="◎" label={t("mobile.display.title")} description={languageSummary} onPress={onDisplay} />

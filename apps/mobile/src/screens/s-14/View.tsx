@@ -35,12 +35,14 @@ export function AttachPanel({ title, destination, onClose, closeDisabled, childr
       <View style={[styles.handle, { backgroundColor: color.outline }]} importantForAccessibility="no" />
       <View style={{ paddingHorizontal: space.contentInset, paddingVertical: space.grid[2], gap: space.grid[1] }}>
         <View style={[styles.header, { gap: space.grid[3] }]}>
-          <View ref={heading} accessible accessibilityRole="header" accessibilityLabel={title} style={styles.flex}>
-            <Copy accessible={false} variant="sectionTitle">{title}</Copy>
+          <View style={styles.flex}>
+            <View ref={heading} accessible accessibilityRole="header" accessibilityLabel={title}>
+              <Copy accessible={false} variant="sectionTitle">{title}</Copy>
+            </View>
+            <Copy variant="supporting" style={{ color: color.muted, marginTop: space.grid[1] }}>{destination}</Copy>
           </View>
           <Button label={t("shared.action.close")} glyph="×" iconOnly variant="neutral" onPress={onClose} disabled={closeDisabled} />
         </View>
-        <Copy variant="supporting" style={{ color: color.muted }}>{destination}</Copy>
       </View>
       <ScrollView style={styles.body} contentContainerStyle={{ paddingHorizontal: space.contentInset, paddingBottom: space.grid[4], gap: space.grid[4] }}>
         {children}

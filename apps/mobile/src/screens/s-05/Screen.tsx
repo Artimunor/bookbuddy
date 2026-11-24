@@ -258,27 +258,35 @@ export function InvitationView({ invitation, email, status, busy = false, checki
   const capabilities = { view: t("mobile.places.view"), message: t("mobile.places.message"), request: t("mobile.places.request"),
     book: t("mobile.places.book"), approve: t("mobile.places.approve"), sign_off: t("mobile.places.signOff"),
     bill_view: t("mobile.places.billView"), delegate: t("mobile.places.delegate") };
-  const time = (value: number, zone: string | null) => { const result = format.siteTime(value, zone); return result.kind === "available" ? result.siteTime : t("mobile.invitation.timeUnavailable"); };
+  const time = (value: number, zone: string | null) => format.lines(value, zone)?.site ?? t("mobile.invitation.timeUnavailable");
   const grant = pending?.grant;
   const dock = pending ? <Dock context={pending.setupRequired ? t("mobile.invitation.setup") : t("mobile.invitation.expires", { time: time(pending.expiresAt, pending.siteZone) })}
     primary={{ label: pending.setupRequired ? t("mobile.invitation.setupAction") : grant?.kind === "business_role" ? t("mobile.invitation.join") : t("mobile.invitation.accept"), onPress: pending.setupRequired ? onSetup : onAccept, disabled: offline || busy || checking }}
     secondary={{ label: t("mobile.invitation.decline"), onPress: onDecline, disabled: offline || busy || checking }} />
     : invitation ? <Dock primary={{ label: t("mobile.invitation.done"), onPress: onBack }} /> : undefined;
-  return <Screen title={t("mobile.invitation.title")} navigation={{ kind: "back", label: t("shared.action.back"), onPress: onBack }} dock={dock}>
-    {email && <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.invitation.signedIn", { email: isolated(email) })}</Copy>}
+  return <Screen title={t("mobile.invitation.title")} subtitle={email ? t("mobile.invitation.signedIn", { email: isolated(email) }) : undefined} navigation={{ kind: "back", label: t("shared.action.back"), onPress: onBack }} dock={dock}>
     {(status === "idle" || status === "loading") && <Copy>{t("mobile.invitation.loading")}</Copy>}
     {status === "offline" && <Copy>{t("mobile.invitation.offline")}</Copy>}
     {status === "error" && <><Copy>{t("mobile.invitation.error")}</Copy><Button variant="quiet" label={t("mobile.invitation.retry")} onPress={onRetry} /></>}
     {pending && grant && <>
-      <Copy variant="sectionTitle">{t("mobile.invitation.invites", { name: isolated(pending.inviterDisplayName) })}</Copy>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.grid[3] }}>
+        <View aria-hidden style={{ borderRadius: radius.pill, backgroundColor: color.personB, padding: space.grid[2], minHeight: 40, minWidth: 40, alignItems: "center", justifyContent: "center" }}>
+          <Copy variant="caption">{pending.inviterDisplayName.trim().split(/\s+/).slice(0, 2).map((word) => word.charAt(0)).join("").toUpperCase()}</Copy>
+        </View>
+        <Copy variant="label" style={{ flex: 1 }}>{t("mobile.invitation.invites", { name: isolated(pending.inviterDisplayName) })}</Copy>
+      </View>
       <Copy variant="pageTitle">{grant.kind === "business_role" ? t("mobile.invitation.joinBusiness", { business: isolated(grant.businessName) }) : t("mobile.invitation.joinPlace", { place: isolated(grant.placeAlias) })}</Copy>
-      <Card>
+      <Card dense>
         <Copy variant="supporting">{t("mobile.invitation.joinAs")}</Copy>
         <Copy variant="sectionTitle">{grant.kind === "business_role" ? roleLabel(t, grant.role) : t("mobile.invitation.placeAccess")}</Copy>
-        {grant.kind === "business_role" ? grant.role === "worker" ? <><Copy>✓  {t("mobile.invitation.workerOffers")}</Copy><Copy>✓  {t("mobile.invitation.workerShifts")}</Copy><Copy>✓  {t("mobile.invitation.workerChat")}</Copy></> : <Copy>{t("mobile.invitation.foremanLimits")}</Copy>
+        {grant.kind === "business_role" ? grant.role === "worker" ? <><Copy variant="supporting">✓  {t("mobile.invitation.workerOffers")}</Copy><Copy variant="supporting">✓  {t("mobile.invitation.workerShifts")}</Copy><Copy variant="supporting">✓  {t("mobile.invitation.workerChat")}</Copy></> : <Copy>{t("mobile.invitation.foremanLimits")}</Copy>
           : <Copy>{grant.kind === "place_view" ? t("mobile.invitation.placeView") : t("mobile.invitation.placeTransfer")}</Copy>}
       </Card>
-      {grant.kind === "business_role" && <View style={{ backgroundColor: color.subtle, borderRadius: radius.card, padding: space.grid[4], gap: space.grid[2] }}><Copy variant="sectionTitle">{t("mobile.invitation.limitsTitle")}</Copy><Copy>{t("mobile.invitation.limits")}</Copy><Copy>{t("mobile.invitation.location")}</Copy></View>}
+      {grant.kind === "business_role" && <View style={{ backgroundColor: color.subtle, borderRadius: radius.card, padding: space.grid[4], gap: space.grid[2] }}>
+        <Copy variant="label">{t("mobile.invitation.limitsTitle")}</Copy>
+        <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.invitation.limits")}</Copy>
+        <Copy variant="supporting">{t("mobile.invitation.location")}</Copy>
+      </View>}
       <Copy variant="supporting">{t("mobile.invitation.sent", { time: time(pending.issuedAt, pending.siteZone) })}</Copy>
       <Copy variant="supporting">{t("mobile.invitation.singleUse")}</Copy>
       <Button variant="quiet" label={t("mobile.invitation.differentAccount")} onPress={onDifferentAccount} />

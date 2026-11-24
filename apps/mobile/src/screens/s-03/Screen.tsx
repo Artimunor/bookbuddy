@@ -179,7 +179,7 @@ export function VerifyView({ email, code, variant, triesLeft, resendSeconds = 0,
       : locked || expired ? { label: t("mobile.auth.verify.resend"), onPress: onResend, disabled: !canResend }
         : { label: t("mobile.auth.verify.action"), onPress: onVerify, disabled: offline || code.length !== 6 };
   return (
-    <Screen title={t("mobile.auth.verify.title")} navigation={{ kind: "back", label: t("shared.action.back"), onPress: onBack }}
+    <Screen title={t("mobile.auth.verify.title")} subtitle={t("mobile.auth.email.title")} navigation={{ kind: "back", label: t("shared.action.back"), onPress: onBack }}
       dock={<Dock context={context} primary={{ ...primary, busy }} />}>
       <View style={{ gap: space.grid[2] }}>
         <Copy variant="pageTitle" accessibilityRole="header">
@@ -219,8 +219,8 @@ export function VerifyView({ email, code, variant, triesLeft, resendSeconds = 0,
         {verifying && !wrong && <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.auth.common.emailHint")}</Copy>}
       </View>}
       {message && <StatusBanner state="not-sent" label={message} />}
-      <View style={{ alignItems: "flex-start" }}>
-        {verifying && !checking && <Button label={t("mobile.auth.verify.resend")} onPress={onResend} variant="quiet" disabled={!canResend} />}
+      <View style={{ alignItems: "flex-start", marginStart: -space.grid[4] }}>
+        {verifying && canResend && !checking && <Button label={t("mobile.auth.verify.resend")} onPress={onResend} variant="quiet" />}
         {!superseded && <Button label={locked ? t("mobile.auth.verify.differentEmail") : t("mobile.auth.verify.changeEmail")}
           onPress={onBack} variant="quiet" disabled={busy || checking} />}
         <Button label={t("mobile.auth.common.help")} onPress={onHelp} variant="quiet" />

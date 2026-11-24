@@ -1,6 +1,7 @@
 import { type LocaleTag } from "@bookbuddy/i18n/locales";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect } from "react";
+import { SymbolView } from "expo-symbols";
 import { View } from "react-native";
 import { useLocale, useT } from "../../i18n";
 import { Card, Dock, Screen, SegmentedControl, StatusBanner } from "../../ui/controls";
@@ -31,7 +32,11 @@ export function WelcomeView({ link, onStart }: { link?: "invite" | "update"; onS
   ] satisfies { value: LocaleTag; label: string }[];
 
   return (
-    <Screen title={t("shared.app.name")} dock={<Dock context={t("mobile.auth.welcome.next")}
+    <Screen title={t("shared.app.name")} trailing={
+      <View aria-hidden style={{ backgroundColor: color.night, borderRadius: radius.pill, width: 40, height: 40, alignItems: "center", justifyContent: "center" }}>
+        <SymbolView name={{ ios: "dot.radiowaves.left.and.right", android: "radio_button_checked", web: "radio_button_checked" }} size={24} tintColor={color.live} />
+      </View>
+    } dock={<Dock context={t("mobile.auth.welcome.next")}
       primary={{ label: t("mobile.auth.welcome.start"), disabled: !ready, onPress: onStart }} />}>
       <View style={{ gap: space.grid[2] }}>
         <Copy variant="pageTitle" accessibilityRole="header">{t("mobile.auth.welcome.title")}</Copy>
@@ -46,7 +51,7 @@ export function WelcomeView({ link, onStart }: { link?: "invite" | "update"; onS
         <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.auth.welcome.lockScreen")}</Copy>
         <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.auth.welcome.notification")}</Copy>
       </View>
-      <Card>
+      <Card dense>
         <SegmentedControl label={t("mobile.auth.welcome.appLanguage")} options={options} value={locale}
           onChange={(next) => { void chooseLocale(next); }} />
         <Copy variant="supporting" style={{ color: color.muted }}>

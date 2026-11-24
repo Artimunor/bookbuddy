@@ -153,25 +153,25 @@ export function SetupView({ email, viewerZone, draft, onChange, busy, status, re
     : !draft.name.trim() ? t("mobile.auth.setup.nameRequired") : t("mobile.auth.setup.later");
 
   return (
-    <Screen title={t("mobile.auth.setup.title")} dock={<Dock context={context} primary={{
+    <Screen title={t("mobile.auth.setup.title")} subtitle={t("mobile.auth.setup.signedIn", { email: `\u2066${email}\u2069` })} dock={<Dock context={context} primary={{
       label: t("shared.action.continue"), onPress: onSave, busy, disabled: status === "offline" || !draft.name.trim(),
     }} />}>
-      <Copy variant="supporting" style={mute}>{t("mobile.auth.setup.signedIn", { email: `\u2066${email}\u2069` })}</Copy>
       <TextField label={t("mobile.auth.setup.name")} helper={t("mobile.auth.setup.nameHint")} value={draft.name}
         onChangeText={(name) => onChange({ ...draft, name })} maxLength={100} autoCapitalize="words" autoComplete="name" readOnly={disableEditing} />
       <View style={{ gap: space.grid[2] }}>
         <Copy variant="label">{t("mobile.auth.setup.reading")}</Copy>
         <Button ref={readingTrigger} variant="neutral" arrow="next" label={readingLabel(draft.readingLocale)}
+          accessibilityLabel={`${t("mobile.auth.setup.reading")} · ${readingLabel(draft.readingLocale)}`}
           onPress={() => setShowReading(true)} disabled={disableEditing} />
         <Copy variant="supporting" style={mute}>{t("mobile.auth.setup.readingHint")}</Copy>
       </View>
-      <Card>
+      <Card dense>
         <SwitchRow label={t("mobile.auth.setup.twoClocks")} value={hasViewerZone && draft.twoClock} disabled={disableEditing || !hasViewerZone}
           description={hasViewerZone ? t("mobile.auth.setup.viewerZone", { zone }) : t("mobile.auth.setup.sameZone")}
           onValueChange={(twoClock) => onChange({ ...draft, twoClock })} />
         <Copy variant="caption" style={mute}>{t("mobile.auth.setup.example")}</Copy>
         <View style={{ padding: space.grid[3], borderRadius: radius.input, backgroundColor: color.subtle }}>
-          <TwoClock siteTime={siteLine} siteZone={clock.kind === "available" ? `· ${format.zoneLabel(siteZone, clock.site)}` : ""} viewerLine={viewerLine} />
+          <TwoClock siteTime={siteLine} siteZone={clock.kind === "available" ? format.zoneLabel(siteZone, clock.site) : ""} viewerLine={viewerLine} />
         </View>
       </Card>
       <Copy variant="supporting" style={mute}>{t("mobile.auth.setup.permissions")}</Copy>

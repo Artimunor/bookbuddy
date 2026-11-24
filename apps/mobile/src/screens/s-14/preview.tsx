@@ -4,24 +4,36 @@ import type { ScreenPreview } from "../../preview/screens/types";
 import { Copy } from "../../ui/controls/shared";
 import { useBeaconTheme } from "../../ui/theme";
 import { previews as chatPreviews } from "../s-10/preview";
-import { AttachPanel, RecordingCard, RecordingDock } from "./View";
+import { AttachPanel, CaptureSourceRow, RecordingCard, RecordingDock } from "./View";
 
 const ChatBackdrop = chatPreviews.find(({ state }) => state === "translated")?.render;
 const samples = [0.11, 0.37, 0.67, 0.44, 0.81, 0.52, 0.26, 0.74, 0.96, 0.45, 0.22, 0.62, 0.86, 0.39, 0.61, 0.17, 0.53, 0.74, 0.93, 0.58,
   0.35, 0.16, 0.48, 0.72, 0.93, 0.53, 0.3, 0.64, 0.84, 0.45, 0.21, 0.58, 0.77, 0.44, 0.24, 0.56, 0.74, 0.32];
 const noop = () => {};
 
-function RecordingFixture() {
+function Fixture({ recording }: { recording: boolean }) {
   const t = useT();
-  const { color } = useBeaconTheme();
+  const { color, radius } = useBeaconTheme();
   return <View style={{ flex: 1, backgroundColor: color.canvas }}>
     {ChatBackdrop && <View style={StyleSheet.absoluteFill} pointerEvents="none" accessibilityElementsHidden aria-hidden><ChatBackdrop /></View>}
-    <AttachPanel title={t("mobile.media.voiceNote")} destination={t("mobile.media.destinationChat")} onClose={noop}
-      dock={<RecordingDock onDiscard={noop} onStop={noop} />}>
-      <RecordingCard elapsedMs={12_000} samples={samples} />
-      <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.media.recordingNote")}</Copy>
+    <AttachPanel title={recording ? t("mobile.media.voiceNote") : t("mobile.media.attachTitle")} destination={t("mobile.media.destinationChat")} onClose={noop}
+      dock={recording ? <RecordingDock onDiscard={noop} onStop={noop} /> : undefined}>
+      {recording ? <>
+        <RecordingCard elapsedMs={12_000} samples={samples} />
+        <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.media.recordingNote")}</Copy>
+      </> : <>
+        <View style={{ borderWidth: 1, borderColor: color.separator, borderRadius: radius.card, backgroundColor: color.surface, overflow: "hidden" }}>
+          <CaptureSourceRow name="camera" first title={t("mobile.media.takePhoto")} description={t("mobile.media.cameraDescription")} onPress={noop} disabled={false} />
+          <CaptureSourceRow name="library" title={t("mobile.media.choosePhoto")} description={t("mobile.media.libraryDescription")} onPress={noop} disabled={false} />
+          <CaptureSourceRow name="voice" title={t("mobile.media.recordVoice")} description={t("mobile.media.voiceDescription")} onPress={noop} disabled={false} />
+        </View>
+        <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.media.privacyChat")}</Copy>
+      </>}
     </AttachPanel>
   </View>;
 }
 
-export const previews: ScreenPreview[] = [{ id: "S-14", state: "recording", render: RecordingFixture }];
+export const previews: ScreenPreview[] = [
+  { id: "S-14", state: "ready", render: () => <Fixture recording={false} /> },
+  { id: "S-14", state: "recording", render: () => <Fixture recording /> },
+];

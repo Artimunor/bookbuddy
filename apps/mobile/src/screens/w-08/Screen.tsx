@@ -1,14 +1,14 @@
 import { getCrewAvailabilityRoute, linkTokenSchema, openLinkRoute, patchCrewAvailabilityRoute, type CrewAvailability } from "@bookbuddy/api-contract";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, Switch, View } from "react-native";
+import { Pressable, View, useWindowDimensions } from "react-native";
 import { useCommand, useRemote } from "../../api";
-import { useFormat, useT } from "../../i18n";
+import { useFormat, useLocale, useT } from "../../i18n";
 import { useSession } from "../../session";
-import { Button, Card, Dock, Screen, SegmentedControl, TextField } from "../../ui/controls";
+import { Badge, Button, Card, Dock, ListRow, Screen, SegmentedControl, StatusBanner, SwitchRow, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { useBeaconTheme } from "../../ui/theme";
-import { siteTime } from "../f-01/Screen";
+import { siteWindow } from "../c-01/clock";
 import { NativePicker } from "./NativePicker";
 
 type Day = CrewAvailability["days"][number];
@@ -73,22 +73,91 @@ export default function AvailabilityScreen() {
 }
 type Edit = { date: string; kind: "available" | "unavailable"; start: string; end: string; cover: boolean };
 export function AvailabilityView(p: { data: CrewAvailability | null; day: Day | null; status: Status; lastConfirmedAt: number | null; edit: Edit | null; invalid: boolean; busy: boolean; checking: boolean; failed: boolean; onBack: () => void; onRetry: () => void; onDay: (date: string) => void; onWeek: (delta: number) => void; onBegin: (day: Day, kind: "available" | "unavailable") => void; onEdit: (edit: Edit | null) => void; onSave: () => void; onShift: (id: string) => void }) {
-  const t = useT(); const format = useFormat(); const { color } = useBeaconTheme(); const d = p.day; const e = p.edit; const zone = p.data?.siteZone ?? "";
-  const proposedStart = d && e?.kind === "available" ? wallInstant(d.date, e.start, zone) : null;
-  const proposedEnd = d && e?.kind === "available" ? wallInstant(d.date, e.end, zone) : null;
+  const t = useT(); const format = useFormat(); const { locale } = useLocale(); const { color, space, radius } = useBeaconTheme(); const { fontScale } = useWindowDimensions();
+  const d = p.day; const e = p.edit; const zone = p.data?.siteZone;
+  const days = p.data?.days ?? [];
+  const shortDate = new Intl.DateTimeFormat(locale, { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
+  const weekDate = new Intl.DateTimeFormat(locale, { timeZone: "UTC", year: "numeric", month: "short", day: "numeric" });
+  const weekday = new Intl.DateTimeFormat(locale, { timeZone: "UTC", weekday: "short" });
+  const dayNumber = new Intl.DateTimeFormat(locale, { timeZone: "UTC", day: "numeric" });
+  const first = days[0] && new Date(`${days[0].date}T12:00:00Z`);
+  const last = days.at(-1);
+  const confirmed = p.lastConfirmedAt != null && format.lines(p.lastConfirmedAt, zone)?.site;
+  const localZone = first ? format.siteTime(first.getTime(), zone) : null;
+  const zoneName = localZone?.kind === "available" ? format.zoneLabel(zone, localZone.site) : undefined;
+  const pref = d?.preference;
+  const saved = pref && pref.kind !== "not_set" && format.lines(pref.savedAt, zone)?.site;
+  const proposedStart = d && e?.kind === "available" && zone ? wallInstant(d.date, e.start, zone) : null;
+  const proposedEnd = d && e?.kind === "available" && zone ? wallInstant(d.date, e.end, zone) : null;
   const proposedHours = d?.preference.kind === "available" ? d.preference.hours.slice(1) : [];
   const conflicts = d?.confirmedShifts.filter(s => e?.kind === "unavailable" || (e?.kind === "available" && proposedStart !== null && proposedEnd !== null ? ![{ startsAt: proposedStart, endsAt: proposedEnd }, ...proposedHours].some(h => h.startsAt <= s.startsAt && h.endsAt >= s.endsAt) : s.conflictsWithPreference)) ?? [];
-  return <Screen title={t("mobile.crewSchedule.availability")} navigation={{ kind: "back", label: t("mobile.crewSchedule.back"), onPress: p.onBack }} dock={e ? <Dock context={t("mobile.crewSchedule.saveEffect")} primary={{ label: t("mobile.crewSchedule.save"), onPress: p.onSave, disabled: p.status !== "ready" || p.busy }} /> : undefined}>
+  return <Screen title={t("mobile.crewSchedule.availability")} subtitle={zoneName} navigation={{ kind: "back", label: t("mobile.crewSchedule.back"), onPress: p.onBack }} dock={e ? <Dock context={t("mobile.crewSchedule.saveEffect")} primary={{ label: t("mobile.crewSchedule.save"), onPress: p.onSave, disabled: p.status !== "ready" || p.busy }} /> : undefined}>
     {(p.status === "idle" || p.status === "loading") && <Copy>{t("mobile.crewSchedule.loading")}</Copy>}{p.status === "error" && <><Copy>{t("mobile.crewSchedule.error")}</Copy><Button label={t("mobile.crewSchedule.retry")} onPress={p.onRetry} /></>}
-    {p.status === "offline" && <><Copy>{t("mobile.crewSchedule.offline")}</Copy>{p.lastConfirmedAt != null && zone && <Copy>{t("shared.status.lastConfirmed", { time: siteTime(format, p.lastConfirmedAt, zone) })}</Copy>}</>}
-    {p.data && d && <><Copy variant="supporting">{zone}</Copy><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}><Button label={t("mobile.crewSchedule.previous")} variant="quiet" onPress={() => p.onWeek(-1)} /><Button label={t("mobile.crewSchedule.next")} variant="quiet" onPress={() => p.onWeek(1)} /></View>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>{p.data.days.map(day => <Pressable key={day.date} accessibilityRole="button" accessibilityLabel={day.date} accessibilityState={{ selected: day.date === d.date }} onPress={() => p.onDay(day.date)} style={{ minWidth: 42, minHeight: 48, padding: 6, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: color.ink, borderRadius: 12, backgroundColor: day.date === d.date ? color.ink : "transparent" }}><Copy style={{ color: day.date === d.date ? color.canvas : color.ink }}>{day.date.slice(8)}</Copy></Pressable>)}</View>
-      <Copy variant="sectionTitle">{d.date}</Copy><SegmentedControl label={t("mobile.crewSchedule.preference")} value={e?.kind ?? (d.preference.kind === "unavailable" ? "unavailable" : "available")} onChange={kind => p.onBegin(d, kind)} options={[{ value: "available", label: t("mobile.crewSchedule.available") }, { value: "unavailable", label: t("mobile.crewSchedule.unavailable") }]} />
-      {d.preference.kind === "not_set" && !e && <Copy>{t("mobile.crewSchedule.notSet")}</Copy>}
-      {e?.kind === "available" ? <Card><TextField label={t("mobile.crewSchedule.start")} value={e.start} onChangeText={start => p.onEdit({ ...e, start })} helper={t("mobile.crewSchedule.timeHint")} /><NativePicker label={t("mobile.crewSchedule.start")} mode="time" date={d.date} time={e.start} zone={zone} onChange={start => p.onEdit({ ...e, start })} /><TextField label={t("mobile.crewSchedule.end")} value={e.end} onChangeText={end => p.onEdit({ ...e, end })} /><NativePicker label={t("mobile.crewSchedule.end")} mode="time" date={d.date} time={e.end} zone={zone} onChange={end => p.onEdit({ ...e, end })} />{p.invalid && <Copy>{t("mobile.crewSchedule.invalidTime")}</Copy>}<View><Copy>{t("mobile.crewSchedule.cover")}</Copy><Switch accessibilityLabel={t("mobile.crewSchedule.cover")} value={e.cover} onValueChange={cover => p.onEdit({ ...e, cover })} /></View><Button variant="quiet" label={t("mobile.crewSchedule.cancel")} onPress={() => p.onEdit(null)} /></Card> : !e && d.preference.kind === "available" ? <Card><Copy variant="sectionTitle">{t("mobile.crewSchedule.hours")}</Copy>{d.preference.hours.map(h => <Copy key={h.startsAt}>{siteTime(format, h.startsAt, zone)} – {siteTime(format, h.endsAt, zone)}</Copy>)}<Copy>{d.preference.openToCover ? t("mobile.crewSchedule.coverOn") : t("mobile.crewSchedule.coverOff")}</Copy><Button label={t("mobile.crewSchedule.change")} variant="quiet" onPress={() => p.onBegin(d, "available")} /></Card> : e && <Button variant="quiet" label={t("mobile.crewSchedule.cancel")} onPress={() => p.onEdit(null)} />}
-      {d.preference.kind === "unavailable" && !e && <Copy>{t("mobile.crewSchedule.coverUnavailable")}</Copy>}
-      {conflicts.length > 0 && <Card><Copy variant="sectionTitle">{t("mobile.crewSchedule.conflict")}</Copy><Copy>{t("mobile.crewSchedule.shiftStillConfirmed")}</Copy></Card>}
-      <Copy variant="sectionTitle">{t("mobile.crewSchedule.confirmedShifts")}</Copy>{d.confirmedShifts.map(s => <Card key={s.shiftId}><Copy>{siteTime(format, s.startsAt, s.siteZone)} – {siteTime(format, s.endsAt, s.siteZone)}</Copy><Copy>{t("mobile.crewSchedule.confirmed")}</Copy><Button variant="quiet" label={t("mobile.crewSchedule.openShift")} onPress={() => p.onShift(s.shiftId)} /></Card>)}
+    {p.status === "offline" && <StatusBanner state="offline" label={t("mobile.crewSchedule.offline")} detail={confirmed ? t("shared.status.lastConfirmed", { time: confirmed }) : undefined} />}
+    {p.data && d && zone && first && last && <>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.grid[2] }}>
+        <Copy variant="sectionTitle" style={{ flexGrow: 1, flexShrink: 1 }}>
+          {typeof weekDate.formatRange === "function" ? weekDate.formatRange(first, new Date(`${last.date}T12:00:00Z`)) : `${shortDate.format(first)} – ${weekDate.format(new Date(`${last.date}T12:00:00Z`))}`}
+        </Copy>
+        <Button label={t("mobile.crewSchedule.previous")} arrow="back" iconOnly variant="neutral" onPress={() => p.onWeek(-1)} />
+        <Button label={t("mobile.crewSchedule.next")} arrow="next" iconOnly variant="neutral" onPress={() => p.onWeek(1)} />
+      </View>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.grid[1] }}>
+        {days.map(day => {
+          const date = new Date(`${day.date}T12:00:00Z`);
+          const selected = day.date === d.date;
+          const unavailable = day.preference.kind === "unavailable";
+          const state = unavailable ? t("mobile.crewSchedule.unavailable") : day.preference.kind === "available" ? t("mobile.crewSchedule.available") : t("mobile.crewSchedule.notSet");
+          const ink = selected ? color.onBrand : color.ink;
+          return <Pressable key={day.date} accessibilityRole="button" accessibilityLabel={`${shortDate.format(date)} · ${state}`}
+            accessibilityState={{ selected }} onPress={() => p.onDay(day.date)}
+            style={{ flexGrow: 1, flexBasis: fontScale >= 1.5 ? "100%" : 46, minHeight: 64, padding: space.grid[1], alignItems: "center", justifyContent: "center",
+              borderWidth: 1, borderColor: selected ? color.brand : color.separator, borderRadius: radius.smallTile, backgroundColor: selected ? color.brand : color.surface }}>
+            <Copy variant="caption" style={{ color: ink }}>{weekday.format(date)}</Copy>
+            <Copy variant="label" style={{ color: ink }}>{dayNumber.format(date)}</Copy>
+            <Copy variant="caption" aria-hidden style={{ color: ink }}>{unavailable ? "×" : day.preference.kind === "available" ? "•" : " "}</Copy>
+          </Pressable>;
+        })}
+      </View>
+      <Copy variant="caption" style={{ color: color.muted }}>{t("mobile.crewSchedule.dayLegend")}</Copy>
+      <Card dense>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: space.grid[2] }}>
+          <Copy variant="sectionTitle">{shortDate.format(new Date(`${d.date}T12:00:00Z`))}</Copy>
+          {pref?.kind !== "not_set" && <Badge label={pref?.kind === "available" ? t("mobile.crewSchedule.available") : t("mobile.crewSchedule.unavailable")} tone={pref?.kind === "available" ? "success" : "neutral"} />}
+        </View>
+        <SegmentedControl<Day["preference"]["kind"]> label={t("mobile.crewSchedule.preference")} hideLabel value={e?.kind ?? d.preference.kind}
+          onChange={kind => { if (kind !== "not_set") p.onBegin(d, kind); }}
+          options={[{ value: "available", label: t("mobile.crewSchedule.available") }, { value: "unavailable", label: t("mobile.crewSchedule.unavailable") }]} />
+        {d.preference.kind === "not_set" && !e && <Copy>{t("mobile.crewSchedule.notSet")}</Copy>}
+        {e?.kind === "available" && <>
+          <TextField label={t("mobile.crewSchedule.start")} value={e.start} onChangeText={start => p.onEdit({ ...e, start })} helper={t("mobile.crewSchedule.timeHint")} />
+          <NativePicker label={t("mobile.crewSchedule.start")} mode="time" date={d.date} time={e.start} zone={zone} onChange={start => p.onEdit({ ...e, start })} />
+          <TextField label={t("mobile.crewSchedule.end")} value={e.end} onChangeText={end => p.onEdit({ ...e, end })} />
+          <NativePicker label={t("mobile.crewSchedule.end")} mode="time" date={d.date} time={e.end} zone={zone} onChange={end => p.onEdit({ ...e, end })} />
+          {p.invalid && <Copy>{t("mobile.crewSchedule.invalidTime")}</Copy>}
+          <SwitchRow label={t("mobile.crewSchedule.cover")} value={e.cover} onValueChange={cover => p.onEdit({ ...e, cover })} />
+        </>}
+        {e && <Button variant="quiet" label={t("mobile.crewSchedule.cancel")} onPress={() => p.onEdit(null)} />}
+        {!e && d.preference.kind === "available" && <>
+          <ListRow label={t("mobile.crewSchedule.hours")} description={d.preference.hours.map(h => siteWindow(format, h.startsAt, h.endsAt, zone)?.time).filter(Boolean).join(" · ")}
+            trailing={<Button label={t("mobile.crewSchedule.change")} variant="neutral" onPress={() => p.onBegin(d, "available")} />} />
+          <Copy variant="supporting" style={{ color: color.muted }}>{d.preference.openToCover ? t("mobile.crewSchedule.coverOn") : t("mobile.crewSchedule.coverOff")}</Copy>
+        </>}
+        {d.preference.kind === "unavailable" && !e && <Copy variant="supporting">{t("mobile.crewSchedule.coverUnavailable")}</Copy>}
+      </Card>
+      {conflicts.length > 0 && <View style={{ backgroundColor: color.attentionSoft, borderRadius: radius.input, padding: space.grid[4], gap: space.grid[1] }}>
+        <Copy variant="label" style={{ color: color.attentionInk }}>{t("mobile.crewSchedule.conflict")}</Copy>
+        <Copy variant="supporting" style={{ color: color.attentionInk }}>{t("mobile.crewSchedule.shiftStillConfirmed")}</Copy>
+      </View>}
+      {d.confirmedShifts.length > 0 && <Card dense>
+        <Copy variant="label">{t("mobile.crewSchedule.confirmedShifts")}</Copy>
+        {d.confirmedShifts.map(s => {
+          const clock = siteWindow(format, s.startsAt, s.endsAt, s.siteZone);
+          return <ListRow key={s.shiftId} glyph="▦" label={clock?.time ?? t("mobile.crewSchedule.openShift")}
+            description={[t("mobile.crewSchedule.confirmed"), clock?.zone].filter(Boolean).join(" · ")} onPress={() => p.onShift(s.shiftId)} />;
+        })}
+      </Card>}
+      {saved && <Copy variant="supporting" style={{ color: color.muted }}>{t("shared.status.lastConfirmed", { time: saved })}</Copy>}
       <Copy>{t("mobile.crewSchedule.privacy")}</Copy>{p.checking && <Copy>{t("mobile.crewSchedule.checking")}</Copy>}{p.failed && <Copy>{t("mobile.crewSchedule.saveFailed")}</Copy>}</>}
   </Screen>;
 }

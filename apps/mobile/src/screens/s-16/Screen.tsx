@@ -2,6 +2,7 @@ import { idSchema, submitSupportRoute } from "@bookbuddy/api-contract";
 import { uuid } from "expo";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useRef, useState } from "react";
+import { SymbolView } from "expo-symbols";
 import { View } from "react-native";
 import { useApiClient } from "../../api";
 import { useFormat, useT } from "../../i18n";
@@ -84,13 +85,18 @@ export function HelpView({ reason, reference, lastConfirmed, signedIn, accountAt
     dock={<Dock primary={{ label: generic ? t("shared.action.back")
       : signedIn ? t("mobile.help.backNow") : t("mobile.help.backWelcome"), onPress: onBack }} />}>
     {!form ? <>
-      <Card><View style={{ gap: space.grid[3] }}><Copy variant="sectionTitle" accessibilityRole="header">{title}</Copy>{detail && <Copy>{detail}</Copy>}</View></Card>
+      <Card>
+        {!generic && <View aria-hidden style={{ width: 48, height: 48, justifyContent: "center", alignItems: "center", backgroundColor: color.attentionSoft, borderRadius: radius.pill }}>
+          <SymbolView name={{ ios: "link", android: "link", web: "link" }} size={24} tintColor={color.attentionInk} />
+        </View>}
+        <View style={{ gap: space.grid[2] }}><Copy variant="sectionTitle" accessibilityRole="header">{title}</Copy>{detail && <Copy>{detail}</Copy>}</View>
+      </Card>
       <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.help.options")}</Copy>
-      <Card>{!generic && <ListRow glyph="↗" label={t("mobile.help.newLink")} description={t("mobile.help.newLink.detail")} />}
+      <Card dense>{!generic && <ListRow glyph="↗" label={t("mobile.help.newLink")} description={t("mobile.help.newLink.detail")} />}
         <ListRow glyph="?" label={t("mobile.help.contact")} description={t("mobile.help.contact.detail")} onPress={onContact} />
         {reason === "pending" && providerAdmin && <ListRow label={t("mobile.help.eligibility")} onPress={onEligibility} />}</Card>
-      {reference && <View style={{ backgroundColor: color.subtle, padding: space.grid[4], borderRadius: radius.pill, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: space.grid[2] }}>
-        <Copy variant="supporting">{t("mobile.help.reference")}</Copy><Copy selectable accessibilityLabel={reference.split("").join(" ")} style={{ writingDirection: "ltr" }}>{reference}</Copy></View>}
+      {reference && <View style={{ backgroundColor: color.subtle, paddingHorizontal: space.grid[4], paddingVertical: space.grid[2], borderRadius: radius.pill, flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: space.grid[2] }}>
+        <Copy variant="supporting">{t("mobile.help.reference")}</Copy><Copy variant="label" selectable accessibilityLabel={reference.split("").join(" ")} style={{ writingDirection: "ltr" }}>{reference}</Copy></View>}
       {!generic && <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.help.privacy")}</Copy>}
     </> : <>
       <Copy>{t("mobile.help.form.explainer")}</Copy>{accountAttached && <Copy>{t("mobile.help.form.identity")}</Copy>}<Copy>{t("mobile.help.form.kind")}</Copy>

@@ -1,12 +1,14 @@
 import { getJobRoute, getJobsRoute, idSchema, issueBillRoute, offerJobHandoffRoute, recordPaidRoute, withdrawJobHandoffRoute, type RouteResponse } from "@bookbuddy/api-contract";
 import { uuid } from "expo";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useCommand, useRemote } from "../../api";
 import { useLocale, useT } from "../../i18n";
-import { Badge, BookingCard, Button, Card, ListRow, SegmentedControl, SwitchRow, TextField } from "../../ui/controls";
+import { Badge, BookingCard, Button, Card, Dock, ListRow, SegmentedControl, SwitchRow, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { ProviderScreen, ReadState, useProvider, useProviderFormat as useFormat, useProviderLabels } from "../p-01/shared";
+import { Journey } from "../c-01/common";
+import { ChoiceRadio } from "../s-12/ChoiceRadio";
 import { useOffline } from "../s-02/flow";
 import { confirmAction } from "../s-17/confirmAction";
 import { CommercialReview, type ReviewTarget } from "./Review";
@@ -149,10 +151,26 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
       void detail.refresh();
     }
   }} />;
-  return <ProviderScreen title={t("mobile.provider.jobs")} business={page?.businessName}>
+  const handoffAction = job?.canWithdrawHandoff ? { label: t("mobile.provider.withdrawOffer"), disabled: busy, onPress: () => confirm("withdraw") }
+    : job?.handoffPreview ? {
+      label: candidate ? t("mobile.provider.offerTo", { name: candidate.displayName }) : t("mobile.provider.offer"),
+      disabled: !candidate || busy || (job.handoffPreview.policy === "urgent" && !urgentCalled), onPress: () => confirm("offer"),
+    } : null;
+  return <ProviderScreen title={t("mobile.provider.jobs")} business={page?.businessName}
+    dock={handoffAction ? <Dock context={t("mobile.provider.offerEffect")} primary={handoffAction} /> : undefined}>
     <SegmentedControl label={t("mobile.provider.segment")} value={segment} onChange={(value) => { setSegment(value); setCursors([]); setSelected(null); }} options={[{ value: "needs_you", label: `${t("mobile.provider.needsYou")} ${page?.needsYouCount ?? ""}` }, { value: "active", label: `${t("mobile.provider.active")} ${page?.activeCount ?? ""}` }, { value: "past", label: `${t("mobile.provider.past")} ${page?.pastCount ?? ""}` }]} />
     <ReadState status={jobs.status} retry={() => { void jobs.refresh(); }} />
-    {items.map((item) => <Card key={item.jobId}><BookingCard title={item.title ?? item.reference} place={`${item.reference} · ${item.place.alias}`} stage={labels.journey(item.journey.step, item.journey.cancelled)} next={item.accountableForeman ? t("mobile.provider.foreman", { name: item.accountableForeman.displayName }) : t("mobile.provider.noForeman")} accessibilityLabel={`${item.title ?? item.reference} · ${item.reference} · ${item.place.alias} · ${labels.journey(item.journey.step, item.journey.cancelled)}`} onPress={() => { setSelected(selected === item.jobId ? null : item.jobId); setRecipient(null); setUrgentCalled(false); }} />
+    {items.map((item) => {
+      const title = item.title ?? item.reference;
+      const place = `${item.reference} · ${item.place.alias}`;
+      const stage = labels.journey(item.journey.step, item.journey.cancelled);
+      const foreman = item.accountableForeman ? t("mobile.provider.foreman", { name: item.accountableForeman.displayName }) : t("mobile.provider.noForeman");
+      const chosen = selected === item.jobId;
+      const booking = <BookingCard title={title} place={place} stage={stage} next={foreman}
+        progress={<Journey journey={item.journey} />} accessibilityLabel={[title, place, stage, foreman].join(" · ")}
+        onPress={() => { setSelected(chosen ? null : item.jobId); setRecipient(null); setUrgentCalled(false); }} />;
+      if (!chosen && !item.readyToBill) return <Fragment key={item.jobId}>{booking}</Fragment>;
+      return <Card dense key={item.jobId}>{booking}
       {item.readyToBill && <Badge label={t("mobile.provider.readyToBill")} tone="neutral" />}
       {selected === item.jobId && <><ReadState status={detail.status} retry={() => { void detail.refresh(); }} />{job && <>
         {job.handoff && <><Badge label={job.handoff.state === "expired" || job.handoff.state === "declined" ? t("mobile.provider.handoffStuck") : job.handoff.state === "accepted" ? t("mobile.provider.accepted") : job.handoff.state === "withdrawn" ? t("mobile.provider.withdrawn") : t("mobile.provider.offered")} tone={job.handoff.state === "expired" || job.handoff.state === "declined" ? "critical" : "neutral"} /><Copy>{t("mobile.provider.offeredTo", { name: job.handoff.to.displayName })}</Copy><Copy>{t("mobile.provider.replyBy", { time: format.siteTime(job.handoff.expiresAt, job.siteZone) })}</Copy></>}
@@ -169,13 +187,17 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
           <Copy>{t("mobile.provider.paid", { amount: format.money(job.bill.outcome.matched.minor, job.bill.outcome.matched.currency),
             person: job.bill.outcome.recorded.by ?? "", time: format.siteTime(job.bill.outcome.recorded.at, job.siteZone) })}</Copy>
         </>}
-        {job.handoffPreview && <><Copy variant="label">{t("mobile.provider.selectForeman")}</Copy>{job.handoffPreview.eligibleForemen.map((person) => <Button key={person.membershipId} variant={recipient === person.membershipId ? "primary" : "neutral"} label={person.displayName} onPress={() => setRecipient(person.membershipId)} />)}<Copy>{t("mobile.provider.replyBy", { time: format.siteTime(job.handoffPreview.expiresAt, job.siteZone) })}</Copy><Copy>{t("mobile.provider.offerEffect")}</Copy>{job.handoffPreview.policy === "urgent" && <><Copy>{t("mobile.provider.urgentHelp")}</Copy><SwitchRow label={t("mobile.provider.urgentCall")} value={urgentCalled} onValueChange={setUrgentCalled} /></>}<Button label={t("mobile.provider.offer")} disabled={!candidate || busy || (job.handoffPreview.policy === "urgent" && !urgentCalled)} onPress={() => confirm("offer")} /></>}
-        {job.canWithdrawHandoff && <Button label={t("mobile.provider.withdrawOffer")} variant="neutral" disabled={busy} onPress={() => confirm("withdraw")} />}
+        {job.handoffPreview && <>
+          <Copy variant="label">{t("mobile.provider.selectForeman")}</Copy>
+          {job.handoffPreview.eligibleForemen.map((person) => <ChoiceRadio key={person.membershipId} selected={recipient === person.membershipId} label={person.displayName} onPress={() => setRecipient(person.membershipId)} />)}
+          <Copy variant="supporting">{t("mobile.provider.replyBy", { time: format.lines(job.handoffPreview.expiresAt, job.siteZone)?.site ?? t("mobile.provider.unavailable") })}</Copy>
+          {job.handoffPreview.policy === "urgent" && <><Copy>{t("mobile.provider.urgentHelp")}</Copy><SwitchRow label={t("mobile.provider.urgentCall")} value={urgentCalled} onValueChange={setUrgentCalled} /></>}
+        </>}
         {(offer.state === "checking" || withdraw.state === "checking") && <Copy>{t("mobile.provider.checking")}</Copy>}
       </>}</>}
       {selected === item.jobId && unpaid && <RecordPayment key={unpaid.billId} bill={unpaid} actor={actor} ready={jobs.status === "ready"}
         onChanged={() => { void jobs.refresh(); void detail.refresh(); }} />}
-    </Card>)}
+    </Card>; })}
     {page && !items.length && <Copy>{t("mobile.provider.empty")}</Copy>}
     {cursors.length > 0 && <Button variant="quiet" label={t("mobile.provider.previous")} onPress={() => setCursors((v) => v.slice(0, -1))} />}
     {page?.page.hasMore && page.page.cursor && <Button variant="quiet" label={t("mobile.provider.next")} onPress={() => setCursors((v) => [...v, page.page.cursor!])} />}
