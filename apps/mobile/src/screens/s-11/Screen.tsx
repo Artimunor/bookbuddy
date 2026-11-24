@@ -16,17 +16,54 @@ import { confirmAction } from "../s-17/confirmAction";
 type Checklist = { hazard: boolean; control: boolean; response: boolean };
 export default function SafetyScreen() { return <BeaconThemeProvider field><SafetyRoute /></BeaconThemeProvider>; }
 function SafetyRoute() {
-  const { instructionId = "", versionId } = useLocalSearchParams<{ instructionId: string; versionId?: string }>(); const router = useRouter(); const offline = useOffline(); const { bootstrap } = useSession(); const t = useT();
-  const remote = useRemote(getSafetyInstructionRoute, { params: { id: instructionId }, ...(versionId ? { query: { versionId } } : {}) }, { enabled: !!instructionId && !offline });
-  const acknowledge = useCommand(acknowledgeSafetyInstructionRoute); const verify = useCommand(recordSafetyTeachBackRoute); const question = useCommand(askSafetyQuestionRoute); const issue = useCommand(issueSafetyInstructionRoute); const d = remote.data;
+  const { instructionId = "", versionId, assignmentId } = useLocalSearchParams<{ instructionId: string; versionId?: string; assignmentId?: string }>();
+  const router = useRouter(); const offline = useOffline(); const { bootstrap } = useSession(); const t = useT();
+  const creating = !!assignmentId && !versionId && bootstrap?.activeContext?.role === "foreman";
+  const remote = useRemote(getSafetyInstructionRoute, { params: { id: instructionId }, ...(versionId ? { query: { versionId } } : {}) }, { enabled: !!instructionId && !creating && !offline });
+  const acknowledge = useCommand(acknowledgeSafetyInstructionRoute); const verify = useCommand(recordSafetyTeachBackRoute); const question = useCommand(askSafetyQuestionRoute); const issue = useCommand(issueSafetyInstructionRoute);
+  const d = creating ? verify.result ?? issue.result : remote.data;
+  const [firstVersion] = useState(() => creating ? uuid.v4() : null);
+  const [firstText, setFirstText] = useState("");
+  const [firstLanguage, setFirstLanguage] = useState("es");
   const busy = [acknowledge.state, verify.state, question.state, issue.state].some(s => s === "sending" || s === "checking");
+  const onBack = () => router.canGoBack() ? router.back() : router.replace("/" as Href);
+  function issueFirst() {
+    const text = firstText.trim(), language = firstLanguage.trim();
+    if (!creating || !assignmentId || !instructionId || !firstVersion || d || offline || busy || !text || !language) return;
+    const label = t("mobile.briefing.issue");
+    confirmAction(router, { title: label, actionLabel: label, actionLabelKey: "mobile.briefing.issue",
+      item: text, actor: bootstrap?.account.displayName ?? "", role: t("mobile.foremanHome.foreman"),
+      effects: [t("mobile.cover.holdDetail")], offline, onReview: () => router.replace(`/safety/${instructionId}` as Href),
+      onConfirm: async () => {
+        const r = await issue.run({ params: { id: instructionId }, body: { payload: {
+          id: firstVersion, assignmentId, expectedVersionId: null, original: { text, language },
+        } } });
+        if (r.ok) return "confirmed";
+        return r.error.code === "INTERNAL_ERROR" || ("delivery" in r.error && r.error.delivery === "unknown") ? "uncertain" : "invalidated";
+      },
+    });
+  }
   async function ack() { if (!d || offline || busy || d.viewer !== "worker" || d.state !== "awaiting_acknowledgement") return; const r = await acknowledge.run({ params: { id: instructionId }, body: { payload: { versionId: d.version.id, teachBackId: d.teachBack.id } } }); if (r.ok) await remote.refresh(); }
   function verifyAction(language: string, checklist: Checklist) {
     if (!d || offline || busy || d.viewer !== "issuer" || d.state !== "awaiting_teach_back" || !language.trim() || !Object.values(checklist).every(Boolean)) return;
-    confirmAction(router, { title: t("mobile.briefing.verify"), actionLabel: t("mobile.briefing.verify"), actionLabelKey: "mobile.briefing.verify", item: t("mobile.briefing.recipient", { name: d.workerName, version: d.version.no }), actor: bootstrap?.account.displayName ?? d.version.issuedByName, role: t("mobile.foremanHome.foreman"), effects: [t("mobile.briefing.verifyEffect"), language], offline, onReview: () => void remote.refresh(), onConfirm: async () => { const r = await verify.run({ params: { id: instructionId }, body: { payload: { id: uuid.v4(), versionId: d.version.id, language: language.trim(), checklist, outcome: "passed" } } }); if (r.ok) { await remote.refresh(); return "confirmed"; } return "delivery" in r.error && r.error.delivery === "unknown" ? "uncertain" : "invalidated"; } });
+    confirmAction(router, { title: t("mobile.briefing.verify"), actionLabel: t("mobile.briefing.verify"), actionLabelKey: "mobile.briefing.verify", item: t("mobile.briefing.recipient", { name: d.workerName, version: d.version.no }), actor: bootstrap?.account.displayName ?? d.version.issuedByName, role: t("mobile.foremanHome.foreman"), effects: [t("mobile.briefing.verifyEffect"), language], offline, onReview: () => {
+      if (creating) router.replace(`/safety/${instructionId}?versionId=${encodeURIComponent(d.version.id)}` as Href);
+      else void remote.refresh();
+    }, onConfirm: async () => { const r = await verify.run({ params: { id: instructionId }, body: { payload: { id: uuid.v4(), versionId: d.version.id, language: language.trim(), checklist, outcome: "passed" } } }); if (r.ok) { if (!creating) await remote.refresh(); return "confirmed"; } return "delivery" in r.error && r.error.delivery === "unknown" ? "uncertain" : "invalidated"; } });
   }
   async function replace(text: string, language: string) { if (!d || offline || busy || d.viewer !== "issuer" || d.state === "superseded" || !text.trim() || !language.trim()) return; const r = await issue.run({ params: { id: instructionId }, body: { payload: { id: uuid.v4(), assignmentId: d.assignmentId, expectedVersionId: d.version.id, original: { text: text.trim(), language: language.trim() } } } }); if (r.ok) router.replace(`/safety/${instructionId}?versionId=${encodeURIComponent(r.data.version.id)}` as Href); }
   async function ask(text: string, language: string) { if (!d || offline || busy || d.viewer !== "worker" || d.state === "superseded" || !text.trim() || !language.trim()) return; const r = await question.run({ params: { id: instructionId }, body: { payload: { id: uuid.v4(), versionId: d.version.id, original: { text: text.trim(), language: language.trim() } } } }); if (r.ok) await remote.refresh(); }
+  if (creating && !d) {
+    const label = t("mobile.briefing.issue");
+    return <Screen title={t("mobile.briefing.safetyTitle")} navigation={{ kind: "back", label: t("mobile.liveShift.back"), onPress: onBack }}
+      dock={<Dock context={t("mobile.cover.holdDetail")} primary={{ label, onPress: issueFirst, disabled: offline || busy || !firstText.trim() || !firstLanguage.trim(), busy }} />}>
+      <TextField label={t("mobile.briefing.instructionText")} value={firstText} onChangeText={setFirstText} multiline maxLength={16000} disabled={busy} />
+      <TextField label={t("mobile.briefing.questionLanguage")} value={firstLanguage} onChangeText={setFirstLanguage} disabled={busy} />
+      {offline && <Copy>{t("mobile.briefing.offline")}</Copy>}
+      {issue.state === "checking" && <Copy>{t("mobile.briefing.checking")}</Copy>}
+      {(issue.state === "failed" || issue.state === "conflict") && <Copy>{t("mobile.briefing.failed")}</Copy>}
+    </Screen>;
+  }
   return <SafetyView data={d} offline={offline} loading={remote.status === "loading"} busy={busy} checking={[acknowledge.state, verify.state, question.state, issue.state].includes("checking")} failed={[acknowledge.state, verify.state, question.state, issue.state].some(s => s === "failed" || s === "conflict")} questionSent={question.state === "done"} onBack={() => router.canGoBack() ? router.back() : router.replace("/" as Href)} onRetry={() => void remote.refresh()} onAcknowledge={() => void ack()} onVerify={verifyAction} onQuestion={(text, language) => void ask(text, language)} onIssue={(text, language) => void replace(text, language)} onReplacement={id => router.replace(`/safety/${instructionId}?versionId=${encodeURIComponent(id)}` as Href)} />;
 }
 export function SafetyView(p: { data: SafetyInstruction | null; offline: boolean; loading: boolean; busy: boolean; checking: boolean; failed: boolean; questionSent: boolean; onBack: () => void; onRetry: () => void; onAcknowledge: () => void; onVerify: (language: string, checklist: Checklist) => void; onQuestion: (text: string, language: string) => void; onIssue: (text: string, language: string) => void; onReplacement: (version: string) => void }) {
