@@ -2,6 +2,7 @@ import type { ChangeVersionState, QuoteVersionState } from "@bookbuddy/domain";
 import type { CommandStatement } from "../../db/commit";
 import { at, currentCheck, displayName, eligibilityStatus, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { routedReviewer } from "../commercial/policy";
 import { placeCapability } from "../places/policy";
 import {
   booking, businessCapability, currentMembership, customerPlaces, handoffJson, headingSql, journey, journeySql,
@@ -42,18 +43,17 @@ const latestQuote = `SELECT q.id FROM quote_versions q WHERE q.job_id = j.id AND
 const latestChange = `SELECT c.id FROM change_versions c WHERE c.job_id = j.id AND c.issued_at <= ${at}
   AND c.state IN ('issued', 'approved', 'rejected')
   ORDER BY (c.state = 'issued' AND c.expires_at > ${at}) DESC, c.issued_at DESC, c.id LIMIT 1`;
+const pendingReviewAuthority = `review.state = 'pending' AND review.submitted_at <= ${at} AND ${routedReviewer("s", "review")}`;
 const pendingReviews = `SELECT j.id AS job_id, review.id, q.no, q.author_id, review.submitted_at, review.due_at,
-    review.reviewer_id, review.backup_id, 'quote' AS kind, q.id AS version_id
+    'quote' AS kind, q.id AS version_id
   FROM reader s JOIN visible_jobs j ON s.role = 'provider_admin' AND j.state = 'open'
   JOIN quote_versions q ON q.job_id = j.id AND q.state = 'in_review' JOIN commercial_reviews review ON review.quote_version_id = q.id
-  WHERE review.state = 'pending' AND review.submitted_at <= ${at}
+  WHERE ${pendingReviewAuthority}
   UNION ALL
-  SELECT j.id, review.id, c.no, c.author_id, review.submitted_at, review.due_at, review.reviewer_id, review.backup_id, 'change', c.id
+  SELECT j.id, review.id, c.no, c.author_id, review.submitted_at, review.due_at, 'change', c.id
   FROM reader s JOIN visible_jobs j ON s.role = 'provider_admin' AND j.state = 'open'
   JOIN change_versions c ON c.job_id = j.id AND c.state = 'in_review' JOIN commercial_reviews review ON review.change_version_id = c.id
-  WHERE review.state = 'pending' AND review.submitted_at <= ${at}`;
-const eligibleReview = `s.account_id IN (candidate.reviewer_id, candidate.backup_id)
-  AND ${businessCapability("s.membership_id", "review_commercial", at)}`;
+  WHERE ${pendingReviewAuthority}`;
 const liveHandoff = `h.state = 'offered' AND h.offered_at <= ${at} AND h.expires_at > ${at}`;
 const stuckHandoff = `(h.state IN ('declined', 'expired') OR (h.state = 'offered' AND h.expires_at <= ${at}))`;
 const canApprove = (v: string) => `p.named_approver_id = s.account_id AND s.account_id NOT IN (${v}.author_id, ${v}.publisher_id)
@@ -102,7 +102,7 @@ function jobPacket(mode: ReadMode): string {
         SELECT json_object('kind', candidate.kind, 'versionId', candidate.version_id, 'version', candidate.no,
           'submitted', json_object('at', candidate.submitted_at, 'by', ${displayName("author")}))
         FROM pending_reviews candidate JOIN accounts author ON author.id = candidate.author_id
-        WHERE candidate.job_id = j.id AND ${eligibleReview}
+        WHERE candidate.job_id = j.id
         ORDER BY candidate.due_at, candidate.id LIMIT 1) END),
       'canWithdrawHandoff', s.role = 'provider_admin' AND j.state = 'open' AND (${liveHandoff})
         AND ${businessCapability("s.membership_id", "handoff", at)},

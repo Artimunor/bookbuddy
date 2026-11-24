@@ -14,7 +14,8 @@ const base = "https://bookbuddy.test/api/v1";
 const execution = { waitUntil() {}, passThroughOnException() {} };
 const noAccess = { ok: false, error: { code: "NOT_FOUND" } };
 
-type User = "owner" | "other" | "viewer" | "foreman" | "recipient" | "admin" | "worker";
+const users = ["owner", "other", "viewer", "foreman", "recipient", "admin", "backup", "worker"] as const;
+type User = typeof users[number];
 
 async function fixture() {
   const db = await createTestD1();
@@ -22,7 +23,6 @@ async function fixture() {
   const env = { DB: db, SYNC_CURSOR_HMAC_KEY: "test-job-sync-cursor-key-more-than-32-chars" } as unknown as Bindings;
   const credentials = new Map<User, string>();
   try {
-    const users = ["owner", "other", "viewer", "foreman", "recipient", "admin", "worker"] as const;
     await db.batch([
       db.prepare("INSERT INTO operating_areas(id,name,site_zone,polygon) VALUES ('area','Coarse area','Europe/Madrid','[0]')"),
       db.prepare(`INSERT INTO businesses(id,legal_name,public_name,verified_work_contact,catchment_id,state) VALUES
@@ -31,7 +31,9 @@ async function fixture() {
       ...users.map((id) => db.prepare(`INSERT INTO accounts(id,email_normalized,display_name,verified_at,state)
         VALUES (?,?,?,1,'active')`).bind(id, `${id}@example.test`, id)),
       ...users.map((id) => db.prepare("INSERT INTO account_contexts(id,account_id,role) VALUES (?,?,'customer')").bind(`${id}-customer`, id)),
-      ...([['foreman', 'foreman'], ['recipient', 'foreman'], ['admin', 'provider_admin'], ['worker', 'worker']] as const).flatMap(([id, role]) => [
+      ...([
+        ["foreman", "foreman"], ["recipient", "foreman"], ["admin", "provider_admin"], ["backup", "provider_admin"], ["worker", "worker"],
+      ] as const).flatMap(([id, role]) => [
         db.prepare("INSERT INTO memberships VALUES (?,'business',?,'active')").bind(`${id}-member`, id),
         db.prepare(`INSERT INTO membership_roles(id,membership_id,business_id,account_id,role,granted_at)
           VALUES (?,?,'business',?,?,1)`).bind(`${id}-role`, `${id}-member`, id, role),
@@ -79,9 +81,13 @@ async function fixture() {
       db.prepare(`UPDATE quote_versions SET state='issued', publisher_id='admin', issued_at=?, expires_at=? WHERE id='issued'`).bind(old + 5, expiry),
       db.prepare(`UPDATE quote_versions SET state='in_review' WHERE id='internal'`),
       db.prepare(`INSERT INTO commercial_reviews(id,quote_version_id,reviewer_id,backup_id,submitted_at,due_at,state)
-        VALUES ('review','internal','admin','recipient',?,?,'pending')`).bind(old + 6, expiry),
+        VALUES ('review','internal','admin','backup',?,?,'pending')`).bind(old + 6, expiry),
       db.prepare(`INSERT INTO business_grants(id,business_id,membership_id,capability,issuer_id,valid_from) VALUES
-        ('review-right','business','admin-member','review_commercial','foreman',1)`),
+        ('review-right','business','admin-member','review_commercial','foreman',1),
+        ('backup-right','business','backup-member','review_commercial','foreman',1)`),
+      db.prepare(`INSERT INTO job_grants(job_id,context_id,capability,valid_from,valid_until) VALUES
+        ('unassigned','admin-staff','reviewer',?,?), ('unassigned','backup-staff','backup',?,?)`)
+        .bind(old, expiry + minute, old, expiry + minute),
     ]);
   } catch (error) { db.close(); throw error; }
 
@@ -163,6 +169,24 @@ test("staff reads separate accountability, active intake, business oversight, an
     expect(await f.request("/jobs/unassigned?view=intake", "recipient")).toMatchObject({ status: 404, body: noAccess });
     expect((await f.request("/home", "admin")).body).toMatchObject({ data: { overview: { handoffs: { offeredCount: 0,
       stuck: [{ jobId: "unassigned", since: expiry, offeredTo: "recipient" }] } } } });
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
+test("private review detail and counts recheck the exact job grant and backup deadline", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await f.db.prepare(`UPDATE job_grants SET revoked_at = ?
+      WHERE job_id = 'unassigned' AND context_id = 'admin-staff' AND capability = 'reviewer'`).bind(now).run();
+    for (const reader of ["admin", "backup"] as const) {
+      expect((await f.request("/jobs/unassigned", reader)).body).toMatchObject({ data: { job: { commercialReview: null } } });
+      expect((await f.request("/businesses/business/overview", reader)).body).toMatchObject({ data: { commercialReviewCount: 0 } });
+    }
+    date.mockReturnValue(expiry);
+    expect((await f.request("/jobs/unassigned", "backup")).body).toMatchObject({ data: { job: { commercialReview: { versionId: "internal" } } } });
+    expect((await f.request("/businesses/business/overview", "backup")).body).toMatchObject({ data: { commercialReviewCount: 1 } });
+    date.mockReturnValue(expiry + minute);
+    expect((await f.request("/jobs/unassigned", "backup")).body).toMatchObject({ data: { job: { commercialReview: null } } });
   } finally { f.db.close(); date.mockRestore(); }
 });
 
