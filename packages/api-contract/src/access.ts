@@ -58,6 +58,8 @@ export const businessOverviewSchema = z.object({
       accountableForeman: displayName.nullable(),
     })),
   }),
+  unassignedCount: count,
+  commercialReviewCount: count,
   bills: z.object({ openCount: count, totalMinor: count, currency: z.enum(CURRENCIES) }),
   eligibility: z.object({ status: eligibilityStatus, pendingReviewCount: count }),
 });

@@ -1,5 +1,5 @@
 import {
-  acceptInvitationRoute, declineInvitationRoute, getBusinessEligibilityRoute, getBusinessPeopleRoute, getInvitationRoute,
+  acceptInvitationRoute, declineInvitationRoute, getBusinessEligibilityRoute, getBusinessOverviewRoute, getBusinessPeopleRoute, getInvitationRoute,
   inviteBusinessMemberRoute, openLinkRoute, operationIdHeader, reissueInvitationRoute, revokeBusinessMemberRoute, withdrawInvitationRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
@@ -12,6 +12,7 @@ import { openRequestScope } from "../../db/scope";
 import type { RequestScope } from "../../db/scope";
 import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
+import { decodeJobRows, projectJobsBusinessOverview, readJobsBusinessOverview } from "../jobs/read";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import { decodeBusinessEligibility, decodeBusinessPeople, readBusinessEligibility, readBusinessPeople } from "./businesses";
 import { decideInvitation, issueBusinessInvitation, reissueInvitation, revokeBusinessRole, withdrawInvitation } from "./commands";
@@ -53,6 +54,21 @@ accessRoutes.get(getInvitationRoute.path, async (c) => {
   }));
   if (!row) return transportFailure(c, "UNAUTHENTICATED");
   return row.value ? transportSuccess(c, decodeOpening(row.value), ctx.now) : transportFailure(c, "NOT_FOUND");
+});
+
+accessRoutes.get(getBusinessOverviewRoute.path, async (c) => {
+  const input = getBusinessOverviewRoute.input.safeParse({ params: c.req.param() });
+  if (!input.success) return transportFailure(c, "VALIDATION_FAILED");
+  const authorized = await authorize(c);
+  if (!authorized) return transportFailure(c, "UNAUTHENTICATED");
+  const { ctx, access } = authorized;
+  const row = await commitCommand(ctx, prepareCommand(ctx, {
+    statements: [readJobsBusinessOverview(access, input.data.params.b)],
+    decode: ([result]) => result?.results[0] as { value: string | null } | undefined,
+  }));
+  if (!row) return transportFailure(c, "UNAUTHENTICATED");
+  const overview = row.value && projectJobsBusinessOverview(decodeJobRows(row.value), ctx.now);
+  return overview ? transportSuccess(c, getBusinessOverviewRoute.output.parse(overview), ctx.now) : transportFailure(c, "NOT_FOUND");
 });
 
 accessRoutes.get(getBusinessPeopleRoute.path, async (c) => {
