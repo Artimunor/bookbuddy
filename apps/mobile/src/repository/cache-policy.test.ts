@@ -21,7 +21,7 @@ const erase = async () => {};
 function page(context: SyncPage["context"], updates: Partial<SyncPage> = {}): SyncPage {
   return { mode: "snapshot", context, upserts: [{ kind: "notification", resourceId: "notice", value: {
     id: "notice", kind: "offer", createdAt: 950, readAt: null,
-  } }], outcomes: [], removals: [], cursor: "cursor", hasMore: false, ...updates };
+  } }], outcomes: [], removals: [], cursor: "cursor", hasMore: false, snapshotComplete: true, ...updates };
 }
 
 test("offline bootstrap persists only allowlisted fields and expires independently of the bearer", async () => {
@@ -110,13 +110,13 @@ test("only definitive sync removal, completed absence or denial is journaled for
   const repo = mobile.openScope({ accountId, contextId: "staff" }, "worker", async (removed) => {
     if (await removed("worker_field_shift", target)) stops.push(target);
   });
-  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "reset", hasMore: true,
+  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "reset", hasMore: true, snapshotComplete: false,
     removals: [{ kind: "scope", resourceId: "staff" }] }), 1_000);
   expect(stops).toEqual([]);
-  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", upserts: [],
+  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", snapshotComplete: false, upserts: [],
     removals: [{ kind: "worker_field_shift", resourceId: "unrelated" }] }), 1_000);
   expect(stops).toEqual([]);
-  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", upserts: [],
+  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", snapshotComplete: false, upserts: [],
     removals: [{ kind: "worker_field_shift", resourceId: "shift" }] }), 1_000);
   expect(stops).toEqual(["shift"]);
   target = "absent";
@@ -127,13 +127,36 @@ test("only definitive sync removal, completed absence or denial is journaled for
   expect(stops).toEqual(["shift", "absent", "another"]);
 });
 
+test("a paged reset journals an absent card on the final snapshot page before delta catch-up", async () => {
+  const mobile = new MobileRepository(createMemoryExecutor(), () => "id", () => 1_000, erase);
+  const stops: string[] = [];
+  const context = bootstrap.activeContext!;
+  const repo = mobile.openScope({ accountId, contextId: context.contextId }, "worker", async (removed) => {
+    if (await removed("worker_field_shift", "revoked-shift")) stops.push("revoked-shift");
+  });
+  await repo.applySyncPage(page(context, {
+    mode: "reset", cursor: "snapshot-1", snapshotComplete: false, hasMore: true,
+    removals: [{ kind: "scope", resourceId: context.contextId }],
+  }), 1_000);
+  expect(stops).toEqual([]);
+  await repo.applySyncPage(page(context, {
+    cursor: "snapshot-end", snapshotComplete: true, hasMore: true, upserts: [],
+  }), 1_001);
+  expect(stops).toEqual(["revoked-shift"]);
+  await repo.applySyncPage(page(context, {
+    mode: "delta", cursor: "delta-end", snapshotComplete: false, upserts: [],
+  }), 1_002);
+  expect(stops).toEqual(["revoked-shift"]);
+  expect((await repo.prepareSyncBatch()).cursor).toBe("delta-end");
+});
+
 test("a sync cursor cannot advance past a removal that has not been journaled", async () => {
   const mobile = new MobileRepository(createMemoryExecutor(), () => "id", () => 1_000, erase);
   const repo = mobile.openScope({ accountId, contextId: "staff" }, "worker", async (removed) => {
     if (await removed("worker_field_shift", "shift")) throw new Error("Stop marker not saved");
   });
-  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", cursor: "before" }), 1_000);
-  await expect(repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", cursor: "after",
+  await repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", snapshotComplete: false, cursor: "before" }), 1_000);
+  await expect(repo.applySyncPage(page(bootstrap.activeContext!, { mode: "delta", snapshotComplete: false, cursor: "after",
     removals: [{ kind: "worker_field_shift", resourceId: "shift" }] }), 1_000)).rejects.toThrow("Stop marker not saved");
   expect((await repo.prepareSyncBatch()).cursor).toBe("before");
 });

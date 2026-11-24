@@ -10,15 +10,15 @@ test("the first persistent open sweeps orphaned ephemeral files without sweeping
     sweepEphemeral: () => { sweeps++; ephemeral.clear(); },
     persistent: async () => "persistent", memory: () => "memory",
   });
-  expect(await access.open("Unlock")).toBe("persistent");
+  expect(await access.open("Unlock")).toEqual({ status: "open", repository: "persistent" });
   expect(ephemeral.size).toBe(0);
 
   access.lock();
   eligible = false;
-  expect(await access.open("Unlock")).toBe("memory");
+  expect(await access.open("Unlock")).toEqual({ status: "open", repository: "memory" });
   ephemeral.add("current-memory-capture");
   eligible = true;
-  expect(await access.open("Unlock")).toBe("persistent");
+  expect(await access.open("Unlock")).toEqual({ status: "open", repository: "persistent" });
   expect([...ephemeral]).toEqual(["current-memory-capture"]);
   expect(sweeps).toBe(1);
 });

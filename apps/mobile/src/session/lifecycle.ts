@@ -1,4 +1,5 @@
 import type { SessionBootstrap } from "@bookbuddy/api-contract";
+import type { RepositoryOpening } from "../repository/open-policy";
 import type { DevicePreferences, MobileRepository } from "../repository/repository";
 import type { OfflineBootstrap } from "./offline-bootstrap";
 import type { ActiveSession, DeviceSession } from "./sign-out";
@@ -20,11 +21,13 @@ export function expireOfflineView(session: DeviceSession | null): SessionView {
 }
 
 export async function readUnlockedSession(record: ActiveSession,
-  open: () => Promise<Pick<MobileRepository, "getOfflineBootstrap"> | null>, now = Date.now) {
-  const repository = await open();
-  if (!repository || record.session.expiresAt <= now()) return null;
+  open: (requiresUnlock: boolean) => Promise<RepositoryOpening<Pick<MobileRepository, "getOfflineBootstrap">>>,
+  discardCredential: () => Promise<void>, now = Date.now) {
+  const opened = await open(record.requiresUnlock);
+  if (opened.status === "unavailable") await discardCredential();
+  if (opened.status !== "open" || record.session.expiresAt <= now()) return null;
   const { accountId, sessionId, activeContext } = record.session;
-  const cached = activeContext && await repository.getOfflineBootstrap(accountId, sessionId, activeContext.contextId);
+  const cached = activeContext && await opened.repository.getOfflineBootstrap(accountId, sessionId, activeContext.contextId);
   if (record.session.expiresAt <= now()) return null;
   return { record, cached: cached && cached.activeContext.role === activeContext?.role ? cached : null };
 }

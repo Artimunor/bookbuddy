@@ -4,7 +4,7 @@ import { Linking, Platform } from "react-native";
 import { useApiAccess } from "../../api/provider";
 import { useT } from "../../i18n";
 import { useSession } from "../../session";
-import { defaultPushSettings, enablePush, loadPushSettings, revokePush, savePushSettings, type PushSettings } from "../../system/push";
+import { defaultPushSettings, enablePush, loadPushSettings, pushEnabledForSession, revokePush, savePushSettings, type PushSettings } from "../../system/push";
 import { useStatusCards } from "../../system/status-cards";
 import { Button, Card, Screen, SwitchRow } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
@@ -22,7 +22,7 @@ export default function PrivacyScreen() {
     try {
       if (patch.notifications === true) {
         if (!client || !session) throw new Error("No session");
-        setSettings(await enablePush(client, session.accountId));
+        setSettings(await enablePush(client, session));
       } else if (patch.notifications === false) {
         if (session) await revokePush(client, session.accountId);
         const next = { ...(await loadPushSettings()), notifications: false }; await savePushSettings(next); setSettings(next);
@@ -44,7 +44,7 @@ export default function PrivacyScreen() {
     {active && <Button variant="quiet" label={t("mobile.statusCards.stop")} disabled={cardBusy} onPress={() => { void changeCard(() => stop(active.id)); }} />}
     {cardError && <Copy accessibilityRole="alert">{t("mobile.statusCards.unavailable")}</Copy>}
   </Card> : undefined;
-  return <PrivacyView role={role === "customer" ? "customer" : "worker"} settings={settings} busy={busy} error={error} cardControls={cardControls}
+  return <PrivacyView role={role === "customer" ? "customer" : "worker"} settings={{ ...settings, notifications: pushEnabledForSession(settings, session) }} busy={busy} error={error} cardControls={cardControls}
     onChange={(patch) => { void change(patch); }} onBack={() => router.canGoBack() ? router.back() : router.replace("/you" as Href)}
     onSettings={() => { void Linking.openSettings(); }} />;
 }

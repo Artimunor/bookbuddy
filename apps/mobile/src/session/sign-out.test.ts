@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { beginSignOut, parseStoredSession, settleSignOut } from "./sign-out";
 import type { ActiveSession, EndingSession } from "./sign-out";
 
-const active: ActiveSession = { state: "active", credential: "A".repeat(43), proof: `r1.${"Q".repeat(42)}A`,
+const active: ActiveSession = { state: "active", requiresUnlock: true, credential: "A".repeat(43), proof: `r1.${"Q".repeat(42)}A`,
   session: { sessionId: "session", accountId: accountIdSchema.parse("account"), expiresAt: 10, setup: "complete", activeContext: null } };
 
 test("offline sign-out replaces the bearer, seals once and retries until a server acknowledgement", async () => {

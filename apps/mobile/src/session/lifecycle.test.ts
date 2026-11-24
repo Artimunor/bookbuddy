@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import { createRepositoryAccess } from "../repository/open-policy";
 import { expireOfflineView, readUnlockedSession, sessionView, watchBackgroundLock } from "./lifecycle";
 import { projectOfflineBootstrap } from "./offline-bootstrap";
+import { parseStoredSession } from "./sign-out";
 import type { ActiveSession } from "./sign-out";
 
 const accountId = accountIdSchema.parse("account");
@@ -14,30 +15,47 @@ const bootstrap = sessionBootstrapSchema.parse({
   preferences: { uiLocale: "pt-PT", readingLocale: "en", displayZone: "Europe/Lisbon", revision: 1, theme: "dark", fieldMode: null, twoClock: true },
 });
 const cached = projectOfflineBootstrap(bootstrap, 1_000)!;
-const record: ActiveSession = { state: "active", credential: "saved-bearer", proof: "saved-proof",
+const record: ActiveSession = { state: "active", requiresUnlock: true, credential: "A".repeat(43), proof: `r1.${"Q".repeat(42)}A`,
   session: { accountId, sessionId: bootstrap.sessionId, setup: bootstrap.setup, expiresAt: bootstrap.expiresAt, activeContext: cached.activeContext } };
 
-test("a denied native prompt never releases a saved bearer, unlike an ineligible device", async () => {
+test("cold restore discards the saved bearer when device enrollment is lost", async () => {
   const calls: string[] = [];
-  let eligible = true;
-  let approved = false;
+  let raw: string | null = JSON.stringify(record);
+  const stored = parseStoredSession(raw, false);
+  if (stored.state !== "active") throw new Error("Expected an active session");
   const access = createRepositoryAccess({
-    eligible: async () => eligible,
+    eligible: async () => { calls.push("eligibility"); return false; },
     existing: () => true,
-    authenticate: async () => { calls.push("prompt"); return approved; },
+    authenticate: async () => { calls.push("prompt"); return false; },
     sweepEphemeral: () => { calls.push("sweep"); },
     persistent: async () => ({ getOfflineBootstrap: async () => { calls.push("read cached"); return cached; } }),
     memory: () => ({ getOfflineBootstrap: async () => { calls.push("memory"); return null; } }),
   });
-  const restore = () => readUnlockedSession(record, () => access.open("Unlock"), () => 1_000);
+  const restored = await readUnlockedSession(stored, requiresUnlock => access.open("Unlock", requiresUnlock),
+    async () => { calls.push("discard"); raw = null; }, () => 1_000);
+  expect(restored).toBeNull(); // The provider has no record from which to rebind.
+  expect(raw).toBeNull();
+  expect(calls).toEqual(["eligibility", "discard"]);
+});
+
+test("a protected restore prompts even with no database, and denial keeps the bearer locked", async () => {
+  const calls: string[] = [];
+  let approved = false;
+  const access = createRepositoryAccess({
+    eligible: async () => true,
+    existing: () => false,
+    authenticate: async () => { calls.push("prompt"); return approved; },
+    sweepEphemeral: () => { calls.push("sweep"); },
+    persistent: async () => ({ getOfflineBootstrap: async () => { calls.push("read cached"); return null; } }),
+    memory: () => ({ getOfflineBootstrap: async () => { calls.push("memory"); return null; } }),
+  });
+  const restore = () => readUnlockedSession(record, requiresUnlock => access.open("Unlock", requiresUnlock),
+    async () => { calls.push("discard"); }, () => 1_000);
   expect(await restore()).toBeNull();
   expect(calls).toEqual(["prompt"]);
-  eligible = false;
+  approved = true;
   expect(await restore()).toEqual({ record, cached: null });
-  expect(calls).toEqual(["prompt", "sweep", "memory"]);
-  eligible = approved = true;
-  expect(await restore()).toEqual({ record, cached });
-  expect(calls).toEqual(["prompt", "sweep", "memory", "prompt", "read cached"]);
+  expect(calls).toEqual(["prompt", "prompt", "sweep", "read cached"]);
 });
 
 test("foregrounding after five suspended minutes invalidates the repository unlock", async () => {
@@ -52,24 +70,24 @@ test("foregrounding after five suspended minutes invalidates the repository unlo
   });
   const timer = watchBackgroundLock(access.lock, () => now);
   try {
-    expect(await access.open("Unlock")).toBe("persistent");
+    expect(await access.open("Unlock")).toEqual({ status: "open", repository: "persistent" });
     timer.background();
     now += 5 * 60_000 - 1;
     timer.foreground();
-    expect(await access.open("Unlock")).toBe("persistent");
+    expect(await access.open("Unlock")).toEqual({ status: "open", repository: "persistent" });
     expect(prompts).toBe(1);
 
     timer.background();
     now += 5 * 60_000;
     timer.foreground();
     eligible = false;
-    expect(await access.open("Unlock", true)).toBeNull();
+    expect(await access.open("Unlock", true)).toEqual({ status: "unavailable" });
     eligible = true;
     approved = false;
-    expect(await access.open("Unlock", true)).toBeNull();
+    expect(await access.open("Unlock", true)).toEqual({ status: "denied" });
     expect(prompts).toBe(2);
     approved = true;
-    expect(await access.open("Unlock", true)).toBe("persistent");
+    expect(await access.open("Unlock", true)).toEqual({ status: "open", repository: "persistent" });
     expect(prompts).toBe(3);
   } finally { timer.dispose(); }
 });

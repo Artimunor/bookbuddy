@@ -29,9 +29,9 @@ function PushResponses() {
   }, [router]);
   useEffect(() => {
     if (Platform.OS === "web" || !client || !session) return;
-    const listener = Notifications.addPushTokenListener((token) => { void refreshPush(client, session.accountId, token).catch(() => undefined); });
+    const listener = Notifications.addPushTokenListener((token) => { void refreshPush(client, session, token).catch(() => undefined); });
     return () => listener.remove();
-  }, [client, session?.accountId]);
+  }, [client, session?.accountId, session?.sessionId]);
   return null;
 }
 

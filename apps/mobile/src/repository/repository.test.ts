@@ -35,7 +35,7 @@ test("applies individual removals and whole-scope barriers before same-page upse
     expect((await repository.getProjection("notification", "replace"))?.data.readAt).toBe(950);
     await repository.saveDraft("request:authored", { text: "Keep me" });
     const operationId = await repository.enqueueOperation(operation());
-    await repository.applySyncPage(page("after", { mode: "reset",
+    await repository.applySyncPage(page("after", { mode: "reset", snapshotComplete: true,
       removals: [{ kind: "scope", resourceId: context.contextId }], upserts: [notification("replace", 975)],
     }), 995);
     expect(await repository.listProjections("notification")).toMatchObject({ data: [{ id: "replace", readAt: 975 }] });

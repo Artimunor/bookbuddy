@@ -883,7 +883,7 @@ export class ScopedRepository {
     const barrier = page.removals.some((row) => row.kind === "scope");
     if (page.removals.some((row) => row.kind === "scope" && row.resourceId !== this.scope.contextId)) throw new Error("Wrong scope removal");
     // A signed revocation is an empty, terminal reset; a paged reset is not absence.
-    const mayBeRevoked = barrier && page.mode === "reset" && page.upserts.length === 0 && !page.hasMore;
+    const mayBeRevoked = barrier && page.mode === "reset" && !page.snapshotComplete && page.upserts.length === 0 && !page.hasMore;
     if (barrier) {
       this.snapshotHidden = true;
       this.visibility++;
@@ -939,14 +939,13 @@ export class ScopedRepository {
         ...this.partition, cursor: page.cursor, confirmed_at: mayBeRevoked ? null : confirmedAt,
         authorized_at: mayBeRevoked ? null : this.now(),
       });
-      const completeSnapshot = page.mode !== "delta" && !page.hasMore;
-      if (this.reportCardRemoval && (mayBeRevoked || completeSnapshot ||
+      if (this.reportCardRemoval && (mayBeRevoked || page.snapshotComplete ||
           page.removals.some(({ kind }) => kind === "worker_field_shift" || kind === "session_booking"))) {
         // Journal an authoritative stop before publishing a cursor that can no
         // longer deliver the removal, including when the projection is volatile.
         await this.reportCardRemoval(async (kind, id) => mayBeRevoked || (kind !== null &&
           (page.removals.some((row) => row.kind === kind && row.resourceId === id) ||
-            (completeSnapshot && !await db.count(projection, { ...this.partition, kind, id })))));
+            (page.snapshotComplete && !await db.count(projection, { ...this.partition, kind, id })))));
       }
       return progressChanged;
     });

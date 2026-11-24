@@ -13,6 +13,7 @@ export interface DeviceSession extends Pick<SessionBootstrap, "sessionId" | "exp
 }
 export interface ActiveSession {
   state: "active";
+  requiresUnlock: boolean;
   credential: string | null;
   proof: string | null;
   session: DeviceSession;
@@ -33,11 +34,13 @@ export interface SignOutProgress { intent: EndingSession; persisted: boolean }
 export function parseStoredSession(raw: string, cookieSession: boolean): ActiveSession | EndingSession {
   const value: unknown = JSON.parse(raw);
   if (value && typeof value === "object" && "state" in value) {
-    if (value.state === "active" && "credential" in value && "proof" in value && "session" in value) {
+    if (value.state === "active" && "requiresUnlock" in value && typeof value.requiresUnlock === "boolean"
+      && "credential" in value && "proof" in value && "session" in value) {
       const { credential, proof } = value;
       if (cookieSession ? credential === null && proof === null
         : typeof credential === "string" && authTokenPattern.test(credential) && sessionRevocationProofSchema.safeParse(proof).success) {
-        return { state: "active", credential: credential as string | null, proof: proof as string | null, session: sessionHeader.parse(value.session) };
+        return { state: "active", requiresUnlock: value.requiresUnlock, credential: credential as string | null,
+          proof: proof as string | null, session: sessionHeader.parse(value.session) };
       }
     }
     if (value.state === "ending" && "accountId" in value && "disposition" in value && "persistent" in value

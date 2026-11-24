@@ -11,6 +11,7 @@ import { Badge, Button, Card, Dock, ListRow, Screen, Sheet, Thumb, TwinCard } fr
 import { Copy } from "../../ui/controls/shared";
 import { useBeaconTheme } from "../../ui/theme";
 import { readingLanguageLabel } from "../s-12/language";
+import { quoteEvidenceOpeners, type QuoteEvidenceOpener } from "./evidence";
 
 export type CustomerQuote = Extract<QuoteVersion, { audience: "customer" }>;
 type T = ReturnType<typeof useT>;
@@ -44,14 +45,11 @@ export default function QuoteScreen() {
   const open = (id: string) => router.push(`/c/jobs/${jobId}/quote/${id}` as Href);
   return <>
     <QuoteView data={data} status={remote.status} checking={approval !== "idle" || decline !== "idle"} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} onOpen={open} onReview={() => router.push(`/c/jobs/${jobId}/quote/${versionId}/approve` as Href)} onHistory={() => setShowHistory(true)}
-      photos={evidence.flatMap(({ attachmentId }) => {
-        const uri = evidenceUrls.get(attachmentId);
-        return uri && evidenceScope ? [{ id: attachmentId, uri, open: () => openEvidence(attachmentId, evidenceScope) }] : [];
-      })} />
+      evidence={evidenceScope ? quoteEvidenceOpeners(evidence, evidenceUrls, evidenceScope, openEvidence) : undefined} />
     {showHistory && jobId && versionId && <QuoteVersionHistory jobId={jobId} versionId={versionId} onClose={() => setShowHistory(false)} onOpen={id => { setShowHistory(false); open(id); }} />}
   </>;
 }
-export function QuoteView({ data, status, checking = false, onBack, onRetry, onOpen, onReview, onHistory, photos }: { data: CustomerQuote | null; status: RemoteStatus; checking?: boolean; onBack: () => void; onRetry: () => void; onOpen: (id: string) => void; onReview: () => void; onHistory?: () => void; photos?: readonly { id: string; uri: string; open: () => void }[] }) {
+export function QuoteView({ data, status, checking = false, onBack, onRetry, onOpen, onReview, onHistory, evidence }: { data: CustomerQuote | null; status: RemoteStatus; checking?: boolean; onBack: () => void; onRetry: () => void; onOpen: (id: string) => void; onReview: () => void; onHistory?: () => void; evidence?: readonly QuoteEvidenceOpener[] }) {
   const t = useT(); const format = useFormat(); const { color, space } = useBeaconTheme();
   const readable = status === "ready" ? data : null;
   const active = readable?.state === "issued";
@@ -94,10 +92,10 @@ export function QuoteView({ data, status, checking = false, onBack, onRetry, onO
       </Card>
       <ScopeTwin title={t("mobile.customerQuote.scope")} original={readable.scope} originalLocale={readable.originalLocale} status={readable.readingAid.status} translation={readable.readingAid.status === "ready" ? readable.readingAid.scope : undefined} translationLocale={readable.readingAid.status === "ready" ? readable.readingAid.locale : undefined} />
       {!!readable.exclusions && <ScopeTwin title={t("mobile.customerQuote.exclusions")} original={readable.exclusions} originalLocale={readable.originalLocale} status={readable.readingAid.status} translation={readable.readingAid.status === "ready" ? readable.readingAid.exclusions : undefined} translationLocale={readable.readingAid.status === "ready" ? readable.readingAid.locale : undefined} />}
-      {!!photos?.length && <Card><Copy variant="label" accessibilityRole="header">{t("mobile.foremanQuote.attachments")}</Copy>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.grid[3] }}>
-          {photos.map(photo => <Thumb key={photo.id} uri={photo.uri} label={t("mobile.aftercare.photo")} onPress={photo.open} />)}
-        </View>
+      {!!evidence?.length && <Card><Copy variant="label" accessibilityRole="header">{t("mobile.foremanQuote.attachments")}</Copy>
+        {evidence.map(({ id, uri, open }, index) => uri
+          ? <Thumb key={id} uri={uri} label={t("mobile.aftercare.photo")} onPress={open} />
+          : <ListRow key={id} glyph="▣" label={t("mobile.foremanQuote.openAttachment", { number: index + 1 })} onPress={open} />)}
       </Card>}
       <Card><Copy variant="sectionTitle">{t("mobile.customerQuote.terms")}</Copy><Copy>{readable.terms.originalText}</Copy></Card>
       {onHistory && <Button variant="quiet" label={t("mobile.customerQuote.history")} onPress={onHistory} />}

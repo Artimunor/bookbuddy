@@ -1,7 +1,7 @@
 import { appendThreadEntriesRoute, getThreadEntriesRoute, getThreadRoute, markThreadReadRoute, reportTranslationRoute, requestTranslationRoute, type ChatEntryProjection, type ThreadDetails, type ThreadEntriesPage } from "@bookbuddy/api-contract";
 import { uuid } from "expo";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { useCommand, useRemote, useSeedRemote } from "../../api";
 import { useLiveHints } from "../../api/live";
@@ -9,6 +9,7 @@ import { useApiAccess } from "../../api/provider";
 import { useFormat, useT } from "../../i18n";
 import { useAttach, useOpenMediaPreview, type MediaTransfer } from "../../media";
 import { useMediaReadBatch } from "../../media/read-batch";
+import type { MediaScope } from "../../media/types";
 import { useDraft, useOutbox, useRepository } from "../../repository/hooks";
 import type { OutboxEntry } from "../../repository/repository";
 import { Button, Screen, Thumb } from "../../ui/controls";
@@ -18,8 +19,9 @@ import { TwinBubble } from "../../ui/live/TwinBubble";
 import { readingLanguageLabel } from "../s-12/language";
 import { roleLabel } from "../s-06/account";
 import { useBeaconTheme } from "../../ui/theme";
+import { chatEntryMedia } from "./entry-media";
 
-type Attachment = ChatEntryProjection["attachments"][number];
+type OpenAttachment = (id: ChatEntryProjection["attachments"][number]["attachmentId"], scope: MediaScope) => void;
 type PendingMessage = { id: string; text?: string; sourceLanguage: string; at: number; status: OutboxEntry["status"] };
 type DraftAttachments = {
   items: readonly MediaTransfer[]; complete: boolean; enabled: boolean;
@@ -68,10 +70,6 @@ export default function ChatScreen() {
   const older = history.id === id && history.repo === repo ? history.entries : [];
   const cursor = history.id === id && history.repo === repo && history.entries.length ? history.cursor : undefined;
   const entries = currentPage && { ...currentPage, entries: [...currentPage.entries, ...older.filter(old => !currentPage.entries.some(entry => entry.id === old.id))], page: cursor === undefined ? currentPage.page : { cursor, hasMore: cursor !== null } } as ThreadEntriesPage;
-  const photoIds = entries?.entries.flatMap(entry => entry.attachments
-    .filter(attachment => attachment.kind === "photo" && attachment.availability === "available")
-    .map(attachment => attachment.attachmentId)) ?? [];
-  const photoUrls = useMediaReadBatch(photoIds, data ? { caller: "chat", parentScopeId: id } : null);
   const lastMarked = useRef(0);
   useEffect(() => { setDraft(""); attempt.current = null; lastMarked.current = 0; }, [id, repo]);
   const position = entries?.entries.reduce((max, entry) => Math.max(max, entry.position), 0) ?? 0;
@@ -132,21 +130,46 @@ export default function ChatScreen() {
     if (data && page.status === "ready") seed(getThreadRoute, { params: { id } }, data, page.lastConfirmedAt);
     router.push(`/threads/${id}/details` as Href);
   }}
-    photoUrls={photoUrls}
+    loadAttachmentThumbnails
     attachmentDraft={{ items: draftItems, complete: attachmentsReady, enabled: mediaDraft.loaded && !!repo?.isActive,
       onAttach: () => { void attach(); },
       onOpen: item => router.push({ pathname: "/media/[attachmentId]", params: { attachmentId: item.attachmentId } } as Href),
       onRetry: item => { void media.retry(item.attachmentId); },
       onDiscard: () => { void discardAttachments().catch(() => setFailed(true)); },
     }}
-    onOpenAttachment={attachment => openPreview(attachment.attachmentId, { caller: "chat", parentScopeId: id })}
+    onOpenAttachment={openPreview}
     onRemovePending={operationId => { void outbox.remove(operationId); }}
     onRetryPending={operationId => { void outbox.retry(operationId).then(result => { if (result?.status === "confirmed") refreshThread(); }); }}
     onRetry={() => { if (!retryLive()) refreshThread(); }} onReport={entry => { const locale = entry.preferredTranslation?.targetLocale; if (locale) void report.run({ params: { id: entry.id }, body: { payload: { targetLocale: locale } } }).then(result => setReported(result.ok)); }} onTranslate={entry => { const locale = entry.preferredTranslation?.targetLocale; if (locale) void translate.run({ params: { id: entry.id }, body: { payload: { targetLocale: locale } } }).then(result => { if (result.ok) void page.refresh(); }); }} />;
 }
 
-type ChatViewProps = { data: ThreadDetails | null; page: ThreadEntriesPage | null; pending: PendingMessage[]; offline: boolean; draft: string; busy: boolean; failed: boolean; reported: boolean; attachmentDraft?: DraftAttachments; photoUrls?: ReadonlyMap<string, string>; onDraft: (value: string) => void; onSend: () => void; onMore: () => void; onBack: () => void; onDetails: () => void; onRetry: () => void; onRemovePending: (id: string) => void; onRetryPending: (id: string) => void; onOpenAttachment: (item: Attachment) => void; onReport: (entry: ChatEntryProjection) => void; onTranslate: (entry: ChatEntryProjection) => void };
-export function ChatView({ data, page, pending, offline, draft, busy, failed, reported, attachmentDraft, photoUrls, onDraft, onSend, onMore, onBack, onDetails, onRetry, onRemovePending, onRetryPending, onOpenAttachment, onReport, onTranslate }: ChatViewProps) {
+function EntryPhotoBatch({ ids, scope, render }: { ids: readonly string[]; scope: MediaScope; render: (urls: ReadonlyMap<string, string>) => ReactNode }) {
+  return render(useMediaReadBatch(ids, scope));
+}
+
+function EntryAttachments({ entry, offline, loadThumbnails, onOpen }: {
+  entry: ChatEntryProjection; offline: boolean; loadThumbnails: boolean; onOpen: OpenAttachment;
+}) {
+  const t = useT(); const { space } = useBeaconTheme();
+  const { scope, photoIds } = chatEntryMedia(entry);
+  const render = (urls?: ReadonlyMap<string, string>) => <View style={{ flexDirection: "row", justifyContent: entry.author.isViewer ? "flex-end" : "flex-start", flexWrap: "wrap", gap: space.grid[2] }}>
+    {entry.attachments.map(attachment => {
+      const { attachmentId, kind, availability } = attachment;
+      const disabled = offline || availability !== "available";
+      const open = () => onOpen(attachmentId, scope);
+      return kind === "photo"
+        ? <Thumb key={attachmentId} uri={disabled ? undefined : urls?.get(attachmentId)}
+          label={t("mobile.media.photo")} disabled={disabled} onPress={open} />
+        : <Button key={attachmentId} variant="neutral" glyph="♫" label={t("mobile.media.voiceNote")} disabled={disabled} onPress={open} />;
+    })}
+  </View>;
+  return loadThumbnails && !offline && photoIds.length
+    ? <EntryPhotoBatch ids={photoIds} scope={scope} render={render} />
+    : render();
+}
+
+type ChatViewProps = { data: ThreadDetails | null; page: ThreadEntriesPage | null; pending: PendingMessage[]; offline: boolean; draft: string; busy: boolean; failed: boolean; reported: boolean; attachmentDraft?: DraftAttachments; loadAttachmentThumbnails?: boolean; onDraft: (value: string) => void; onSend: () => void; onMore: () => void; onBack: () => void; onDetails: () => void; onRetry: () => void; onRemovePending: (id: string) => void; onRetryPending: (id: string) => void; onOpenAttachment: OpenAttachment; onReport: (entry: ChatEntryProjection) => void; onTranslate: (entry: ChatEntryProjection) => void };
+export function ChatView({ data, page, pending, offline, draft, busy, failed, reported, attachmentDraft, loadAttachmentThumbnails = false, onDraft, onSend, onMore, onBack, onDetails, onRetry, onRemovePending, onRetryPending, onOpenAttachment, onReport, onTranslate }: ChatViewProps) {
   const t = useT(); const format = useFormat(); const { color, space, radius, type } = useBeaconTheme();
   const [selected, setSelected] = useState<string | null>(null);
   const heading = data?.audience === "session" ? data.session : data?.job;
@@ -217,16 +240,8 @@ export function ChatView({ data, page, pending, offline, draft, busy, failed, re
       const entry = item.entry; const tr = entry.preferredTranslation;
       const translation = tr?.state === "ready" ? { state: "translated" as const, text: tr.text, label: t("mobile.chat.translation", { language: readingLanguageLabel(t, tr.targetLocale) }), originalLabel: t("mobile.chat.original", { language: readingLanguageLabel(t, entry.sourceLanguage) }), languageTag: tr.targetLocale } : tr?.state === "pending" ? { state: "pending" as const, label: t("mobile.chat.translating") } : tr?.state === "unavailable" ? { state: "unavailable" as const, label: t("mobile.chat.translationUnavailable") } : { state: "sameLanguage" as const };
       return <View key={entry.id} style={{ gap: 4 }}><Pressable accessibilityRole="button" onPress={() => setSelected(selected === entry.id ? null : entry.id)}><TwinBubble side={entry.author.isViewer ? "outgoing" : "incoming"} attribution={`${entry.author.displayName} · ${roleLabel(t, entry.author.role)}`} time={time(entry.receivedAt)} original={{ text: entry.originalText ?? t("mobile.chat.attachment"), dir: /^(ar|he|fa|ur)(-|$)/i.test(entry.sourceLanguage ?? "") ? "rtl" : "ltr", languageTag: entry.sourceLanguage ?? undefined }} translation={translation} delivery={entry.author.isViewer ? { state: "received", label: entry.readingLocales?.length ? t("mobile.chat.sentReads", { languages: entry.readingLocales.map(tag => readingLanguageLabel(t, tag)).join(", ") }) : t("mobile.chat.sent") } : undefined} /></Pressable>
-        {entry.attachments.length > 0 && <View style={{ flexDirection: "row", justifyContent: entry.author.isViewer ? "flex-end" : "flex-start", flexWrap: "wrap", gap: space.grid[2] }}>
-          {entry.attachments.map(attachment => {
-            const disabled = offline || attachment.availability !== "available";
-            const open = () => onOpenAttachment(attachment);
-            return attachment.kind === "photo"
-              ? <Thumb key={attachment.attachmentId} uri={disabled ? undefined : photoUrls?.get(attachment.attachmentId)}
-                label={t("mobile.media.photo")} disabled={disabled} onPress={open} />
-              : <Button key={attachment.attachmentId} variant="neutral" glyph="♫" label={t("mobile.media.voiceNote")} disabled={disabled} onPress={open} />;
-          })}
-        </View>}
+        {entry.attachments.length > 0 && <EntryAttachments entry={entry} offline={offline}
+          loadThumbnails={loadAttachmentThumbnails} onOpen={onOpenAttachment} />}
         {selected === entry.id && tr?.state === "ready" && <Button variant="quiet" label={t("mobile.chat.report")} onPress={() => onReport(entry)} />}
         {tr?.state === "unavailable" && tr.canRetry && <Button variant="quiet" label={t("mobile.chat.retry")} onPress={() => onTranslate(entry)} />}
         {tr?.state === "unavailable" && <Button variant="quiet" label={t("mobile.chat.clarify")} onPress={() => onDraft(t("mobile.chat.clarification"))} />}

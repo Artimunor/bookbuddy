@@ -9,6 +9,7 @@ import { useApiAccess } from "../api/provider";
 import { serialize } from "../repository/executor";
 import { RepositoryProvider } from "../repository/hooks";
 import { lockMobileRepository, openMobileRepository, openSignOutRepository, removeStagedFiles } from "../repository/open";
+import type { RepositoryOpening } from "../repository/open-policy";
 import type { MobileRepository, PendingWork, ScopedRepository } from "../repository/repository";
 import { SyncProvider } from "../sync/provider";
 import { SyncRunner } from "../sync/runner";
@@ -61,12 +62,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return api ? sync(api, request, { signal }) : Promise.resolve({ ok: false, error: { code: "REQUEST_SETUP_FAILED", delivery: "not_sent" } });
   }));
 
-  const repository = useCallback(async (requirePersistent = false) => {
-    if (!repo.current) {
-      const prompt = createMobileTranslator(promptLocale.current).t("mobile.you.unlockOfflineWork");
-      repo.current = await openMobileRepository(prompt, requirePersistent);
-    }
-    return repo.current;
+  const repository = useCallback(async (requiresUnlock = false): Promise<RepositoryOpening<MobileRepository>> => {
+    if (repo.current && (!requiresUnlock || repo.current.persistentAuthoring)) return { status: "open", repository: repo.current };
+    const prompt = createMobileTranslator(promptLocale.current).t("mobile.you.unlockOfflineWork");
+    const opened = await openMobileRepository(prompt, requiresUnlock);
+    if (opened.status === "open") repo.current = opened.repository;
+    return opened;
   }, []);
 
   const closeScope = useCallback(() => {
@@ -98,10 +99,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setState({ ...view, status: "ready" });
   }, [bindSession, closeScope]);
 
-  const restoreStored = useCallback(async (stored: ActiveSession, live: () => boolean, requirePersistent = false) => {
-    const restored = await readUnlockedSession(stored, () => repository(requirePersistent));
+  const restoreStored = useCallback(async (stored: ActiveSession, live: () => boolean, relocking = false) => {
+    const restored = await readUnlockedSession(stored, requiresUnlock => repository(requiresUnlock || relocking),
+      async () => { if (live()) await sessionStorage.remove(); });
     if (!live()) return;
-    if (!restored) { adopt(null); return; }
+    if (!restored) { current.current = null; adopt(null); return; }
     const { record, cached } = restored;
     current.current = record;
     if (cached) adopt(record, sessionView({ ...record.session, activeContext: cached.activeContext }, null, cached));
@@ -120,13 +122,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const valid = cookieSession ? credential === undefined : token !== null && authTokenPattern.test(token)
       && sessionRevocationProofSchema.safeParse(proof).success;
     if (!valid || expiresAt <= Date.now()) throw new Error("A valid session for this transport is required");
-    const db = await repository();
-    if (!db || ending.current || epoch.current !== generation) throw new Error("The local session is locked");
+    const opened = await repository(sameSession && previous.requiresUnlock);
+    if (opened.status !== "open" || ending.current || epoch.current !== generation) throw new Error("The local session is locked");
+    const db = opened.repository;
     const offlineBootstrap = projectOfflineBootstrap(bootstrap, Date.now());
     if (offlineBootstrap) await db.saveOfflineBootstrap(account.id, offlineBootstrap);
     if (ending.current || epoch.current !== generation) throw new Error("The local session is locked");
     const session = { accountId: account.id, sessionId, setup, expiresAt, activeContext };
-    const record: ActiveSession = { state: "active", credential: token, proof,
+    const record: ActiveSession = { state: "active", requiresUnlock: db.persistentAuthoring, credential: token, proof,
       session: { ...session, activeContext: activeContext && contextSummarySchema.parse(activeContext) } };
     const encoded = JSON.stringify(record);
     if (encoded !== JSON.stringify(previous)) await sessionStorage.save(encoded);

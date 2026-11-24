@@ -22,7 +22,7 @@ export async function testRepository(eraseMedia: (uri: string) => Promise<void> 
 }
 
 export function page(cursor: string, changes: Partial<SyncPage> = {}): SyncPage {
-  return { mode: "delta", context, cursor: cursorSchema.parse(cursor), upserts: [], removals: [], outcomes: [], hasMore: false, ...changes };
+  return { mode: "delta", context, cursor: cursorSchema.parse(cursor), upserts: [], removals: [], outcomes: [], hasMore: false, snapshotComplete: false, ...changes };
 }
 
 export function notification(id: string, readAt: number | null): SyncProjection {

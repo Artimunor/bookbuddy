@@ -8,6 +8,13 @@ import { loadPushSettings, savePushSettings, type PushIntent, type PushSettings 
 
 export { defaultPushSettings, loadPushSettings, savePushSettings, type PushSettings } from "./settings";
 
+type PushOwner = { accountId: string; sessionId: string };
+
+export function pushEnabledForSession(settings: PushSettings, session: PushOwner | null) {
+  return !!session && settings.active && settings.notifications &&
+    settings.accountId === session.accountId && settings.sessionId === session.sessionId;
+}
+
 let tail: Promise<void> = Promise.resolve();
 const signedOut = new Set<string>();
 let inFlight: AbortController | undefined;
@@ -18,8 +25,7 @@ function serialize<T>(work: () => Promise<T>): Promise<T> {
 }
 
 // Replay the exact saved intent on an uncertain outcome; never mint a second operation.
-async function resolvePending(client: ApiClient, accountId: string, signal?: AbortSignal): Promise<PushSettings> {
-  const settings = await loadPushSettings();
+async function resolvePending(client: ApiClient, accountId: string, settings: PushSettings, signal?: AbortSignal): Promise<PushSettings> {
   const intent = settings.pending;
   if (signedOut.has(accountId)) throw new Error("Push registration belongs to a signed-out account");
   if (!intent) return settings;
@@ -38,47 +44,51 @@ async function resolvePending(client: ApiClient, accountId: string, signal?: Abo
   const { pending: _, ...rest } = settings;
   const active = intent.kind === "put" && !signedOut.has(accountId) && !settings.requiresReregister;
   const next: PushSettings = { ...rest, accountId, installationId: intent.installationId, epoch: result.data.tokenEpoch,
-    active, notifications: active, ...(intent.kind === "put" ? { token: intent.token } : {}) };
+    active, notifications: active, sessionId: intent.kind === "put" ? intent.sessionId : undefined,
+    ...(intent.kind === "put" ? { token: intent.token } : {}) };
   await savePushSettings(next);
   return next;
 }
 
-async function registerToken(client: ApiClient, accountId: string, token: string, signal: AbortSignal): Promise<PushSettings> {
+async function registerToken(client: ApiClient, { accountId, sessionId }: PushOwner, token: string, settings: PushSettings, signal: AbortSignal): Promise<PushSettings> {
   if (Platform.OS !== "ios" && Platform.OS !== "android") throw new Error("Push is unavailable on this platform");
-  const previous = await resolvePending(client, accountId, signal);
+  const previous = await resolvePending(client, accountId, settings, signal);
   const sameAccount = previous.accountId === accountId;
-  if (sameAccount && previous.active && previous.token === token) return previous;
-  const intent: PushIntent = { kind: "put", accountId, installationId: sameAccount && previous.installationId ? previous.installationId : uuid.v4(),
+  if (sameAccount && previous.sessionId === sessionId && previous.active && previous.token === token) return previous;
+  const intent: PushIntent = { kind: "put", accountId, sessionId, installationId: sameAccount && previous.installationId ? previous.installationId : uuid.v4(),
     operationId: uuid.v4(), expectedRevision: sameAccount ? previous.epoch : 0, prefsHash: "active", token, platform: Platform.OS };
-  await savePushSettings({ ...previous, requiresReregister: false, pending: intent });
-  return resolvePending(client, accountId, signal);
+  const next = { ...previous, requiresReregister: false, pending: intent };
+  await savePushSettings(next);
+  return resolvePending(client, accountId, next, signal);
 }
 
 // This is called only on deliberate opt-in; boot never asks for permission or a token.
-export async function enablePush(client: ApiClient, accountId: string): Promise<PushSettings> {
-  signedOut.delete(accountId);
+export async function enablePush(client: ApiClient, session: PushOwner): Promise<PushSettings> {
+  signedOut.delete(session.accountId);
   if (Platform.OS !== "ios" && Platform.OS !== "android") throw new Error("Push is unavailable on this platform");
   const projectId: unknown = Constants.expoConfig?.extra?.eas?.projectId;
   if (typeof projectId !== "string" || !projectId) throw new Error("Push project is not configured");
   const permission = await Notifications.requestPermissionsAsync();
   if (!permission.granted) throw new Error("Notification permission not granted");
-  if (signedOut.has(accountId)) throw new Error("Push registration belongs to a signed-out account");
+  if (signedOut.has(session.accountId)) throw new Error("Push registration belongs to a signed-out account");
   const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
   return serialize(async () => {
     const controller = new AbortController(); inFlight = controller;
-    try { return await registerToken(client, accountId, token, controller.signal); }
+    try { return await registerToken(client, session, token, await loadPushSettings(), controller.signal); }
     finally { if (inFlight === controller) inFlight = undefined; }
   });
 }
 
-export async function refreshPush(client: ApiClient, accountId: string, devicePushToken: Notifications.DevicePushToken): Promise<void> {
+export async function refreshPush(client: ApiClient, session: PushOwner, devicePushToken: Notifications.DevicePushToken): Promise<void> {
   const previous = await loadPushSettings();
   const projectId: unknown = Constants.expoConfig?.extra?.eas?.projectId;
-  if (!previous.active || !previous.notifications || previous.accountId !== accountId || signedOut.has(accountId) || typeof projectId !== "string" || !projectId) return;
+  if (!pushEnabledForSession(previous, session) || signedOut.has(session.accountId) || typeof projectId !== "string" || !projectId) return;
   const token = (await Notifications.getExpoPushTokenAsync({ projectId, devicePushToken })).data;
   await serialize(async () => {
+    const settings = await loadPushSettings();
+    if (!pushEnabledForSession(settings, session) || signedOut.has(session.accountId)) return;
     const controller = new AbortController(); inFlight = controller;
-    try { await registerToken(client, accountId, token, controller.signal); }
+    try { await registerToken(client, session, token, settings, controller.signal); }
     finally { if (inFlight === controller) inFlight = undefined; }
   });
 }
@@ -94,7 +104,7 @@ export function disablePushForSignedOutAccount(accountId: string): Promise<void>
     const settings = await loadPushSettings();
     if (settings.accountId === accountId || settings.pending?.accountId === accountId) {
       const { pending, ...rest } = settings;
-      await savePushSettings({ ...rest, notifications: false, active: false, requiresReregister: true, token: undefined,
+      await savePushSettings({ ...rest, notifications: false, active: false, requiresReregister: true, sessionId: undefined, token: undefined,
         ...(pending?.accountId === accountId ? { installationId: undefined, epoch: 0 } : {}) });
     }
   });
@@ -105,14 +115,15 @@ export function revokePush(client: ApiClient | null, accountId: string, signal?:
     let previous = await loadPushSettings();
     if (previous.pending) {
       if (!client) throw new Error("Push revocation unavailable");
-      previous = await resolvePending(client, accountId, signal);
+      previous = await resolvePending(client, accountId, previous, signal);
     }
     if (!previous.active || previous.accountId !== accountId || !previous.installationId) return;
     if (!client || signal?.aborted) throw new Error("Push revocation unavailable");
     const intent: PushIntent = { kind: "delete", accountId, installationId: previous.installationId, operationId: uuid.v4(),
       expectedRevision: previous.epoch, prefsHash: "inactive" };
-    await savePushSettings({ ...previous, pending: intent });
-    await resolvePending(client, accountId, signal);
+    const next = { ...previous, pending: intent };
+    await savePushSettings(next);
+    await resolvePending(client, accountId, next, signal);
   });
 }
 
