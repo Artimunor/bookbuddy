@@ -6,9 +6,22 @@
   "shared.action.retry": "Tentar novamente",
   "shared.action.save": "Guardar",
   "shared.app.name": "BookBuddy",
+  "shared.sessionCategory.massage": "Massagem",
+  "shared.sessionCategory.other": "Outras sessões",
+  "shared.sessionCategory.pilates": "Pilates",
+  "shared.sessionCategory.sportCoaching": "Treino desportivo",
+  "shared.sessionCategory.tours": "Visitas guiadas",
   "shared.status.lastConfirmed": "Última confirmação: {time}",
   "shared.status.offline": "Sem ligação",
   "shared.status.pendingChanges": "{count, plural, one {# alteração pendente} other {# alterações pendentes}}",
   "shared.time.siteZone": "{region, select, GB {hora do {country}} other {hora de {country}}}",
-  "shared.time.viewerZone": "a sua hora"
+  "shared.time.viewerZone": "a sua hora",
+  "shared.trade.carpentry": "Carpintaria",
+  "shared.trade.electrical": "Trabalhos elétricos",
+  "shared.trade.general": "Trabalhos gerais",
+  "shared.trade.locksmith": "Serviços de fechaduras",
+  "shared.trade.other": "Outro ofício",
+  "shared.trade.painting": "Pintura",
+  "shared.trade.plumbing": "Canalização",
+  "shared.trade.unspecified": "Ofício não especificado"
 }
