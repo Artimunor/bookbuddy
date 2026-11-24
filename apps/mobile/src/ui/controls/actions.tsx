@@ -13,7 +13,7 @@ export type ControlAction = {
   busy?: boolean;
 };
 
-export type ButtonVariant = "primary" | "live" | "neutral" | "destructive" | "quiet";
+export type ButtonVariant = "primary" | "live" | "neutral" | "destructive" | "quiet" | "navigation";
 export type ButtonProps = ControlAction & {
   variant?: ButtonVariant;
   glyph?: string;
@@ -30,6 +30,7 @@ export function Button({
   const metrics = controlMetrics(field);
   const inactive = disabled || !!disabledReason;
   const quiet = variant === "quiet";
+  const borderless = quiet || variant === "navigation";
   const live = variant === "live";
   const primary = variant === "primary";
   const ink = inactive ? color.muted
@@ -37,7 +38,7 @@ export function Button({
     : primary ? color.onBrand
     : variant === "destructive" ? color.criticalInk
     : quiet ? color.brandInk : color.ink;
-  const boundary = quiet ? "transparent" : inactive ? color.outline
+  const boundary = borderless ? "transparent" : inactive ? color.outline
     : live ? color.onLive : primary ? color.brand : color.outline;
   const arrowGlyph = arrow && ((arrow === "back") !== (I18nManager.isRTL === true) ? "‹" : "›");
   const icon = glyph ?? arrowGlyph;
@@ -69,7 +70,7 @@ export function Button({
               : live ? (pressed ? color.livePressed : color.live)
               : primary ? (pressed ? color.brandPressed : color.brand)
               : pressed ? (variant === "destructive" ? color.criticalSoft : color.subtle)
-              : quiet ? "transparent" : color.surface,
+              : borderless ? "transparent" : color.surface,
           },
         ]}
       >

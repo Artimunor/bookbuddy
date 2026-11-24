@@ -62,7 +62,7 @@ export default function YouScreen() {
     <YouView account={account} active={active ?? undefined} contexts={bootstrap?.contexts} readingLocale={preferences?.readingLocale}
       pending={pending} loading={loading} canEdit={!!account && !offline} signOutTrigger={signOutTrigger} editTrigger={editTrigger} switchTrigger={switchTrigger}
       onRetry={canRetry ? retry : undefined} onSignOut={openSignOut} onEdit={() => setEditing(true)}
-      onPlaces={() => router.push("/c/places" as Href)} onDisplay={() => router.push("/display")}
+      onPlaces={() => router.push({ pathname: "/c/places", params: { from: "you" } })} onDisplay={() => router.push("/display")}
       onPrivacy={() => router.push("/live-privacy" as Href)} onHelp={() => router.push("/help")}
       onSwitch={() => { openedSwitch.current = true; router.push("/switch-role"); }} onBack={() => {
         if (router.canGoBack()) router.back();

@@ -51,7 +51,7 @@ export function ConfirmView({ request, state, onClose, onConfirm, onReview }: {
   const invalid = state === "invalidated" || !request;
   const title = request ? request.title : t("mobile.confirm.unavailable");
   const action = invalid ? t("mobile.confirm.review") : request!.actionLabel;
-  return <Dialog visible title={title} closeLabel={t("shared.action.close")} onClose={onClose} returnFocusRef={request?.returnFocusRef}
+  return <Dialog visible title={title} closeLabel={t("shared.action.close")} onClose={onClose} returnFocusRef={request?.returnFocusRef} actionOrder="confirm-first"
     cancel={{ label: t("shared.action.cancel"), onPress: onClose, disabled: state === "processing" }}
     confirm={{ label: action, onPress: invalid ? onReview : onConfirm, variant: request?.destructive ? "destructive" : "primary",
       disabled: !request || state === "processing" || state === "uncertain" || (!invalid && !!request.offline), busy: state === "processing" }}>

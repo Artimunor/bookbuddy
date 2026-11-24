@@ -15,6 +15,7 @@ export type ScreenHeaderProps = {
 
 export function ScreenHeader({ title, navigation, identity, bell }: ScreenHeaderProps) {
   const { field, space } = useBeaconTheme();
+  const back = navigation?.kind === "back";
   return (
     <View style={{ paddingHorizontal: space.contentInset, paddingVertical: space.grid[2], gap: space.grid[2] }}>
       {(navigation || identity || bell) && (
@@ -22,7 +23,7 @@ export function ScreenHeader({ title, navigation, identity, bell }: ScreenHeader
           <View style={[styles.leading, { gap: controlMetrics(field).controlGap }]}>
             {navigation && (
               <View style={styles.navigation}>
-                <Button {...navigation} variant="quiet" arrow={navigation.kind === "back" ? "back" : undefined} />
+                <Button {...navigation} variant={back ? "navigation" : "quiet"} arrow={back ? "back" : undefined} />
               </View>
             )}
             {identity}

@@ -25,11 +25,15 @@ export function Sheet({ dock, ...props }: SheetProps) {
 export type DialogProps = OverlayProps & {
   cancel: ControlAction;
   confirm: ControlAction & { variant?: Extract<ButtonVariant, "primary" | "live" | "destructive"> };
+  actionOrder?: "cancel-first" | "confirm-first";
 };
 
-export function Dialog({ cancel, confirm, ...props }: DialogProps) {
+export function Dialog({ cancel, confirm, actionOrder = "cancel-first", ...props }: DialogProps) {
   const { color, field, space } = useBeaconTheme();
   const { variant, ...action } = confirm;
+  const confirmFirst = actionOrder === "confirm-first";
+  const cancelButton = <Button key="cancel" {...cancel} variant="neutral" />;
+  const confirmButton = <Button key="confirm" {...action} variant={variant} />;
   return (
     <Overlay {...props} kind="dialog" footer={(
       <View style={{
@@ -39,8 +43,8 @@ export function Dialog({ cancel, confirm, ...props }: DialogProps) {
         borderTopColor: color.separator,
         backgroundColor: color.surface,
       }}>
-        <Button {...cancel} variant="neutral" />
-        <Button {...action} variant={variant} />
+        {confirmFirst ? confirmButton : cancelButton}
+        {confirmFirst ? cancelButton : confirmButton}
       </View>
     )} />
   );

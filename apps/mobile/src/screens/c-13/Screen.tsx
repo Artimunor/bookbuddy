@@ -1,5 +1,5 @@
 import { listPlacesRoute, type PlaceSummary } from "@bookbuddy/api-contract";
-import { useRouter, type Href } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useRemote } from "../../api";
@@ -10,6 +10,7 @@ import { useOffline } from "../s-02/flow";
 
 export default function PlacesScreen() {
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState<{ search: string; cursors: string[] }>({ search: "", cursors: [] });
   useEffect(() => { const timer = setTimeout(() => setPage({ search: query.trim(), cursors: [] }), 300); return () => clearTimeout(timer); }, [query]);
@@ -21,6 +22,10 @@ export default function PlacesScreen() {
     if (offline) { wasOffline.current = true; return; }
     if (wasOffline.current) { wasOffline.current = false; void remote.refresh(); }
   }, [offline, remote.refresh]);
+  if (from === "you" && !query && !page.search && !cursor && !offline && remote.status === "ready" && remote.data.total === 1) {
+    const place = remote.data.places[0];
+    if (place) return <Redirect href={{ pathname: "/c/places/[placeId]", params: { placeId: place.id } }} />;
+  }
   return <PlacesView query={query} onQuery={setQuery} places={remote.data?.places ?? []} total={remote.data?.total ?? 0}
     status={remote.status} onRetry={() => { void remote.refresh(); }} onBack={() => router.back()}
     onOpen={(id) => router.push(`/c/places/${id}` as Href)} onAdd={() => router.push("/c/places/new" as Href)}
