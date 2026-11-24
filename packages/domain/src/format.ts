@@ -22,22 +22,40 @@ export function formatMoney(minor: number, currency: Currency, locale: string): 
   return formatter.formatToParts(whole).map((part) => part.type === "fraction" ? fraction!.value : part.value).join("");
 }
 
+export type ClockParts<Kind extends "site" | "viewer" = "site" | "viewer"> = {
+  readonly date: Kind extends "site" ? string : string | null;
+  readonly time: string;
+  readonly zoneLabelKind: Kind;
+  readonly zoneName: string | null;
+};
+
+export type ClockFormatOptions = {
+  /** Distinguish repeated local clock times when the UTC offset matters. */
+  readonly showOffset?: boolean;
+};
+
 type SiteTimeUnavailable = { readonly kind: "site_time_unavailable" };
-type SiteTimeAvailable = { readonly kind: "available"; readonly siteTime: string };
+type SiteTimeAvailable = {
+  readonly kind: "available";
+  readonly siteTime: string;
+  readonly site: ClockParts<"site">;
+};
 export type SiteDateTime = SiteTimeAvailable | SiteTimeUnavailable;
 export type TwoClockDateTime = SiteTimeUnavailable | (SiteTimeAvailable & {
   readonly viewerTime: string | null;
   readonly viewerDateDiffers: boolean;
+  readonly viewer: ClockParts<"viewer"> | null;
 });
 
 const unavailable = { kind: "site_time_unavailable" } as const;
-const dateOptions = { year: "numeric", month: "short", day: "numeric" } as const;
-const timeOptions = { hour: "numeric", minute: "2-digit", timeZoneName: "short" } as const;
+const timeOptions = { hour: "2-digit", minute: "2-digit", hourCycle: "h23" } as const;
 const clockOptions = {
-  dateTime: { ...dateOptions, ...timeOptions },
-  date: dateOptions,
+  date: { weekday: "short", month: "short", day: "numeric" },
+  numericDate: { weekday: "short", month: "2-digit", day: "2-digit" },
   time: timeOptions,
-};
+  offsetTime: { ...timeOptions, timeZoneName: "shortOffset" },
+  zoneName: { timeZoneName: "longGeneric" },
+} as const satisfies Record<string, Intl.DateTimeFormatOptions>;
 const clockFormatters = new Map<string, Intl.DateTimeFormat>();
 
 function getClockFormatter(locale: string, zone: string, style: keyof typeof clockOptions): Intl.DateTimeFormat {
@@ -50,20 +68,68 @@ function getClockFormatter(locale: string, zone: string, style: keyof typeof clo
   return formatter;
 }
 
-function getFullClock(locale: string, zone: string | null | undefined): Intl.DateTimeFormat | null {
-  if (!zone) return null;
+function getDateClock(locale: string, zone: string): Intl.DateTimeFormat | null {
   try {
-    return getClockFormatter(locale, zone, "dateTime");
+    return getClockFormatter(locale, zone, /^pt(?:-|$)/i.test(locale) ? "numericDate" : "date");
   } catch (error) {
     if (error instanceof RangeError) return null;
     throw error;
   }
 }
 
+function compactDate(instantMs: number, formatter: Intl.DateTimeFormat, locale: string): string {
+  if (!/^en(?:-|$)/i.test(locale)) return formatter.format(instantMs);
+
+  // Keep the Beacon English order while leaving the weekday and month text to Intl.
+  let weekday = "", day = "", month = "";
+  for (const { type, value } of formatter.formatToParts(instantMs)) {
+    if (type === "weekday") weekday = value;
+    else if (type === "day") day = value;
+    else if (type === "month") month = value;
+  }
+  return `${weekday} ${day} ${month}`;
+}
+
+/** A localized generic zone name for callers without a more specific catalog label. */
+export function formatZoneName(instantMs: number, zone: string | null | undefined, locale: string): string | null {
+  if (!zone) return null;
+  try {
+    return getClockFormatter(locale, zone, "zoneName").formatToParts(instantMs)
+      .find(({ type }) => type === "timeZoneName")?.value ?? null;
+  } catch (error) {
+    if (error instanceof RangeError) return null;
+    throw error;
+  }
+}
+
+function formatSiteClock(
+  instantMs: number,
+  siteZone: string,
+  locale: string,
+  dateClock: Intl.DateTimeFormat,
+  timeStyle: "time" | "offsetTime",
+): SiteTimeAvailable {
+  const date = compactDate(instantMs, dateClock, locale);
+  const time = getClockFormatter(locale, siteZone, timeStyle).format(instantMs);
+  return {
+    kind: "available",
+    siteTime: `${date} · ${time}`,
+    site: { date, time, zoneLabelKind: "site", zoneName: formatZoneName(instantMs, siteZone, locale) },
+  };
+}
+
 /** Missing or unrecognised site data is never interpreted in the device zone. */
-export function formatSiteDateTime(instantMs: number, siteZone: string | null | undefined, locale: string): SiteDateTime {
-  const siteClock = getFullClock(locale, siteZone);
-  return siteClock ? { kind: "available", siteTime: siteClock.format(instantMs) } : unavailable;
+export function formatSiteDateTime(
+  instantMs: number,
+  siteZone: string | null | undefined,
+  locale: string,
+  options?: ClockFormatOptions,
+): SiteDateTime {
+  if (!siteZone) return unavailable;
+  const dateClock = getDateClock(locale, siteZone);
+  return dateClock
+    ? formatSiteClock(instantMs, siteZone, locale, dateClock, options?.showOffset ? "offsetTime" : "time")
+    : unavailable;
 }
 
 /** Pass no viewer zone when the second clock is disabled. */
@@ -72,22 +138,31 @@ export function formatTwoClock(
   siteZone: string | null | undefined,
   viewerZone: string | null | undefined,
   locale: string,
+  options?: ClockFormatOptions,
 ): TwoClockDateTime {
-  const siteClock = getFullClock(locale, siteZone);
+  if (!siteZone) return unavailable;
+  const siteClock = getDateClock(locale, siteZone);
   if (!siteClock) return unavailable;
-  const siteTime = siteClock.format(instantMs);
-  const viewerClock = viewerZone === siteZone ? null : getFullClock(locale, viewerZone);
-  if (!viewerClock) return { kind: "available", siteTime, viewerTime: null, viewerDateDiffers: false };
-
-  const siteTimeZone = siteClock.resolvedOptions().timeZone;
-  const viewerTimeZone = viewerClock.resolvedOptions().timeZone;
-  if (siteTimeZone === viewerTimeZone) {
-    return { kind: "available", siteTime, viewerTime: null, viewerDateDiffers: false };
+  const timeStyle = options?.showOffset ? "offsetTime" : "time";
+  const site = formatSiteClock(instantMs, siteZone, locale, siteClock, timeStyle);
+  if (viewerZone && viewerZone !== siteZone) {
+    const viewerClock = getDateClock(locale, viewerZone);
+    if (viewerClock && viewerClock.resolvedOptions().timeZone !== siteClock.resolvedOptions().timeZone) {
+      const viewerDate = compactDate(instantMs, viewerClock, locale);
+      const viewerDateDiffers = viewerDate !== site.site.date;
+      const time = getClockFormatter(locale, viewerZone, timeStyle).format(instantMs);
+      return {
+        ...site,
+        viewerDateDiffers,
+        viewerTime: viewerDateDiffers ? `${viewerDate} · ${time}` : time,
+        viewer: {
+          date: viewerDateDiffers ? viewerDate : null, time, zoneLabelKind: "viewer",
+          zoneName: formatZoneName(instantMs, viewerZone, locale),
+        },
+      };
+    }
   }
-  const viewerDateDiffers = getClockFormatter(locale, siteTimeZone, "date").format(instantMs)
-    !== getClockFormatter(locale, viewerTimeZone, "date").format(instantMs);
-  const viewerTime = (viewerDateDiffers ? viewerClock : getClockFormatter(locale, viewerTimeZone, "time")).format(instantMs);
-  return { kind: "available", siteTime, viewerTime, viewerDateDiffers };
+  return { ...site, viewerTime: null, viewerDateDiffers: false, viewer: null };
 }
 
 const relativeTimeFormatters = new Map<string, Intl.RelativeTimeFormat>();

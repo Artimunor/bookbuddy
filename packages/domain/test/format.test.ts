@@ -1,28 +1,42 @@
 import { describe, expect, test } from "bun:test";
-import { formatMoney, formatReference, formatSiteDateTime, formatSyncAge, formatTwoClock, parseReference } from "../src/index";
+import { formatMoney, formatReference, formatSiteDateTime, formatSyncAge, formatTwoClock, formatZoneName, parseReference } from "../src/index";
 
 const madrid = "Europe/Madrid";
 const london = "Europe/London";
 const clocks = (instant: string) => formatTwoClock(Date.parse(instant), madrid, london, "en-GB");
 
 describe("site and viewer clocks", () => {
-  test("places the site date and time first, with viewer time only when dates match", () => {
-    const instant = Date.parse("2026-11-24T08:10:00Z");
-    const site = formatSiteDateTime(instant, madrid, "en-GB");
-    const both = clocks("2026-11-24T08:10:00Z");
-    expect(both.kind).toBe("available");
-    if (both.kind !== "available" || site.kind !== "available") throw new Error("Expected both clocks");
-    expect(both.siteTime).toBe(site.siteTime);
-    expect(site.siteTime).toMatch(/24 Nov 2026.*09:10.*(?:CET|GMT\+1)/);
-    expect(both.viewerTime).toMatch(/^08:10.*GMT(?:\+0)?$/);
-    expect(both.viewerDateDiffers).toBe(false);
+  test("places the compact site date and 24-hour time first with translatable zone parts", () => {
+    const instant = Date.parse("2026-11-23T07:15:00Z");
+    const site = formatSiteDateTime(instant, madrid, "en");
+    expect(site).toEqual({
+      kind: "available", siteTime: "Mon 23 Nov · 08:15",
+      site: { date: "Mon 23 Nov", time: "08:15", zoneLabelKind: "site", zoneName: "Central European Time" },
+    });
+    expect(formatTwoClock(instant, madrid, london, "en")).toMatchObject({
+      ...site, viewerTime: "07:15", viewerDateDiffers: false,
+      viewer: { date: null, time: "07:15", zoneLabelKind: "viewer", zoneName: expect.any(String) },
+    });
+    expect(formatZoneName(instant, madrid, "en")).toBe("Central European Time");
+    expect(formatZoneName(instant, london, "en")).not.toBe(london);
+    expect(formatZoneName(instant, null, "en")).toBeNull();
+    expect(formatZoneName(instant, "Not/AZone", "en")).toBeNull();
+  });
+
+  test("uses a weekday and day/month in European Portuguese and a 24-hour clock in English", () => {
+    const instant = Date.parse("2026-11-23T19:15:00Z");
+    expect(formatSiteDateTime(instant, madrid, "pt-PT")).toMatchObject({
+      kind: "available", siteTime: expect.stringMatching(/^(?:seg\.?|segunda(?:-feira)?),? 23\/11 · 20:15$/i),
+      site: { time: "20:15", zoneLabelKind: "site", zoneName: expect.any(String) },
+    });
+    expect(formatSiteDateTime(instant, madrid, "en-US")).toMatchObject({ siteTime: "Mon 23 Nov · 20:15" });
   });
 
   test("omits the second clock only when off or the zone is the same", () => {
     const instant = Date.parse("2026-01-24T08:10:00Z");
     for (const viewerZone of [null, madrid]) {
       expect(formatTwoClock(instant, madrid, viewerZone, "en-GB")).toMatchObject({
-        kind: "available", viewerTime: null, viewerDateDiffers: false,
+        kind: "available", viewerTime: null, viewerDateDiffers: false, viewer: null,
       });
     }
     // Date and offset can match even though the time zones differ.
@@ -43,11 +57,13 @@ describe("site and viewer clocks", () => {
     const both = clocks("2026-08-01T22:30:00Z");
     expect(both).toMatchObject({
       kind: "available", viewerDateDiffers: true,
-      siteTime: expect.stringMatching(/2 Aug 2026.*00:30/),
-      viewerTime: expect.stringMatching(/1 Aug 2026.*23:30/),
+      siteTime: "Sun 2 Aug · 00:30",
+      viewerTime: "Sat 1 Aug · 23:30",
+      site: { date: "Sun 2 Aug", time: "00:30", zoneLabelKind: "site" },
+      viewer: { date: "Sat 1 Aug", time: "23:30", zoneLabelKind: "viewer" },
     });
     expect(clocks("2026-08-01T23:00:00Z")).toMatchObject({
-      kind: "available", viewerDateDiffers: false, viewerTime: expect.stringMatching(/^00:00/),
+      kind: "available", viewerDateDiffers: false, viewerTime: "00:00", viewer: { date: null, time: "00:00" },
     });
   });
 
@@ -60,17 +76,23 @@ describe("site and viewer clocks", () => {
     });
   });
 
-  test("shows the repeated hour with its different zone on 25 October 2026", () => {
-    const early = clocks("2026-10-25T00:30:00Z");
-    const late = clocks("2026-10-25T01:30:00Z");
+  test("distinguishes the repeated hour on 25 October 2026 when offsets are requested", () => {
+    const earlyMs = Date.parse("2026-10-25T00:30:00Z");
+    const lateMs = Date.parse("2026-10-25T01:30:00Z");
+    const options = { showOffset: true };
+    const early = formatTwoClock(earlyMs, madrid, london, "en-GB", options);
+    const late = formatTwoClock(lateMs, madrid, london, "en-GB", options);
     expect(early).toMatchObject({
-      siteTime: expect.stringMatching(/02:30.*(?:CEST|GMT\+2)/),
-      viewerTime: expect.stringMatching(/01:30.*(?:BST|GMT\+1)/),
+      site: { time: expect.stringMatching(/^02:30.*GMT\+2$/) },
+      viewer: { time: expect.stringMatching(/^01:30.*GMT\+1$/) },
     });
     expect(late).toMatchObject({
-      siteTime: expect.stringMatching(/02:30.*(?:CET|GMT\+1)/),
-      viewerTime: expect.stringMatching(/01:30.*GMT(?:\+0)?$/),
+      site: { time: expect.stringMatching(/^02:30.*GMT\+1$/) },
+      viewer: { time: expect.stringMatching(/^01:30.*GMT(?:\+0)?$/) },
     });
+    for (const instantMs of [earlyMs, lateMs]) {
+      expect(formatZoneName(instantMs, madrid, "en")).toMatch(/^Central European Time(?: \(Spain\))?$/);
+    }
   });
 });
 
