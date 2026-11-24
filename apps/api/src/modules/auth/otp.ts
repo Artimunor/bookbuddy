@@ -4,7 +4,7 @@ import { commitCommand, prepareCommand } from "../../db/commit";
 import type { CommandStatement } from "../../db/commit";
 import type { RequestScope } from "../../db/scope";
 import { isSyntheticMailbox } from "../../providers/mail";
-import { loadDeliveryKey, mac, randomOtp, randomToken, sealDelivery } from "./crypto";
+import { loadDeliveryKey, mac, mailboxKey, randomOtp, randomToken, sealDelivery } from "./crypto";
 import { otpEmailEffectKind, otpMessage } from "./mail-effect";
 import { decodeSession, defaultContextSql, hashSessionCredential, sessionProjection } from "./session";
 import type { AuthBindings } from "../../config";
@@ -196,7 +196,10 @@ export async function verifyOtp(ctx: RequestScope, key: CryptoKey, token: string
   const { payload, operationId } = input;
   const now = ctx.now;
   const proof = await proofFor(key, token, payload, source);
-  const code = await mac(key, "otp-code", proof.id, proof.email, payload.transport, payload.code);
+  const [code, emailKey] = await Promise.all([
+    mac(key, "otp-code", proof.id, proof.email, payload.transport, payload.code),
+    mailboxKey(key, payload.email),
+  ]);
   const verified = await mac(key, "otp-verify", proof.id, proof.email, proof.device, payload.transport, operationId, code);
   const [sessionId, credential] = await Promise.all([mac(key, "otp-session-id", verified), mac(key, "otp-session-secret", verified)]);
   const secretHash = await hashSessionCredential(credential);
@@ -242,9 +245,11 @@ export async function verifyOtp(ctx: RequestScope, key: CryptoKey, token: string
         params: [...prefix.params ?? [], claimed, code],
       },
       {
-        sql: `INSERT INTO accounts (id, email_normalized, verified_at, state)
-          SELECT ?, ?, ?, 'active' WHERE ${consumed} ON CONFLICT(email_normalized) DO NOTHING`,
-        params: [accountId, payload.email, now, proof.id, claimed],
+        sql: `INSERT INTO accounts (id, email_normalized, email_key, verified_at, state)
+          SELECT ?, ?, ?, ?, 'active' WHERE ${consumed}
+          ON CONFLICT(email_normalized) DO UPDATE SET email_key = excluded.email_key
+          WHERE accounts.state = 'active' AND accounts.email_key IS NOT excluded.email_key`,
+        params: [accountId, payload.email, emailKey, now, proof.id, claimed],
       },
       {
         sql: `INSERT INTO account_preferences (account_id) SELECT id FROM accounts WHERE email_normalized = ? AND state = 'active'

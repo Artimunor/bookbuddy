@@ -9,6 +9,7 @@ const otpEventKinds = ["sent", "verify_failed"] as const;
 export const accounts = sqliteTable("accounts", {
   id: text().notNull().primaryKey(),
   emailNormalized: text("email_normalized").notNull().unique(),
+  emailKey: text("email_key").unique(),
   displayName: text("display_name"),
   verifiedAt: integer("verified_at").notNull(),
   setupAt: integer("setup_at"),

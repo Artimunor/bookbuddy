@@ -37,6 +37,11 @@ export async function mac(key: CryptoKey, purpose: string, ...values: (string | 
   return base64url(new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(JSON.stringify([purpose, ...values])))));
 }
 
+// Shared with invitation issue and acceptance; only verified accounts carry this key.
+export function mailboxKey(key: CryptoKey, normalizedEmail: string): Promise<string> {
+  return mac(key, "invitation_recipient_email", normalizedEmail);
+}
+
 export async function loadDeliveryKey(secret?: string): Promise<CryptoKey | null> {
   if (!secret || !authTokenPattern.test(secret)) return null;
   return crypto.subtle.importKey("raw", fromBase64url(secret), "AES-GCM", false, ["encrypt", "decrypt"]);

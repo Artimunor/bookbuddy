@@ -3,7 +3,7 @@ import type { EmailAttempt, Result, SessionBootstrap } from "@bookbuddy/api-cont
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { runEffectBatch } from "../src/effects/index";
-import { loadDeliveryKey, randomToken } from "../src/modules/auth/crypto";
+import { loadDeliveryKey, loadOtpKey, mailboxKey, randomToken } from "../src/modules/auth/crypto";
 import { otpEmailEffect } from "../src/modules/auth/mail-effect";
 import { sessionCookieName } from "../src/modules/auth/session";
 import { createTestD1 } from "./d1";
@@ -150,6 +150,22 @@ test("verify uses one batch, consumes once, and only an exact bounded replay ret
   expect(stored?.secret_hash).not.toBe(result.credential);
   now += 2 * minute;
   await error(await req(confirm, "POST", verify(correct)), 409);
+});
+
+test("returning accounts get the keyed invite identity only on successful mailbox verification", async () => {
+  const { db, env, req, code } = await fixture();
+  await db.prepare("INSERT INTO accounts (id, email_normalized, verified_at, state) VALUES ('existing', ?, ?, 'active')")
+    .bind(person.email, now).run();
+  const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
+  const confirm = emailPath(attemptId, "verify");
+  const correct = await code();
+  const wrong = correct === "999999" ? "000000" : "999999";
+  await data(await req(confirm, "POST", verify(wrong, "wrong")));
+  const stored = () => db.prepare("SELECT email_key AS key FROM accounts WHERE id = 'existing'").first<{ key: string | null }>();
+  expect((await stored())?.key).toBeNull();
+  expect((await data<Verified>(await req(confirm, "POST", verify(correct)))).session.account.id).toBe("existing");
+  const key = await loadOtpKey(env.OTP_HMAC_KEY);
+  expect((await stored())?.key).toBe(await mailboxKey(key!, person.email));
 });
 
 test("five wrong checks lock verify and reissue for exactly 15 minutes", async () => {

@@ -1,6 +1,8 @@
 CREATE TABLE accounts (
   id TEXT PRIMARY KEY NOT NULL,
   email_normalized TEXT NOT NULL UNIQUE,
+  -- Imported accounts receive the mailbox key on their next successful verification.
+  email_key TEXT UNIQUE,
   display_name TEXT,
   verified_at INTEGER NOT NULL,
   setup_at INTEGER,
