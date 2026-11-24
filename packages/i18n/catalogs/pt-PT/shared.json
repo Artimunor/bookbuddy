@@ -8,5 +8,7 @@
   "shared.app.name": "BookBuddy",
   "shared.status.lastConfirmed": "Última confirmação: {time}",
   "shared.status.offline": "Sem ligação",
-  "shared.status.pendingChanges": "{count, plural, one {# alteração pendente} other {# alterações pendentes}}"
+  "shared.status.pendingChanges": "{count, plural, one {# alteração pendente} other {# alterações pendentes}}",
+  "shared.time.siteZone": "{region, select, GB {hora do {country}} other {hora de {country}}}",
+  "shared.time.viewerZone": "a sua hora"
 }

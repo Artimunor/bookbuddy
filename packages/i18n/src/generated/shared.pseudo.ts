@@ -13,6 +13,8 @@ export default {
     "shared.status.lastConfirmed": [{"type":0,"value":"\u202eLast confirmed:\u202c "},{"type":1,"value":"time"}],
     "shared.status.offline": [{"type":0,"value":"\u202eOffline\u202c"}],
     "shared.status.pendingChanges": [{"type":6,"value":"count","options":{"one":{"value":[{"type":7},{"type":0,"value":" \u202epending change\u202c"}]},"other":{"value":[{"type":7},{"type":0,"value":" \u202epending changes\u202c"}]}},"offset":0,"pluralType":"cardinal"}],
+    "shared.time.siteZone": [{"type":5,"value":"region","options":{"GB":{"value":[{"type":1,"value":"country"},{"type":0,"value":" \u202etime\u202c"}]},"other":{"value":[{"type":1,"value":"country"},{"type":0,"value":" \u202etime\u202c"}]}}}],
+    "shared.time.viewerZone": [{"type":0,"value":"\u202eyour time\u202c"}],
   },
   "en-XA": {
     "shared.action.back": [{"type":0,"value":"Ƀáçķ~~"}],
@@ -25,5 +27,7 @@ export default {
     "shared.status.lastConfirmed": [{"type":0,"value":"Ľášţ çôñƒïřṁëď:~~~~~~ "},{"type":1,"value":"time"}],
     "shared.status.offline": [{"type":0,"value":"Ôƒƒľïñë~~~"}],
     "shared.status.pendingChanges": [{"type":6,"value":"count","options":{"one":{"value":[{"type":7},{"type":0,"value":" þëñďïñğ çħáñğë~~~~~~"}]},"other":{"value":[{"type":7},{"type":0,"value":" þëñďïñğ çħáñğëš~~~~~~"}]}},"offset":0,"pluralType":"cardinal"}],
+    "shared.time.siteZone": [{"type":5,"value":"region","options":{"GB":{"value":[{"type":1,"value":"country"},{"type":0,"value":" ţïṁë~~"}]},"other":{"value":[{"type":1,"value":"country"},{"type":0,"value":" ţïṁë~~"}]}}}],
+    "shared.time.viewerZone": [{"type":0,"value":"ÿôüř ţïṁë~~~~"}],
   },
 } satisfies Catalogs;

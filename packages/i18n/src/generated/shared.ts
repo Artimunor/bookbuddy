@@ -13,6 +13,8 @@ export default {
     "shared.status.lastConfirmed": [{"type":0,"value":"Last confirmed: "},{"type":1,"value":"time"}],
     "shared.status.offline": [{"type":0,"value":"Offline"}],
     "shared.status.pendingChanges": [{"type":6,"value":"count","options":{"one":{"value":[{"type":7},{"type":0,"value":" pending change"}]},"other":{"value":[{"type":7},{"type":0,"value":" pending changes"}]}},"offset":0,"pluralType":"cardinal"}],
+    "shared.time.siteZone": [{"type":5,"value":"region","options":{"GB":{"value":[{"type":1,"value":"country"},{"type":0,"value":" time"}]},"other":{"value":[{"type":1,"value":"country"},{"type":0,"value":" time"}]}}}],
+    "shared.time.viewerZone": [{"type":0,"value":"your time"}],
   },
   "pt-PT": {
     "shared.action.back": [{"type":0,"value":"Voltar"}],
@@ -25,5 +27,7 @@ export default {
     "shared.status.lastConfirmed": [{"type":0,"value":"Última confirmação: "},{"type":1,"value":"time"}],
     "shared.status.offline": [{"type":0,"value":"Sem ligação"}],
     "shared.status.pendingChanges": [{"type":6,"value":"count","options":{"one":{"value":[{"type":7},{"type":0,"value":" alteração pendente"}]},"other":{"value":[{"type":7},{"type":0,"value":" alterações pendentes"}]}},"offset":0,"pluralType":"cardinal"}],
+    "shared.time.siteZone": [{"type":5,"value":"region","options":{"GB":{"value":[{"type":0,"value":"hora do "},{"type":1,"value":"country"}]},"other":{"value":[{"type":0,"value":"hora de "},{"type":1,"value":"country"}]}}}],
+    "shared.time.viewerZone": [{"type":0,"value":"a sua hora"}],
   },
 } satisfies Catalogs;
