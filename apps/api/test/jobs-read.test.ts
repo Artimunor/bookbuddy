@@ -138,6 +138,52 @@ test("customer pages honor current place access and history, publish only issued
   } finally { f.db.close(); date.mockRestore(); }
 });
 
+test("implicit customer home prioritizes only readable booked visits without changing explicit place scope", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    await f.db.batch([
+      f.db.prepare(`INSERT INTO places(id,owner_id,alias,normalized_address,state) VALUES
+        ('a-idle','owner','Alternate','Alternate Street','pending_verification'),
+        ('b-history','owner','History cutoff','History Street','pending_verification')`),
+      f.db.prepare(`INSERT INTO place_people(place_id,account_id,verified_from,history_from) VALUES
+        ('a-idle','owner',1,1), ('b-history','owner',1,?)`).bind(now - minute),
+      f.db.prepare(`UPDATE places SET state='in_area', area_id='area', site_zone='Europe/Madrid',
+        named_approver_id=owner_id, pin='{"latitude":0,"longitude":0}' WHERE id IN ('a-idle','b-history')`),
+      f.db.prepare(`INSERT INTO jobs(id,reference,business_id,place_id,requester_id,origin,state) VALUES
+        ('alternate','BB-5','business','a-idle','owner','bookbuddy','open'),
+        ('before-access','BB-6','business','b-history','other','bookbuddy','open')`),
+      f.db.prepare(`INSERT INTO requests(job_id,original_text,original_language,arrival_arrangement,submitted_at) VALUES
+        ('alternate','Later visit','en','requester',?), ('before-access','Earlier requester','en','requester',?)`).bind(old, old),
+      f.db.prepare(`INSERT INTO visits(id,job_id,kind,state) VALUES
+        ('alt-visit','alternate','assessment','booked'), ('old-visit','before-access','assessment','booked'),
+        ('outside-visit','not-mine','assessment','booked')`),
+      f.db.prepare(`INSERT INTO visit_windows(id,visit_id,starts_at,ends_at,expires_at,provider_authorized,proposed_at,proposed_by,
+        confirmed_at,confirmed_by,state) VALUES
+        ('alt-window','alt-visit',?,?,?,1,?,'foreman',?,'owner','confirmed'),
+        ('old-window','old-visit',?,?,?,1,?,'foreman',?,'owner','confirmed'),
+        ('outside-window','outside-visit',?,?,?,1,?,'foreman',?,'other','confirmed')`).bind(
+        now + 10 * minute, now + 30 * minute, now, old + minute, old + 2 * minute,
+        now - minute, now + minute, now - minute, old + minute, old + 2 * minute,
+        now - minute, now + minute, now - minute, old + minute, old + 2 * minute,
+      ),
+    ]);
+    const home = async (path = "/home") => resultSchema(getHomeRoute.output).parse((await f.request(path, "owner")).body);
+    expect(await home()).toMatchObject({ data: {
+      place: { placeId: "place" }, liveVisits: [], upcoming: [{ jobId: "mine" }],
+    } });
+    expect(await home("/home?placeId=a-idle")).toMatchObject({ data: { place: { placeId: "a-idle" }, upcoming: [{ jobId: "alternate" }] } });
+    expect(await home("/home?placeId=b-history")).toMatchObject({ data: { place: { placeId: "b-history" }, liveVisits: [], upcoming: [], recent: [] } });
+    expect(await f.request("/home?placeId=elsewhere", "owner")).toMatchObject({ status: 404, body: noAccess });
+    date.mockReturnValue(now + 6 * minute);
+    expect(await home()).toMatchObject({ data: { place: { placeId: "place" }, liveVisits: [{ jobId: "mine" }] } });
+    date.mockReturnValue(now + 11 * minute);
+    expect(await home()).toMatchObject({ data: { place: { placeId: "a-idle" }, liveVisits: [{ jobId: "alternate" }] } });
+    date.mockReturnValue(now + 46 * minute);
+    expect(await home()).toMatchObject({ data: { place: { placeId: "a-idle" }, liveVisits: [], upcoming: [] } });
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
 test("whole-job visit summary selects the site-day visit and is only visible to its requester", async () => {
   const date = spyOn(Date, "now").mockReturnValue(now);
   const f = await fixture();

@@ -317,11 +317,20 @@ const overviewPacket = `json_object(
   `FROM sorted_jobs j JOIN job_handoffs h ON h.id = j.handoff_id ${jobFrom}
     WHERE j.state = 'open' AND j.handoff_stuck ORDER BY coalesce(h.ended_at, h.expires_at), j.id LIMIT ${pageSize}`)}))`;
 
-const readScope = `reader AS MATERIALIZED (
+const defaultPlace = `(SELECT id FROM job_places p WHERE i.place_id IS NULL OR p.id = i.place_id
+  ORDER BY p.site_zone IS NULL, p.owned DESC, p.id LIMIT 1)`;
+const homeVisitPlace = `(SELECT j.place_id
+  FROM (${scopedJobIds("live_scope", "job_places", at, "s.role = 'customer' AND j.state = 'open'")}) visible
+  JOIN jobs j ON j.id = visible.resource_id
+  JOIN visit_windows w ON w.id = (${nextVisitId("j", at)})
+  ORDER BY w.starts_at > ${at}, CASE WHEN w.starts_at <= ${at} THEN w.ends_at ELSE w.starts_at END, j.place_id, j.id
+  LIMIT 1)`;
+
+const readScope = (implicitHome: boolean) => `reader AS MATERIALIZED (
   SELECT s.*, ${currentMembership("s", at)} AS membership_id,
     b.public_name AS business_name, b.state AS business_state, area.name AS area_name, area.site_zone,
-    (SELECT id FROM job_places p WHERE i.place_id IS NULL OR p.id = i.place_id
-      ORDER BY p.site_zone IS NULL, p.owned DESC, p.id LIMIT 1) AS selected_place
+    ${implicitHome ? `coalesce(CASE WHEN s.role = 'customer' AND EXISTS (SELECT 1 FROM job_places LIMIT 1 OFFSET 1)
+      THEN ${homeVisitPlace} END, ${defaultPlace})` : defaultPlace} AS selected_place
   FROM live_scope s CROSS JOIN input i LEFT JOIN businesses b ON b.id = s.business_id
   LEFT JOIN operating_areas area ON area.id = b.catchment_id
   WHERE (i.business_id IS NULL OR (s.role = 'provider_admin' AND s.business_id = i.business_id))
@@ -359,7 +368,7 @@ function read(access: SessionAccess, mode: ReadMode, options: {
 
   return scopedStatement(access, `,
     input(place_id, job_id, business_id, rank, time, cursor_id, visit_id) AS (${input}),
-    job_places AS MATERIALIZED (${customerPlaces("live_scope", at)}), ${readScope},
+    job_places AS MATERIALIZED (${customerPlaces("live_scope", at)}), ${readScope(mode === "home" && placeId === null)},
     visible_jobs AS MATERIALIZED (SELECT j.* FROM (${scopedJobIds("reader", "job_places", at, jobFilter)}) k JOIN jobs j ON j.id = k.resource_id),
     intake AS MATERIALIZED (
       SELECT h.id, 0 AS rank, h.expires_at AS time FROM (${scopedIntakeIds("reader", at, intakeFilter)}) k
