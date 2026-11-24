@@ -2,6 +2,7 @@ import type { ErrorCode, ErrorEnvelope } from "@bookbuddy/api-contract";
 import { Hono } from "hono";
 import type { ApiEnv } from "./bindings";
 import { API_BASE_PATH, PRIVATE_CACHE_CONTROL } from "./config";
+import { commercialRoutes } from "./modules/commercial/routes";
 import { accessRoutes } from "./modules/access/routes";
 import { authRoutes } from "./modules/auth/routes";
 import { jobsCommandRoutes } from "./modules/jobs/routes.commands";
@@ -26,6 +27,7 @@ export function createApp() {
   app.route(API_BASE_PATH, jobsCommandRoutes);
   app.route(API_BASE_PATH, transportRoutes);
   app.route(API_BASE_PATH, accessRoutes);
+  app.route(API_BASE_PATH, commercialRoutes);
 
   // Mount feature routers here via app.basePath(API_BASE_PATH).route("/", routes).
   // Routers' paths are relative to /api/v1, not each module name (see plan §3).

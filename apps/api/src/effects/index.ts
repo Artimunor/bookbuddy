@@ -1,6 +1,7 @@
 import { invitationMailEffect } from "../modules/access/mail";
 import { loadDeliveryKey } from "../modules/auth/crypto";
 import { otpEmailEffect } from "../modules/auth/mail-effect";
+import { commercialMailEffect } from "../modules/commercial/mail";
 import type { Bindings } from "../bindings";
 import { createMailDelivery } from "../providers/mail";
 import type { MailMessage, MailResult } from "../providers/mail";
@@ -16,14 +17,18 @@ export interface EffectHandler {
   // Trusted SQL fragments. `eligible` may reference the outbox alias `e`.
   readonly eligible: string;
   readonly scrub: string;
+  // Optional projection of a durable reference, loaded in the claim statement.
+  readonly claimResource?: string;
   prepareMail(key: CryptoKey, job: ClaimedEffect): Promise<MailMessage | null>;
 }
 
-const handlers: readonly EffectHandler[] = [otpEmailEffect, invitationMailEffect];
+const handlers: readonly EffectHandler[] = [otpEmailEffect, invitationMailEffect, commercialMailEffect];
 const handlersByKind = new Map(handlers.map((handler) => [handler.kind, handler]));
 const knownKinds = handlers.map(({ kind }) => `'${kind}'`).join(", ");
 const eligible = `CASE e.kind ${handlers.map((h) => `WHEN '${h.kind}' THEN (${h.eligible})`).join(" ")} ELSE 0 END`;
 const scrub = `CASE kind ${handlers.map((h) => `WHEN '${h.kind}' THEN (${h.scrub})`).join(" ")} ELSE resource_ref END`;
+const claimResource = `CASE e.kind ${handlers.filter((h) => h.claimResource)
+  .map((h) => `WHEN '${h.kind}' THEN (${h.claimResource})`).join(" ")} ELSE e.resource_ref END`;
 const maxClaim = 32;
 const leaseMs = 60_000;
 
@@ -57,7 +62,7 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
       ORDER BY e.due_at, e.id LIMIT ${maxClaim}`).bind(claim, now, now + leaseMs, ...keyArgs, now, now),
     db.prepare(`UPDATE effect_outbox SET state = 'claimed'
       WHERE state = 'pending' AND id IN (SELECT effect_id FROM effect_claims WHERE claim_id = ?)`).bind(claim),
-    db.prepare(`SELECT e.id, e.kind, e.resource_ref FROM effect_claims c JOIN effect_outbox e ON e.id = c.effect_id
+    db.prepare(`SELECT e.id, e.kind, ${claimResource} AS resource_ref FROM effect_claims c JOIN effect_outbox e ON e.id = c.effect_id
       WHERE c.claim_id = ? AND e.state = 'claimed' ORDER BY e.due_at, e.id`).bind(claim),
   ]);
   if (!claimed?.results.length) return;
