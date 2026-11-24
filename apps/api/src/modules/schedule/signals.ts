@@ -2,6 +2,7 @@ import type { CommandStatement } from "../../db/commit";
 import { at, scopedStatement } from "../access/policy";
 import { liveContextPredicate } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
+import { workerFieldShiftChangeRows } from "../field/attendance";
 import { placeCapability } from "../places/policy";
 import { customer, foreman, provider } from "./policy";
 import { crewAvailabilityKind, workerAgendaKind } from "./projections";
@@ -44,12 +45,15 @@ export function jobSignals(access: SessionAccess, guard: CommandStatement, kind:
 }
 
 export function affectedWorkerKeys(access: SessionAccess, visit: string): CommandStatement {
-  return scopedStatement(access, `SELECT kind.value AS kind, m.id AS resource_id, c.id AS partition_key, 'upsert' AS op, ${at} AS at
+  return scopedStatement(access, `, released_assignments AS MATERIALIZED (
+    SELECT a.id, a.worker_membership_id FROM shifts sh JOIN shift_slots slot ON slot.shift_id = sh.id
+    JOIN assignments a ON a.slot_id = slot.id WHERE sh.visit_id = ${visit} AND sh.state = 'planned' AND a.state = 'confirmed'
+  ) SELECT kind.value AS kind, m.id AS resource_id, c.id AS partition_key, 'upsert' AS op, ${at} AS at
     FROM account_contexts c JOIN membership_roles r ON r.id = c.role_grant_id AND r.granted_at <= ${at}
     JOIN memberships m ON m.id = r.membership_id JOIN schedule_job j ON j.business_id = m.business_id
     JOIN accounts a ON a.id = m.account_id AND a.state = 'active'
     CROSS JOIN json_each('["${workerAgendaKind}","${crewAvailabilityKind}"]') kind
     WHERE c.role = 'worker' AND ${liveContextPredicate} AND EXISTS (
-      SELECT 1 FROM assignments a JOIN shift_slots slot ON slot.id = a.slot_id JOIN shifts sh ON sh.id = slot.shift_id
-      WHERE sh.visit_id = ${visit} AND sh.state = 'planned' AND a.worker_membership_id = m.id AND a.state = 'confirmed')`);
+      SELECT 1 FROM released_assignments a WHERE a.worker_membership_id = m.id)
+    UNION ALL ${workerFieldShiftChangeRows("SELECT id FROM released_assignments")}`);
 }
