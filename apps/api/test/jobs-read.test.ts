@@ -138,6 +138,38 @@ test("customer pages honor current place access and history, publish only issued
   } finally { f.db.close(); date.mockRestore(); }
 });
 
+test("whole-job visit summary selects the site-day visit and is only visible to its requester", async () => {
+  const date = spyOn(Date, "now").mockReturnValue(now);
+  const f = await fixture();
+  try {
+    const start = now + 5 * minute, end = now + 15 * minute;
+    await f.db.batch([
+      f.db.prepare("UPDATE place_people SET history_from = ? WHERE place_id = 'place' AND account_id = 'viewer'").bind(old),
+      f.db.prepare(`INSERT INTO customer_updates (id, visit_id, actor_id, kind, band_start, band_end, recorded_at)
+        VALUES ('travel', 'visit', 'foreman', 'on_the_way', ?, ?, ?)`).bind(start, end, now),
+    ]);
+    const summary = { status: "on_the_way", step: "on_the_way", arrivalWindow: { start, end, siteZone: "Europe/Madrid" },
+      source: { at: now, sharedByName: "foreman" } };
+    const mine = await f.request("/jobs/mine", "owner");
+    expect(mine.body).toMatchObject({ data: { audience: "customer", job: { view: "whole", hasTodayView: true, visit: summary } } });
+    expect(resultSchema(getJobRoute.output).parse(mine.body)).toMatchObject({ data: { job: { visit: summary } } });
+    const viewer = await f.request("/jobs/mine", "viewer");
+    expect(viewer.body).toMatchObject({ data: { audience: "customer", job: { view: "whole", hasTodayView: true } } });
+    expect(viewer.body).not.toHaveProperty("data.job.visit");
+    const staff = await f.request("/jobs/mine", "foreman");
+    expect(staff.body).toMatchObject({ data: { audience: "foreman", job: { view: "whole" } } });
+    expect(staff.body).not.toHaveProperty("data.job.visit");
+    date.mockReturnValue(end);
+    expect((await f.request("/jobs/mine", "owner")).body).toMatchObject({ data: { job: {
+      visit: { status: null, step: null, arrivalWindow: null, source: summary.source },
+    } } });
+    date.mockReturnValue(now - 2 * 60 * minute);
+    const earlier = await f.request("/jobs/mine", "owner");
+    expect(earlier.body).toMatchObject({ data: { job: { hasTodayView: false } } });
+    expect(earlier.body).not.toHaveProperty("data.job.visit");
+  } finally { f.db.close(); date.mockRestore(); }
+});
+
 test("staff reads separate accountability, active intake, business oversight, and absent worker assignment", async () => {
   const date = spyOn(Date, "now").mockReturnValue(now);
   const f = await fixture();

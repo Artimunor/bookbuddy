@@ -28,7 +28,7 @@ export function JobHome() {
   }, [id, jobs, generation, location.state, bootstrap?.sessionId, activeContext?.contextId]);
   const visitLinks = job ? jobHomeVisitLinks(job) : null;
   const nextWindow = job?.nextVisit?.window;
-  const todayWindow = job && visitLinks?.live && nextWindow && (job.live || visitOnSiteDay(nextWindow, job.siteZone, Date.now())) ? nextWindow : undefined;
+  const todayWindow = job && !job.visit && visitLinks?.live && nextWindow && (job.live || visitOnSiteDay(nextWindow, job.siteZone, Date.now())) ? nextWindow : undefined;
   const primary = visitLinks?.windows
     ? { to: visitLinks.windows, label: t("web.portal.schedule.chooseTime") }
     : job?.quote && (job.nextStep?.kind === "review_quote" || job.nextStep?.kind === "read_quote")

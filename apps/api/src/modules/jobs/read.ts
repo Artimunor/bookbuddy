@@ -1,10 +1,11 @@
-import type { HomeProjection } from "@bookbuddy/api-contract";
+import type { HomeProjection, JobDetail } from "@bookbuddy/api-contract";
 import type { ChangeVersionState, QuoteVersionState } from "@bookbuddy/domain";
 import type { CommandStatement } from "../../db/commit";
 import { at, currentCheck, displayName, eligibilityStatus, liveTerm, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import { approvedInvoice, invoiceLines, paymentHead } from "../aftercare/invoice";
 import { routedReviewer } from "../commercial/policy";
+import { customerJobVisitSummarySql } from "../field/live";
 import { mediaLinkAvailable } from "../media/deadlines";
 import { readyAttachmentSql } from "../media/policy";
 import { placeCapability } from "../places/policy";
@@ -166,15 +167,18 @@ const readyBillDetails = `(WITH basis(value) AS MATERIALIZED (${approvedInvoice(
     AND (basis.value ->> 'net') >= 0 AND (basis.value ->> 'tax') >= 0
     AND (basis.value ->> 'net') + (basis.value ->> 'tax') > 0)`;
 const todayVisits = (linked: boolean, whole: boolean) => {
-  const visit = visitJson("v", "w");
+  const visit = visitJson("v", "booked");
   const staff = whole ? linked ? "s.role = 'foreman' AND (SELECT visit_id FROM input) IS NOT NULL" : "0" : "s.role = 'foreman'";
-  const packet = staff === "0" ? visit : `CASE WHEN ${staff} THEN json_set(${visit},
-    '$.shifts', json(${shiftSlots("v")}), '$.vacantSlotId', ${vacantSlot}) ELSE ${visit} END`;
-  return jsonRows(packet, `FROM visits v JOIN visit_windows w ON w.visit_id = v.id AND w.state = 'confirmed'
-  WHERE v.job_id = j.id AND v.state IN ('booked', 'finished') AND w.confirmed_at <= ${at}
+  const customer = whole ? `WHEN s.role = 'customer' AND j.requester_id = s.account_id THEN json_set(${visit},
+    '$.summary', json(${customerJobVisitSummarySql("s", "b.public_name", placeZone)}))` : "";
+  const staffing = staff === "0" ? "" : `WHEN ${staff} THEN json_set(${visit},
+    '$.shifts', json(${shiftSlots("v")}), '$.vacantSlotId', ${vacantSlot})`;
+  const packet = `CASE ${customer} ${staffing} ELSE ${visit} END`;
+  return jsonRows(packet, `FROM visits v JOIN visit_windows booked ON booked.visit_id = v.id AND booked.state = 'confirmed'
+  WHERE v.job_id = j.id AND v.state IN ('booked', 'finished') AND booked.confirmed_at <= ${at}
     AND (${linked ? "v.id = (SELECT visit_id FROM input) OR ((SELECT visit_id FROM input) IS NULL AND " : ""}
-      (w.starts_at < ${at} + ${visitDayMargin} AND w.ends_at > ${at} - ${visitDayMargin})${linked ? ")" : ""})
-  ORDER BY v.state = 'finished', w.starts_at, v.id LIMIT ${pageSize}`);
+      (booked.starts_at < ${at} + ${visitDayMargin} AND booked.ends_at > ${at} - ${visitDayMargin})${linked ? ")" : ""})
+  ORDER BY v.state = 'finished', booked.starts_at, v.id LIMIT ${pageSize}`);
 };
 
 function jobPacket(mode: ReadMode, linked = false): string {
@@ -392,6 +396,7 @@ function read(access: SessionAccess, mode: ReadMode, options: {
           coalesce(CASE WHEN q.state = 'issued' AND q.expires_at > ${at} AND ${canApprove("q")} THEN q.expires_at END, 9007199254740991),
           coalesce(CASE WHEN ch.state = 'issued' AND ch.expires_at > ${at} AND ${canApprove("ch")} THEN ch.expires_at END, 9007199254740991),
           coalesce(CASE WHEN offered.id IS NOT NULL AND ${canBook} THEN offered.expires_at END, 9007199254740991)) END AS decision_sort
+        ${mode === "whole" ? ", p.state AS place_state, p.owner_id, p.named_approver_id" : ""}
       FROM job_keys j CROSS JOIN reader s JOIN places p ON p.id = j.place_id
       LEFT JOIN visit_windows w ON w.id = j.window_id LEFT JOIN job_handoffs h ON h.id = j.handoff_id
       LEFT JOIN quote_versions q ON q.id = j.quote_id LEFT JOIN change_versions ch ON ch.id = j.change_id
@@ -481,7 +486,8 @@ interface Handoff { handoffId: string; expiresAt: number }
 interface Stamp { at: number; by: string | null }
 interface ShiftSlots { shiftId: string; slotIds: string[] }
 interface VisitStaffing { shifts?: ShiftSlots[]; vacantSlotId?: string | null }
-type StaffedVisit = VisitRow & VisitStaffing;
+type CustomerJobVisit = NonNullable<Extract<Extract<JobDetail, { audience: "customer" }>["job"], { view: "whole" }>["visit"]>;
+type DetailedVisit = VisitRow & VisitStaffing & { summary?: CustomerJobVisit | null };
 type InvoiceAmount = { minor: number; currency: "EUR" };
 interface ProviderInvoice {
   billId: string; number: string; total: InvoiceAmount; expectedPriorId: string | null; canRecordPaid: boolean;
@@ -496,7 +502,7 @@ interface Job extends Heading, JourneyRow {
   next: VisitRow | null; finalAt: number | null; foreman: Member | null; handoff: Handoff | null;
   quote: (Published & { version: number; state: QuoteVersionState; approved?: Stamp | null }) | null;
   change: (Published & { state: ChangeVersionState }) | null; proposal: Proposed | null;
-  approver: string | null; writeQuote: number; openChange: number; today?: StaffedVisit[];
+  approver: string | null; writeQuote: number; openChange: number; today?: DetailedVisit[];
   crewGap?: number; openProblem?: number; unpaidBill?: number;
   attachmentIds?: string[] | null;
   crew?: { leadName: string | null; count: number } | null; cancellation?: Stamp | null;
@@ -718,6 +724,7 @@ export function projectJob(rows: ReadRows, view: View, now: number, exactVisit =
       if (view === "today") return today ? { audience, job: { ...customerLive(job, today), view,
         nextStep: customerStep(job, now), crewNames: [] } } : null;
       return { audience, job: { ...customerCard(job, now), view, revision: job.revision, hasTodayView: !!today,
+        ...(today?.summary ? { visit: today.summary } : {}),
         attachmentIds: job.attachmentIds ?? [],
         quote: quote && { versionId: quote.versionId, version: quote.version, state: quote.state, total: { minor: quote.minor, currency: "EUR" },
           sent: { at: quote.issuedAt, by: quote.by }, approved: quote.approved ?? null },

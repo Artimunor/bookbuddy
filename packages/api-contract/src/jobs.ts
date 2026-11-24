@@ -10,6 +10,7 @@ import {
   attachmentIdSchema, commandInputSchema, cursorSchema, evidenceReferenceSchema, idSchema, idSchemaFor,
   localeTagSchema, operationIdSchema, paginationInputSchema, paginationSchema, revisionSchema, timestampSchema,
 } from "./common";
+import { customerLiveVisitSchema } from "./field";
 import { placeIdSchema } from "./places";
 import { defineRoute } from "./route";
 
@@ -214,10 +215,19 @@ const foremanJobBill = z.discriminatedUnion("state", [
   z.object({ state: z.enum(["draft", "sent", "paid_recorded"]), total: money }),
 ]);
 
+const customerLiveState = customerLiveVisitSchema.shape.live.shape;
+const customerJobVisit = z.strictObject({
+  status: customerLiveState.status, step: customerLiveState.step,
+  arrivalWindow: z.strictObject({ start: timestampSchema, end: timestampSchema, siteZone })
+    .refine(({ start, end }) => start < end, { path: ["end"] }).nullable(),
+  source: customerLiveState.source,
+});
+
 export const jobDetailSchema = z.discriminatedUnion("audience", [
   z.object({ audience: z.literal("customer"), job: z.discriminatedUnion("view", [
     customerCard.extend({
       view: z.literal("whole"), revision: revisionSchema, hasTodayView: z.boolean(), quote: quoteSummary.nullable(),
+      visit: customerJobVisit.optional(),
       foremanName: displayText.nullable(), chatThreadId: idSchemaFor<"chat_thread">().nullable(),
       attachmentIds: requestAttachmentIds,
       change: z.object({ versionId: idSchemaFor<"change_version">(), state: z.enum(CHANGE_VERSION_STATES).extract(["issued", "approved", "rejected"]),

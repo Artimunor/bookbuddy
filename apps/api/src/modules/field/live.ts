@@ -18,8 +18,8 @@ import {
 
 const visitFrom = `FROM visits v JOIN (${fieldJobs}) j ON j.id = v.job_id ${confirmedWindow("v")}`;
 const visitReadable = "booked.id IS NOT NULL AND v.state IN ('booked', 'finished') AND j.state <> 'cancelled' AND j.place_state <> 'restricted'";
-const liveCustomer = `(${customer("scope")} AND (j.owner_id = scope.account_id
-  OR ${placeCapability("j.place_id", "scope.account_id", "view")}))`;
+const liveCustomer = (scope: string) => `(${customer(scope)} AND (j.owner_id = ${scope}.account_id
+  OR ${placeCapability("j.place_id", `${scope}.account_id`, "view")}))`;
 const assignedCrew = `sh.visit_id = v.id AND member.business_id = j.business_id AND a.confirmed_at <= ${at}`;
 const roster = `${assignedCrew} AND a.state = 'confirmed' AND sh.state IN ('planned', 'active')`;
 const leadAssignment = (scope: string) => `(SELECT a.id ${visitAssignments} WHERE ${roster}
@@ -77,7 +77,7 @@ const confirmedNames = `(SELECT json_group_array(name) FROM (SELECT DISTINCT wor
   ORDER BY name COLLATE NOCASE, name))`;
 
 // Only published facts feed the customer capsule. Expiry quiets an estimate; it never suggests a check-in.
-const customerSummary = `(WITH stamps AS MATERIALIZED (
+const customerLiveSelection = (arrivalSql: string, projection: string) => `(WITH stamps AS MATERIALIZED (
   SELECT ${latestStamp("'on_site', 'working', 'finished'")} AS step_id,
     ${latestStamp(travelKinds)} AS arrival_id,
     ${latestStamp("'crew_confirmed', 'crew_updated', 'cover_arranging'")} AS crew_id,
@@ -94,7 +94,7 @@ const customerSummary = `(WITH stamps AS MATERIALIZED (
       WHEN arrival.kind IN ('on_the_way', 'arrival_revised') THEN CASE WHEN arrival.band_end > ${at} THEN 'on_the_way' END
       WHEN crew.kind IN ('crew_confirmed', 'crew_updated') THEN 'confirmed' END AS status,
     CASE WHEN step.id IS NULL AND arrival.kind IN ('on_the_way', 'arrival_revised') AND arrival.band_end > ${at}
-      THEN ${customerStampSql("arrival", "j.provider_name")} END AS arrival,
+      THEN ${arrivalSql} END AS arrival,
     CASE WHEN stamps.shortage_id IS NOT NULL THEN stamps.shortage_id WHEN status.kind = 'paused' THEN status.id WHEN step.kind = 'finished' THEN step.id
       WHEN crew.kind = 'cover_arranging' AND (step.id IS NULL OR (crew.recorded_at, crew.rowid) > (step.recorded_at, step.rowid))
         AND (arrival.kind NOT IN ('on_the_way', 'arrival_revised') OR arrival.band_end <= ${at}) THEN crew.id
@@ -102,12 +102,25 @@ const customerSummary = `(WITH stamps AS MATERIALIZED (
   FROM stamps LEFT JOIN customer_updates step ON step.id = stamps.step_id LEFT JOIN customer_updates arrival ON arrival.id = stamps.arrival_id
   LEFT JOIN customer_updates crew ON crew.id = stamps.crew_id LEFT JOIN customer_updates status ON status.id = stamps.status_id
 )
-SELECT json_object('window', json(${windowSql("booked")}), 'confirmedCrewNames', json(${confirmedNames}), 'live',
-  json_object('step', basis.step, 'status', basis.status, 'since', coalesce(source.occurred_at, source.recorded_at),
-    'source', json(CASE WHEN source.id IS NOT NULL THEN json_object('at', coalesce(source.occurred_at, source.recorded_at),
-      'sharedByName', CASE WHEN source.kind <> 'on_site' THEN coalesce(nullif(trim(actor.display_name), ''), j.provider_name) END) END),
-    'arrival', json(basis.arrival), 'nextUpdateAt', source.next_update_at))
+SELECT ${projection}
 FROM basis LEFT JOIN customer_updates source ON source.id = basis.source_id LEFT JOIN accounts actor ON actor.id = source.actor_id)`;
+
+const liveSource = (providerName: string) => `CASE WHEN source.id IS NOT NULL THEN json_object('at', coalesce(source.occurred_at, source.recorded_at),
+  'sharedByName', CASE WHEN source.kind <> 'on_site' THEN coalesce(nullif(trim(actor.display_name), ''), ${providerName}) END) END`;
+
+const customerSummary = customerLiveSelection(customerStampSql("arrival", "j.provider_name"),
+  `json_object('window', json(${windowSql("booked")}), 'confirmedCrewNames', json(${confirmedNames}), 'live',
+    json_object('step', basis.step, 'status', basis.status, 'since', coalesce(source.occurred_at, source.recorded_at),
+      'source', json(${liveSource("j.provider_name")}), 'arrival', json(basis.arrival), 'nextUpdateAt', source.next_update_at))`);
+
+// Expects the C-09 visit/job/confirmed-window aliases (v, j, booked).
+export function customerJobVisitSummarySql(scope: string, providerName: string, siteZone: string): string {
+  return `CASE WHEN ${visitReadable} AND ${liveCustomer(scope)} THEN ${customerLiveSelection(
+    `json_object('start', arrival.band_start, 'end', arrival.band_end, 'siteZone', ${siteZone})`,
+    `json_object('status', basis.status, 'step', basis.step, 'arrivalWindow', json(basis.arrival),
+      'source', json(${liveSource(providerName)}))`,
+  )} END`;
+}
 
 function customerVisitSql(cursorAt: string, cursorId: string): string {
   return `(WITH visit_page AS MATERIALIZED (
@@ -166,7 +179,7 @@ export function readVisitLive(session: SessionAccess, now: number, id: string, c
   if (!position) return null;
   const access = accessClock(session, now);
   return scopedStatement(access, `, visit_input(id, before_at, before_id) AS (VALUES (?, ?, ?))
-    SELECT (SELECT CASE WHEN ${liveCustomer} THEN ${customerVisitSql("input.before_at", "input.before_id")}
+    SELECT (SELECT CASE WHEN ${liveCustomer("scope")} THEN ${customerVisitSql("input.before_at", "input.before_id")}
       WHEN ${foreman("scope")} THEN ${shareUpdateProjection} END
       ${visitFrom} CROSS JOIN live_scope scope CROSS JOIN visit_input input WHERE v.id = input.id AND ${visitReadable}) AS value
     FROM acting_session`, id, position.at, position.id);
@@ -200,7 +213,7 @@ function visitSignals(access: SessionAccess, guard: CommandStatement, visit: str
     JOIN accounts viewer ON viewer.id = person.account_id AND viewer.state = 'active'
     JOIN (SELECT id AS context_id, account_id, role, business_id FROM account_contexts WHERE role = 'customer') scope
       ON scope.account_id = viewer.id
-    WHERE v.id = ${visitId} AND ${visitReadable} AND ${liveCustomer}
+    WHERE v.id = ${visitId} AND ${visitReadable} AND ${liveCustomer("scope")}
   )` };
   return {
     statements: [

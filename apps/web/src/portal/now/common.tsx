@@ -85,6 +85,7 @@ export function dayLine(labels: Record<(typeof VISIT_STEPS)[number], string>, st
   return {
     stages: VISIT_STEPS.map(id => ({ id, label: labels[id] })),
     currentId: current,
+    labelAll: true,
     ariaLabel: t("web.portal.work.stepCount", { index: VISIT_STEPS.indexOf(current) + 1, count: VISIT_STEPS.length, stage: labels[current] }),
   };
 }

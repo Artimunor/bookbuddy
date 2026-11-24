@@ -45,7 +45,7 @@ export function Now() {
           t={t} locale={locale} viewerZone={viewerZone} bookedWindow={item.nextVisit?.window} />)}
       </section>}
       {visits && visits.later.length > 0 && <section className="space-y-3"><h2 className="text-section-title">{t("web.portal.work.upcoming")}</h2>{visits.later.map((item) => <Booking key={item.jobId} item={item} viewerZone={viewerZone} />)}</section>}
-      {data.recent.length > 0 && <Card title={t("web.portal.work.latest")}><div className="bb-moments">{data.recent.map((moment) => {
+      {data.recent.length > 0 && <Card title={t("web.portal.work.latest")}><div className="bb-moments text-ink [&_.bb-stamp]:animate-none">{data.recent.map((moment) => {
         const zone = data.place?.siteZone ?? zones.get(moment.jobId);
         return <Stamp key={`${moment.recordId}-${moment.at}`} kind="system" title={momentLabel(t, moment.kind)} time={zone ? <PortalClock at={moment.at} zone={zone} locale={locale} viewerZone={viewerZone} /> : t("web.portal.auth.yourTime", { time: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", hourCycle: "h23", timeZone: viewerZone }).format(moment.at) })} actor={moment.by ? { name: moment.by, role: "" } : undefined} />;
       })}</div></Card>}
