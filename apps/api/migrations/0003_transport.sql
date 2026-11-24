@@ -61,6 +61,7 @@ CREATE INDEX notifications_link_token ON notifications(link_token);
 CREATE TABLE push_installations (
   id TEXT NOT NULL PRIMARY KEY,
   account_id TEXT NOT NULL REFERENCES accounts(id),
+  device_id TEXT,
   token TEXT NOT NULL,
   token_epoch INTEGER NOT NULL CHECK (token_epoch > 0),
   platform TEXT NOT NULL CHECK (platform IN ('ios', 'android')),
@@ -69,6 +70,7 @@ CREATE TABLE push_installations (
 );
 CREATE UNIQUE INDEX push_installations_active_token ON push_installations(token) WHERE state = 'active';
 CREATE INDEX push_installations_account_active ON push_installations(account_id, state, id);
+CREATE INDEX push_installations_device_revocable ON push_installations(account_id, device_id) WHERE state <> 'revoked';
 
 CREATE TABLE effect_outbox (
   id TEXT NOT NULL PRIMARY KEY,

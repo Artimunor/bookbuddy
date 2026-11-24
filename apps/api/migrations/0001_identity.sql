@@ -15,6 +15,7 @@ CREATE TABLE account_preferences (
   account_id TEXT PRIMARY KEY NOT NULL REFERENCES accounts (id),
   ui_locale TEXT,
   reading_locale TEXT,
+  display_zone TEXT,
   theme TEXT NOT NULL DEFAULT 'system',
   field_mode INTEGER,
   two_clock INTEGER NOT NULL DEFAULT 0,

@@ -57,7 +57,7 @@ export async function resolveSession(
 
   return {
     sql: `WITH acting_session AS MATERIALIZED (
-      SELECT s.id AS session_id, s.account_id, s.active_context_id AS context_id, s.expires_at
+      SELECT s.id AS session_id, s.account_id, s.device_id, s.active_context_id AS context_id, s.expires_at
       FROM sessions s JOIN accounts a ON a.id = s.account_id
       WHERE s.secret_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ? AND a.state = 'active'
     ), live_scope AS MATERIALIZED (
@@ -79,7 +79,8 @@ export function sessionProjection(prefix: CommandStatement): CommandStatement {
     params: prefix.params,
     sql: `${prefix.sql}
       SELECT s.session_id, s.expires_at, s.context_id, a.id AS account_id, a.email_normalized,
-             a.display_name, a.setup_at, p.ui_locale, p.reading_locale, p.theme, p.field_mode, p.two_clock, p.revision,
+             a.display_name, a.setup_at, p.ui_locale, p.reading_locale, p.display_zone,
+             p.theme, p.field_mode, p.two_clock, p.revision,
              (SELECT json_group_array(json(choice)) FROM (
                SELECT json_patch(json_object('contextId', c.id, 'role', c.role, 'businessId', c.business_id),
                                  json_object('businessName', b.public_name, 'membershipId', g.membership_id)) AS choice
@@ -104,6 +105,7 @@ interface SessionRow {
   setup_at: number | null;
   ui_locale: string | null;
   reading_locale: string | null;
+  display_zone: string | null;
   theme: string;
   field_mode: number | null;
   two_clock: number;
@@ -120,7 +122,7 @@ export function decodeSession(result?: D1Result): SessionBootstrap | null {
     account: { id: row.account_id, email: row.email_normalized, displayName: row.display_name },
     setup: row.setup_at === null ? "required" : "complete",
     preferences: {
-      uiLocale: row.ui_locale, readingLocale: row.reading_locale, theme: row.theme,
+      uiLocale: row.ui_locale, readingLocale: row.reading_locale, displayZone: row.display_zone, theme: row.theme,
       fieldMode: row.field_mode === null ? null : row.field_mode === 1, twoClock: row.two_clock === 1, revision: row.revision,
     },
     activeContext: contexts.find(({ contextId }) => contextId === row.context_id) ?? null,

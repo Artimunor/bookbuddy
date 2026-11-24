@@ -23,6 +23,7 @@ export const accountPreferences = sqliteTable("account_preferences", {
   accountId: text("account_id").notNull().primaryKey().references(() => accounts.id),
   uiLocale: text("ui_locale"),
   readingLocale: text("reading_locale"),
+  displayZone: text("display_zone"),
   theme: text({ enum: THEMES }).notNull().default("system"),
   fieldMode: integer("field_mode", { mode: "boolean" }),
   twoClock: integer("two_clock", { mode: "boolean" }).notNull().default(false),

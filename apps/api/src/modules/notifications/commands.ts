@@ -49,17 +49,18 @@ export const notificationReadSyncOperation = syncOperation("notification_read_ma
 
 type PushOperation = { method: "PUT"; body: RegisterPushInstallation } | { method: "DELETE"; body: RevokePushInstallation };
 
-// Registration belongs to the account, not whichever role happens to be open.
-const installationScope = { sql: `SELECT a.account_id, c.id AS context_id FROM acting_session a
+// Registration is bound to the authenticated device, independent of the active role.
+const installationScope = { sql: `SELECT a.account_id, a.device_id, c.id AS context_id FROM acting_session a
   JOIN account_contexts c ON c.account_id = a.account_id AND c.role = 'customer'` };
 
 export function planPushInstallation(ctx: { now: number; access: SessionAccess }, id: string, operation: PushOperation) {
   const { operationId, expectedRevision, payload } = operation.body;
   const nextEpoch = expectedRevision + 1;
   const existing = `i.id = ? AND i.account_id = scope.account_id AND i.token_epoch = ?`;
+  const ownsInstallation = "i.account_id = scope.account_id AND (i.device_id IS NULL OR i.device_id = scope.device_id)";
   const authorize: CommandStatement = operation.method === "PUT"
-    ? { sql: "NOT EXISTS (SELECT 1 FROM push_installations i WHERE i.id = ? AND i.account_id <> scope.account_id)", params: [id] }
-    : { sql: "EXISTS (SELECT 1 FROM push_installations i WHERE i.id = ? AND i.account_id = scope.account_id)", params: [id] };
+    ? { sql: `NOT EXISTS (SELECT 1 FROM push_installations i WHERE i.id = ? AND NOT (${ownsInstallation}))`, params: [id] }
+    : { sql: `EXISTS (SELECT 1 FROM push_installations i WHERE i.id = ? AND ${ownsInstallation})`, params: [id] };
   if (operation.method === "DELETE") {
     return planOperation(ctx, {
       operationId, command: "push_installation_revoke", access: ctx.access, scope: installationScope, input: { id, expectedRevision },
@@ -80,19 +81,20 @@ export function planPushInstallation(ctx: { now: number; access: SessionAccess }
       sql: `NOT EXISTS (SELECT 1 FROM push_installations WHERE token = ? AND state = 'active' AND id <> ?)
         AND ((? = 0 AND NOT EXISTS (SELECT 1 FROM push_installations WHERE id = ?)) OR EXISTS (
           SELECT 1 FROM push_installations i WHERE ${existing}
-          AND (i.token <> ? OR i.state = 'revoked' OR (i.state = 'active' AND i.platform <> ?))
+          AND (i.device_id IS NULL OR i.token <> ? OR i.state = 'revoked' OR (i.state = 'active' AND i.platform <> ?))
         ))`,
       params: [token, id, expectedRevision, id, id, expectedRevision, token, platform],
     },
     unchanged: {
-      sql: `EXISTS (SELECT 1 FROM push_installations i WHERE ${existing} AND i.state = 'active' AND i.token = ? AND i.platform = ?)`,
+      sql: `EXISTS (SELECT 1 FROM push_installations i WHERE ${existing}
+        AND i.device_id = scope.device_id AND i.state = 'active' AND i.token = ? AND i.platform = ?)`,
       params: [id, expectedRevision, token, platform],
     },
     writes: (guard) => ({ statements: [{
       sql: `${ctx.access.sql}
-        INSERT INTO push_installations (id, account_id, token, token_epoch, platform, state, updated_at)
-        SELECT ?, a.account_id, ?, ?, ?, 'active', ? FROM acting_session a WHERE ${guard.sql}
-        ON CONFLICT (id) DO UPDATE SET token = excluded.token, token_epoch = excluded.token_epoch,
+        INSERT INTO push_installations (id, account_id, device_id, token, token_epoch, platform, state, updated_at)
+        SELECT ?, a.account_id, a.device_id, ?, ?, ?, 'active', ? FROM acting_session a WHERE ${guard.sql}
+        ON CONFLICT (id) DO UPDATE SET device_id = excluded.device_id, token = excluded.token, token_epoch = excluded.token_epoch,
           platform = excluded.platform, state = excluded.state, updated_at = excluded.updated_at`,
       params: [...ctx.access.params ?? [], id, token, nextEpoch, platform, ctx.now, ...guard.params ?? []],
     }] }),

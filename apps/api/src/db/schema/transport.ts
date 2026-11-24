@@ -68,6 +68,7 @@ export const notifications = sqliteTable("notifications", {
 export const pushInstallations = sqliteTable("push_installations", {
   id: text().notNull().primaryKey(),
   accountId: text("account_id").notNull().references(() => accounts.id),
+  deviceId: text("device_id"),
   token: text().notNull(),
   tokenEpoch: integer("token_epoch").notNull(),
   platform: text({ enum: PUSH_PLATFORMS }).notNull(),
@@ -79,6 +80,7 @@ export const pushInstallations = sqliteTable("push_installations", {
   check("push_installations_state", sql`${t.state} IN ('active', 'disabled', 'revoked')`),
   uniqueIndex("push_installations_active_token").on(t.token).where(sql`${t.state} = 'active'`),
   index("push_installations_account_active").on(t.accountId, t.state, t.id),
+  index("push_installations_device_revocable").on(t.accountId, t.deviceId).where(sql`${t.state} <> 'revoked'`),
 ]);
 
 export const effectOutbox = sqliteTable("effect_outbox", {

@@ -48,6 +48,15 @@ export const accountSettingsPatchSchema = z.strictObject({
   displayName: z.string().trim().min(1).max(100).optional(),
   uiLocale: localeTagSchema.optional(),
   readingLocale: localeTagSchema.nullable().optional(),
+  displayZone: localePreferencesSchema.shape.displayZone.refine((zone) => {
+    if (zone == null) return true;
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: zone });
+      return true;
+    } catch {
+      return false;
+    }
+  }),
   theme: z.enum(THEMES).optional(),
   fieldMode: z.boolean().nullable().optional(),
   twoClock: z.boolean().optional(),

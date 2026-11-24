@@ -141,7 +141,9 @@ test("verify uses one batch, consumes once, and only an exact bounded replay ret
   expect(result.session.setup).toBe("required");
   expect(result.session.contexts).toHaveLength(1);
   expect(result.session.activeContext?.role).toBe("customer");
-  expect(result.session.preferences).toEqual({ uiLocale: null, readingLocale: null, theme: "system", fieldMode: null, twoClock: false, revision: 0 });
+  expect(result.session.preferences).toEqual({
+    uiLocale: null, readingLocale: null, displayZone: null, theme: "system", fieldMode: null, twoClock: false, revision: 0,
+  });
   expect((await data<Verified>(await req(confirm, "POST", verify(correct)))).credential).toBe(result.credential);
   await error(await req(confirm, "POST", verify(correct, "attempt-new-session")), 409);
   await error(await req(confirm, "POST", verify(correct, "verify-1", { ...person, deviceId: "another" })), 404);
@@ -189,7 +191,7 @@ test("five wrong checks lock verify and reissue for exactly 15 minutes", async (
   expect((await data<Verified>(await req(confirm, "POST", verify(await code())))).status).toBe("verified");
 });
 
-test("settings apply a revision guard and locale policy; sign-out revokes the bearer", async () => {
+test("settings validate viewer zones and revisions; sign-out revokes the bearer and only its device's push", async () => {
   const { db, req, code } = await fixture();
   const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
   const session = await data<Verified>(await req(emailPath(attemptId, "verify"), "POST", verify(await code())));
@@ -197,17 +199,44 @@ test("settings apply a revision guard and locale policy; sign-out revokes the be
   const before = db.calls.batch;
   expect((await error(await req("/account/settings", "PATCH", { operationId: "invalid", expectedRevision: 0, payload: { uiLocale: "fr-FR" } }, headers), 422)).fieldErrors)
     .toEqual([{ path: ["payload", "uiLocale"], code: "INVALID_VALUE" }]);
+  await error(await req("/account/settings", "PATCH", {
+    operationId: "invalid-zone", expectedRevision: 0, payload: { displayZone: "Europe/Not_A_Zone" },
+  }, headers), 422);
   expect(db.calls.batch).toBe(before);
-  const patch = { operationId: "settings-1", expectedRevision: 0, payload: { displayName: "Name", uiLocale: "pt-PT", readingLocale: "de-DE", fieldMode: true, twoClock: true } };
+  const patch = { operationId: "settings-1", expectedRevision: 0, payload: {
+    displayName: "Name", uiLocale: "pt-PT", readingLocale: "de-DE", displayZone: "Europe/London", fieldMode: true, twoClock: true,
+  } };
   const changed = await data<SessionBootstrap>(await req("/account/settings", "PATCH", patch, headers));
   expect(db.calls.batch).toBe(before + 1);
   expect(changed.setup).toBe("complete");
-  expect(changed.preferences).toMatchObject({ revision: 1, uiLocale: "pt-PT", readingLocale: "de-DE", fieldMode: true, twoClock: true });
+  expect(changed.preferences).toMatchObject({
+    revision: 1, uiLocale: "pt-PT", readingLocale: "de-DE", displayZone: "Europe/London", fieldMode: true, twoClock: true,
+  });
   expect(await data(await req("/account/settings", "PATCH", patch, headers))).toEqual(changed);
   expect((await error(await req("/account/settings", "PATCH", { ...patch, operationId: "stale" }, headers), 409)).current)
     .toEqual({ kind: "revision", revision: 1 });
   expect(await data(await req("/session", "GET", undefined, headers))).toEqual(changed);
+  await data(await req("/push/installations/this-installation", "PUT", {
+    operationId: "register-push", expectedRevision: 0, payload: { token: "ExpoPushToken[this_device]", platform: "ios" },
+  }, { ...headers, "X-Operation-Id": "register-push" }));
+  await db.batch([
+    db.prepare(`INSERT INTO accounts (id, email_normalized, verified_at, state) VALUES ('other-account', 'other@example.test', ?, 'active')`).bind(now),
+    db.prepare(`INSERT INTO push_installations (id, account_id, device_id, token, token_epoch, platform, state, updated_at)
+      SELECT 'other-account', 'other-account', device_id, 'ExpoPushToken[other_account]', 1, 'ios', 'active', ?
+      FROM sessions WHERE id = ?`).bind(now, session.session.sessionId),
+    db.prepare(`INSERT INTO push_installations (id, account_id, device_id, token, token_epoch, platform, state, updated_at)
+      VALUES ('other-device', ?, 'other-device', 'ExpoPushToken[other_device]', 1, 'ios', 'active', ?)`).bind(session.session.account.id, now),
+  ]);
+  const endBefore = db.calls.batch;
   expect(await data(await req("/session/end", "POST", undefined, headers))).toEqual({ ended: true });
+  expect({
+    batches: db.calls.batch - endBefore,
+    states: (await db.prepare("SELECT id, state, token_epoch FROM push_installations ORDER BY id").all()).results,
+  }).toEqual({ batches: 1, states: [
+    { id: "other-account", state: "active", token_epoch: 1 },
+    { id: "other-device", state: "active", token_epoch: 1 },
+    { id: "this-installation", state: "revoked", token_epoch: 1 },
+  ] });
   await error(await req("/session", "GET", undefined, headers), 401);
   await error(await req(emailPath(attemptId, "verify"), "POST", verify(await code())), 409);
 });

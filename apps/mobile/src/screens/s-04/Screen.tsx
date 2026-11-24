@@ -83,6 +83,7 @@ function SetupForm({ session }: { session: SessionBootstrap }) {
         const submission = command.current ?? {
           operationId: uuid.v4(), expectedRevision: session.preferences.revision,
           payload: { displayName: name, readingLocale: draft.readingLocale, twoClock: draft.twoClock,
+            displayZone: draft.twoClock ? viewerZone ?? null : null,
             ...(session.preferences.uiLocale === null && explicitChoice ? { uiLocale: explicitChoice } : {}) },
         };
         const result = await auth.patchSettings(submission);

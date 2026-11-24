@@ -68,6 +68,8 @@ export const localeTagSchema = z.string().min(1).max(255).refine((tag) => {
 export const localePreferencesSchema = z.object({
   uiLocale: localeTagSchema.nullable(),
   readingLocale: localeTagSchema.nullable(),
+  // Remains optional to accept bootstraps cached before viewer-zone support.
+  displayZone: z.string().max(255).regex(/^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+)*$/).nullable().optional(),
 });
 export type LocalePreferences = z.infer<typeof localePreferencesSchema>;
 

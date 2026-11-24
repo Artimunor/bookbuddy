@@ -228,7 +228,7 @@ function SetupForm({ session, next, accept, locale }: { session: SessionBootstra
     inFlight.current = true; setBusy(true);
     try {
       const command = pending.current ?? { operationId: crypto.randomUUID(), expectedRevision: session.preferences.revision,
-        payload: { displayName: name.trim(), readingLocale: reading || null, twoClock } };
+        payload: { displayName: name.trim(), readingLocale: reading || null, twoClock, displayZone: twoClock ? viewerZone ?? null : null } };
       const result = await authClient.patchSettings(command);
       if (result.ok) { pending.current = null; accept(result.data); navigate(next, { replace: true }); }
       else if (unknown(result.error) || pending.current && result.error.code === "UNAVAILABLE") { pending.current = command; setIssue("uncertain"); }

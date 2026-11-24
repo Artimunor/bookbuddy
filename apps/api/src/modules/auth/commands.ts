@@ -63,6 +63,13 @@ export async function endSession(ctx: RequestScope, access: SessionAccess): Prom
   return commitCommand(ctx, prepareCommand(ctx, {
     statements: [
       {
+        // Registration is device-bound. A revoked row can't receive pushes;
+        // the next successful opt-in, not sign-out, advances its token epoch.
+        sql: `${access.sql} UPDATE push_installations SET state = 'revoked', updated_at = max(updated_at, ?)
+          WHERE state <> 'revoked' AND (account_id, device_id) = (SELECT account_id, device_id FROM acting_session)`,
+        params: [...access.params, ctx.now],
+      },
+      {
         sql: `${access.sql} UPDATE sessions SET revoked_at = max(issued_at, ?)
           WHERE id = (SELECT session_id FROM acting_session) RETURNING id`,
         params: [...access.params, ctx.now],
@@ -74,13 +81,14 @@ export async function endSession(ctx: RequestScope, access: SessionAccess): Prom
         params: [crypto.randomUUID(), access.params[0]],
       },
     ],
-    decode: (results) => Boolean(results[0]?.results.length),
+    decode: (results) => Boolean(results[1]?.results.length),
   }));
 }
 
 interface Receipt { input_hash: string | null; command: string | null; result_ref: string | null }
 const preferenceColumns = {
-  uiLocale: "ui_locale", readingLocale: "reading_locale", theme: "theme", fieldMode: "field_mode", twoClock: "two_clock",
+  uiLocale: "ui_locale", readingLocale: "reading_locale", displayZone: "display_zone",
+  theme: "theme", fieldMode: "field_mode", twoClock: "two_clock",
 } as const;
 
 export async function changeSettings(ctx: RequestScope, access: SessionAccess, operationId: string, revision: number, patch: AccountSettingsPatch): Promise<SessionCommand> {

@@ -1,4 +1,4 @@
-import { accountSettingsRoute, type SessionBootstrap } from "@bookbuddy/api-contract";
+import { accountSettingsRoute, type AccountSettingsPatch, type SessionBootstrap } from "@bookbuddy/api-contract";
 import type { LocaleTag } from "@bookbuddy/i18n/locales";
 import { uuid } from "expo";
 import { createContext, useContext, useRef, useState, type ReactNode } from "react";
@@ -12,7 +12,7 @@ import { BeaconThemeProvider, type BeaconAppearance } from "../../ui/theme";
 export type DisplaySettings = { readingLocale: string | null; twoClock: boolean; fieldMode: boolean; theme: BeaconAppearance };
 type DisplayPatch = Partial<DisplaySettings>;
 type Phase = "saving" | "checking" | "unsaved" | "local";
-type SaveIntent = { sessionId: string; operationId: string; expectedRevision: number; patch: DisplayPatch; confirmed?: SessionBootstrap };
+type SaveIntent = { sessionId: string; operationId: string; expectedRevision: number; patch: AccountSettingsPatch; confirmed?: SessionBootstrap };
 
 type DisplayAccess = {
   settings: DisplaySettings;
@@ -83,7 +83,9 @@ export function DisplaySettingsProvider({ children }: { children: ReactNode }) {
       },
       save: async (patch) => {
         if (!bootstrap || (current && current.phase !== "unsaved")) return;
-        await apply({ sessionId: bootstrap.sessionId, operationId: uuid.v4(), expectedRevision: bootstrap.preferences.revision, patch });
+        const payload = patch.twoClock === undefined ? patch
+          : { ...patch, displayZone: patch.twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone ?? null : null };
+        await apply({ sessionId: bootstrap.sessionId, operationId: uuid.v4(), expectedRevision: bootstrap.preferences.revision, patch: payload });
       },
       retry: async () => {
         if (current && (current.phase === "checking" || current.phase === "local")) await apply(current.intent);
