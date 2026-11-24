@@ -11,8 +11,13 @@ const eligibilityReminderLead = 30 * 24 * 60 * 60 * 1000;
 export const at = "(SELECT at FROM clock)";
 export const inviteRole = (invite: string) => `json_extract(${invite}.grant_snapshot, '$.role')`;
 export const inviteKind = (invite: string) => `json_extract(${invite}.grant_snapshot, '$.kind')`;
-export const liveTerm = (grant: string) => `${grant}.revoked_at IS NULL AND ${grant}.valid_from <= ${at}
-  AND (${grant}.valid_until IS NULL OR ${grant}.valid_until > ${at})`;
+export const liveTerm = (grant: string, time = at) => `${grant}.revoked_at IS NULL AND ${grant}.valid_from <= ${time}
+  AND (${grant}.valid_until IS NULL OR ${grant}.valid_until > ${time})`;
+
+export const addressResetPrefix = "place-address-reset:";
+export const afterAddressReset = (place: string, verifiedAt: string) => `NOT EXISTS (
+  SELECT 1 FROM access_audit reset WHERE reset.place_id = ${place} AND reset.kind = 'grant_revoked'
+    AND reset.id GLOB '${addressResetPrefix}*' AND reset.at >= ${verifiedAt})`;
 
 // A membership management capability is distinct from viewing the P roster.
 export function managesBusiness(account: string, business: string): string {
@@ -27,7 +32,7 @@ export function managesBusiness(account: string, business: string): string {
 // An ordinary view invitation may be delegated; a transfer may never be.
 export function managesPlace(account: string, place: string, ownerOnly: string): string {
   return `EXISTS (SELECT 1 FROM places p
-    JOIN place_people pp ON pp.place_id = p.id AND pp.account_id = ${account} AND pp.ends_at IS NULL
+    JOIN place_people pp ON pp.place_id = p.id AND pp.account_id = ${account} AND pp.ends_at IS NULL AND pp.verified_from <= ${at}
     JOIN accounts a ON a.id = pp.account_id AND a.state = 'active'
     WHERE p.id = ${place} AND p.state IN ('in_area', 'out_of_area') AND (p.owner_id = pp.account_id OR
       (NOT (${ownerOnly}) AND EXISTS (SELECT 1 FROM place_grants g
@@ -48,9 +53,12 @@ export function mayGrantInvite(invite: string): string {
         WHERE v.id = ${invite}.verification_id AND v.business_id = ${invite}.business_id
           AND v.subject_account_id = ${invite}.recipient_id AND v.kind = 'membership' AND v.verified_at <= ${at}))) OR
     (${invite}.place_id IS NOT NULL AND ${managesPlace(`${invite}.inviter_id`, `${invite}.place_id`, `${inviteKind(invite)} = 'place_transfer'`)}
+      AND ${afterAddressReset(`${invite}.place_id`, `${invite}.issued_at`)}
       AND (${inviteKind(invite)} = 'place_view' OR EXISTS (SELECT 1 FROM authority_verifications v
-        WHERE v.id = ${invite}.verification_id AND v.place_id = ${invite}.place_id
-          AND v.subject_account_id = ${invite}.recipient_id AND v.kind = 'place_transfer' AND v.verified_at <= ${at}))))`;
+        JOIN accounts a ON a.id = v.subject_account_id AND a.state = 'active' AND a.email_key = ${invite}.recipient_key
+        WHERE v.id = ${invite}.verification_id AND v.place_id = ${invite}.place_id AND a.id = ${invite}.recipient_id
+          AND v.kind = 'place_transfer' AND v.verified_by <> ${invite}.inviter_id AND v.verified_at BETWEEN a.verified_at AND ${at}
+          AND ${afterAddressReset(`${invite}.place_id`, "v.verified_at")}))))`;
 }
 
 export function intendedRecipient(invite: string, account: string): string {
@@ -65,14 +73,17 @@ const sameRecipient = (previous: string, invite: string) => `${previous}.recipie
 export const anotherPending = (invite: string) => `EXISTS (SELECT 1 FROM invitations prior
   WHERE ${sameRecipient("prior", invite)} AND prior.id <> ${invite}.id AND prior.state = 'pending' AND prior.expires_at > ${at})`;
 
-export const canReplaceInvite = (invite: string) => `${invite}.state IN ('pending', 'expired')
+export const canReplaceInvite = (invite: string) => `(${invite}.state IN ('pending', 'expired')
+  OR (${invite}.place_id IS NOT NULL AND ${invite}.state = 'withdrawn'))
+  AND (${invite}.place_id IS NULL OR ${afterAddressReset(`${invite}.place_id`, `${invite}.issued_at`)})
   AND NOT EXISTS (SELECT 1 FROM invitations next WHERE next.supersedes_id = ${invite}.id)
   AND NOT (${anotherPending(invite)})`;
 
 export function reissueAt(invite: string): string {
   const history = `FROM invitations past WHERE ${sameRecipient("past", invite)} AND past.supersedes_id IS NOT NULL
     AND past.issued_at > ${at} - ${INVITATION_POLICY.reissueWindowMs}`;
-  return `max(coalesce((SELECT max(past.issued_at) ${history}) + CASE WHEN ${invite}.business_id IS NULL
+  return `max(CASE WHEN ${invite}.place_id IS NOT NULL THEN ${invite}.issued_at + ${INVITATION_POLICY.placeReissueCooldownMs} ELSE 0 END,
+    coalesce((SELECT max(past.issued_at) ${history}) + CASE WHEN ${invite}.business_id IS NULL
       THEN ${INVITATION_POLICY.placeReissueCooldownMs} ELSE ${INVITATION_POLICY.providerReissueCooldownMs} END, 0),
     coalesce((SELECT past.issued_at ${history} ORDER BY past.issued_at DESC, past.id DESC LIMIT 1 OFFSET ${INVITATION_POLICY.maxReissuesPerWindow - 1})
       + ${INVITATION_POLICY.reissueWindowMs}, 0))`;

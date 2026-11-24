@@ -1,20 +1,25 @@
 import { createOpaqueLink } from "@bookbuddy/api-contract";
+import type { CommandStatement } from "../../db/commit";
 import type { Bindings } from "../../bindings";
 import type { EffectHandler } from "../../effects/index";
 import type { MailMessage } from "../../providers/mail";
 import { loadDeliveryKey, loadOtpKey, openDelivery, randomToken, sealDelivery } from "../auth/crypto";
 import { hashSessionCredential } from "../auth/session";
+import { inviteKind } from "./policy";
 
 export const invitationMailKind = "invitation_email";
 
 export interface InvitationLink {
   id: string;
   effectId: string;
+  token: string;
   tokenHash: string;
   sealedLink: string;
 }
 
-export async function invitationMailKeys(env: Bindings) {
+export interface InvitationMailKeys { lookup: CryptoKey; encryption: CryptoKey; origin: string }
+
+export async function invitationMailKeys(env: Bindings): Promise<InvitationMailKeys | null> {
   try {
     createOpaqueLink(env.PUBLIC_APP_ORIGIN ?? "", "check");
   } catch {
@@ -29,7 +34,15 @@ export async function prepareInvitationLink(encryption: CryptoKey, origin: strin
   const [tokenHash, sealedLink] = await Promise.all([
     hashSessionCredential(token), sealDelivery(encryption, effectId, JSON.stringify(createOpaqueLink(origin, token))),
   ]);
-  return { id, effectId, tokenHash, sealedLink };
+  return { id, effectId, token, tokenHash, sealedLink };
+}
+
+export function invitationMailEffectSql(link: InvitationLink): CommandStatement {
+  return { sql: `SELECT ? AS id, '${invitationMailKind}' AS kind, ? AS dedupe_key,
+    i.id || '|' || i.recipient_key || '|' || i.recipient_email_ciphertext || '|' || ? || '|' || coalesce(p.ui_locale, '') AS resource_ref,
+    i.issued_at AS due_at, i.expires_at FROM invitations i LEFT JOIN account_preferences p ON p.account_id = i.recipient_id
+    WHERE i.id = ? AND ${inviteKind("i")} <> 'place_transfer'`,
+    params: [link.effectId, `${invitationMailKind}:${link.id}`, link.sealedLink, link.id] };
 }
 
 const addressBinding = (key: string) => `invitation-address:${key}`;

@@ -2,19 +2,15 @@ import { invitationOpeningSchema, managedInvitationSchema } from "@bookbuddy/api
 import type { InvitationOpening } from "@bookbuddy/api-contract";
 import type { SessionAccess } from "../auth/session";
 import { loadDeliveryKey } from "../auth/crypto";
+import { currentTransferMailbox, openTransferLocator, placeInvitationAccessSql, placeInvitationGrantSql, transferKind } from "../places/invitation";
 import { openInviteEmail } from "./mail";
-import { at, canReplaceInvite, displayName, intendedRecipient, inviteKind, inviteRole, liveTerm, mayGrantInvite, mayManageInvite,
+import { at, canReplaceInvite, displayName, intendedRecipient, inviteKind, inviteRole, mayGrantInvite, mayManageInvite,
   memberEligibility, reissueAt, scopedStatement } from "./policy";
 
 export const unavailableInvitation = { status: "unavailable", reason: "unavailable", supportReference: null } as const;
 
 const unavailableOpening = (reason: "expired" | "removed" | "unavailable") =>
   `json_object('status', 'unavailable', 'reason', '${reason}', 'supportReference', NULL)`;
-
-const placeCapabilities = `SELECT json_group_array(capability) FROM (
-  SELECT g.capability FROM place_grants g WHERE g.place_id = p.id AND g.account_id = i.recipient_id
-    AND ${liveTerm("g")} AND (g.capability <> 'approve' OR p.named_approver_id = i.recipient_id)
-  ORDER BY g.capability)`;
 
 const currentBusiness = `SELECT json_object('kind', 'business', 'context', json_object(
     'scope', json_object('contextId', c.id, 'role', c.role, 'businessId', c.business_id), 'businessName', b.public_name),
@@ -23,25 +19,17 @@ const currentBusiness = `SELECT json_object('kind', 'business', 'context', json_
   JOIN account_contexts c ON c.role_grant_id = g.id
   WHERE b.state = 'approved' AND m.business_id = b.id AND m.account_id = i.recipient_id AND m.state = 'active'`;
 
-const currentPlace = `SELECT json_object('kind', 'place', 'placeId', p.id, 'placeAlias', p.alias,
-    'isOwner', json(CASE WHEN p.owner_id = i.recipient_id THEN 'true' ELSE 'false' END),
-    'capabilities', json((${placeCapabilities})), 'historyFrom', pp.history_from)
-  FROM place_people pp WHERE pp.place_id = p.id AND pp.account_id = i.recipient_id AND pp.ends_at IS NULL
-    AND p.state NOT IN ('archived', 'restricted') AND (p.owner_id = pp.account_id OR EXISTS (
-      SELECT 1 FROM place_grants g WHERE g.place_id = p.id AND g.account_id = pp.account_id AND g.capability = 'view' AND ${liveTerm("g")}))`;
-
 export const invitationOpeningSql = (viewer: string) => `SELECT CASE
   WHEN i.state = 'accepted' THEN coalesce((SELECT CASE WHEN current_access IS NOT NULL THEN json_object(
     'status', 'accepted', 'id', i.id, 'acceptedAt', i.ended_at, 'currentAccess', json(current_access)) END
-    FROM (SELECT CASE WHEN i.business_id IS NOT NULL THEN (${currentBusiness}) ELSE (${currentPlace}) END AS current_access)),
+    FROM (SELECT CASE WHEN i.business_id IS NOT NULL THEN (${currentBusiness}) ELSE (${placeInvitationAccessSql}) END AS current_access)),
     ${unavailableOpening("removed")})
   WHEN i.state = 'expired' OR (i.state = 'pending' AND i.expires_at <= ${at}) THEN ${unavailableOpening("expired")}
   WHEN i.state <> 'pending' THEN ${unavailableOpening("unavailable")}
   WHEN NOT (${mayGrantInvite("i")}) THEN ${unavailableOpening("removed")}
-  ELSE json_object('status', 'pending', 'id', i.id, 'grant', json(CASE ${inviteKind("i")}
-    WHEN 'business_role' THEN json_object('kind', 'business_role', 'businessName', b.public_name, 'role', ${inviteRole("i")})
-    WHEN 'place_view' THEN json_object('kind', 'place_view', 'placeAlias', p.alias, 'capabilities', json('["view"]'))
-    WHEN 'place_transfer' THEN json_object('kind', 'place_transfer', 'placeAlias', p.alias) END),
+  ELSE json_object('status', 'pending', 'id', i.id, 'grant', json(CASE WHEN i.business_id IS NOT NULL
+    THEN json_object('kind', 'business_role', 'businessName', b.public_name, 'role', ${inviteRole("i")})
+    ELSE ${placeInvitationGrantSql} END),
     'inviterDisplayName', ${displayName("inviter")}, 'issuedAt', i.issued_at, 'expiresAt', i.expires_at,
     'siteZone', coalesce(area.site_zone, p.site_zone), 'setupRequired', json(CASE WHEN recipient.setup_at IS NULL THEN 'true' ELSE 'false' END))
   END AS value
@@ -63,6 +51,8 @@ export const managedInvitationProjection = (invite = "i", authority = "1") => `j
   'placeId', ${invite}.place_id, 'capabilities', json('["view"]'),
   'inviterDisplayName', ${displayName("inviter")}, 'recipientKey', ${invite}.recipient_key,
   'sealedEmail', ${invite}.recipient_email_ciphertext,
+  'transferEmail', CASE WHEN ${transferKind(invite)} THEN ${currentTransferMailbox(invite)} END,
+  'recipientId', ${invite}.recipient_id,
   'state', CASE WHEN ${invite}.state = 'pending' AND ${invite}.expires_at <= ${at} THEN 'expired' ELSE ${invite}.state END,
   'issuedAt', ${invite}.issued_at, 'expiresAt', ${invite}.expires_at, 'endedAt', ${invite}.ended_at,
   'siteZone', coalesce(area.site_zone, p.site_zone),
@@ -76,17 +66,30 @@ export const managedInvitationJoins = `JOIN accounts inviter ON inviter.id = i.i
   LEFT JOIN places p ON p.id = i.place_id`;
 
 export const managedInvitationAt = (id: string) => `SELECT ${managedInvitationProjection()} AS value FROM invitations i
-  ${managedInvitationJoins} WHERE i.id = ${id} AND ${mayManageInvite("i")}`;
+  ${managedInvitationJoins} WHERE i.id = ${id} AND ${mayManageInvite("i")}
+    AND (NOT (${transferKind("i")}) OR ${currentTransferMailbox("i")} IS NOT NULL)`;
 
-interface SealedInvitation { recipientKey: string; sealedEmail: string }
+export interface SealedInvitation {
+  recipientKey: string;
+  sealedEmail: string;
+  kind?: string;
+  placeId?: string;
+  recipientId?: string;
+  transferEmail?: string;
+}
 
 export async function decodeManagedInvitations(values: readonly SealedInvitation[], secret: string | undefined) {
   if (values.length === 0) return [];
   const key = await loadDeliveryKey(secret);
   if (!key) throw new TypeError("Missing invitation encryption key");
-  return Promise.all(values.map(async ({ recipientKey, sealedEmail, ...projection }) => managedInvitationSchema.parse({
-    ...projection, email: await openInviteEmail(key, recipientKey, sealedEmail),
-  })));
+  return Promise.all(values.map(async ({ recipientKey, sealedEmail, recipientId, transferEmail, ...projection }) => {
+    if (projection.kind === "place_transfer") {
+      if (!projection.placeId || !recipientId || !transferEmail
+        || await openTransferLocator(key, projection.placeId, sealedEmail) !== recipientId) throw new TypeError("Invalid transfer recipient");
+      return managedInvitationSchema.parse({ ...projection, email: transferEmail });
+    }
+    return managedInvitationSchema.parse({ ...projection, email: await openInviteEmail(key, recipientKey, sealedEmail) });
+  }));
 }
 
 export async function decodeManagedInvitation(value: string, secret: string | undefined) {

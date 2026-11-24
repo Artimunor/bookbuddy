@@ -6,10 +6,11 @@ import type { OperationResult, OperationSpec } from "../../db/operations";
 import type { RequestScope } from "../../db/scope";
 import type { SessionAccess } from "../auth/session";
 import { mac, mailboxKey } from "../auth/crypto";
+import { currentTransferMailbox, placeInvitationChanges, placeInvitationVisibility, transferKind, transferNotice } from "../places/invitation";
 import { businessMemberProjection } from "./businesses";
 import { invitationOpeningSql, managedInvitationAt } from "./invitations";
-import { invitationMailKind, prepareInvitationLink, sealInviteEmail } from "./mail";
-import type { InvitationLink } from "./mail";
+import { invitationMailEffectSql, prepareInvitationLink, sealInviteEmail } from "./mail";
+import type { InvitationMailKeys } from "./mail";
 import { accountableForeman, at, canReplaceInvite, freePlaceSlots, intendedRecipient, inviteKind, inviteRole, managesBusiness,
   mayGrantInvite, mayManageInvite, otherAdmin, reissueAt, revokedRoleProjection, scopedStatement } from "./policy";
 
@@ -54,16 +55,8 @@ function auditInvite(access: SessionAccess, guard: CommandStatement, id: string,
   crypto.randomUUID(), kind, id, ...guard.params ?? []);
 }
 
-function invitationEffect(link: InvitationLink): CommandStatement {
-  return { sql: `SELECT ? AS id, '${invitationMailKind}' AS kind, ? AS dedupe_key,
-    i.id || '|' || i.recipient_key || '|' || i.recipient_email_ciphertext || '|' || ? || '|' || coalesce(p.ui_locale, '') AS resource_ref,
-    i.issued_at AS due_at, i.expires_at FROM invitations i LEFT JOIN account_preferences p ON p.account_id = i.recipient_id
-    WHERE i.id = ?`, params: [link.effectId, `${invitationMailKind}:${link.id}`, link.sealedLink, link.id] };
-}
-
-type InviteKeys = { lookup: CryptoKey; encryption: CryptoKey; origin: string };
 type BusinessInvite = WireCommand<{ email: string; role: "worker" | "foreman" }>;
-export async function issueBusinessInvitation(ctx: RequestScope, base: SessionAccess, keys: InviteKeys, business: string, input: BusinessInvite) {
+export async function issueBusinessInvitation(ctx: RequestScope, base: SessionAccess, keys: InvitationMailKeys, business: string, input: BusinessInvite) {
   const email = input.payload.email.trim().toLowerCase(), { role } = input.payload;
   const recipientKey = await mailboxKey(keys.lookup, email);
   const id = await mac(keys.lookup, "business-invitation-id", business, recipientKey, role, input.operationId);
@@ -91,12 +84,12 @@ export async function issueBusinessInvitation(ctx: RequestScope, base: SessionAc
           CASE WHEN ? = 'foreman' THEN (SELECT id FROM independent_check) END, ${at}, ?, (SELECT id FROM intended), 'pending'
         FROM live_scope scope WHERE ${guard.sql}`, id, link.tokenHash, recipientKey, encrypted, role, role, invitationExpiresAt(ctx.now), ...guard.params ?? []),
       auditInvite(access, guard, id, "invitation_issued"),
-    ], effects: invitationEffect(link) }),
+    ], effects: invitationMailEffectSql(link) }),
   }, managedInvitationAt("r.result_ref"));
 }
 
 type InviteDecision = WireCommand<Record<string, never>>;
-export async function reissueInvitation(ctx: RequestScope, access: SessionAccess, keys: InviteKeys, old: string, input: InviteDecision) {
+export async function reissueInvitation(ctx: RequestScope, access: SessionAccess, keys: InvitationMailKeys, old: string, input: InviteDecision) {
   const id = await mac(keys.lookup, "invitation-reissue-id", old, input.operationId);
   const link = await prepareInvitationLink(keys.encryption, keys.origin, id);
   const fromOld = `FROM invitations i WHERE i.id = ?`;
@@ -106,6 +99,7 @@ export async function reissueInvitation(ctx: RequestScope, access: SessionAccess
     eligible: { sql: `NOT EXISTS (SELECT 1 FROM invitations WHERE id = ?)
       AND EXISTS (SELECT 1 ${fromOld} AND ${canReplaceInvite("i")} AND i.recipient_email_ciphertext IS NOT NULL
         AND ${reissueAt("i")} <= ${at} AND i.recipient_id IS NOT scope.account_id
+        AND (NOT (${transferKind("i")}) OR (${currentTransferMailbox("i")} IS NOT NULL AND ${mayGrantInvite("i")}))
         AND (i.place_id IS NULL OR EXISTS (${freePlaceSlots("i")})))`, params: [id, old] },
     writes: (guard) => ({ statements: [
       scopedStatement(access, `UPDATE invitations SET state = CASE WHEN expires_at <= ${at} THEN 'expired' ELSE 'withdrawn' END,
@@ -121,7 +115,8 @@ export async function reissueInvitation(ctx: RequestScope, access: SessionAccess
         FROM invitations i CROSS JOIN live_scope scope WHERE i.id = ? AND ${guard.sql}`,
       id, link.tokenHash, invitationExpiresAt(ctx.now), old, ...guard.params ?? []),
       auditInvite(access, guard, id, "invitation_reissued"),
-    ], effects: invitationEffect(link) }),
+      ...transferNotice(access, guard, id, link.token),
+    ], effects: invitationMailEffectSql(link) }),
   }, managedInvitationAt("r.result_ref"), {
     sql: `SELECT ${reissueAt("i")} ${fromOld} AND ${canReplaceInvite("i")}`, params: [old],
   });
@@ -166,7 +161,7 @@ function acceptBusiness(access: SessionAccess, guard: CommandStatement, id: stri
 }
 
 function acceptPlace(access: SessionAccess, guard: CommandStatement, id: string): CommandStatement[] {
-  const transfer = `${inviteKind("i")} = 'place_transfer'`;
+  const transfer = transferKind("i");
   const match = `i.id = ? AND i.place_id IS NOT NULL AND ${guard.sql}`;
   const args = [id, ...guard.params ?? []];
   const predecessor = `SELECT i.place_id, i.inviter_id FROM invitations i WHERE ${match} AND ${transfer}`;
@@ -186,6 +181,10 @@ function acceptPlace(access: SessionAccess, guard: CommandStatement, id: string)
     scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, valid_from)
       SELECT ?, i.place_id, i.recipient_id, 'approve', i.inviter_id, i.verification_id, ${at}
       FROM invitations i JOIN places p ON p.id = i.place_id AND p.named_approver_id = i.inviter_id WHERE ${match} AND ${transfer}`, crypto.randomUUID(), ...args),
+    scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, valid_from)
+      SELECT lower(hex(randomblob(16))), i.place_id, i.recipient_id, cap.value, i.inviter_id, i.verification_id, ${at}
+      FROM invitations i CROSS JOIN json_each('["message","request","book"]') cap WHERE ${match} AND ${transfer}
+      ON CONFLICT (place_id, account_id, capability) WHERE revoked_at IS NULL DO NOTHING`, ...args),
     scopedStatement(access, `UPDATE places SET (owner_id, named_approver_id, revision) = (SELECT i.recipient_id,
       CASE WHEN places.named_approver_id = i.inviter_id THEN i.recipient_id ELSE places.named_approver_id END, places.revision + 1
       FROM invitations i WHERE i.id = ?) WHERE id IN (SELECT i.place_id FROM invitations i WHERE ${match} AND ${transfer})`, id, ...args),
@@ -194,8 +193,9 @@ function acceptPlace(access: SessionAccess, guard: CommandStatement, id: string)
     scopedStatement(access, `INSERT INTO access_audit (id, place_id, actor_id, subject_account_id, verification_id, kind, at)
       SELECT ?, i.place_id, i.recipient_id, i.recipient_id, i.verification_id, 'owner_transferred', ${at}
       FROM invitations i WHERE ${match} AND ${transfer}`, crypto.randomUUID(), ...args),
-    bumpVisibilityEpoch(guard, { sql: `SELECT c.id AS context_id FROM invitations i JOIN account_contexts c
-      ON c.account_id = i.inviter_id AND c.role = 'customer' WHERE i.id = ? AND ${transfer}`, params: [id] }),
+    scopedStatement(access, `UPDATE invitations SET state = CASE WHEN expires_at <= ${at} THEN 'expired' ELSE 'withdrawn' END,
+      ended_at = ${at} WHERE state = 'pending' AND (place_id, inviter_id) IN (${predecessor})`, ...args),
+    bumpVisibilityEpoch(guard, placeInvitationVisibility(id)),
   ];
 }
 
@@ -213,7 +213,7 @@ export function decideInvitation(ctx: RequestScope, access: SessionAccess, id: s
         WHERE id = ? AND ${guard.sql}`, decision, id, ...guard.params ?? []),
       ...(isAcceptance ? [...acceptBusiness(access, guard, id), ...acceptPlace(access, guard, id)] : []),
       auditInvite(access, guard, id, `invitation_${decision}`),
-    ] }),
+    ], changes: isAcceptance ? placeInvitationChanges(id, ctx.now) : undefined }),
   }, isAcceptance ? `${invitationOpeningSql("scope.account_id")} AND ${inviteViaReceipt}`
     : `SELECT json_object('id', i.id, 'state', 'declined', 'declinedAt', i.ended_at) AS value FROM invitations i
       WHERE ${inviteViaReceipt} AND i.recipient_id = scope.account_id AND i.state = 'declined'`);
