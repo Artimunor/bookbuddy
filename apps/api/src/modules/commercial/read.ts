@@ -92,14 +92,21 @@ export function readVersionList(session: SessionAccess, now: number, kind: Comme
   if (cursor && (!position || !Number.isSafeInteger(Number(position[1])) || Number(position[1]) < 1)) return null;
   const access = commercialAccess(session, now, job);
   return scopedStatement(access, `, scoped_job AS MATERIALIZED (
-    SELECT CASE WHEN scope.role = 'customer' THEN 'customer' WHEN ${foreman("scope")} THEN 'foreman' ELSE 'reviewer' END AS audience
+    SELECT CASE WHEN scope.role = 'customer' THEN 'customer' WHEN ${foreman("scope")} THEN 'foreman' ELSE 'reviewer' END AS audience,
+      CASE WHEN ${foreman("scope")} THEN (
+        SELECT json_object('id', t.id, 'version', t.version) FROM terms_versions t
+        WHERE t.business_id = j.business_id ORDER BY t.version DESC, t.id DESC LIMIT 1
+      ) END AS current_terms
     FROM commercial_job j CROSS JOIN commercial_actor scope WHERE ${customer("scope")} OR ${foreman("scope")} OR EXISTS (
       SELECT 1 FROM ${models[kind].versions} v JOIN commercial_reviews review ON review.${models[kind].ref} = v.id
       WHERE v.job_id = j.id AND ${routedReviewer("scope", "review")})
-  ) SELECT (SELECT json_object('audience', audience, 'versions', json((SELECT json_group_array(json(summary)) FROM (
-    SELECT json_object(${summary(kind)}) AS summary ${versionFrom(kind)} CROSS JOIN commercial_actor scope
-    WHERE ${versionVisible(kind, "scope")} AND (v.no, v.id) < (?, ?)
-    ORDER BY v.no DESC, v.id DESC LIMIT ${pageSize + 1})))) FROM scoped_job) AS value FROM acting_session`,
+  ), version_list AS (
+    SELECT audience, current_terms, json_object('audience', audience, 'versions', json((SELECT json_group_array(json(summary)) FROM (
+      SELECT json_object(${summary(kind)}) AS summary ${versionFrom(kind)} CROSS JOIN commercial_actor scope
+      WHERE ${versionVisible(kind, "scope")} AND (v.no, v.id) < (?, ?)
+      ORDER BY v.no DESC, v.id DESC LIMIT ${pageSize + 1})))) AS value FROM scoped_job
+  ) SELECT (SELECT CASE WHEN audience = 'foreman' THEN json_set(value, '$.currentTerms', json(current_terms)) ELSE value END
+    FROM version_list) AS value FROM acting_session`,
   position ? Number(position[1]) : Number.MAX_SAFE_INTEGER, position ? position[2]! : "~");
 }
 

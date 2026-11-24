@@ -202,13 +202,17 @@ export const staffChangeVersionSchema = staffChangeSummary.extend(changeContent.
 export const quoteVersionSchema = z.discriminatedUnion("audience", [customerQuoteVersionSchema, staffQuoteVersionSchema]);
 export const changeVersionSchema = z.discriminatedUnion("audience", [customerChangeVersionSchema, staffChangeVersionSchema]);
 
+const currentTerms = terms.pick({ id: true, version: true }).nullable();
+
 export const quoteVersionListSchema = z.discriminatedUnion("audience", [
   paginationSchema.extend({ audience: z.literal("customer"), versions: z.array(customerQuoteSummary) }),
-  paginationSchema.extend({ audience: staffAudience, versions: z.array(staffQuoteSummary) }),
+  paginationSchema.extend({ audience: z.literal("foreman"), versions: z.array(staffQuoteSummary), currentTerms }),
+  paginationSchema.extend({ audience: z.literal("reviewer"), versions: z.array(staffQuoteSummary) }),
 ]);
 export const changeVersionListSchema = z.discriminatedUnion("audience", [
   paginationSchema.extend({ audience: z.literal("customer"), versions: z.array(customerChangeSummary) }),
-  paginationSchema.extend({ audience: staffAudience, versions: z.array(staffChangeSummary) }),
+  paginationSchema.extend({ audience: z.literal("foreman"), versions: z.array(staffChangeSummary), currentTerms }),
+  paginationSchema.extend({ audience: z.literal("reviewer"), versions: z.array(staffChangeSummary) }),
 ]);
 
 // P-02 queue entries are visible to the designated reviewer or eligible backup, not all admins.

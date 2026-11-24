@@ -127,6 +127,8 @@ test("quote review, publication and exact approval respect live roles, privacy a
   const clock = spyOn(Date, "now").mockReturnValue(start);
   const f = await fixture();
   try {
+    expect(resultSchema(listQuoteVersionsRoute.output).parse((await f.request("/jobs/job/quotes", "foreman")).body))
+      .toMatchObject({ data: { audience: "foreman", versions: [], currentTerms: { id: "terms-v1", version: 1 } } });
     const draft = resultSchema(createQuoteVersionRoute.output).parse((await f.draft("q1")).body);
     expect(draft).toMatchObject({ data: { audience: "foreman", state: "draft", totalMinor: 24000, actions: { submitReview: true, issue: false },
       items: [{ lineNo: 1, originalLabel: "Rodillos", quantity: 2 }] } });
