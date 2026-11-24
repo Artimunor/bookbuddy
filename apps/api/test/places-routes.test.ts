@@ -23,6 +23,7 @@ async function fixture() {
   const wakes: string[][] = [];
   const env = { DB: db, OTP_HMAC_KEY: lookup, EFFECTS_ENCRYPTION_KEY: delivery, PUBLIC_APP_ORIGIN: origin,
     SYNC_CURSOR_HMAC_KEY: lookup, EFFECTS: { async send(wake: { workKeys: string[] }) { wakes.push(wake.workKeys); } },
+    MAIL_FROM: "mail@example.test", SEND_EMAIL: { async send() { throw new Error("Unexpected email dispatch"); } },
   } as unknown as Bindings;
   const execution = { waitUntil() {}, passThroughOnException() {} };
 

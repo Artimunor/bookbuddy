@@ -111,6 +111,6 @@ command(invitePlacePersonRoute, async (ctx, access, { params, body }, c) => {
   return keys && issuePlaceInvitation(ctx, access, keys, params.p, body);
 }, "invite");
 command(transferPlaceRoute, async (ctx, access, { params, body }, c) => {
-  const keys = await invitationMailKeys(c.env);
+  const keys = await invitationMailKeys(c.env, "in-app");
   return keys && issuePlaceInvitation(ctx, access, keys, params.p, body);
 }, "invite");

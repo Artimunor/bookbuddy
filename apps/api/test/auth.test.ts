@@ -3,6 +3,7 @@ import { expectedContextHeader, expectedSessionHeader, noExpectedContext } from 
 import type { EmailAttempt, OperationStatus, PlaceDetails, Result, SessionBootstrap } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
+import { localMailDelivery } from "../src/config";
 import { runEffectBatch } from "../src/effects/index";
 import { loadDeliveryKey, loadOtpKey, mailboxKey, randomToken } from "../src/modules/auth/crypto";
 import { otpEmailEffect } from "../src/modules/auth/mail-effect";
@@ -28,10 +29,11 @@ async function fixture() {
   now = instant;
   spyOn(Date, "now").mockImplementation(() => now);
   const wakes: string[] = [];
+  const provider = mock(async (_message: EmailMessageBuilder | EmailMessage) => ({ messageId: "fixture-mail-id" }));
   const env = {
     DB: db, OTP_HMAC_KEY: "integration-fixture secret not for deployment",
     EFFECTS_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    POSTMARK_SENDER: "mail@example.test", POSTMARK_SERVER_TOKEN: "test-token",
+    MAIL_FROM: "mail@example.test", SEND_EMAIL: { send: provider },
     EFFECTS: { async send({ workKeys }: { workKeys: string[] }) { wakes.push(...workKeys); } },
   } as unknown as Bindings;
   const app = createApp();
@@ -51,7 +53,7 @@ async function fixture() {
     expect(captured).toMatch(/^\d{6}$/);
     return captured!;
   }
-  return { db, env, wakes, req, code };
+  return { db, env, wakes, req, code, provider };
 }
 
 const emailPath = (attemptId: string, action: string) => `/auth/email/${attemptId}/${action}`;
@@ -407,31 +409,141 @@ test("a place command requires the rendering session and context; receipts expos
   expect((await data<OperationStatus>(await req(receiptPath, "GET", undefined, rendered))).resource).toBeUndefined();
 });
 
-test("OTP mail claims encrypted payload once, batches delivery, and scrubs settled secrets", async () => {
-  const { db, env, req, wakes } = await fixture();
+test("OTP mail uses one structured send per intent and records acceptance receipts", async () => {
+  const { db, env, req, wakes, provider } = await fixture();
   const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
-  const second = await data<EmailAttempt>(await req(start, "POST", { ...person, email: "second@example.test" }));
-  const provider = spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
-    expect(url).toBe("https://api.postmarkapp.com/email/batch");
-    expect(new Headers(init?.headers).get("x-postmark-server-token")).toBe("test-token");
-    const messages = JSON.parse(String(init?.body)) as { To: string; TextBody: string }[];
-    expect(messages.map(({ To }) => To).sort()).toEqual([person.email, "second@example.test"]);
-    expect(messages.every(({ TextBody }) => /\b\d{6}\b/.test(TextBody))).toBe(true);
-    return Response.json(messages.map(() => ({ ErrorCode: 0 })));
-  });
-  try {
-    const before = db.calls.batch;
-    await runEffectBatch(env, wakes, now);
-    expect(db.calls.batch - before).toBe(2);
-    for (const id of [attemptId, second.attemptId]) {
-      expect((await data<EmailAttempt>(await req(emailPath(id, "status")))).delivery).toBe("accepted");
-    }
-    expect(await db.prepare("SELECT count(*) FROM effect_outbox WHERE length(resource_ref) <> 87").first<number>("count(*)")).toBe(0);
-    await runEffectBatch(env, wakes, now);
-    expect(provider).toHaveBeenCalledTimes(1);
-  } finally {
-    provider.mockRestore();
+  const secondEmail = "second@example.test";
+  const second = await data<EmailAttempt>(await req(start, "POST", { ...person, email: secondEmail }));
+  provider.mockImplementation(async ({ to }) => ({ messageId: to === person.email ? "cloudflare-mail-id" : "" }));
+
+  const before = db.calls.batch;
+  await runEffectBatch(env, wakes, now);
+  expect(db.calls.batch - before).toBe(2);
+  for (const [i, to] of [person.email, secondEmail].entries()) {
+    expect(provider).toHaveBeenCalledWith({
+      from: { name: "BookBuddy", email: env.MAIL_FROM }, to, subject: "BookBuddy sign-in code",
+      text: expect.stringMatching(/\b\d{6}\b/),
+    });
+    const id = i === 0 ? attemptId : second.attemptId;
+    expect((await data<EmailAttempt>(await req(emailPath(id, "status")))).delivery).toBe("accepted");
+    expect(await db.prepare("SELECT result_code, provider_ref FROM effect_claims WHERE effect_id = ?").bind(wakes[i]!).first())
+      .toEqual({ result_code: "delivered", provider_ref: i === 0 ? "cloudflare-mail-id" : null });
   }
+  expect(await db.prepare("SELECT count(*) FROM effect_outbox WHERE length(resource_ref) <> 87").first<number>("count(*)")).toBe(0);
+  await runEffectBatch(env, wakes, now);
+  expect(provider).toHaveBeenCalledTimes(2);
+});
+
+test("only definite quota refusals retry; permanent and ambiguous failures settle once", async () => {
+  const { db, env, req, wakes, provider } = await fixture();
+  const recipients = ["rate@example.test", "daily@example.test", "suppressed@example.test", "unknown@example.test"];
+  for (const email of recipients) await data<EmailAttempt>(await req(start, "POST", { ...person, email }));
+  let rateRefused = false;
+  provider.mockImplementation(async ({ to }) => {
+    if (to === recipients[0] && rateRefused) return { messageId: "accepted-retry" };
+    if (to === recipients[0]) rateRefused = true;
+    const code = to === recipients[0] ? "E_RATE_LIMIT_EXCEEDED" : to === recipients[1] ? "E_DAILY_LIMIT_EXCEEDED"
+      : to === recipients[2] ? "E_RECIPIENT_SUPPRESSED" : undefined;
+    throw Object.assign(new Error("Provider did not return acceptance"), { code });
+  });
+  const receipts = async (i: number) => (await db.prepare(`SELECT attempt, fence, result_code, provider_ref
+    FROM effect_claims WHERE effect_id = ? ORDER BY attempt`).bind(wakes[i]!).all()).results;
+  const result = (attempt: number, result_code: string, provider_ref: string | null = null) =>
+    ({ attempt, fence: attempt, result_code, provider_ref });
+
+  await runEffectBatch(env, wakes, now);
+  expect(provider).toHaveBeenCalledTimes(4);
+  expect(await receipts(0)).toEqual([result(1, "retryable")]);
+  expect(await receipts(2)).toEqual([result(1, "failed")]);
+  expect(await receipts(3)).toEqual([result(1, "unknown")]);
+  expect(await db.prepare("SELECT count(*) FROM effect_outbox WHERE state = 'pending' AND length(resource_ref) > 87")
+    .first<number>("count(*)")).toBe(2);
+
+  now += minute - 1;
+  await runEffectBatch(env, wakes, now);
+  expect(provider).toHaveBeenCalledTimes(4);
+  now++;
+  await runEffectBatch(env, wakes, now);
+  expect(await receipts(0)).toEqual([result(1, "retryable"), result(2, "delivered", "accepted-retry")]);
+  now += minute;
+  await runEffectBatch(env, wakes, now);
+  expect(await receipts(1)).toEqual([result(1, "retryable"), result(2, "retryable"), result(3, "failed")]);
+  now += minute;
+  await runEffectBatch(env, wakes, now);
+  expect(provider).toHaveBeenCalledTimes(7);
+  expect(await db.prepare("SELECT count(*) FROM effect_outbox WHERE length(resource_ref) <> 87").first<number>("count(*)")).toBe(0);
+  expect(wakes).toHaveLength(4);
+});
+
+test("each claim sends at most 16 messages and leaves excess for the scheduled sweep", async () => {
+  const { db, env, req, wakes, provider } = await fixture();
+  for (let i = 0; i < 18; i++) {
+    await data<EmailAttempt>(await req(start, "POST", { ...person, email: `cap-${i}@example.test`, deviceId: `cap-install-${i}` }));
+  }
+  const before = db.calls.batch;
+  await runEffectBatch(env, wakes, now);
+  expect(db.calls.batch - before).toBe(2);
+  expect(provider).toHaveBeenCalledTimes(16);
+  expect(await db.prepare("SELECT count(*) FROM effect_claims").first<number>("count(*)")).toBe(16);
+  expect(await db.prepare("SELECT count(*) FROM effect_outbox WHERE state = 'pending'").first<number>("count(*)")).toBe(2);
+  await runEffectBatch(env, null, now);
+  expect(provider).toHaveBeenCalledTimes(18);
+  expect(wakes).toHaveLength(18);
+});
+
+test("an expired mail lease fences late acceptance and prevents another send", async () => {
+  const { db, env, req, wakes, provider } = await fixture();
+  await data<EmailAttempt>(await req(start, "POST", person));
+  await data<EmailAttempt>(await req(start, "POST", { ...person, email: "second@example.test" }));
+  const started = Promise.withResolvers<void>(), send = Promise.withResolvers<EmailSendResult>();
+  provider.mockImplementation(() => { started.resolve(); return send.promise; });
+  const drain = runEffectBatch(env, wakes, now);
+  try {
+    await Promise.race([started.promise, drain]);
+    now += minute;
+    await runEffectBatch(env, wakes, now);
+  } finally {
+    send.resolve({ messageId: "late-mail-id" });
+    await drain;
+  }
+  expect(provider).toHaveBeenCalledTimes(1);
+  expect((await db.prepare("SELECT result_code, provider_ref FROM effect_claims").all()).results).toEqual([
+    { result_code: "unknown", provider_ref: null }, { result_code: "unknown", provider_ref: null },
+  ]);
+});
+
+test("email start and resend fail closed without the binding or sender configuration", async () => {
+  const { db, env, req, wakes, provider } = await fixture();
+  const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
+  const binding = env.SEND_EMAIL;
+  const { batch, query } = db.calls;
+  delete env.SEND_EMAIL;
+  for (const sender of [env.MAIL_FROM, undefined, " ", "<MAIL_FROM>"]) {
+    env.MAIL_FROM = sender;
+    expect((await error(await req(start, "POST", person), 503)).code).toBe("UNAVAILABLE");
+    expect((await error(await req(emailPath(attemptId, "resend"), "POST", resend(1)), 503)).code).toBe("UNAVAILABLE");
+    env.SEND_EMAIL = binding;
+  }
+  expect(db.calls).toMatchObject({ batch, query });
+  expect(wakes).toHaveLength(1);
+  expect(provider).not.toHaveBeenCalled();
+});
+
+test("the explicit Bun mail fixture keeps the synthetic OTP path isolated", async () => {
+  const { env, wakes, provider } = await fixture();
+  const localSend = mock(async () => ({ state: "delivered" as const }));
+  delete env.SEND_EMAIL;
+  delete env.MAIL_FROM;
+  env.OTP_MAIL_DEV = "true";
+  env.OTP_DEV_LOG_CODE = "true";
+  env.OTP_DEV_TEST_CODE = "123456";
+  env[localMailDelivery] = { send: localSend };
+  await data<EmailAttempt>(await createApp().request(`http://127.0.0.1:8787/api/v1${start}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(person),
+  }, env));
+  await runEffectBatch(env, wakes, now);
+  expect(localSend).toHaveBeenCalledWith(expect.objectContaining({ to: person.email, syntheticOtp: "123456" }));
+  expect(provider).not.toHaveBeenCalled();
 });
 
 test("auth JSON routes stop streaming at 16 KiB despite an understated Content-Length", async () => {
@@ -459,11 +571,10 @@ test("auth JSON routes stop streaming at 16 KiB despite an understated Content-L
   expect(wakes).toHaveLength(0);
 });
 
-test("Worker mail fails closed with a dev flag even when Postmark is configured", async () => {
-  const { db, env, req, wakes } = await fixture();
+test("Worker mail fails closed with a dev flag even when the binding is configured", async () => {
+  const { db, env, req, wakes, provider } = await fixture();
   const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
   env.OTP_MAIL_DEV = "true";
-  const provider = spyOn(globalThis, "fetch").mockResolvedValue(Response.json([{ ErrorCode: 0 }]));
   const { batch, query } = db.calls;
   await runEffectBatch(env, wakes, now);
   expect(db.calls.batch - batch).toBe(2);

@@ -16,6 +16,7 @@ BookBuddy has one role-scoped mobile app designed first for foremen and crews, w
 - **Web:** React DOM with Tailwind, React Router and Vite in one app. Prerender localized public service and booking-entry pages as semantic HTML; use live API data for availability or a submitted request. Public markup makes no job API call on render. The signed-in owner portal uses responsive HTML, keyboard-friendly quote comparisons and tables, ordinary HTTPS links, and hosted payment checkout. Load scoped data once and reuse it on hydration.
 - **Backend:** Hono on Cloudflare Workers serves both clients through the shared API contract and typed client. D1 holds authoritative records and pending effects. Durable Objects with WebSockets relay live job status and change hints to foreground clients, including active chat threads. R2 holds private photo, video and voice evidence; clients upload directly with scoped grants. Cloudflare static assets / Pages serve the web app. Cloudflare Queues wake a Worker consumer to dispatch replacement-offer and assignment notices and translate chat messages with missing target locales.
 - **Push:** The Worker sends push notifications and, when enabled, Live Activity updates through the Expo push service first (APNs on iOS, FCM on Android for notifications; APNs for Live Activities). Direct APNs/FCM is the alternative if operational evidence warrants owning delivery or Expo cannot support the required updates. Confirm support for Live Activity payloads and tokens in the push spike; see the [Live Activities and attendance research](../../research/tech-stack/live-activities-and-geofenced-attendance.md).
+- Email: Cloudflare Email sending binding, chosen 2026-11-24 to minimise external providers.
 - **Tooling:** Bun manages the workspace and scripts. Expo/Metro and the native toolchains build the app; Wrangler deploys the Worker. EAS Build and EAS Update are optional.
 
 ## Alternatives considered
@@ -56,9 +57,10 @@ flowchart LR
     API -->|"publish status and change hints"| Live["Durable Objects · WebSockets"]
     Live -.->|"foreground status and hints"| Mobile
     Live -.->|"foreground status and hints"| Web
-    API -->|"wake for offer/assignment notices or chat translation"| Queue["Cloudflare Queues"]
+    API -->|"wake for email, push or chat translation"| Queue["Cloudflare Queues"]
     Queue --> Effects["Worker effect consumer"]
     Effects <--> DB
+    Effects --> Email["Cloudflare Email Sending"]
     Effects --> Translate["Translation provider"]
     Effects -->|"translation change hints"| Live
     Effects -->|"notifications and optional Live Activity updates"| Push["Expo push service"]
@@ -131,7 +133,7 @@ Append the immutable original first, with a stable client message ID. In the sam
 
 [React family: language and translation guidance](../../research/tech-stack/react-family.md#languages-translation-and-accessibility) · [Core flows: multilingual chat](../../design/foundation/core-flows.md#5-multilingual-chat-and-safety-critical-confirmation)
 
-**Common effect budget.** Commit push or translation work with the state change. Send **one queue wake-up per nonempty committed batch**. The consumer makes **one D1 claim/read batch**, returning the inputs it needs, and **at most one D1 results batch**. For push, read stored installation tokens in the claim and send \(\lceil t/b\rceil\) Expo requests for \(t\) eligible device notices and provider batch limit \(b\). Check due tickets in batches: **one D1 read, provider-sized receipt requests, and at most one D1 result write**; no per-ticket polling. A receipt is a transport result, not a human acknowledgement. A bounded due-work sweep costs **one D1 claim batch** even if empty and recovers missed wake-ups without re-enqueueing claimed work. Duplicate work claims, expired offers and terminal failures do not fan out. No screen polls these dependencies.
+**Common effect budget.** Commit mail, push or translation work with the state change. Send **one queue wake-up per nonempty committed batch**. The consumer makes **one D1 claim/read batch**, returning the inputs it needs, and **at most one D1 results batch**. Each claim selects at most 32 intents, including at most 16 emails at one binding call per message. For push, read stored installation tokens in the claim and send \(\lceil t/b\rceil\) Expo requests for \(t\) eligible device notices and provider batch limit \(b\). Check due tickets in batches: **one D1 read, provider-sized receipt requests, and at most one D1 result write**; no per-ticket polling. A receipt is a transport result, not a human acknowledgement. A bounded due-work sweep costs **one D1 claim batch** even if empty and recovers missed wake-ups without re-enqueueing claimed work. Duplicate work claims, expired offers and terminal failures do not fan out. No screen polls these dependencies.
 
 ## Sources of truth
 

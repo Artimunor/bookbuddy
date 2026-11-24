@@ -2,6 +2,7 @@
 OTP_HMAC_KEY=local-only-otp-hmac-key-change-this-value
 EFFECTS_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 SYNC_CURSOR_HMAC_KEY=local-only-sync-cursor-key-change-this-value
+# The Bun demo injects its own mail transport; it needs no SEND_EMAIL binding or MAIL_FROM.
 OTP_MAIL_DEV=true
 OTP_DEV_LOG_CODE=true
 OTP_DEV_TEST_CODE=123456

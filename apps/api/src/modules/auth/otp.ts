@@ -3,7 +3,7 @@ import type { emailResendRoute, emailStartRoute, emailVerifyRoute } from "@bookb
 import { commitCommand, prepareCommand } from "../../db/commit";
 import type { CommandStatement } from "../../db/commit";
 import type { RequestScope } from "../../db/scope";
-import { isSyntheticMailbox } from "../../providers/mail";
+import { canSendMail, isSyntheticMailbox } from "../../providers/mail";
 import { loadDeliveryKey, mac, mailboxKey, randomOtp, randomToken, sealDelivery } from "./crypto";
 import { otpEmailEffectKind, otpMessage } from "./mail-effect";
 import { decodeSession, defaultContextSql, hashSessionCredential, sessionProjection } from "./session";
@@ -112,6 +112,7 @@ interface DeliveryOptions { source: string | null; language?: string; local: boo
 export async function sendOtp(ctx: RequestScope, key: CryptoKey, input: Start, options: DeliveryOptions, reissue?: {
   token: string; revision: number; operationId: string;
 }): Promise<SendResult> {
+  if (!canSendMail(options.bindings)) return { kind: "unavailable" };
   const deliveryKey = await loadDeliveryKey(options.bindings.EFFECTS_ENCRYPTION_KEY);
   if (!deliveryKey) return { kind: "unavailable" };
   const now = ctx.now;

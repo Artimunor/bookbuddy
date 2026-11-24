@@ -22,6 +22,7 @@ async function fixture() {
   const key = (await loadOtpKey(secret))!;
   const wakes: string[][] = [];
   const env = { DB: db, OTP_HMAC_KEY: secret, EFFECTS_ENCRYPTION_KEY: deliverySecret, PUBLIC_APP_ORIGIN: origin,
+    MAIL_FROM: "mail@example.test", SEND_EMAIL: { async send() { throw new Error("Unexpected email dispatch"); } },
     EFFECTS: { async send(wake: { workKeys: string[] }) { wakes.push(wake.workKeys); } } } as unknown as Bindings;
   const execution = { waitUntil() {}, passThroughOnException() {} };
 

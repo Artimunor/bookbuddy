@@ -31,6 +31,8 @@ To issue a first quote through the app, seed through `assessment-done` instead. 
 
 See [Cloudflare account and Wrangler profile](../../docs/operations/cloudflare-auth.md) for account setup and deployment, and [Worker secrets and environment](../../docs/operations/secrets-and-environment.md) for resource names, secrets, and local overrides.
 
+Outbound mail uses the `SEND_EMAIL` Workers binding and the `MAIL_FROM` sender. Follow the [Email Sending setup](../../docs/operations/secrets-and-environment.md#cloudflare-email-sending) before enabling live OTP or invitation commands. The Bun-only demo does not use either production setting.
+
 ## Production live upgrades
 
 Before exposing `/api/v1/live`, add a Cloudflare rate-limiting rule for `GET` requests whose URI path is exactly `/api/v1/live`. Count by source IP, not topic or credential. Start at 60 requests per IP per minute with a one-minute block; check the limit against pilot traffic behind shared networks. Apply the rule on every public hostname that routes to the Worker. The Worker rejects malformed credentials before routing, but only the edge rule limits requests carrying well-formed, unknown credentials.

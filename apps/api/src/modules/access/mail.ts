@@ -2,6 +2,7 @@ import { createOpaqueLink } from "@bookbuddy/api-contract";
 import type { CommandStatement } from "../../db/commit";
 import type { Bindings } from "../../bindings";
 import type { EffectHandler } from "../../effects/index";
+import { canSendMail } from "../../providers/mail";
 import type { MailMessage } from "../../providers/mail";
 import { loadDeliveryKey, loadOtpKey, openDelivery, randomToken, sealDelivery } from "../auth/crypto";
 import { hashSessionCredential } from "../auth/session";
@@ -19,7 +20,8 @@ export interface InvitationLink {
 
 export interface InvitationMailKeys { lookup: CryptoKey; encryption: CryptoKey; origin: string }
 
-export async function invitationMailKeys(env: Bindings): Promise<InvitationMailKeys | null> {
+export async function invitationMailKeys(env: Bindings, delivery: "email" | "in-app" = "email"): Promise<InvitationMailKeys | null> {
+  if (delivery === "email" && !canSendMail(env)) return null;
   try {
     createOpaqueLink(env.PUBLIC_APP_ORIGIN ?? "", "check");
   } catch {

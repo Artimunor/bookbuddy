@@ -18,6 +18,7 @@
   ],
   // Provision EVIDENCE with public bucket access disabled; grants are scoped by the API.
   "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "bookbuddy-evidence" }],
+  "send_email": [{ "name": "SEND_EMAIL" }],
   "queues": {
     "producers": [{ "binding": "EFFECTS", "queue": "bookbuddy-effects" }],
     "consumers": [{ "queue": "bookbuddy-effects" }]
@@ -32,6 +33,6 @@
     "PUBLIC_APP_ORIGIN": "<PUBLIC_APP_ORIGIN>",
     "R2_ACCOUNT_ID": "95eb2daa756131f49b8427e26a4e5462",
     "R2_EVIDENCE_BUCKET": "bookbuddy-evidence",
-    "POSTMARK_SENDER": "<POSTMARK_SENDER>"
+    "MAIL_FROM": "<MAIL_FROM>"
   }
 }

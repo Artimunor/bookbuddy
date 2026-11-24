@@ -1,5 +1,6 @@
 import { app } from "../src/app";
 import type { Bindings } from "../src/bindings";
+import { localMailDelivery } from "../src/config";
 import { runEffectBatch } from "../src/effects";
 import { isSyntheticMailbox } from "../src/providers/mail";
 import type { MailDelivery } from "../src/providers/mail";
@@ -21,15 +22,13 @@ const live = {
 } as unknown as Bindings["LIVE"];
 const delivery = { metadata: { get metrics() { return unavailable("Queue metrics"); } } };
 const fixtureMail: MailDelivery = {
-  async send(messages) {
-    for (const message of messages) {
-      if (config.OTP_DEV_LOG_CODE === "true" && message.syntheticOtp && isSyntheticMailbox(message.to)) {
-        console.info("bookbuddy.mail.fixture_code", message.syntheticOtp);
-      } else {
-        console.info("bookbuddy.mail.dev_delivery");
-      }
+  async send(message) {
+    if (config.OTP_DEV_LOG_CODE === "true" && message.syntheticOtp && isSyntheticMailbox(message.to)) {
+      console.info("bookbuddy.mail.fixture_code", message.syntheticOtp);
+    } else {
+      console.info("bookbuddy.mail.dev_delivery");
     }
-    return messages.map(() => "delivered");
+    return { state: "delivered" };
   },
 };
 const noVendorFetch = async () => unavailable("Push provider HTTP");
@@ -45,6 +44,7 @@ const server = Bun.serve({
     let background: Promise<unknown>[] | undefined;
     const env: Bindings = {
       ...config,
+      [localMailDelivery]: fixtureMail,
       DB,
       get EVIDENCE() { return unavailable("Evidence storage"); },
       LIVE: live,
@@ -69,7 +69,7 @@ const server = Bun.serve({
       setImmediate(() => {
         drain = drain.then(async () => {
           if (background) await Promise.allSettled(background);
-          if (keys?.size) await runEffectBatch(env, [...keys], undefined, noVendorFetch, undefined, fixtureMail);
+          if (keys?.size) await runEffectBatch(env, [...keys], undefined, noVendorFetch);
         }).catch((error: unknown) => console.error("Bun demo effect failed", error));
       });
     }
