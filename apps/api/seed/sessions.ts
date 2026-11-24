@@ -3,6 +3,7 @@ import { loadOtpKey, mailboxKey } from "../src/modules/auth/crypto";
 import { ids, sql } from "./cast";
 
 const area = "seed-session-area";
+const customerPlace = "seed-session-customer-place";
 const business = "seed-mar-pilates";
 const venue = "seed-mar-studio";
 const listing = "seed-mat-pilates";
@@ -46,6 +47,14 @@ export async function sessionsSql(domain: string, secret: string) {
   insert("businesses", "id, legal_name, public_name, verified_work_contact, catchment_id, state",
     business, "Estudi Mar Pilates", "Estudi Mar Pilates", accounts[0]!.email, area, "approved");
   insert("feature_flags", "key, scope_key, enabled, config_version", SESSIONS_FEATURE_FLAG, sessionFeatureScopeKey(area, category), 1, 1);
+  insert("feature_flags", "key, scope_key, enabled, config_version", SESSIONS_FEATURE_FLAG, business, 1, 1);
+  insert("places", "id, owner_id, alias, normalized_address, state",
+    customerPlace, ids.claire, "Xàbia demo stay", "Fictional Xàbia stay", "pending_verification");
+  insert("place_people", "place_id, account_id, verified_from, history_from", customerPlace, ids.claire, 1, 1);
+  rows.push(`UPDATE places SET named_approver_id = ${sql(ids.claire)}, pin = '{"latitude":38.79,"longitude":0.20}',
+    site_zone = ${sql(siteZone)}, area_id = ${sql(area)}, state = 'in_area' WHERE id = ${sql(customerPlace)};`);
+  insert("place_grants", "id, place_id, account_id, capability, issuer_id, valid_from",
+    `${customerPlace}-view`, customerPlace, ids.claire, "view", ids.claire, 1);
   for (const account of accounts) {
     const { id, email, emailKey, display, roles } = account;
     insert("accounts", "id, email_normalized, email_key, display_name, verified_at, setup_at, state", id, email, emailKey, display, 1, 1, "active");
