@@ -6,12 +6,16 @@ import { resolveSession } from "../modules/auth/session";
 import { liveAccess } from "./access";
 
 const leaseLengthMs = 5 * 60_000;
-// All topics currently share one pilot object. Bound its open-socket pool
-// before doing a D1 read; wider rollout still needs isolated topic shards.
+// All topics share one pilot object. Leave room for other tenants in its pool.
 export const liveSocketCap = 128;
+export const liveSessionSocketCap = 4;
+export const liveBusinessSocketCap = 32;
+export const liveCustomerSocketCap = 4;
 const INVALIDATION = JSON.stringify({ kind: "invalidate" } satisfies LiveFrame);
 const READY = JSON.stringify({ kind: "ready" } satisfies LiveFrame);
-type LiveRow = { session_id: string; scope_id: string | null; expires_at: number; value: string | null };
+type LiveRow = {
+  session_id: string; scope_id: string | null; account_id: string; business_id: string | null; expires_at: number; value: string | null;
+};
 
 const encoder = new TextEncoder();
 // A tag can carry only 256 characters. Prefix the uncommon long-ID hash
@@ -28,6 +32,28 @@ export interface LiveAttachment {
   readonly sessionId: string;
   readonly scopeId: string;
   readonly leaseUntil: number;
+  readonly credentialHash: string;
+  readonly bucket: string;
+  readonly sequence: number;
+}
+
+type LiveSocket = { socket: WebSocket; attachment: LiveAttachment };
+
+function allowance(sockets: readonly LiveSocket[], sessionId: string, bucket: string) {
+  let inBucket = 0, inSession = 0, sequence = 0;
+  let oldest: LiveSocket | undefined;
+  for (const entry of sockets) {
+    const { attachment } = entry;
+    if (attachment.bucket === bucket) inBucket++;
+    if (attachment.sessionId !== sessionId) continue;
+    inSession++;
+    if (!oldest || attachment.sequence < oldest.attachment.sequence) oldest = entry;
+    sequence = Math.max(sequence, attachment.sequence);
+  }
+  const replace = inSession >= liveSessionSocketCap ? oldest : undefined;
+  const cap = bucket.startsWith("business:") ? liveBusinessSocketCap : liveCustomerSocketCap;
+  if (inBucket - Number(replace?.attachment.bucket === bucket) >= cap) return null;
+  return { replace: replace?.socket, sequence: sequence + 1 };
 }
 
 // The hibernation alarm tracks the earliest open lease, with no idle timer.
@@ -40,6 +66,25 @@ export class LiveTopic extends DurableObject<Bindings> {
     if (next === null) await this.ctx.storage.deleteAlarm();
     else await this.ctx.storage.setAlarm(next);
     this.#alarmAt = next;
+  }
+
+  #openSockets(credentialHash: string, now: number) {
+    const sockets: LiveSocket[] = [];
+    let known: LiveAttachment | undefined;
+    for (const socket of this.ctx.getWebSockets()) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
+      try {
+        const attachment = socket.deserializeAttachment() as LiveAttachment | null;
+        // An older deployment's unbucketed sockets must reconnect.
+        if (!attachment?.credentialHash || !(attachment.leaseUntil > now)) {
+          socket.close(1008);
+          continue;
+        }
+        sockets.push({ socket, attachment });
+        if (attachment.credentialHash === credentialHash && (!known || attachment.sequence > known.sequence)) known = attachment;
+      } catch { /* The socket already disappeared. */ }
+    }
+    return { sockets, known };
   }
 
   async #reap(excluded?: WebSocket): Promise<void> {
@@ -75,28 +120,37 @@ export class LiveTopic extends DurableObject<Bindings> {
 
     // Do not let a concurrent revoke RPC pass between the scope read and attachment.
     return this.ctx.blockConcurrencyWhile(async () => {
-      if (this.ctx.getWebSockets().length >= liveSocketCap) return new Response(null, { status: 503 });
+      const { credentialHash } = session;
+      const { sockets, known } = this.#openSockets(credentialHash, Date.now());
+      if (sockets.length >= liveSocketCap) return new Response(null, { status: 503 });
+      // A known lease can reject admission early. An opaque cold credential
+      // gives us no bucket until the same D1 read that authorizes the topic.
+      const preflight = known && allowance(sockets, known.sessionId, known.bucket);
+      if (preflight === null) return new Response(null, { status: 503 });
       const { sql, params } = liveAccess(session, now, topic, this.env);
       const row = await this.env.DB.prepare(sql).bind(...params ?? []).first<LiveRow>();
       const leaseUntil = Math.min(row?.expires_at ?? 0, now + leaseLengthMs);
       if (!row || leaseUntil <= Date.now()) return new Response(null, { status: 401 });
       if (!row.scope_id || (topic.kind === "thread" && row.value === null)) return new Response(null, { status: 404 });
 
-      const { 0: client, 1: socket } = new WebSocketPair();
-      const attachment: LiveAttachment = { sessionId: row.session_id, scopeId: row.scope_id, leaseUntil };
-      this.ctx.acceptWebSocket(socket, [topicTag, await socketTag("session", row.session_id)]);
-      socket.serializeAttachment(attachment);
-      try {
-        await this.#scheduleAlarm(leaseUntil, true);
-      } catch (error) {
-        socket.close(1011);
-        throw error;
-      }
+      const bucket = row.business_id === null ? `account:${row.account_id}` : `business:${row.business_id}`;
+      const admitted = known?.sessionId === row.session_id && known.bucket === bucket ? preflight : allowance(sockets, row.session_id, bucket);
+      if (!admitted) return new Response(null, { status: 503 });
+
+      const sessionTag = await socketTag("session", row.session_id);
+      await this.#scheduleAlarm(leaseUntil, true);
       if (leaseUntil <= Date.now()) {
-        socket.close(1008);
-        await this.#reap(socket);
+        await this.#reap();
         return new Response(null, { status: 401 });
       }
+
+      const { 0: client, 1: socket } = new WebSocketPair();
+      const attachment: LiveAttachment = {
+        sessionId: row.session_id, scopeId: row.scope_id, leaseUntil, credentialHash, bucket, sequence: admitted.sequence,
+      };
+      admitted.replace?.close(1008);
+      this.ctx.acceptWebSocket(socket, [topicTag, sessionTag]);
+      socket.serializeAttachment(attachment);
       socket.send(row.value ?? READY);
       return new Response(null, { status: 101, webSocket: client, headers: { "Cache-Control": "private, no-store" } });
     });

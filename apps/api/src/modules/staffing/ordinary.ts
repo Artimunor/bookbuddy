@@ -104,12 +104,12 @@ const accountableContext = `FROM ordinary_target g JOIN memberships m ON m.id = 
   JOIN membership_roles r ON r.membership_id = m.id AND r.role = 'foreman' AND r.granted_at <= ${at} AND r.revoked_at IS NULL
   JOIN account_contexts c ON c.role_grant_id = r.id WHERE m.business_id = g.business_id AND m.state = 'active'
     AND c.id IS NOT (SELECT context_id FROM live_scope)`;
-const jobResource = "(SELECT id FROM ordinary_target)";
+const shiftResource = "(SELECT shift_id FROM ordinary_target)";
 const biz = "(SELECT business_id FROM ordinary_target)";
 const offerRecipient = (offer: string) => `(SELECT recipient_id FROM assignment_offers WHERE id = ${offer})`;
 
 function transitionSignals(access: OrdinaryAccess, guard: CommandStatement, options: {
-  kind: string; resource: string; link: "assignment_offer" | "job_update" | "cover"; recipient: string;
+  kind: string; resource: string; link: "assignment_offer" | "shift" | "cover"; recipient: string;
   member: string; offerExpiry?: string; changedAssignments?: string;
 }): OperationWrites {
   const { kind, resource, link, recipient, member, offerExpiry, changedAssignments } = options;
@@ -167,7 +167,7 @@ function accept(access: OrdinaryAccess): Transition {
   return {
     eligible: { sql: offerFront(`${canAnswer("o", "g")} AND ${canStaff("g", "o.recipient_id")}`) },
     writes(guard) {
-      const notice = transitionSignals(access, guard, { kind: "assignment_confirmed", link: "job_update", resource: jobResource,
+      const notice = transitionSignals(access, guard, { kind: "assignment_confirmed", link: "shift", resource: shiftResource,
         recipient: accountableContext, member: offerRecipient(inputId),
         changedAssignments: `SELECT assignment_id AS id FROM assignment_offers WHERE id = ${inputId}` });
       return { ...notice, statements: [
@@ -192,8 +192,8 @@ function endOffer(access: OrdinaryAccess, verb: "decline" | "withdraw", reason: 
     eligible: { sql: offerFront(canAnswer("o", "g")) },
     writes(guard) {
       const member = offerRecipient(inputId);
-      const notice = transitionSignals(access, guard, { kind: `assignment_${state}`, link: withdraw ? offerLink : "job_update",
-        resource: withdraw ? inputId : jobResource, recipient: withdraw ? workerContext(member, biz) : accountableContext, member });
+      const notice = transitionSignals(access, guard, { kind: `assignment_${state}`, link: withdraw ? offerLink : "shift",
+        resource: withdraw ? inputId : shiftResource, recipient: withdraw ? workerContext(member, biz) : accountableContext, member });
       return { ...notice, statements: [
         scopedStatement(access, `UPDATE assignment_offers SET state = '${state}', resolved_at = ${at}, decline_reason = ?
           WHERE id = ${inputId} AND ${guard.sql}`, reason, ...guard.params ?? []),

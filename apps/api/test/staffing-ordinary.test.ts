@@ -147,6 +147,37 @@ test("named offer is private and accepts atomically once; replays do not add a h
   } finally { f.close(); }
 });
 
+test("a shift notice opens the exact roster; shift links recheck roles and the confirmed assignee", async () => {
+  const f = await fixture();
+  try {
+    expect((await f.offer()).status).toBe(200);
+    expect((await f.call("worker", "/offers/offer/accept", "accept")).status).toBe(200);
+    const notice = await f.db.prepare(`SELECT l.token, l.kind, l.resource_id FROM notifications n
+      JOIN link_targets l ON l.token = n.link_token WHERE n.kind = 'assignment_confirmed'`)
+      .first<{ token: string; kind: string; resource_id: string }>();
+    expect(notice).toMatchObject({ kind: "shift", resource_id: "shift" });
+    expect((await f.call("foreman", "/notifications?contextId=foreman-context")).body.data.items)
+      .toContainEqual(expect.objectContaining({ kind: "assignment_confirmed" }));
+    const open = async (actor: Actor, token: string) => (await f.call(actor, `/links/${token}`)).body.data;
+    const foreman = (await f.call("foreman", "/shifts/shift")).body.data;
+    expect(foreman).toMatchObject({ view: "foreman", shift: { id: "shift" } });
+    expect(await open("foreman", notice!.token)).toEqual({ kind: "shift", shift: foreman });
+    const unavailable = (reason: string) => ({ kind: "unavailable", status: "unavailable", reason, supportReference: null });
+    expect(await open("foreign", notice!.token)).toEqual(unavailable("unavailable"));
+
+    await f.db.prepare(`INSERT INTO link_targets (token, kind, resource_id, required_scope, expires_at)
+      SELECT id || '-link', 'shift', 'shift', id || '-context', ? FROM accounts
+      WHERE id IN ('worker', 'second', 'foreign', 'rival', 'admin')`).bind(start).run();
+    const worker = (await f.call("worker", "/shifts/shift")).body.data;
+    expect(worker).toMatchObject({ view: "worker", shift: { id: "shift" }, assignment: { state: "confirmed" } });
+    expect(await open("worker", "worker-link")).toEqual({ kind: "shift", shift: worker });
+    expect(await open("admin", "admin-link")).toEqual({ kind: "shift", shift: foreman });
+    for (const actor of ["second", "foreign", "rival"] as const) {
+      expect(await open(actor, `${actor}-link`)).toEqual(unavailable("removed"));
+    }
+  } finally { f.close(); }
+});
+
 test("roster and fit are provider-scoped; cutoff and a new overlap reject issue or acceptance", async () => {
   const f = await fixture();
   try {
@@ -217,6 +248,8 @@ test("expiry, rejection, withdrawal and decline leave slots unassigned and may b
     expect((await f.call("worker", "/offers/replacement")).body.data).toMatchObject({ state: "withdrawn" });
     expect((await f.offer("decline-me", "second-member")).status).toBe(200);
     expect((await f.call("second", "/offers/decline-me/decline", "decline", { reason: "busy_then" })).body.data).toMatchObject({ state: "declined" });
+    expect(await f.db.prepare(`SELECT l.kind, l.resource_id FROM notifications n JOIN link_targets l ON l.token = n.link_token
+      WHERE n.kind = 'assignment_declined'`).first()).toEqual({ kind: "shift", resource_id: "shift" });
     expect(await f.db.prepare("SELECT count(*) AS count FROM assignments").first("count")).toBe(0);
   } finally { f.close(); }
 });

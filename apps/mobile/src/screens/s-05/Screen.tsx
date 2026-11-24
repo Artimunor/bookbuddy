@@ -4,7 +4,7 @@ import {
   getPlaceRoute, getProblemCaseRoute, idSchema, linkTokenSchema, notificationReadRoute, openLinkRoute, sessionContextRoute,
   type InvitationOpening, type LinkOpening,
 } from "@bookbuddy/api-contract";
-import { getSessionBookingRoute } from "@bookbuddy/api-contract";
+import { getSessionBookingRoute, getShiftRoute } from "@bookbuddy/api-contract";
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
@@ -60,6 +60,12 @@ function destination(link: Destination, role: string | undefined, seed: ReturnTy
       if (record.audience === "foreman") return { pathname: "/f/jobs/[jobId]", params: { jobId, view: record.job.view } } as Href;
       if (record.audience === "worker") return { pathname: "/w/shifts/[shiftId]", params: { shiftId: record.job.assignment.shiftId } } as Href;
       return { pathname: "/p/jobs", params: { jobId } } as Href;
+    }
+    case "shift": {
+      if (role !== link.shift.view) return help();
+      const shiftId = link.shift.shift.id;
+      seed(getShiftRoute, { params: { s: shiftId } }, link.shift, at);
+      return { pathname: role === "worker" ? "/w/shifts/[shiftId]" : "/f/shifts/[shiftId]", params: { shiftId } } as Href;
     }
     case "thread": return { pathname: "/threads/[threadId]", params: { threadId: link.threadId } } as Href;
     case "completion": {

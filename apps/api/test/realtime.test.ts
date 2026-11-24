@@ -15,7 +15,7 @@ mock.module("cloudflare:workers", () => ({
   },
 }));
 // Load the Workers-only class after its Bun module replacement is registered.
-const { LiveTopic, liveSocketCap } = await import("../src/realtime/live-topic");
+const { LiveTopic, liveBusinessSocketCap, liveCustomerSocketCap, liveSessionSocketCap, liveSocketCap } = await import("../src/realtime/live-topic");
 
 class TestSocket {
   readyState = WebSocket.OPEN;
@@ -52,7 +52,7 @@ afterEach(() => {
 });
 
 const origin = "https://bookbuddy.test";
-const people = ["customer", "outside", "foreman", "admin", "worker"] as const;
+const people = ["customer", "outside", "foreman", "admin", "worker", "other-worker"] as const;
 type Person = typeof people[number];
 const secret = "a private original message";
 
@@ -108,14 +108,16 @@ async function fixture() {
     await db.batch([
       db.prepare("INSERT INTO operating_areas(id,name,site_zone,polygon) VALUES ('area','Area','Europe/Lisbon','[0]')"),
       db.prepare(`INSERT INTO businesses(id,legal_name,public_name,verified_work_contact,catchment_id,state)
-        VALUES ('provider','Provider Ltd','Provider','work@example.test','area','approved')`),
+        VALUES ('provider','Provider Ltd','Provider','work@example.test','area','approved'),
+          ('other-provider','Other Ltd','Other','other-work@example.test','area','approved')`),
       ...people.map((person) => db.prepare(`INSERT INTO accounts (id,email_normalized,display_name,verified_at,setup_at,state)
         VALUES (?,?,?,1,1,'active')`).bind(person, `${person}@example.test`, person)),
-      ...([ ["foreman", "foreman"], ["admin", "provider_admin"], ["worker", "worker"] ] as const).flatMap(([person, role]) => [
-        db.prepare("INSERT INTO memberships VALUES (?,'provider',?,'active')").bind(`${person}-member`, person),
+      ...([["foreman", "foreman", "provider"], ["admin", "provider_admin", "provider"], ["worker", "worker", "provider"],
+        ["other-worker", "worker", "other-provider"]] as const).flatMap(([person, role, business]) => [
+        db.prepare("INSERT INTO memberships VALUES (?,?,?,'active')").bind(`${person}-member`, business, person),
         db.prepare(`INSERT INTO membership_roles (id,membership_id,business_id,account_id,role,granted_at)
-          VALUES (?,?,'provider',?,?,1)`).bind(`${person}-role`, `${person}-member`, person, role),
-        db.prepare("INSERT INTO account_contexts VALUES (?,?,?,'provider',?)").bind(`${person}-scope`, person, role, `${person}-role`),
+          VALUES (?,?,?,?,?,1)`).bind(`${person}-role`, `${person}-member`, business, person, role),
+        db.prepare("INSERT INTO account_contexts VALUES (?,?,?,?,?)").bind(`${person}-scope`, person, role, business, `${person}-role`),
       ]),
       db.prepare(`INSERT INTO business_grants (id,business_id,membership_id,capability,issuer_id,valid_from)
         VALUES ('manage','provider','admin-member','membership_admin','admin',1)`),
@@ -184,7 +186,15 @@ async function fixture() {
     expect(db.calls.query).toBe(before.query);
     return response;
   }
-  return { db, env, calls, objects, wakes, open, command, closedSessions };
+  async function addSessions(person: Person, count: number) {
+    const tokens = Array.from({ length: count }, () => randomToken());
+    await db.batch(await Promise.all(tokens.map(async (token, i) => db.prepare(`INSERT INTO sessions
+      (id, account_id, secret_hash, active_context_id, device_id, issued_at, expires_at)
+      VALUES (?,?,?,?,?,1,?)`).bind(`${person}-extra-${i}`, person, await hashSessionCredential(token), `${person}-scope`,
+      `extra-device-${i}`, now + 3_600_000))));
+    return tokens;
+  }
+  return { db, env, calls, objects, wakes, open, command, closedSessions, addSessions };
 }
 
 test("live authenticates cookie and bearer, rejects unauthorized topics and never exposes a different scope", async () => {
@@ -215,7 +225,8 @@ test("cold thread catch-up is bounded and later committed hints reveal no projec
     expect(response.status).toBe(101);
     expect(socket).toBeDefined();
     expect(socket!.messages).toHaveLength(1);
-    expect(socket!.attachment).toEqual({ sessionId: "customer-session", scopeId: "customer-scope", leaseUntil: expect.any(Number) });
+    expect(socket!.attachment).toEqual({ sessionId: "customer-session", scopeId: "customer-scope", leaseUntil: expect.any(Number),
+      credentialHash: expect.stringMatching(/^[a-f0-9]{64}$/), bucket: "account:customer", sequence: 1 });
     const initial = parseLiveFrame(socket!.messages[0]);
     expect(initial).toMatchObject({ kind: "thread_catch_up", details: { id: "thread" }, page: { threadId: "thread",
       page: { hasMore: true, cursor: "before~3" } } });
@@ -324,19 +335,79 @@ test("committed session end closes all of that session's sockets but preserves a
   } finally { f.db.close(); }
 });
 
-test("the shared live socket cap rejects an excess upgrade before D1", async () => {
+test("a session replaces only its oldest socket after authorization, even after hibernation", async () => {
   const clock = spyOn(Date, "now").mockReturnValue(Date.now());
   const f = await fixture();
   try {
-    for (let i = 0; i < liveSocketCap; i++) {
-      expect((await f.open("scope-inbox:customer-scope", "customer")).response.status).toBe(101);
+    for (let i = 0; i < liveSessionSocketCap; i++) {
+      const topic = i === 0 ? "thread:thread" : "scope-inbox:customer-scope";
+      expect((await f.open(topic, "customer")).response.status).toBe(101);
     }
-    const { alarm, sockets } = f.objects.values().next().value!;
-    expect(alarm).toMatchObject({ reads: 1, sets: 1, deletes: 0 });
-    const { response } = await f.open("scope-inbox:customer-scope", "customer", "bearer", 0, undefined, 1);
-    expect(response.status).toBe(503);
-    expect(sockets).toHaveLength(liveSocketCap);
+    const object = f.objects.values().next().value!;
+    object.topic = new LiveTopic(object.state, f.env);
+    expect((await f.open("thread:crew", "customer")).response.status).toBe(404);
+    expect(object.sockets.every((socket) => socket.readyState === WebSocket.OPEN)).toBe(true);
+
+    expect((await f.open("customer-visit:visit", "customer")).response.status).toBe(101);
+    expect(object.sockets).toHaveLength(liveSessionSocketCap + 1);
+    expect(object.sockets[0]!.closeCodes).toEqual([1008]);
+    expect(object.sockets.slice(1).every((socket) => socket.readyState === WebSocket.OPEN)).toBe(true);
+    expect(object.alarm).toMatchObject({ sets: 1, deletes: 0 });
   } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("one business cannot exhaust the live pool across sessions and roles", async () => {
+  const f = await fixture();
+  try {
+    const sessions = Math.ceil((liveBusinessSocketCap - 1) / liveSessionSocketCap);
+    const tokens = await f.addSessions("worker", sessions + 1);
+    const openAsWorker = (token: string) =>
+      f.open("scope-inbox:worker-scope", undefined, "bearer", 1, { Authorization: `Bearer ${token}` });
+    expect((await f.open("provider-crew:provider", "admin")).response.status).toBe(101);
+    for (let i = 0; i < liveBusinessSocketCap - 1; i++) {
+      expect((await openAsWorker(tokens[Math.floor(i / liveSessionSocketCap)]!)).response.status).toBe(101);
+    }
+    const object = f.objects.values().next().value!;
+    object.topic = new LiveTopic(object.state, f.env);
+    const { response } = await f.open("provider-crew:provider", "admin", "bearer", 0, undefined, 1);
+    expect(response.status).toBe(503); // A previously admitted session does not spend a D1 call.
+    expect((await openAsWorker(tokens[sessions]!)).response.status).toBe(503); // Cold credential gets one authorization read.
+    expect(object.sockets).toHaveLength(liveBusinessSocketCap);
+
+    const other = await f.open("scope-inbox:other-worker-scope", "other-worker");
+    expect(other.response.status).toBe(101);
+    expect(other.socket?.attachment?.bucket).toBe("business:other-provider");
+    expect(f.objects.size).toBe(1);
+  } finally { f.db.close(); }
+});
+
+test("a customer's live share counts all of its sessions and topics in its own account bucket", async () => {
+  const f = await fixture();
+  try {
+    const [token] = await f.addSessions("customer", 1);
+    expect((await f.open("thread:thread", "customer")).response.status).toBe(101);
+    for (let i = 1; i < liveCustomerSocketCap; i++) {
+      expect((await f.open("customer-visit:visit", undefined, "bearer", 1, { Authorization: `Bearer ${token}` })).response.status).toBe(101);
+    }
+    expect((await f.open("scope-inbox:customer-scope", "customer", "bearer", 0, undefined, 1)).response.status).toBe(503);
+    expect((await f.open("scope-inbox:outside-scope", "outside")).response.status).toBe(101);
+  } finally { f.db.close(); }
+});
+
+test("the shared live pool rejects an excess upgrade before D1", async () => {
+  const f = await fixture();
+  try {
+    const { socket } = await f.open("scope-inbox:customer-scope", "customer");
+    const { sockets } = f.objects.values().next().value!;
+    for (let i = 1; i < liveSocketCap; i++) {
+      const prefilled = new TestSocket();
+      prefilled.serializeAttachment({ ...socket!.attachment!, sessionId: `prefilled-${i}`,
+        credentialHash: `prefilled-${i}`, bucket: `account:prefilled-${i}` });
+      sockets.push(prefilled);
+    }
+    expect((await f.open("scope-inbox:outside-scope", "outside", "bearer", 0, undefined, 1)).response.status).toBe(503);
+    expect(sockets).toHaveLength(liveSocketCap);
+  } finally { f.db.close(); }
 });
 
 test("a hibernation alarm reaps idle sockets at their leases and stops when none remain", async () => {

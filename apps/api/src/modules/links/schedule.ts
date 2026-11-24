@@ -1,6 +1,7 @@
 import { linkOpeningSchema } from "@bookbuddy/api-contract";
 import { at } from "../access/policy";
 import { availabilityJson, availabilityWeekFilter, projectAvailability, weekBounds } from "../schedule/availability";
+import { projectShiftLinkSql } from "../schedule/shifts";
 import type { LinkResolver } from ".";
 
 export const crewAvailabilityLinkResolver: LinkResolver = {
@@ -18,5 +19,13 @@ export const crewAvailabilityLinkResolver: LinkResolver = {
   decode(value) {
     const { date, availability } = value as { date: string; availability: unknown }; // Internal SQL projection above.
     return linkOpeningSchema.parse({ kind: "crew_availability", date, availability: projectAvailability(availability, date) });
+  },
+};
+
+export const shiftLinkResolver: LinkResolver = {
+  targetKind: "shift",
+  project(resource, scope) {
+    return `(SELECT json_object('kind', 'shift', 'shift', json(value))
+      FROM (SELECT ${projectShiftLinkSql(resource, scope)} AS value LIMIT 1) WHERE value IS NOT NULL)`;
   },
 };

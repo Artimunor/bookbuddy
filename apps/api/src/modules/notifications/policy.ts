@@ -9,6 +9,7 @@ import type { CommercialKind } from "../commercial/policy";
 import { currentMembership, scopedIntakeIds } from "../jobs/projections";
 import { placeCapability } from "../places/policy";
 import { customer as scheduleCustomer, foreman as scheduleForeman, jobOpen, provider as scheduleProvider } from "../schedule/policy";
+import { shiftLinkRosterAllowed } from "../schedule/shifts";
 import { sessionsCustomerTarget } from "../sessions/policy";
 import { approvedJob } from "../staffing/crew";
 
@@ -82,7 +83,10 @@ function noticePolicy(forPush: boolean): string {
     WHEN n.kind = 'cover_offer' THEN l.kind = 'cover_offer' AND ${coverOffer}
     WHEN n.kind IN ('assignment_dropped', 'cover_accepted') THEN l.kind = 'cover' AND EXISTS (
       SELECT 1 FROM cover_gaps g ${shiftParents} WHERE g.id = ${link} AND ${foremanJob})
-    WHEN n.kind IN ('assignment_confirmed', 'assignment_declined', 'commercial_approved', 'commercial_declined', 'commercial_returned')
+    WHEN n.kind IN ('assignment_confirmed', 'assignment_declined') THEN l.kind = 'shift' AND EXISTS (
+      SELECT 1 FROM shifts sh JOIN visits v ON v.id = sh.visit_id JOIN jobs j ON j.id = v.job_id
+      WHERE sh.id = ${link} AND ${shiftLinkRosterAllowed("scope")})
+    WHEN n.kind IN ('commercial_approved', 'commercial_declined', 'commercial_returned')
       THEN l.kind = 'job_update' AND EXISTS (SELECT 1 ${ownedJob} AND ${foreman("scope")})
     WHEN n.kind IN ('job_handoff_accepted', 'job_handoff_declined', 'job_handoff_withdrawn')
       THEN l.kind = 'job_update' AND EXISTS (SELECT 1 ${ownedJob} AND (${scheduleProvider("scope")} OR ${foremanJob}))

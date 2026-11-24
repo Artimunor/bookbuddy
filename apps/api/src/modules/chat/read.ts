@@ -174,7 +174,9 @@ export function readThreadEntries(session: SessionAccess, now: number, threadId:
 
 export function readLiveThread(session: SessionAccess, now: number, threadId: string, pairs: readonly LanguagePair[]): CommandStatement {
   return scopedStatement(threadEntriesScope(session, now, threadId, null, pairs), `
-    SELECT s.session_id, t.context_id AS scope_id, s.expires_at, CASE WHEN t.context_id IS NOT NULL THEN
+    SELECT s.session_id, t.context_id AS scope_id, s.expires_at, s.account_id,
+      CASE WHEN t.role <> 'customer' THEN t.business_id END AS business_id,
+      CASE WHEN t.context_id IS NOT NULL THEN
       json_object('kind', 'thread_catch_up', 'at', ${at}, 'details', json(${threadDetailsSql}),
         'page', json(${threadEntriesSql(true, pairs)})) END AS value
     FROM acting_session s LEFT JOIN chat_scope t ON 1`);

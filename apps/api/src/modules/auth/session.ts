@@ -55,7 +55,7 @@ export interface SessionAccess extends CommandStatement {
 // scope predicates to a statement and execute it in the caller's primary batch.
 export async function resolveSession(
   request: Request, contextId: string | null, now: number, accountId?: string, scopeMode: "active" | "account" | "switch" = "active",
-): Promise<SessionAccess | null> {
+): Promise<(SessionAccess & { readonly credentialHash: string }) | null> {
   const credential = requestSessionCredential(request);
   if (!credential) return null;
   const usesCookie = !request.headers.has("Authorization");
@@ -87,12 +87,13 @@ export async function resolveSession(
   )`;
   const scopeParams = [contextId, contextId, ...(accountId === undefined ? [] : [accountId])];
   return fence ? {
+    credentialHash: hash,
     sql: prefix(` AND s.id = ? AND ${effectiveContext} IS ?`),
     params: [hash, now, fence.sessionId, fence.contextId, ...scopeParams],
     ...(scopeMode === "switch" ? { afterContextSwitch: {
       sql: prefix(" AND s.id = ?"), params: [hash, now, fence.sessionId, ...scopeParams],
     } } : {}),
-  } : { sql: prefix(""), params: [hash, now, ...scopeParams] };
+  } : { credentialHash: hash, sql: prefix(""), params: [hash, now, ...scopeParams] };
 }
 
 const contextOrder = `ORDER BY c.role <> 'customer', c.role, c.business_id, c.id`;

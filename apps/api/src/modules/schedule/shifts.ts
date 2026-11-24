@@ -4,7 +4,7 @@ import type { CommandStatement } from "../../db/commit";
 import { accessClock, at, displayName, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import { currentMembership } from "../jobs/projections";
-import { foreman, jobOpen, publishedCustomerUpdate, scheduleAccess, targetId } from "./policy";
+import { foreman, jobOpen, publishedCustomerUpdate } from "./policy";
 
 const pageSize = 50;
 const array = (select: string) => `(SELECT json_group_array(json(value)) FROM (${select}))`;
@@ -68,8 +68,7 @@ function pendingOffer() {
      WHERE o.slot_id = slot.id AND m.business_id = j.business_id AND o.state = 'offered' AND o.expires_at > ${at})))`;
 }
 
-export function readShift(session: SessionAccess, now: number, shift: string): CommandStatement {
-  const access = scheduleAccess(session, now, { kind: "shift", id: shift });
+function shiftDetailSql(resource: string, scope: string, membership: string, rosterAccess: string): string {
   const assignments = array(`SELECT ${assignmentJson("a", `, 'member', json_object('id', m.id, 'displayName', ${displayName("worker")}),
     'confirmedByName', ${displayName("actor")}, 'droppedAt', a.dropped_at, 'dropoutReason', a.dropout_reason`)} AS value
     FROM assignments a JOIN memberships m ON m.id = a.worker_membership_id AND m.business_id = j.business_id
@@ -89,10 +88,10 @@ export function readShift(session: SessionAccess, now: number, shift: string): C
     `CASE WHEN sh.state IN ('planned', 'active') AND ${jobOpen()} THEN j.alias END`, "a.starts_at", "a.ends_at")},
     'assignment', ${assignmentJson("a")}, 'holds', json(${holdsJson("h.assignment_id = a.id")}), 'crewThreadId', NULL)
     FROM assignments a JOIN shift_slots slot ON slot.id = a.slot_id AND slot.shift_id = sh.id
-    WHERE a.worker_membership_id = ${currentMembership("scope", at)} AND a.state = 'confirmed' AND a.confirmed_at <= ${at}
+    WHERE a.worker_membership_id = ${membership} AND a.state = 'confirmed' AND a.confirmed_at <= ${at}
       AND sh.state <> 'cancelled' AND v.state IN ('booked', 'finished') AND j.state <> 'cancelled' AND j.place_state = 'in_area'
     ORDER BY a.confirmed_at DESC, a.id LIMIT 1`;
-  return scopedStatement(access, `SELECT (SELECT CASE WHEN ${foreman("scope")} THEN json_object('view', 'foreman',
+  return `(SELECT CASE WHEN ${rosterAccess} THEN json_object('view', 'foreman',
     'shift', ${shiftJson("j.site_zone", "j.alias")}, 'slots', json(${slots}), 'holds', json(${rosterHolds}),
     'customerUpdate', json(coalesce((SELECT json_object('state', 'published', 'kind', cu.kind, 'publishedAt', cu.recorded_at)
       FROM customer_updates cu WHERE cu.visit_id = v.id AND ${publishedCustomerUpdate("cu")} ORDER BY cu.recorded_at DESC, cu.id DESC LIMIT 1),
@@ -101,9 +100,28 @@ export function readShift(session: SessionAccess, now: number, shift: string): C
       WHEN NOT (${missingSlot}) THEN 'share_update' WHEN sh.starts_at > ${at} THEN CASE WHEN EXISTS (
         SELECT 1 FROM cover_gaps cg JOIN shift_slots slot ON slot.id = cg.slot_id WHERE slot.shift_id = sh.id
           AND cg.state IN ('open', 'accepted_pending_confirmation') AND cg.safe_cutoff > ${at}) THEN 'find_cover' ELSE 'assign_crew' END END END)
-    WHEN scope.role = 'worker' AND scope.business_id = j.business_id THEN (${worker}) END
-    FROM live_scope scope CROSS JOIN schedule_job j JOIN visits v ON v.job_id = j.id
-    JOIN shifts sh ON sh.visit_id = v.id AND sh.id = ${targetId}) AS value FROM acting_session`);
+    WHEN ${scope}.role = 'worker' AND ${scope}.business_id = j.business_id THEN (${worker}) END
+    FROM shifts sh JOIN visits v ON v.id = sh.visit_id
+    JOIN (
+      SELECT job.id, job.reference, job.trade, job.state, job.business_id, job.accountable_foreman_membership_id,
+        p.state AS place_state, p.alias, coalesce(p.site_zone, area.site_zone) AS site_zone, b.state AS business_state
+      FROM jobs job JOIN places p ON p.id = job.place_id JOIN businesses b ON b.id = job.business_id
+      JOIN operating_areas area ON area.id = b.catchment_id
+    ) j ON j.id = v.job_id WHERE sh.id = ${resource})`;
+}
+
+export function readShift(session: SessionAccess, now: number, shift: string): CommandStatement {
+  const value = shiftDetailSql("?", "scope", currentMembership("scope", at), foreman("scope"));
+  return scopedStatement(accessClock(session, now),
+    `SELECT (SELECT ${value} FROM live_scope scope) AS value FROM acting_session`, shift);
+}
+
+export const shiftLinkRosterAllowed = (scope: string) => `(${scope}.business_id = j.business_id
+  AND (${scope}.role = 'provider_admin' OR (${scope}.role = 'foreman'
+    AND ${scope}.membership_id = j.accountable_foreman_membership_id)))`;
+
+export function projectShiftLinkSql(resource: string, scope: string): string {
+  return shiftDetailSql(resource, scope, `${scope}.membership_id`, shiftLinkRosterAllowed(scope));
 }
 
 function nextAction(clock: string) {

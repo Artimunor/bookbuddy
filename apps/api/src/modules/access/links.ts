@@ -1,6 +1,6 @@
 import { threadLinkKind, threadLinkResolver } from "../chat/links";
 import { jobIntakeLinkResolver, jobRecordLinkResolver } from "../links/job";
-import { crewAvailabilityLinkResolver } from "../links/schedule";
+import { crewAvailabilityLinkResolver, shiftLinkResolver } from "../links/schedule";
 import { registerLinkResolver } from "../links";
 import type { LinkResolver } from "../links";
 import { inviteKind, managesBusiness } from "./policy";
@@ -62,4 +62,5 @@ for (const [kind, resolver] of Object.entries(coverLinkResolver)) registerLinkRe
 for (const kind of ["job_update", "quote_ready", "visit_live"]) registerLinkResolver(kind, jobRecordLinkResolver);
 registerLinkResolver("job_handoff", jobIntakeLinkResolver);
 registerLinkResolver("crew_availability", crewAvailabilityLinkResolver);
+registerLinkResolver("shift", shiftLinkResolver);
 registerLinkResolver(threadLinkKind, threadLinkResolver);
