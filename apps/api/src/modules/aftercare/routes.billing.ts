@@ -3,6 +3,7 @@ import {
   issueBillRoute, listJobCasesRoute, operationIdHeader, recordCheckingRoute, recordPaidRoute, releaseDeferralRoute, submitProblemCaseRoute,
 } from "@bookbuddy/api-contract";
 import type { ErrorBody, ResponseSchema } from "@bookbuddy/api-contract";
+import { looksLikeAccessCode } from "@bookbuddy/domain";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { ApiEnv } from "../../bindings";
@@ -13,7 +14,6 @@ import { openRequestScope } from "../../db/scope";
 import type { RequestScope } from "../../db/scope";
 import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
-import { hasEntrySecret } from "../places/policy";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import { changeBillPayment, deferCollection, issueBill, readBill, releaseDeferral } from "./bills";
 import { appendCaseEvent, readJobCases, readProblemCase, submitProblemCase } from "./cases";
@@ -79,5 +79,5 @@ post(confirmNoFundsRoute, (ctx, session, input) => changeBillPayment(ctx, sessio
 post(deferCollectionRoute, deferCollection);
 post(releaseDeferralRoute, releaseDeferral);
 post(submitProblemCaseRoute, (ctx, session, input, env) => submitProblemCase(ctx, session, input, env.CASE_STEWARD_ACCOUNT_ID),
-  ({ body }) => !hasEntrySecret(body.payload.description.text));
-post(appendCaseEventRoute, appendCaseEvent, ({ body }) => !body.payload.content || !hasEntrySecret(body.payload.content.text));
+  ({ body }) => !looksLikeAccessCode(body.payload.description.text));
+post(appendCaseEventRoute, appendCaseEvent, ({ body }) => !body.payload.content || !looksLikeAccessCode(body.payload.content.text));
