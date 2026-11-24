@@ -41,7 +41,10 @@ function rewritePendingStorage(previous: string | null, next: string | null) {
           const raw = sessionStorage.getItem(key);
           const value: unknown = JSON.parse(raw ?? "null");
           const intent = parts[1];
-          const metadata = operationMetadata(value, version !== 0 && (intent === "submit-request" || intent.startsWith("place:")));
+          const metadata = operationMetadata(value, version === 0 ? undefined : {
+            legacyPlace: intent === "submit-request" || intent.startsWith("place:"),
+            nestedRevision: version === 1 && intent === "submit-request",
+          });
           if (metadata) {
             // A decline needs no invitation read after recovering its receipt.
             const decline = version !== 0 && intent.startsWith("invitation:") && value && typeof value === "object" &&
@@ -100,21 +103,30 @@ export type StoredOperation = {
   operationId: string;
   expectedRevision?: number;
   placeId?: string;
+  reviewPlace?: true;
 };
 
-function operationMetadata(value: unknown, legacyPlace = false): StoredOperation | null {
+function isRevision(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function operationMetadata(value: unknown, legacy?: { legacyPlace: boolean; nestedRevision: boolean }): StoredOperation | null {
   if (!value || typeof value !== "object" || !("operationId" in value)) return null;
   const operationId = operationIdSchema.safeParse(value.operationId);
   if (!operationId.success) return null;
   const metadata: StoredOperation = { operationId: operationId.data };
-  if ("expectedRevision" in value && typeof value.expectedRevision === "number" &&
-    Number.isSafeInteger(value.expectedRevision) && value.expectedRevision >= 0) {
-    metadata.expectedRevision = value.expectedRevision;
-  }
+  const revision = "expectedRevision" in value ? value.expectedRevision : undefined;
+  const request = legacy?.nestedRevision && "request" in value ? value.request : undefined;
+  const nested = request && typeof request === "object" && "expectedRevision" in request ? request.expectedRevision : undefined;
+  if (isRevision(revision)) metadata.expectedRevision = revision;
+  else if (isRevision(nested)) metadata.expectedRevision = nested;
   const placeId = "placeId" in value ? value.placeId
-    : legacyPlace && "resourceIds" in value && Array.isArray(value.resourceIds) ? value.resourceIds[0] : undefined;
+    : legacy?.legacyPlace && "resourceIds" in value && Array.isArray(value.resourceIds) ? value.resourceIds[0] : undefined;
   const place = idSchema.safeParse(placeId);
   if (place.success) metadata.placeId = place.data;
+  if (!legacy && place.success && metadata.expectedRevision !== undefined && "reviewPlace" in value && value.reviewPlace === true) {
+    metadata.reviewPlace = true;
+  }
   return metadata;
 }
 export function readPendingOperation(key: StorageKey): StoredOperation | null {
@@ -130,6 +142,16 @@ export function savePendingOperation(key: StorageKey, operation: StoredOperation
   if (!metadata) return false;
   try { sessionStorage.setItem(key.key, JSON.stringify(metadata)); return true; }
   catch { return false; }
+}
+
+export function preparePendingRetry(key: StorageKey, operationId: string, placeId?: string, expectedRevision?: number) {
+  const pending = readPendingOperation(key);
+  if (!pending || pending.operationId !== operationId) return null;
+  if (!pending.reviewPlace) return pending;
+  if (placeId !== pending.placeId || !isRevision(expectedRevision) || expectedRevision === pending.expectedRevision) return null;
+  // Persist the reviewed revision before sending. If that response is lost, replay exactly this revision.
+  const reviewed: StoredOperation = { operationId, placeId, expectedRevision };
+  return savePendingOperation(key, reviewed) ? reviewed : null;
 }
 
 export function clearPendingOperation(key: StorageKey, operationId: string) {

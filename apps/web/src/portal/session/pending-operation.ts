@@ -4,7 +4,7 @@ import { useSession } from "./index";
 import { attemptPendingOperation, type CommandResult, type PendingInput } from "./pending-attempt";
 import {
   anonymousSupportScope, clearPendingOperation, pendingOperationKey, pendingOperationScopeIsCurrent,
-  readPendingOperation, savePendingOperation, settleMissingPendingOperation, type StorageKey, type StoredOperation,
+  preparePendingRetry, readPendingOperation, savePendingOperation, settleMissingPendingOperation, type StorageKey, type StoredOperation,
 } from "./pending-storage";
 
 export type PendingOperationState = "idle" | "sending" | "checking" | "failed" | "unknown" | "committed";
@@ -74,9 +74,10 @@ export function usePendingOperation<P extends PendingInput, R>(
   }
 
   function resend(input: P) {
-    if (!storage || busy.current === storage || !viewIsCurrent() || !canResend) return;
-    const previous = readPendingOperation(storage);
-    if (previous && previous.operationId === pending?.operationId) void attempt(input, previous);
+    if (!storage || busy.current === storage || !viewIsCurrent() || !canResend || !pending) return;
+    const previous = preparePendingRetry(storage, pending.operationId, recovery.placeId?.(input), input.expectedRevision);
+    if (previous) void attempt(input, previous);
+    else if (pending.reviewPlace) setDisplay({ storage, state: "failed" });
   }
 
   async function attempt(input: P, previous?: StoredOperation) {
@@ -84,7 +85,7 @@ export function usePendingOperation<P extends PendingInput, R>(
     const operationId = previous?.operationId ?? input.operationId;
     busy.current = storage;
     setDisplay({ storage, state: "sending" });
-    const result = await attemptPendingOperation(send, input, previous);
+    const result = await attemptPendingOperation(send, input, previous, recovery.replay ? recovery.placeId : undefined);
     release();
     if (!pendingOperationScopeIsCurrent(storage)) return;
     if (result.kind === "rejected" && result.code === "UNAUTHENTICATED" && bootstrap) {
@@ -100,6 +101,9 @@ export function usePendingOperation<P extends PendingInput, R>(
       setDisplay({ storage, state: "unknown", replacement: { operationId, confirmedInput: result.replacement } });
     } else if (result.kind === "uncertain") {
       setDisplay({ storage, state: "checking" });
+    } else if (result.kind === "stale") {
+      const saved = savePendingOperation(storage, result.operation);
+      setDisplay({ storage, state: saved ? "unknown" : "failed" });
     } else {
       if (!previous) clearPendingOperation(storage, operationId);
       setDisplay({ storage, state: "failed" });

@@ -22,7 +22,11 @@ export function Settings() {
     <Card><Select label={t("web.portal.auth.reading")} hint={t("web.portal.auth.originalHint")} value={preferences.readingLocale ?? ""} disabled={disabled} onChange={e=>void save({readingLocale:e.target.value || null})}>
       <option value="">{t("web.portal.auth.original")}</option>{["en","es","de","ro","ar","pt-PT"].map(tag=><option key={tag} value={tag}>{names.of(tag)}</option>)}
     </Select></Card>
-    <Card><SwitchRow label={t("web.portal.auth.twoClock")} checked={preferences.twoClock} disabled={disabled} onCheckedChange={twoClock=>void save({twoClock, displayZone: twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone : null})}/><SegmentedControl label={t("web.portal.ps.appearance")} value={preferences.theme} disabled={disabled} options={[{value:"system",label:t("web.portal.ps.system")},{value:"light",label:t("web.portal.ps.light")},{value:"dark",label:t("web.portal.ps.dark")}]} onValueChange={theme=>{ if(theme !== preferences.theme) void save({theme}); }}/></Card>
+    <Card>
+      <SwitchRow label={t("web.portal.auth.twoClock")} checked={preferences.twoClock} disabled={disabled} onCheckedChange={twoClock=>void save({twoClock, displayZone: twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone : null})}/>
+      <SwitchRow label={t("web.portal.auth.shareDisplayZone")} checked={preferences.shareDisplayZone} disabled={disabled} onCheckedChange={shareDisplayZone=>void save({shareDisplayZone})}/>
+      <SegmentedControl label={t("web.portal.ps.appearance")} value={preferences.theme} disabled={disabled} options={[{value:"system",label:t("web.portal.ps.system")},{value:"light",label:t("web.portal.ps.light")},{value:"dark",label:t("web.portal.ps.dark")}]} onValueChange={theme=>{ if(theme !== preferences.theme) void save({theme}); }}/>
+    </Card>
     {command.state === "failed" && <p role="alert">{t("web.portal.auth.notSaved")}</p>}{command.state === "checking" && <><p role="status">{t("web.portal.auth.uncertain")}</p><Button onClick={command.check}>{t("web.portal.work.checkAgain")}</Button></>}<p>{t("web.portal.ps.unchangedTerms")}</p>
     <PendingReceiptNotice state={command.state} />
     <Card><SignOutControl /></Card>

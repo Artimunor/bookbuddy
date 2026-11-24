@@ -5,7 +5,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { Button } from "../../ui";
 import { Frame, usePortal } from "../now/common";
 import { usePortalAuth } from "../session";
-import { storeCheckedOpening } from "./handoff";
+import { requiresNativeApp, storeCheckedOpening } from "./handoff";
 
 export function Notifications() {
   const { api, locale, activeContext, t } = usePortal();
@@ -39,7 +39,7 @@ export function LinkResolver() {
     else if(opening.kind === "completion" && opening.completion.audience === "customer") destination = `/portal/jobs/${encodeURIComponent(opening.completion.job.jobId)}/completion`;
     else if(opening.kind === "bill" && opening.bill.audience === "customer") destination = `/portal/jobs/${encodeURIComponent(opening.bill.job.jobId)}/bill`;
     else if(opening.kind === "problem_case" && opening.case.audience === "reporter" && activeContext?.role === "customer") destination = `/portal/jobs/${encodeURIComponent(opening.case.job.jobId)}/cases/${encodeURIComponent(opening.case.receipt.id)}`;
-    if(!destination) {setStatus(opening.kind === "cover" || opening.kind === "assignment_offer" || opening.kind === "crew_availability" || opening.kind === "business_overview" || opening.kind === "business_member" || opening.kind === "business_eligibility" || opening.kind === "completion" && opening.completion.audience !== "customer" || opening.kind === "bill" && opening.bill.audience !== "customer" || opening.kind === "problem_case" && activeContext?.role !== "customer" || opening.kind === "switch_context" && opening.choices.every(choice=>choice.scope.role !== "customer") ? "native" : "unavailable"); return;}
+    if(!destination) {setStatus(requiresNativeApp(opening, activeContext?.role === "customer") ? "native" : "unavailable"); return;}
     const state = location.state as { notificationId?: unknown; contextId?: unknown } | null;
     if(activeContext && typeof state?.notificationId === "string" && state.contextId === activeContext.contextId) void markNotificationsRead(api,{contextId:activeContext.contextId,operationId:crypto.randomUUID(),payload:{mode:"ids",ids:[state.notificationId]}});
     const checkedNonce = bootstrap && opening.kind !== "thread" ? storeCheckedOpening(opening, bootstrap.sessionId, activeContext?.contextId ?? null) : null;

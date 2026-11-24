@@ -7,7 +7,7 @@ import { usePortalAuth, useSession } from "../session";
 import { usePendingOperation } from "../session/pending-operation";
 import { PendingReceiptNotice } from "../session/pending-receipt";
 import { formatPortalClock, formatViewerTime } from "../time";
-import { authDraft, type Device } from "./flow";
+import { authDraft, initialSetupClocks, type Device } from "./flow";
 import "./styles.css";
 
 const deviceId = (() => {
@@ -220,7 +220,7 @@ function SetupForm({ session, next, accept, locale }: { session: SessionBootstra
   const matched = readingLanguages.find((tag) => tag.toLowerCase() === initialLanguage.toLowerCase() || tag.split("-")[0] === initialLanguage.split("-")[0]);
   const [name, setName] = useState(session.account.displayName ?? "");
   const [reading, setReading] = useState(session.preferences.readingLocale ?? matched ?? "");
-  const [twoClock, setTwoClock] = useState(viewerZone !== "Europe/Madrid");
+  const [clocks, setClocks] = useState(() => initialSetupClocks(viewerZone));
   const authClient = usePortalAuth();
   const { reload } = useSession();
   const command = usePendingOperation("setup",
@@ -234,16 +234,20 @@ function SetupForm({ session, next, accept, locale }: { session: SessionBootstra
     if (checking) { command.check(); return; }
     if (!name.trim()) return;
     command.start({ operationId: crypto.randomUUID(), expectedRevision: session.preferences.revision,
-      payload: { displayName: name.trim(), readingLocale: reading || null, twoClock, displayZone: twoClock ? viewerZone ?? null : null } });
+      payload: { displayName: name.trim(), readingLocale: reading || null, ...clocks, displayZone: clocks.twoClock ? viewerZone ?? null : null } });
   }
-  const example = formatPortalClock(Date.UTC(2026, 10, 24, 8), "Europe/Madrid", locale, twoClock ? viewerZone : undefined, Date.UTC(2026, 10, 24, 9));
+  const example = formatPortalClock(Date.UTC(2026, 10, 24, 8), "Europe/Madrid", locale, clocks.twoClock ? viewerZone : undefined, Date.UTC(2026, 10, 24, 9));
   const names = new Intl.DisplayNames([locale], { type: "language" });
   return <Frame><h1>{t("web.portal.auth.setupTitle")}</h1><form onSubmit={save}>
     <TextField label={t("web.portal.auth.name")} hint={t("web.portal.auth.nameHint")} value={name} maxLength={100} readOnly={checking || busy} onChange={(event) => setName(event.target.value)} />
     <Select label={t("web.portal.auth.reading")} hint={t("web.portal.auth.originalHint")} value={reading} disabled={checking || busy} onChange={(event) => setReading(event.target.value)}>
       <option value="">{t("web.portal.auth.original")}</option>{readingLanguages.map((tag) => <option key={tag} value={tag}>{names.of(tag)}</option>)}
     </Select>
-    <Card><div className="space-y-3"><SwitchRow label={t("web.portal.auth.twoClock")} checked={twoClock} disabled={checking || busy} onCheckedChange={setTwoClock} />{example && <TwoClock {...example} />}</div></Card>
+    <Card><div className="space-y-3">
+      <SwitchRow label={t("web.portal.auth.twoClock")} checked={clocks.twoClock} disabled={checking || busy} onCheckedChange={twoClock => setClocks(old => ({ ...old, twoClock }))} />
+      <SwitchRow label={t("web.portal.auth.shareDisplayZone")} checked={clocks.shareDisplayZone} disabled={checking || busy} onCheckedChange={shareDisplayZone => setClocks(old => ({ ...old, shareDisplayZone }))} />
+      {example && <TwoClock {...example} />}
+    </div></Card>
     <p>{t("web.portal.auth.permissions")}</p>{offline && <p role="status">{t("web.portal.auth.offline")}</p>}
     {checking && <p role="status">{t("web.portal.auth.uncertain")}</p>}{command.state === "failed" && <p role="alert">{t("web.portal.auth.notSaved")}</p>}
     <PendingReceiptNotice state={command.state} />
