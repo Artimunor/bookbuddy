@@ -9,7 +9,8 @@ import type {
   RouteResponse,
 } from "@bookbuddy/api-contract";
 
-export type ApiFetch = (url: string, init: RequestInit) => Promise<Response>;
+type TransportRequest = RequestInit & { redirect?: "error" | "follow" | "manual" };
+export type ApiFetch = (url: string, init: TransportRequest) => Promise<Response>;
 
 export type ApiClientOptions = {
   baseUrl: string;

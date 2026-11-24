@@ -1,10 +1,11 @@
+import { uuid } from "expo";
 import { createMemoryExecutor } from "./memory.web";
 import { MobileRepository } from "./repository";
 
 let repository: MobileRepository | undefined;
 
 export async function openMobileRepository(): Promise<MobileRepository> {
-  return repository ??= new MobileRepository(createMemoryExecutor(), () => globalThis.crypto.randomUUID());
+  return repository ??= new MobileRepository(createMemoryExecutor(), uuid.v4);
 }
 
 // The preview does not stage app-owned native files or persist any bytes.
