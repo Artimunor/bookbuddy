@@ -1,6 +1,6 @@
-import { acceptInvitationRoute, declineInvitationRoute, linkTokenSchema, openLinkRoute, sessionContextRoute, type InvitationOpening, type LinkOpening } from "@bookbuddy/api-contract";
+import { acceptInvitationRoute, declineInvitationRoute, idSchema, linkTokenSchema, notificationReadRoute, openLinkRoute, sessionContextRoute, type InvitationOpening, type LinkOpening } from "@bookbuddy/api-contract";
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { useCommand, useRemote } from "../../api";
 import { useApiAccess } from "../../api/provider";
@@ -14,6 +14,7 @@ import { useBeaconTheme } from "../../ui/theme";
 import { authFlow } from "../s-02/flow";
 import { isolated, roleLabel, roleRoots } from "../s-06/account";
 import { confirmAction } from "../s-17/confirmAction";
+import { OfferView } from "../w-03/Screen";
 
 type Pending = Extract<InvitationOpening, { status: "pending" }>;
 type Accepted = Extract<InvitationOpening, { status: "accepted" }>;
@@ -39,9 +40,14 @@ function destination(link: Destination, role: string | undefined, opaque: string
       if (record.audience === "worker") return { pathname: "/w/shifts/[shiftId]", params: { shiftId: record.job.assignment.shiftId } } as Href;
       return "/p/jobs" as Href;
     }
+    case "completion": return link.completion.audience === "customer"
+      ? { pathname: "/c/jobs/[jobId]/completion", params: { jobId: link.completion.job.jobId } } as Href
+      : { pathname: "/f/jobs/[jobId]/wrap-up", params: { jobId: link.completion.job.jobId } } as Href;
     case "cover": return link.cover.audience === "foreman"
       ? { pathname: "/f/cover/[gapId]", params: { gapId: link.cover.gapId } } as Href
-      : { pathname: "/w/offers/[offerId]", params: { offerId: link.cover.offer.offerId } } as Href;
+      : "gapId" in link.cover.offer
+        ? { pathname: "/w/offers/[offerId]", params: { offerId: link.cover.offer.offerId, gapId: link.cover.offer.gapId } } as Href
+        : help();
     case "assignment_offer": return { pathname: "/w/offers/[offerId]", params: { offerId: link.offer.offerId } } as Href;
     case "crew_availability": return { pathname: "/w/availability", params: { date: link.date, opaque } } as Href;
   }
@@ -50,7 +56,7 @@ function destination(link: Destination, role: string | undefined, opaque: string
 export default function LinkScreen({ invitationOnly = false }: { invitationOnly?: boolean }) {
   const router = useRouter();
   const t = useT();
-  const { opaque: raw } = useLocalSearchParams<{ opaque?: string }>();
+  const { opaque: raw, notificationId: rawNotification } = useLocalSearchParams<{ opaque?: string; notificationId?: string }>();
   const parsed = linkTokenSchema.safeParse(raw);
   const opaque = parsed.success ? parsed.data : undefined;
   const { session, bootstrap, status, signOut, acceptBootstrap } = useSession();
@@ -59,6 +65,15 @@ export default function LinkScreen({ invitationOnly = false }: { invitationOnly?
   const accept = useCommand(acceptInvitationRoute);
   const decline = useCommand(declineInvitationRoute);
   const switchContext = useCommand(sessionContextRoute);
+  const markNotification = useCommand(notificationReadRoute);
+  const markedNotification = useRef<string | null>(null);
+  useEffect(() => {
+    const id = idSchema.safeParse(rawNotification);
+    const contextId = session?.activeContext?.contextId;
+    if (!id.success || !contextId || remote.status !== "ready" || !remote.data || remote.data.kind === "unavailable" || remote.data.kind === "switch_context" || markedNotification.current === id.data) return;
+    markedNotification.current = id.data;
+    void markNotification.run({ body: { contextId, payload: { mode: "ids", ids: [id.data] } } });
+  }, [rawNotification, session?.activeContext?.contextId, remote.status, remote.data, markNotification.run]);
   const drafts = usePendingDrafts(true);
   const sends = usePendingSends();
   const media = useStagedMediaCount();
@@ -129,6 +144,12 @@ export default function LinkScreen({ invitationOnly = false }: { invitationOnly?
   if (!opaque) return <Redirect href={help()} />;
   if (!invitationOnly && remote.status === "error" && (remote.error?.code === "NOT_FOUND" || remote.error?.code === "UNAUTHENTICATED")) return <Redirect href={help()} />;
   const link = remote.status === "ready" ? remote.data : null;
+  if (!invitationOnly && link?.kind === "cover" && link.cover.audience === "worker" && !("gapId" in link.cover.offer)) {
+    return <OfferView data={link.cover.offer} status="ready" now={Date.now()} busy={false} checking={false} failed={false}
+      acceptOpen={false} decision={null} onBack={safeRoot} onRetry={() => { void remote.refresh(); }}
+      onOpenAccept={() => {}} onCloseAccept={() => {}} onAccept={() => {}} onDecision={() => {}} onSubmitDecision={() => {}}
+      onShift={(shiftId) => router.replace({ pathname: "/w/shifts/[shiftId]", params: { shiftId } } as Href)} />;
+  }
   if (link && !invitationOnly) {
     if (link.kind === "invitation") return <Redirect href={{ pathname: "/invite/[opaque]", params: { opaque } }} />;
     if (link.kind === "switch_context") return <Redirect href={{ pathname: "/switch-role", params: { opaque } }} />;

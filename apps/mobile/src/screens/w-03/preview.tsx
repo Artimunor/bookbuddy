@@ -1,0 +1,12 @@
+import { workerCoverOfferSchema } from "@bookbuddy/api-contract";
+import type { ScreenPreview } from "../../preview/screens/types";
+import { OfferView } from "./Screen";
+const sentAt = Date.parse("2026-11-24T07:33:00Z"), replyBy = Date.parse("2026-11-24T07:42:00Z");
+const base = { kind: "cover", offerId: "offer_diego", gapId: "gap_nadia", roundNo: 1, revision: 3, town: "Xàbia", task: "Terrace door repair", skill: "Door fitting", briefingLanguage: "es", siteZone: "Europe/Madrid", window: { startsAt: Date.parse("2026-11-24T08:00:00Z"), endsAt: Date.parse("2026-11-24T09:00:00Z") }, replyBy, foremanName: "Mateo Ruiz", businessName: "Reformas Ruiz", sentAt, workingLanguages: ["es"], availability: { state: "free" } };
+const open = workerCoverOfferSchema.parse({ ...base, state: "offered" });
+const { availability: _availability, ...heldBase } = base;
+const held = workerCoverOfferSchema.parse({ ...heldBase, state: "accepted_pending_confirmation", acceptedAt: Date.parse("2026-11-24T07:38:00Z"), confirmBy: Date.parse("2026-11-24T07:43:00Z") });
+const filled = workerCoverOfferSchema.parse({ kind: "cover", offerId: "offer_lucia", state: "filled_elsewhere", endedAt: Date.parse("2026-11-24T07:40:00Z"), siteZone: "Europe/Madrid" });
+const expired = workerCoverOfferSchema.parse({ kind: "cover", offerId: "offer_diego", state: "expired", endedAt: replyBy, siteZone: "Europe/Madrid" });
+const noop = () => {};
+export const previews: ScreenPreview[] = ["open", "accept-sheet", "awaiting-confirmation", "filled-elsewhere", "expired", "offline"].map(state => ({ id: "W-03", state, render: () => <OfferView data={state === "filled-elsewhere" ? filled : state === "expired" ? expired : state === "awaiting-confirmation" ? held : open} status={state === "offline" ? "offline" : "ready"} now={Date.parse("2026-11-24T07:37:00Z")} busy={false} checking={false} failed={false} acceptOpen={state === "accept-sheet"} decision={null} onBack={noop} onRetry={noop} onOpenAccept={noop} onCloseAccept={noop} onAccept={noop} onDecision={noop} onSubmitDecision={noop} onShift={noop} /> }));

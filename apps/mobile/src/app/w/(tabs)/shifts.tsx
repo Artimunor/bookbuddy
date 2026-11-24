@@ -1,1 +1,1 @@
-export { default } from "../../../navigation/empty-route";
+export { default } from "../../../screens/w-02/Screen";

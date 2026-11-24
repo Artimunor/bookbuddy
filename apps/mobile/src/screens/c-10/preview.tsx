@@ -1,0 +1,14 @@
+import { customerCompletionSchema } from "@bookbuddy/api-contract";
+import type { ScreenPreview } from "../../preview/screens/types";
+import { CompletionView } from "./Screen";
+export const job = { jobId: "job-1042", reference: "BB-1042", title: "Terrace door repair", placeAlias: "Villa Mar", siteZone: "Europe/Madrid", providerDisplayName: "Reformas Ruiz" };
+const at = Date.parse("2026-11-24T09:15:00Z");
+const text = (original: string, translation: string) => ({ original: { language: "es", text: original }, reading: { status: "ready", language: "en", text: translation } });
+const ref = { kind: "quote", quoteVersionId: "quote-1", lineNo: 1 };
+export const completion = customerCompletionSchema.parse({ audience: "customer", job, approvedScope: { quoteVersionId: "quote-1", version: 1, termsHash: "terms", totalMinor: 24000, currency: "EUR", scope: text("Ajustar la puerta de la terraza.", "Adjust the terrace door."), exclusions: text("No incluye pintura.", "Painting not included."), lines: [{ ref, label: text("Ajustar la puerta", "Adjust the terrace door"), evidenceRule: "Photo" }] }, namedApproverDisplayName: "Claire Martin", history: [], signOff: null, openCases: [], submission: { id: "completion-1", version: 1, state: "submitted", submitted: { at, actorDisplayName: "Mateo Ruiz" }, finishedAt: at - 180000, items: [{ id: "item-1", scope: ref, outcome: "done", result: text("Desliza y cierra", "Slides and locks"), evidenceAlternative: null, photos: [{ attachmentId: "photo-1", availability: "available", capturedAt: at, caption: text("Después del ajuste", "After adjustment") }] }] }, actions: { signOff: true, seeBill: false, reportProblem: true } });
+export const receipt = { id: "signoff-1", completionId: "completion-1", completionVersion: 1, quoteVersionId: "quote-1", termsHash: "terms", at: at + 1500000, actorDisplayName: "Claire Martin" };
+const signed = customerCompletionSchema.parse({ ...completion, signOff: receipt, submission: { ...completion.submission, state: "signed_off" }, actions: { signOff: false, seeBill: true, reportProblem: true } });
+const unavailable = customerCompletionSchema.parse({ ...completion, submission: { ...completion.submission, items: [{ ...completion.submission!.items[0], photos: [{ ...completion.submission!.items[0]!.photos[0], availability: "unavailable" }] }] } });
+const problem = customerCompletionSchema.parse({ ...completion, openCases: [{ id: "case-1", reference: "BB-CASE1", state: "open" }] });
+const noop = () => {}; const props = { status: "ready" as const, onBack: noop, onRetry: noop, onSign: noop, onNavigate: noop };
+export const previews: ScreenPreview[] = [{ state: "awaiting-review", data: completion }, { state: "signed-off", data: signed }, { state: "evidence-unavailable", data: unavailable }, { state: "problem-opened", data: problem }].map(({ state, data }) => ({ id: "C-10", state, render: () => <CompletionView {...props} data={data} /> }));

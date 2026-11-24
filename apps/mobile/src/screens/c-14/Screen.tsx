@@ -15,7 +15,7 @@ type Mode = "view" | "edit" | "invite";
 
 export default function PlaceScreen() {
   const router = useRouter();
-  const { placeId } = useLocalSearchParams<{ placeId: string }>();
+  const { placeId, returnTo } = useLocalSearchParams<{ placeId: string; returnTo?: string }>();
   const isNew = placeId === "new";
   const remote = useRemote(getPlaceRoute, { params: { p: placeId ?? "" } }, { enabled: !!placeId && !isNew });
   const create = useCommand(createPlaceRoute);
@@ -69,7 +69,7 @@ export default function PlaceScreen() {
     if (!payload.alias || !payload.address || codeWarning || busy) return;
     if (isNew) {
       const result = await create.run({ body: { payload } });
-      if (result.ok) router.replace(`/c/places/${result.data.id}` as Href);
+      if (result.ok) router.replace((returnTo === "request" ? `/c/request/place?placeId=${result.data.id}` : `/c/places/${result.data.id}`) as Href);
     } else if (place && read && draftSource === read) {
       const source = read;
       const result = await patch.run({ params: { p: place.id }, body: { expectedRevision: place.revision, payload } });

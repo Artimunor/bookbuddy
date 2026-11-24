@@ -2,16 +2,17 @@ import { getJobRoute, type JobDetail } from "@bookbuddy/api-contract";
 import { JOURNEY_STEPS } from "@bookbuddy/domain";
 import type { Translator } from "@bookbuddy/i18n";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { View } from "react-native";
 import { useRemote } from "../../api";
 import type { RemoteStatus } from "../../api/requests";
 import { useFormat, useT } from "../../i18n";
 import { useSession } from "../../session";
-import { Badge, Button, Card, Dock, ListRow, Screen, StatusBanner } from "../../ui/controls";
+import { Badge, Button, Card, Dock, ListRow, Screen, SegmentedControl, StatusBanner } from "../../ui/controls";
 import { Copy, Target } from "../../ui/controls/shared";
 import { CrewDots, JobLine, Stamp } from "../../ui/live";
 import { journeyLabels } from "../c-01/common";
+import { LiveVisitScreen } from "../c-09/Screen";
 
 type Job = Extract<Extract<JobDetail, { audience: "customer" }>["job"], { view: "whole" }>;
 type Moment = Job["history"]["items"][number];
@@ -46,15 +47,27 @@ function momentPath(jobId: string, item: Moment): string | null {
 }
 
 export default function JobHomeScreen() {
-  const { jobId } = useLocalSearchParams<{ jobId: string; view?: string }>();
+  const { jobId, view: requestedView } = useLocalSearchParams<{ jobId: string; view?: string }>();
   const router = useRouter();
   const { preferences } = useSession();
+  const [view, setView] = useState<"today" | "whole">(requestedView === "whole" ? "whole" : "today");
+  useEffect(() => { setView(requestedView === "whole" ? "whole" : "today"); }, [requestedView]);
   const remote = useRemote(getJobRoute, { params: { j: jobId ?? "" }, query: { view: "whole" } }, { enabled: !!jobId });
   useEffect(() => {
     if (remote.error?.code === "NOT_FOUND" || remote.error?.code === "UNAUTHENTICATED") router.replace("/help?reason=removed" as Href);
   }, [remote.error, router]);
   const job = remote.data?.audience === "customer" && remote.data.job.view === "whole" ? remote.data.job : null;
-  return <JobHomeView job={job} status={jobId ? remote.status : "error"} twoClock={preferences?.twoClock ?? false} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} onNavigate={(path) => router.push(path as Href)} />;
+  const lastVisit = useRef<{ jobId: string; visitId: string } | null>(null);
+  if (job?.hasTodayView && job.nextVisit) lastVisit.current = { jobId: job.jobId, visitId: job.nextVisit.visitId };
+  const liveVisitId = job?.hasTodayView ? job.nextVisit?.visitId : remote.status === "offline" && lastVisit.current?.jobId === jobId ? lastVisit.current.visitId : undefined;
+  const switcher = <JobViewSwitcher value={view} onChange={next => { setView(next); router.setParams({ view: next }); }} />;
+  if (view === "today" && liveVisitId) return <LiveVisitScreen visitId={liveVisitId} twoClock={preferences?.twoClock ?? false} viewSwitcher={switcher} onBack={() => router.back()} onNavigate={path => router.push(path as Href)} />;
+  return <JobHomeView job={job} status={jobId ? remote.status : "error"} twoClock={preferences?.twoClock ?? false} onBack={() => router.back()} onRetry={() => { void remote.refresh(); }} onNavigate={(path) => router.push(path as Href)} viewSwitcher={switcher} />;
+}
+
+function JobViewSwitcher({ value, onChange }: { value: "today" | "whole"; onChange: (value: "today" | "whole") => void }) {
+  const t = useT();
+  return <SegmentedControl label={t("mobile.liveVisit.views")} value={value} onChange={onChange} options={[{ value: "today", label: t("mobile.liveVisit.today") }, { value: "whole", label: t("mobile.liveVisit.whole") }]} />;
 }
 
 /** C-09 can supply an in-place Today/Whole job switch without adding a route. */

@@ -30,10 +30,11 @@ export default function configureApp({ projectRoot }: ConfigContext): ExpoConfig
       }),
     },
     web: { bundler: "metro", output: "single" },
-    extra: { apiBaseUrl },
+    extra: { apiBaseUrl, ...(process.env.EAS_PROJECT_ID ? { eas: { projectId: process.env.EAS_PROJECT_ID } } : {}) },
     plugins: [
       "expo-router",
       "expo-dev-client",
+      "expo-notifications",
       ["expo-localization", { supportedLocales, supportsRTL }],
       ["expo-sqlite", { useSQLCipher: true }],
       "./src/repository/with-ios-offline-directory.cjs",

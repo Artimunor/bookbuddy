@@ -1,0 +1,14 @@
+import { customerBillProjectionSchema } from "@bookbuddy/api-contract";
+import type { ScreenPreview } from "../../preview/screens/types";
+import { job, receipt } from "../c-10/preview";
+import { BillView } from "./Screen";
+const issued = Date.parse("2026-11-24T09:42:00Z"); const paidAt = Date.parse("2026-11-25T08:05:00Z");
+const matched = { id: "payment-1", priorId: null, actorRole: "provider_admin", actorDisplayName: "Mateo Ruiz", at: paidAt, kind: "matched", amountMinor: 24000, corrected: false };
+const base = { id: "bill-1", number: "RR-0412", version: 1, state: "issued", replacesId: null, netMinor: 24000, taxMinor: 0, totalMinor: 24000, currency: "EUR", issuedAt: issued, dueAt: issued + 604800000, lines: [{ lineNo: 1, originalLabel: "Reparación de puerta", originalLanguage: "es", netMinor: 24000, taxMinor: 0, labelReading: { status: "ready", language: "en", text: "Door repair" } }], matchesApprovedScope: true, documentUrl: null, paymentInstructions: { instructions: { language: "es", text: "Transferencia bancaria" }, reference: "RR-0412" }, history: [], openCases: [], activeDeferral: null };
+const due = customerBillProjectionSchema.parse({ audience: "customer", job, signOff: receipt, bill: { ...base, outcome: { status: "due", record: null } }, priorBills: [] });
+const paid = customerBillProjectionSchema.parse({ ...due, bill: { ...base, paymentInstructions: null, outcome: { status: "paid", record: matched }, history: [matched] } });
+const correction = { id: "payment-2", priorId: "payment-1", actorRole: "provider_admin", actorDisplayName: "Mateo Ruiz", at: paidAt + 780000, kind: "corrected", reason: "Bank reference did not match RR-0412" };
+const checking = customerBillProjectionSchema.parse({ ...due, bill: { ...base, paymentInstructions: null, outcome: { status: "checking", record: correction }, history: [{ ...matched, corrected: true }, correction] } });
+const query = customerBillProjectionSchema.parse({ ...due, bill: { ...due.bill, openCases: [{ id: "case-1", reference: "BB-CASE1", state: "open" }] } });
+const none = customerBillProjectionSchema.parse({ ...due, bill: null }); const noop = () => {};
+export const previews: ScreenPreview[] = [{ state: "no-bill-yet", data: none }, { state: "bill-due", data: due }, { state: "marked-paid", data: paid }, { state: "checking-transfer", data: checking }, { state: "query-raised", data: query }].map(({ state, data }) => ({ id: "C-11", state, render: () => <BillView data={data} status="ready" onBack={noop} onRetry={noop} onOpen={noop} onShare={noop} onNavigate={noop} /> }));
