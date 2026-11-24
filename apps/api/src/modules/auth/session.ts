@@ -79,8 +79,10 @@ export function sessionProjection(prefix: CommandStatement): CommandStatement {
       SELECT s.session_id, s.expires_at, s.context_id, a.id AS account_id, a.email_normalized,
              a.display_name, a.setup_at, p.ui_locale, p.reading_locale, p.theme, p.field_mode, p.two_clock, p.revision,
              (SELECT json_group_array(json(choice)) FROM (
-               SELECT json_object('contextId', c.id, 'role', c.role, 'businessId', c.business_id) AS choice
-               FROM account_contexts c WHERE c.account_id = a.id AND ${liveContextPredicate} ${contextOrder}
+               SELECT json_patch(json_object('contextId', c.id, 'role', c.role, 'businessId', c.business_id),
+                                 json_object('businessName', business.public_name)) AS choice
+               FROM account_contexts c LEFT JOIN businesses business ON business.id = c.business_id
+               WHERE c.account_id = a.id AND ${liveContextPredicate} ${contextOrder}
              )) AS contexts
       FROM acting_session s JOIN accounts a ON a.id = s.account_id
       JOIN account_preferences p ON p.account_id = a.id`,

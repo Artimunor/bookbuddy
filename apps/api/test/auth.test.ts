@@ -231,7 +231,8 @@ test("context switching uses current grant authority and cannot replay a revoked
   const worker = { operationId: "switch-worker", payload: { contextId: "worker-context" } };
   const switchTo = (input: unknown) => req("/session/context", "POST", input, headers);
   const before = db.calls.batch;
-  expect((await data<SessionBootstrap>(await switchTo(worker))).activeContext?.role).toBe("worker");
+  expect((await data<SessionBootstrap>(await switchTo(worker))).activeContext)
+    .toMatchObject({ role: "worker", businessName: "Public Name" });
   expect(db.calls.batch).toBe(before + 1);
   await db.prepare("UPDATE membership_roles SET revoked_at = ?, revoked_by = ? WHERE id = 'grant'").bind(now, id).run();
   await error(await switchTo(worker), 404);

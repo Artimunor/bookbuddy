@@ -27,11 +27,13 @@ export const activeContextSchema = z.discriminatedUnion("role", [
     contextId: contextIdSchema,
     role: contextRoleSchema.extract(["customer"]),
     businessId: z.null(),
+    businessName: z.never().optional(),
   }),
   z.object({
     contextId: contextIdSchema,
     role: contextRoleSchema.exclude(["customer"]),
     businessId: businessIdSchema,
+    businessName: z.string().optional(),
   }),
 ]);
 export type ActiveContext = z.infer<typeof activeContextSchema>;
