@@ -151,7 +151,8 @@ export function JobControlView({ job, visit, status, visitStatus, busy, checking
         <Card>
           <VersionRow kind="quote" version={job.quote} root={root} history={job.history?.items} onNavigate={onNavigate} siteZone={job.siteZone} />
           {job.change && <VersionRow kind="change" version={job.change} root={root} history={job.history?.items} onNavigate={onNavigate} siteZone={job.siteZone} />}
-          {job.nextVisit && <ListRow label={t("mobile.jobControl.schedule")} description={stampTime(format, job.nextVisit.window.startsAt, job.siteZone)} onPress={() => onNavigate(`${root}/schedule`)} />}
+          {(job.nextVisit || (job.quote?.state === "approved" && !job.journey.cancelled && !hasSignedOff)) &&
+            <ListRow label={t("mobile.jobControl.schedule")} description={job.nextVisit ? stampTime(format, job.nextVisit.window.startsAt, job.siteZone) : undefined} onPress={() => onNavigate(`${root}/schedule`)} />}
           {staffedVisit?.shifts.map(shift => <ListRow key={shift.shiftId} label={t("mobile.cover.shift")} onPress={() => onNavigate(`/f/shifts/${shift.shiftId}`)} />)}
         </Card>
         <History history={job.history?.items ?? []} earlier={earlier} status={earlierStatus} siteZone={job.siteZone} onEarlier={onEarlier} onRetry={onRetryEarlier} />
