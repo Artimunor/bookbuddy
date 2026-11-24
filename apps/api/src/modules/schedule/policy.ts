@@ -28,6 +28,12 @@ export function scheduleAccess(session: SessionAccess, now: number, target: Sche
 export const targetId = "(SELECT id FROM schedule_target)";
 export const jobOpen = (j = "j") => `(${j}.state = 'open' AND ${j}.place_state = 'in_area' AND ${j}.business_state = 'approved')`;
 
+// The second clock uses the job customer's saved preference, never a location or a device zone.
+export const optedInCustomerZone = `(SELECT prefs.display_zone FROM account_preferences prefs
+  WHERE prefs.account_id = j.requester_id AND prefs.two_clock = 1 AND j.place_state IN ('in_area', 'out_of_area')
+    AND EXISTS (SELECT 1 FROM place_people pp JOIN accounts requester ON requester.id = pp.account_id AND requester.state = 'active'
+      WHERE pp.place_id = j.place_id AND pp.account_id = prefs.account_id AND ${currentPerson("pp")}))`;
+
 export function foreman(scope: string, j = "j") {
   const member = currentMembership(scope, at);
   return `(${scope}.role = 'foreman' AND ${scope}.business_id = ${j}.business_id AND (

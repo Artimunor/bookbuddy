@@ -7,7 +7,7 @@ import { calendarDay, calendarWeek, intersect, localDate, mergeSpans } from "./c
 import type { Span } from "./calendar";
 import {
   approvedQuoteJoin, capacity, confirmationMode, confirmedWindow, currentNoCrewStamp, customer, eligibleWorkers, foreman,
-  jobOpen, namedApprover, noWithdrawal, provider, scheduleAccess, unstarted, visitManager,
+  jobOpen, namedApprover, noWithdrawal, optedInCustomerZone, provider, scheduleAccess, unstarted, visitManager,
 } from "./policy";
 
 const bool = (predicate: string) => `json(CASE WHEN ${predicate} THEN 'true' ELSE 'false' END)`;
@@ -61,6 +61,7 @@ export function changedVisitJson(visitId: string) {
 export function readJobWindows(session: SessionAccess, now: number, job: string): CommandStatement {
   const access = scheduleAccess(session, now, { kind: "job", id: job });
   return scopedStatement(access, `SELECT (SELECT json_object('job', ${jobJson("j")}, 'siteZone', j.site_zone,
+    'customerZone', CASE WHEN scope.account_id = j.requester_id THEN ${optedInCustomerZone} END,
     'foremanName', (SELECT ${displayName("a")} FROM memberships m JOIN accounts a ON a.id = m.account_id
       WHERE m.id = j.accountable_foreman_membership_id), 'approvedQuote', json(${quoteJson("q")}),
     'withdrawalAcceptedAt', (SELECT a.at FROM approvals a JOIN terms_versions t ON t.id = q.terms_id
@@ -100,6 +101,7 @@ export function readBusinessSchedule(session: SessionAccess, now: number, busine
   const access = scheduleAccess(session, now, { kind: "job", id: job });
   return scopedStatement(access, `, week_input(day) AS (VALUES (?)), visit_input(id) AS (VALUES (?))
     SELECT (SELECT json_object('businessId', j.business_id, 'job', ${jobJson("j")}, 'siteZone', j.site_zone,
+      'customerZone', CASE WHEN scope.role = 'foreman' THEN ${optedInCustomerZone} END,
       'approvedQuote', json(${quoteJson("q")}), 'visit', json(CASE WHEN v.id IS NOT NULL THEN ${visitJson("j", "v", "booked", "scope")} END),
       'bookedByName', (SELECT ${displayName("a")} FROM accounts a WHERE a.id = booked.confirmed_by),
       'lanes', json(CASE WHEN ${jobOpen()} THEN ${lanesJson(at)} END))

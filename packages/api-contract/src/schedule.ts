@@ -5,7 +5,7 @@ import {
 import { z } from "zod";
 import { membershipIdSchema } from "./access";
 import {
-  businessIdSchema, commandInputSchema, idSchema, idSchemaFor, localeTagSchema, paginationInputSchema, paginationSchema,
+  businessIdSchema, commandInputSchema, idSchema, idSchemaFor, localePreferencesSchema, localeTagSchema, paginationInputSchema, paginationSchema,
   revisionSchema, timestampSchema,
 } from "./common";
 import { defineRoute } from "./route";
@@ -73,6 +73,7 @@ export const visitScheduleSchema = z.object({
 export const jobWindowsSchema = z.object({
   job: jobSummary,
   siteZone,
+  customerZone: localePreferencesSchema.shape.displayZone,
   foremanName: displayName.nullable(),
   approvedQuote: approvedQuote.nullable(),
   // An independent commercial entitlement, not a cancellation or a request to the provider.
@@ -96,6 +97,7 @@ export const businessScheduleSchema = z.object({
   businessId: businessIdSchema,
   job: jobSummary,
   siteZone,
+  customerZone: localePreferencesSchema.shape.displayZone,
   approvedQuote: approvedQuote.nullable(),
   visit: visitScheduleSchema.nullable(),
   bookedByName: displayName.nullable(),

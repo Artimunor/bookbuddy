@@ -142,9 +142,11 @@ test("live arrival corrections append and customer read never contains private r
     expect((await f.call("foreman", updatePath,
       operation("photo", { id: "photo", kind: "photo", attachmentId: "arbitrary" }, 2))).status).toBe(422);
     expect((await f.call("outside", livePath)).status).toBe(404);
+    await f.db.prepare(`INSERT INTO account_preferences (account_id, display_zone, two_clock) VALUES ('customer', 'Europe/London', 1)`).run();
     const customer = customerLiveVisitSchema.parse((await f.call("customer", livePath)).body.data);
     expect(customer.confirmedCrewNames).toEqual(["helper name", "worker name"]);
     expect(customer.siteZone).toBe("Europe/Madrid");
+    expect(customer).not.toHaveProperty("customerZone");
     expect(customer.jobThreadId).toBe("job-thread");
     expect(customer.window).toEqual({ id: "window", startsAt: start, endsAt: end });
     expect(customer.live.arrival).toMatchObject({ kind: "arrival_revised", band: revised });
@@ -154,6 +156,9 @@ test("live arrival corrections append and customer read never contains private r
     expect((await f.call("customer", livePath)).body).toMatchObject({ data: { live: { status: null, arrival: null } } });
     clock.mockReturnValue(now);
     const control = foremanVisitControlSchema.parse((await f.call("foreman", livePath)).body.data);
+    expect(control.customerZone).toBe("Europe/London");
+    await f.db.prepare("UPDATE account_preferences SET two_clock = 0 WHERE account_id = 'customer'").run();
+    expect((await f.call("foreman", livePath)).body).toMatchObject({ data: { customerZone: null } });
     expect(control.crew.find(({ assignmentId }) => assignmentId === "assignment")?.attendance.hasPendingReview).toBe(true);
     const withdrawal = operation("withdraw-estimate", { id: "withdrawn", kind: "arrival_withdrawn", correctsId: "corrected" }, 2);
     expect((await f.call("foreman", updatePath, withdrawal)).body).toMatchObject({ data: { revision: 3,

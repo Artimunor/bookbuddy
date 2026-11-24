@@ -6,7 +6,7 @@ import {
 import type { TeachBackChecklist } from "@bookbuddy/domain";
 import { z } from "zod";
 import {
-  attachmentIdSchema, commandInputSchema, idSchema, idSchemaFor, localeTagSchema, paginationInputSchema, paginationSchema,
+  attachmentIdSchema, commandInputSchema, idSchema, idSchemaFor, localePreferencesSchema, localeTagSchema, paginationInputSchema, paginationSchema,
   revisionSchema, timestampSchema,
 } from "./common";
 import { defineRoute } from "./route";
@@ -184,6 +184,7 @@ const shareKind = z.enum(["on_the_way", "arrival_revised", "arrival_withdrawn", 
 // F-05 and F-17: the private work state and the last published state are independent.
 export const foremanVisitControlSchema = z.strictObject({
   visitId, revision: revisionSchema, job: jobHeading, siteZone, customerName: displayText,
+  customerZone: localePreferencesSchema.shape.displayZone,
   work: workStamp.nullable(), window: bookedWindow, customerPreview: customerLiveSummary,
   crew: z.array(z.strictObject({
     assignmentId, workerName: displayText, state: z.enum(ASSIGNMENT_STATES), estimate: estimateReceipt.nullable(), attendance,

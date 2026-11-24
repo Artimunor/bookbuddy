@@ -8,7 +8,7 @@ import { currentMembership } from "../jobs/projections";
 import { createLinkTarget, linkTokenFor } from "../links";
 import { mediaLinkAvailable } from "../media/deadlines";
 import { placeCapability } from "../places/policy";
-import { confirmedWindow, currentNoCrewStamp, customer, foreman, jobOpen, publishedCustomerUpdate } from "../schedule/policy";
+import { confirmedWindow, currentNoCrewStamp, customer, foreman, jobOpen, optedInCustomerZone, publishedCustomerUpdate } from "../schedule/policy";
 import { coverAllowsShortage } from "../staffing/cover";
 import { readyPhotoSql, workerFieldChangeRows } from "./attendance";
 import {
@@ -134,8 +134,10 @@ const crewControl = jsonRows(`SELECT json_object('assignmentId', crew.id, 'worke
     ${visitAssignments} WHERE ${assignedCrew} AND a.state IN ('confirmed', 'completed') AND sh.state <> 'cancelled'
     ORDER BY sh.starts_at, slot.number, a.id) crew`);
 
-const controlProjection = `(WITH work AS MATERIALIZED (${workRows("v.id")}), blocked AS MATERIALIZED (${blockedAssignments})
+function visitControlProjection(includeCustomerZone: boolean) {
+  return `(WITH work AS MATERIALIZED (${workRows("v.id")}), blocked AS MATERIALIZED (${blockedAssignments})
   SELECT json_object('visitId', v.id, 'revision', v.revision, 'job', json(${headingSql("j")}), 'siteZone', j.site_zone,
+    ${includeCustomerZone ? `'customerZone', ${optedInCustomerZone},` : ""}
     'customerName', j.customer_name, 'window', json(${windowSql("booked")}), 'customerPreview', json(${customerSummary}),
     'work', json((SELECT ${workStampSql("work")} FROM work)), 'crew', json(${crewControl}),
     'workGate', json(CASE WHEN v.state = 'finished' THEN json_object('status', 'finished')
@@ -149,6 +151,10 @@ const controlProjection = `(WITH work AS MATERIALIZED (${workRows("v.id")}), blo
       UNION ALL SELECT 'arrival_withdrawn' WHERE ${beforeOnSite} AND ${travelCurrent(latestStamp(travelKinds))}
       UNION ALL SELECT 'paused' WHERE (SELECT kind FROM work) = 'work_started'
       UNION ALL SELECT 'photo') WHERE v.state = 'booked' AND ${jobOpen()}))))`;
+}
+
+const controlProjection = visitControlProjection(false);
+const shareUpdateProjection = visitControlProjection(true);
 
 // Reused by the foreman's online site log; neither grants access via a cast nor requests a second read.
 export function foremanControlSql(visit: string, scope: string): string {
@@ -161,7 +167,7 @@ export function readVisitLive(session: SessionAccess, now: number, id: string, c
   const access = accessClock(session, now);
   return scopedStatement(access, `, visit_input(id, before_at, before_id) AS (VALUES (?, ?, ?))
     SELECT (SELECT CASE WHEN ${liveCustomer} THEN ${customerVisitSql("input.before_at", "input.before_id")}
-      WHEN ${foreman("scope")} THEN ${controlProjection} END
+      WHEN ${foreman("scope")} THEN ${shareUpdateProjection} END
       ${visitFrom} CROSS JOIN live_scope scope CROSS JOIN visit_input input WHERE v.id = input.id AND ${visitReadable}) AS value
     FROM acting_session`, id, position.at, position.id);
 }

@@ -151,10 +151,11 @@ test("proposals make no holds; competing jobs consume the one available slot onc
       data: { kind: "job", record: { audience: "customer", job: { jobId: "alpha", view: "whole" } } },
     });
     expect(await f.db.prepare("SELECT count(*) AS total FROM shifts").first("total")).toBe(0);
+    await f.db.prepare(`INSERT INTO account_preferences (account_id, display_zone, two_clock) VALUES ('customer', 'Europe/London', 1)`).run();
     const windows = await f.call("customer", "/jobs/alpha/windows");
-    expect(windows.body).toMatchObject({ data: { visits: [{ bookedWindow: null, offeredWindows: [{ confirmationMode: "booking" }] }] } });
+    expect(windows.body).toMatchObject({ data: { customerZone: "Europe/London", visits: [{ bookedWindow: null, offeredWindows: [{ confirmationMode: "booking" }] }] } });
     expect(JSON.stringify(windows.body)).not.toMatch(/crew-member|Private address|capacity/);
-    expect((await f.call("viewer", "/jobs/alpha/windows")).body).toMatchObject({ data: { visits: [{ offeredWindows: [{ confirmationMode: null }] }] } });
+    expect((await f.call("viewer", "/jobs/alpha/windows")).body).toMatchObject({ data: { customerZone: null, visits: [{ offeredWindows: [{ confirmationMode: null }] }] } });
     const confirm = (job: string, actor: Actor, race = false) => f.call(actor, `/windows/${job}-window/confirm`, {
       body: write(`${job}-confirm`, 1, { approvedQuoteVersionId: `${job}-version` }), race,
     });
@@ -180,9 +181,12 @@ test("proposals make no holds; competing jobs consume the one available slot onc
     expect((await f.call("crew", "/shifts")).body).toMatchObject({ data: { segment: "upcoming", rows: [], total: 0 } });
     expect((await f.call("second", "/shifts?segment=offers")).body).toMatchObject({ data: { segment: "offers", rows: [] } });
     expect((await f.call("foreman", `/businesses/business/schedule?jobId=${loser}&weekOf=2026-11-23`)).body)
-      .toMatchObject({ data: { capacity: { state: "ready", days: [{ date: "2026-11-23", lanes: [{ membershipId: "crew-member" }] },
+      .toMatchObject({ data: { customerZone: "Europe/London", capacity: { state: "ready", days: [{ date: "2026-11-23", lanes: [{ membershipId: "crew-member" }] },
         ...Array.from({ length: 6 }, () => expect.anything())] } } });
     expect((await f.call("other", `/businesses/business/schedule?jobId=${loser}`)).status).toBe(404);
+    expect((await f.call("provider", `/businesses/business/schedule?jobId=${loser}`)).body).toMatchObject({ data: { customerZone: null } });
+    await f.db.prepare("UPDATE account_preferences SET two_clock = 0 WHERE account_id = 'customer'").run();
+    expect((await f.call("foreman", `/businesses/business/schedule?jobId=${loser}`)).body).toMatchObject({ data: { customerZone: null } });
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
