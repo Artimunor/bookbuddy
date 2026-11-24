@@ -201,7 +201,7 @@ interface FeedRow {
   value: string | null;
 }
 
-export type FeedPage = Pick<SyncPage, "mode" | "context" | "upserts" | "removals" | "hasMore"> & {
+export type FeedPage = Pick<SyncPage, "mode" | "context" | "upserts" | "removals" | "hasMore" | "snapshotComplete"> & {
   accountId: SyncCursor["accountId"]; epoch: number; sessionsEpoch: number; nextExpiry: number | null; position: CursorPosition;
 };
 
@@ -217,7 +217,8 @@ export function decodeFeed(results: readonly D1Result[], cursor: SyncCursor | nu
     // Only an authenticated former recipient with a signed context may purge a revoked scope.
     if (!cursor) return "NOT_FOUND";
     return { mode: "reset", accountId, context: cursor.context, epoch: cursor.epoch, sessionsEpoch: first.sessions_epoch, nextExpiry: null,
-      upserts: [], removals: [{ kind: "scope", resourceId: cursor.context.contextId }], position: { phase: "revoked" }, hasMore: false };
+      upserts: [], removals: [{ kind: "scope", resourceId: cursor.context.contextId }], position: { phase: "revoked" },
+      hasMore: false, snapshotComplete: false };
   }
   const context: ScopeHeader = scopeHeaderSchema.parse({ contextId: first.context_id, businessId: first.business_id, role: first.role });
   const removals: SyncRemoval[] = first.barrier ? [{ kind: "scope", resourceId: context.contextId }] : [];
@@ -240,6 +241,7 @@ export function decodeFeed(results: readonly D1Result[], cursor: SyncCursor | nu
     }
   }
   const hasMoreInWindow = Boolean(first.has_more);
+  const snapshotComplete = first.mode !== "delta" && !hasMoreInWindow;
   const hasMore = hasMoreInWindow || first.high > (first.mode === "delta" ? first.delta_through : first.snapshot_anchor);
   const position: CursorPosition = first.mode === "delta"
     ? hasMoreInWindow && first.delta_last !== null
@@ -249,5 +251,5 @@ export function decodeFeed(results: readonly D1Result[], cursor: SyncCursor | nu
       ? { phase: "snapshot", anchor: first.snapshot_anchor, ...lastKey }
       : { phase: "delta", seq: first.snapshot_anchor };
   return { mode: first.mode, context, accountId, epoch: first.epoch, sessionsEpoch: first.sessions_epoch,
-    nextExpiry: first.next_expiry, removals, upserts, position, hasMore };
+    nextExpiry: first.next_expiry, removals, upserts, position, hasMore, snapshotComplete };
 }

@@ -138,7 +138,7 @@ test("tombstones, epoch reset, and live revocation drop old scope data before re
     expect(tombstone.removals).toEqual([{ kind: "notification", resourceId: "notice-a" }]);
     await f.db.prepare("INSERT INTO sync_scope_state (context_id, visibility_epoch) VALUES (?, 1)").bind(f.contextId).run();
     const reset = await f.sync(tombstone.cursor);
-    expect(reset.mode).toBe("reset");
+    expect(reset).toMatchObject({ mode: "reset", snapshotComplete: true });
     expect(reset.removals).toEqual([{ kind: "scope", resourceId: f.contextId }]);
     expect(reset.upserts.map(({ kind, resourceId }) => ({ kind, resourceId }))).toEqual([
       { kind: "crew_availability", resourceId: "member" },
@@ -147,7 +147,8 @@ test("tombstones, epoch reset, and live revocation drop old scope data before re
     ]);
     await f.db.prepare("UPDATE membership_roles SET revoked_at = 2, revoked_by = 'actor' WHERE id = 'grant'").run();
     const revoked = await f.sync(reset.cursor, [readMark("notice-b")]);
-    expect(revoked).toMatchObject({ mode: "reset", upserts: [], removals: [{ kind: "scope", resourceId: f.contextId }], hasMore: false,
+    expect(revoked).toMatchObject({ mode: "reset", upserts: [], removals: [{ kind: "scope", resourceId: f.contextId }],
+      hasMore: false, snapshotComplete: false,
       outcomes: [{ status: "rejected", error: { code: "NOT_FOUND" } }] });
     const unproven = await f.request("/sync", "POST", { contextId: f.contextId, cursor: null, operations: [] });
     expect(unproven.status).toBe(404);
@@ -162,7 +163,7 @@ test("snapshot anchor catches an insert behind its keyset and never returns over
       SELECT printf('x-%03d', n), ?, printf('event-%03d', n), 'invitation', 'notice-target', n FROM ids`).bind(f.contextId).run();
     const first = await f.sync(null);
     expect(first.upserts).toHaveLength(100);
-    expect(first.hasMore).toBe(true);
+    expect(first).toMatchObject({ mode: "snapshot", hasMore: true, snapshotComplete: false });
     await f.db.batch([
       f.db.prepare(`INSERT INTO notifications (id, context_id, event_key, kind, link_token, created_at)
         VALUES ('a-late', ?, 'late', 'invitation', 'notice-target', 5)`).bind(f.contextId),
@@ -171,8 +172,9 @@ test("snapshot anchor catches an insert behind its keyset and never returns over
     ]);
     const last = await f.sync(first.cursor);
     expect(last.upserts).toHaveLength(2);
-    expect(last.hasMore).toBe(true);
+    expect(last).toMatchObject({ mode: "snapshot", hasMore: true, snapshotComplete: true });
     const delta = await f.sync(last.cursor);
+    expect(delta).toMatchObject({ mode: "delta", hasMore: false, snapshotComplete: false });
     expect(delta.upserts.map((upsert) => upsert.resourceId)).toEqual(["a-late"]);
   } finally { f.db.close(); }
 });

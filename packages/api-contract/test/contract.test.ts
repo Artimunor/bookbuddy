@@ -90,8 +90,9 @@ test("sync envelopes limit the operation batch and combined upserts and removals
   const page = {
     mode: "reset", context: { contextId: "ctx-1", role: "worker", businessId: "b-1" }, outcomes: [],
     upserts: Array.from({ length: syncLimits.changes - 1 }, (_, i) => `p-${i}`),
-    removals: ["p-100"], cursor: "opaque.signature", hasMore: true,
+    removals: ["p-100"], cursor: "opaque.signature", hasMore: true, snapshotComplete: false,
   };
   expect(pageSchema.safeParse(page).success).toBe(true);
+  expect(pageSchema.safeParse({ ...page, snapshotComplete: undefined }).success).toBe(false);
   expect(pageSchema.safeParse({ ...page, removals: [...page.removals, "p-101"] }).success).toBe(false);
 });

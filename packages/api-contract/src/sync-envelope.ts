@@ -29,5 +29,7 @@ export function syncPageSchema<
     removals: z.array(removal).max(syncLimits.changes),
     cursor: cursorSchema,
     hasMore: z.boolean(),
+    // The snapshot is complete even if queued deltas keep hasMore true.
+    snapshotComplete: z.boolean(),
   }).refine((page) => page.upserts.length + page.removals.length <= syncLimits.changes);
 }
