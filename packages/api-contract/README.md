@@ -1,0 +1,9 @@
+# API contracts and client
+
+Put a feature's route definitions in `api-contract/src/<module>.ts` and its thin client wrappers in `api-client/src/<module>.ts`. In each package the only shared-file change is one line in `src/index.ts`: `export * from "./<module>";`. Coordinate that line with the phase integrator.
+
+Use `defineRoute({ method, path, input, output, auth })`. The path is relative to `/api/v1`, with `:param` as a whole segment. `input` is a synchronous Zod schema for `{ params?, query?, body? }`; the Worker passes the matching Hono request parts through `safeParse` before running the handler. Define the safe response projection in `output` and use the shared success and error envelopes. `auth` documents the scope; the Worker must still enforce it with current grants. `Accept-Language` never changes scope or persisted preferences.
+
+For a single idempotent command, set `command: true` and use `commandInputSchema(payload)` for its body. The client sends the same caller-owned `operationId` in JSON and in `X-Operation-Id`; the Worker must reject mismatches. Sync carries IDs on the individual operations, not on the request header. Use the sync factories with only the allowed operation and projection schemas, and enforce `syncLimits.requestBytes` before parsing on the Worker.
+
+Create the client with a trusted `baseUrl` including `/api/v1`. The browser can use `/api/v1` and `getSession: () => null` for its same-origin session cookie; native supplies its bearer credential from secure storage. Challenge and public routes do not load the native credential. Each `client.request(route, input)` makes at most one fetch. For commands, `delivery: "unknown"` means keep the same operation ID and reconcile through the feature's explicit status path; it does not mean retry or display a definitive failure.
