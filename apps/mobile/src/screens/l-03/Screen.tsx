@@ -140,27 +140,27 @@ export function SlotView({ detail, viewerZone, fixedPlaces, excludedSlotId, refu
     { label: privateSlot ? t("mobile.laterCustomer.holdAppointment") : t("mobile.laterCustomer.holdPlaces", { count: places }),
       disabled: !shownChoice || !!blocked || refusal?.reason === "active_hold_exists", busy, onPress: () => { if (shownChoice) onHold(chosen, places); } };
   return <Sheet visible title={t("mobile.laterCustomer.chooseTime")} closeLabel={t("mobile.laterCustomer.close")} onClose={onClose}
+    subtitle={version ? `${version.title} · ${display.instant(times[0]?.startsAt ?? Date.now(), version.venue.siteZone).zone}` : undefined}
     dock={<Dock primary={primary} context={blocked === "offline" ? t("mobile.laterCustomer.connectHold") : checking ? t("mobile.laterCustomer.checkingHold") :
       refusal?.reason === "places_unavailable" && !shownChoice ? t("mobile.laterCustomer.chooseAnother") : t("mobile.laterCustomer.nothingHeld")} />}>
-    {!!version && <Copy variant="supporting">{version.title} · {display.instant(times[0]?.startsAt ?? Date.now(), version.venue.siteZone).zone}</Copy>}
     {blocked && <Notice tone="attention" title={blocked === "offline" ? t("mobile.laterCustomer.offline") : t("mobile.laterCustomer.bookingUnavailable")} />}
     {!detail && !blocked && <SessionSkeleton />}
     {!!days.size && <View accessibilityRole="radiogroup" accessibilityLabel={t("mobile.laterCustomer.days")} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
       {[...days].map(([key, item]) => <ChoiceRadio key={key} pill label={display.date(item.at, item.zone)} disabled={locked} selected={selectedDay === key}
         onPress={() => { setDay(key); setSelection(undefined); setTooMany(false); }} />)}
     </View>}
-    {!!version && <Card>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <Copy variant="label">{privateSlot ? t("mobile.laterCustomer.oneAppointment") : t("mobile.laterCustomer.placesCount", { count: places })}</Copy>
+    {!!version && <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <View style={{ flexShrink: 1 }}>
+          <Copy variant="label">{privateSlot ? t("mobile.laterCustomer.oneAppointment") : t("mobile.laterCustomer.placesCount", { count: places })}</Copy>
+          <Copy variant="supporting">{display.price(version.price)}</Copy>
+        </View>
         {!privateSlot && fixedPlaces === undefined && <View style={{ flexDirection: "row", gap: 8 }}>
           <Button iconOnly glyph="−" label={t("mobile.laterCustomer.removePlace")} variant="neutral" disabled={locked || quantity === 1}
             onPress={() => { setQuantity(quantity - 1); setTooMany(false); }} />
           <Button iconOnly glyph="+" label={t("mobile.laterCustomer.addPlace")} variant="neutral" disabled={locked || quantity >= Math.max(1, ...times.map(slot => slot.capacity))}
             onPress={() => { setQuantity(quantity + 1); if (chosen && quantity + 1 > left(chosen)) { setSelection(undefined); setTooMany(true); } }} />
         </View>}
-      </View>
-      <Copy variant="supporting">{display.price(version.price)}</Copy>
-    </Card>}
+    </View>}
     {tooMany && <Notice tone="attention" title={t("mobile.laterCustomer.tooMany")} />}
     {refusal && <Notice tone="critical" title={refusal.reason === "places_unavailable" ? refusal.placesLeft ? t("mobile.laterCustomer.fewerPlaces", { count: refusal.placesLeft, requested: places }) : t("mobile.laterCustomer.slotTaken") :
       refusal.reason === "active_hold_exists" ? t("mobile.laterCustomer.activeHold") : refusal.reason === "booking_unavailable" ? t("mobile.laterCustomer.bookingUnavailable") : t("mobile.laterCustomer.holdFailed")}>

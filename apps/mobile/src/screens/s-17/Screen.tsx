@@ -51,14 +51,28 @@ export function ConfirmView({ request, state, onClose, onConfirm, onReview }: {
   const invalid = state === "invalidated" || !request;
   const title = request ? request.title : t("mobile.confirm.unavailable");
   const action = invalid ? t("mobile.confirm.review") : request!.actionLabel;
-  return <Dialog visible title={title} closeLabel={t("shared.action.close")} onClose={onClose} returnFocusRef={request?.returnFocusRef} actionOrder="confirm-first"
+  return <Dialog visible title={title} onClose={onClose} returnFocusRef={request?.returnFocusRef} actionOrder="confirm-first"
     cancel={{ label: t("shared.action.cancel"), onPress: onClose, disabled: state === "processing" }}
     confirm={{ label: action, onPress: invalid ? onReview : onConfirm, variant: request?.destructive ? "destructive" : "primary",
       disabled: !request || state === "processing" || state === "uncertain" || (!invalid && !!request.offline), busy: state === "processing" }}>
     {request && <>
-      <View style={{ backgroundColor: color.subtle, padding: space.grid[4], borderRadius: radius.input }}><Copy>{request.item}</Copy></View>
-      <Copy>{request.actor} · {request.role}</Copy>
-      {request.effects.map((effect, index) => <View key={index} style={{ flexDirection: "row", gap: space.grid[3] }}><Copy accessible={false}>✓</Copy><Copy style={{ flex: 1 }}>{effect}</Copy></View>)}
+      <View style={{ backgroundColor: color.subtle, padding: space.grid[4], borderRadius: radius.input, gap: space.grid[1] }}>
+        <Copy variant="caption" style={{ color: color.muted }}>{t("mobile.confirm.item")}</Copy>
+        <Copy variant="label">{request.item}</Copy>
+      </View>
+      <View style={{ gap: space.grid[1], paddingVertical: space.grid[2] }}>
+        <Copy variant="caption" style={{ color: color.muted }}>{t("mobile.confirm.actingAs")}</Copy>
+        <Copy variant="label">{request.actor}</Copy>
+        <Copy variant="supporting" style={{ color: color.muted }}>{request.role}</Copy>
+      </View>
+      <View>
+        {request.effects.map((effect, index) => <View key={index} style={{
+          flexDirection: "row", gap: space.grid[3], borderTopWidth: 1, borderTopColor: color.separator, paddingVertical: space.grid[2],
+        }}>
+          <Copy aria-hidden variant="supporting">✓</Copy>
+          <Copy variant="supporting" style={{ flex: 1 }}>{effect}</Copy>
+        </View>)}
+      </View>
       {request.offline && <Copy accessibilityLiveRegion="polite">{t("mobile.confirm.offline")}</Copy>}
       {state === "invalidated" && <Copy accessibilityLiveRegion="polite">{t("mobile.confirm.invalidated")}</Copy>}
       {state === "uncertain" && <Copy accessibilityLiveRegion="polite">{t("mobile.confirm.uncertain")}</Copy>}

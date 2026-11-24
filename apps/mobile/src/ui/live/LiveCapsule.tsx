@@ -7,7 +7,7 @@ import { JobLine, type JobLineProps, type JobLineStage } from "./JobLine";
 import { decorative, DirectedText, Glyph } from "./parts";
 
 export type LiveCapsuleState = "crewConfirmed" | "onTheWay" | "onSite" | "working" | "coverBeingArranged" |
-  "crewChanged" | "noUpdateSince" | "finished" | "quiet" | "paused";
+  "crewChanged" | "noUpdateSince" | "finished" | "quiet" | "paused" | "booked";
 
 export type LiveCapsuleProps = {
   size?: "hero" | "card" | "pill";
@@ -33,7 +33,7 @@ export type LiveCapsuleProps = {
 const metrics = native.componentMetrics.liveCapsule;
 const marks: Record<LiveCapsuleState, string> = {
   crewConfirmed: "✓", onTheWay: "»", onSite: "⌖", working: "●", coverBeingArranged: "…",
-  crewChanged: "↔", noUpdateSince: "○", finished: "✓", quiet: "○", paused: "Ⅱ",
+  crewChanged: "↔", noUpdateSince: "○", finished: "✓", quiet: "○", paused: "Ⅱ", booked: "○",
 };
 
 export function LiveCapsule({
@@ -43,11 +43,12 @@ export function LiveCapsule({
   const [focused, setFocused] = useState(false);
   const polarity = native.liveCapsule[scheme][field ? "field" : "standard"];
   const activity = state === "finished" ? "finished"
+    : state === "booked" ? "upcoming"
     : state === "noUpdateSince" || state === "quiet" || state === "paused" || state === "coverBeingArranged" ? "quiet"
     : "live";
   const pill = size === "pill";
   const lineSurface = field ? "fieldCapsule" : "capsule";
-  const accent = activity === "live" ? polarity.accent : polarity.text.color;
+  const accent = activity === "live" || activity === "upcoming" ? polarity.accent : polarity.text.color;
   const baseStyle = [polarity.surface, {
     borderRadius: pill ? metrics.pillRadius : metrics.radius,
     paddingHorizontal: metrics.padding,

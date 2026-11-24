@@ -10,6 +10,7 @@ import { useRepository, useVisibilityGeneration } from "../repository/hooks";
 import { useTransferRows } from "./attach";
 import { useMediaAccess } from "./provider";
 import type { MediaPreviewDetails } from "./provider";
+import { rememberBatchedPhotoPreview, takeBatchedPhotoPreview } from "./read-batch";
 import { isSentDraft } from "./types";
 import type { AttachmentId, MediaScope, MediaTransfer } from "./types";
 
@@ -57,10 +58,12 @@ export function useMediaRead(attachmentId: string | undefined, scope?: MediaScop
       validUntil = null;
       publish({ status: "loading" });
       try {
-        const reply = await createReadGrants({ scope: remote!, attachmentIds: [id!] }, { signal: abort.signal });
+        const shared = repository && takeBatchedPhotoPreview(repository, remote!, id!);
+        const cached = shared && shared.expiresAt > Date.now() ? shared : undefined;
+        const reply = cached ? undefined : await createReadGrants({ scope: remote!, attachmentIds: [id!] }, { signal: abort.signal });
         if (!current()) return;
-        const grant = reply.ok && reply.data.grants.find((entry) => entry.attachmentId === id);
-        if (grant && grant.state === "ready" && grant.expiresAt > Date.now()) {
+        const grant = cached ?? (reply?.ok && reply.data.grants.find((entry) => entry.attachmentId === id));
+        if (grant && grant.state === "ready" && (cached || grant.expiresAt > Date.now())) {
           validUntil = grant.expiresAt;
           publish({ status: "ready", grant });
           timer = setTimeout(() => {
@@ -68,7 +71,7 @@ export function useMediaRead(attachmentId: string | undefined, scope?: MediaScop
             void load();
           }, grant.expiresAt - Date.now());
         } else {
-          const unavailable = reply.ok || reply.error.code === "NOT_FOUND" || reply.error.code === "UNAUTHENTICATED";
+          const unavailable = !reply || reply.ok || reply.error.code === "NOT_FOUND" || reply.error.code === "UNAUTHENTICATED";
           publish({ status: unavailable ? "unavailable" : "error" });
         }
       } catch { publish({ status: "error" }); }
@@ -108,6 +111,7 @@ export function useOpenMediaPreview() {
   const { showPreview } = useMediaAccess();
   return (attachmentId: AttachmentId, scope: MediaScope, details?: MediaPreviewDetails) => {
     if (!repository?.isActive) return;
+    rememberBatchedPhotoPreview(repository, scope, attachmentId);
     showPreview(details ? { attachmentId, ...scope, details, repository } : null);
     router.push({ pathname: "/media/[attachmentId]", params: { attachmentId, ...scope } } as Href);
   };

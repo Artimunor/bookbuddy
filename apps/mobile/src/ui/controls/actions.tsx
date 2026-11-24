@@ -1,8 +1,8 @@
 import { native } from "@bookbuddy/design-tokens";
 import type { ComponentRef, ReactNode, Ref } from "react";
-import { ActivityIndicator, I18nManager, StyleSheet, View } from "react-native";
+import { ActivityIndicator, I18nManager, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useBeaconTheme } from "../theme";
-import { Copy, Target, controlMetrics } from "./shared";
+import { Copy, Target, controlMetrics, minTarget } from "./shared";
 
 export type ControlAction = {
   label: string;
@@ -58,8 +58,8 @@ export function Button({
         style={({ pressed }) => [
           styles.button,
           {
-            minHeight: metrics.primaryActionMinHeight,
-            minWidth: metrics.primaryActionMinHeight,
+            minHeight: variant === "navigation" && iconOnly ? minTarget(field) : metrics.primaryActionMinHeight,
+            minWidth: variant === "navigation" && iconOnly ? minTarget(field) : metrics.primaryActionMinHeight,
             borderRadius: radius.pill,
             borderWidth: live ? native.componentMetrics.dock.liveBorderWidth : metrics.controlBorderWidth,
             borderColor: boundary,
@@ -93,7 +93,7 @@ function Glyph({ color, children }: { color: string; children: ReactNode }) {
 }
 
 export type DockProps = {
-  primary: ControlAction & { live?: boolean };
+  primary: ControlAction & { live?: boolean; glyph?: string };
   secondary?: ControlAction & { glyph?: string; iconOnly?: boolean };
   context?: string;
 };
@@ -101,6 +101,9 @@ export type DockProps = {
 // Use as Screen.dock or Sheet.dock so the footer stays outside the scrolling content.
 export function Dock({ primary: { live, ...primary }, secondary, context }: DockProps) {
   const { color, field, space } = useBeaconTheme();
+  const { fontScale } = useWindowDimensions();
+  const iconAction = secondary?.iconOnly && fontScale < 1.5;
+  const primaryButton = <Button {...primary} variant={live ? "live" : "primary"} />;
   return (
     <View style={{
       backgroundColor: color.surface,
@@ -111,8 +114,13 @@ export function Dock({ primary: { live, ...primary }, secondary, context }: Dock
       gap: controlMetrics(field).controlGap,
     }}>
       {!!context && <Copy variant="supporting" style={{ color: color.muted }}>{context}</Copy>}
-      <Button {...primary} variant={live ? "live" : "primary"} />
-      {secondary && <Button {...secondary} variant="quiet" />}
+      {iconAction && secondary ? <View style={{ flexDirection: "row", alignItems: "center", gap: controlMetrics(field).controlGap }}>
+        <View style={{ flex: 1, minWidth: 0 }}>{primaryButton}</View>
+        <Button {...secondary} variant="neutral" />
+      </View> : <>
+        {primaryButton}
+        {secondary && <Button {...secondary} variant="quiet" />}
+      </>}
     </View>
   );
 }

@@ -4,21 +4,21 @@ import { useBeaconTheme } from "../theme";
 import { Button, type ControlAction } from "./actions";
 import { Copy, Target, controlMetrics, toneColors, type Tone } from "./shared";
 
-export type CardProps = { children: ReactNode } & (
+export type CardProps = { children: ReactNode; dense?: boolean } & (
   | { onPress?: undefined; accessibilityLabel?: never }
   | { onPress: () => void; accessibilityLabel: string }
 );
 
-export function Card({ children, onPress, accessibilityLabel }: CardProps) {
+export function Card({ children, onPress, accessibilityLabel, dense = false }: CardProps) {
   const { color, field, radius, space } = useBeaconTheme();
   const metrics = controlMetrics(field);
   const style = {
     backgroundColor: color.surface,
-    borderColor: onPress ? color.outline : color.separator,
-    borderWidth: onPress ? metrics.controlBorderWidth : 1,
+    borderColor: onPress && !dense ? color.outline : color.separator,
+    borderWidth: onPress && !dense ? metrics.controlBorderWidth : 1,
     borderRadius: radius.card,
-    padding: space.cardPadding,
-    gap: metrics.controlGap,
+    padding: dense ? space.grid[4] : space.cardPadding,
+    gap: dense ? space.grid[field ? 3 : 2] : metrics.controlGap,
   };
   if (!onPress) return <View style={style}>{children}</View>;
   return (

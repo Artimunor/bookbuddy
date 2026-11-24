@@ -102,3 +102,16 @@ export function Separator() {
   const { color } = useBeaconTheme();
   return <View aria-hidden style={{ height: 1, backgroundColor: color.separator }} />;
 }
+
+export function SessionFact({ glyph, title, detail }: { glyph: string; title: string; detail?: string }) {
+  const { color, radius, space } = useBeaconTheme();
+  return <View style={{ flexDirection: "row", gap: space.grid[3], alignItems: "flex-start" }}>
+    <View aria-hidden style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: radius.smallTile, backgroundColor: color.subtle }}>
+      <Copy variant="label">{glyph}</Copy>
+    </View>
+    <View style={{ flex: 1, minWidth: 0 }}>
+      <Copy variant="label">{title}</Copy>
+      {!!detail && <Copy variant="supporting" style={{ color: color.muted }}>{detail}</Copy>}
+    </View>
+  </View>;
+}

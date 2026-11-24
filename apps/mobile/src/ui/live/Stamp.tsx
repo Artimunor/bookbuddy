@@ -1,4 +1,5 @@
 import { native } from "@bookbuddy/design-tokens";
+import type { ReactNode } from "react";
 import { Image, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
 import { useBeaconTheme } from "../theme";
 import { Glyph } from "./parts";
@@ -11,9 +12,10 @@ export type StampProps = {
   attribution?: string;
   time: string;
   detail?: string;
+  compact?: boolean;
 } & (
-  | { kind: Exclude<StampKind, "photo">; photo?: never }
-  | { kind: "photo"; photo: { source: ImageSourcePropType; accessibilityLabel: string } }
+  | { kind: Exclude<StampKind, "photo">; photo?: never; thumbnail?: never }
+  | { kind: "photo"; photo?: { source: ImageSourcePropType; accessibilityLabel: string }; thumbnail?: ReactNode }
 ) & (
   | { state?: "confirmed"; stateLabel?: never }
   | { state: "pending" | "rejected" | "corrected" | "retracted"; stateLabel: string }
@@ -22,13 +24,21 @@ export type StampProps = {
 const metrics = native.componentMetrics.stamp;
 const marks: Record<StampKind, string> = { crew: "●", attendance: "⌖", photo: "▣", decision: "✓", system: "≋" };
 
-export function Stamp({ title, attribution, time, detail, kind, photo, state = "confirmed", stateLabel }: StampProps) {
+export function Stamp({ title, attribution, time, detail, kind, photo, thumbnail, compact, state = "confirmed", stateLabel }: StampProps) {
   const { color, type, space, radius, field } = useBeaconTheme();
   const pending = state === "pending";
   const negative = state === "rejected" || state === "retracted";
   const statusInk = pending ? color.attentionInk : negative ? color.criticalInk : state === "corrected" ? color.infoInk : color.ink;
   const glyphFill = pending ? color.attentionSoft : negative ? color.criticalSoft : state === "corrected" ? color.infoSoft : color.subtle;
   const mark = state === "corrected" ? "↺" : negative ? "×" : pending ? "…" : marks[kind];
+  if (compact && !photo && !thumbnail && state === "confirmed") {
+    return <View style={{ flexDirection: "row", alignItems: "center", alignSelf: "center", maxWidth: "100%",
+      borderWidth: 1, borderColor: color.separator, borderRadius: radius.pill,
+      paddingHorizontal: space.grid[3], paddingVertical: space.grid[2], gap: space.grid[2], backgroundColor: color.surface }}>
+      <Glyph mark={mark} color={statusInk} size={14} />
+      <Text style={[type.caption, native.tabularNumbers, { color: color.ink, flexShrink: 1 }]}>{[title, detail, attribution, time].filter(Boolean).join(" · ")}</Text>
+    </View>;
+  }
   return (
     <View style={[styles.stamp, {
       backgroundColor: color.surface, borderColor: color.separator, borderRadius: radius.card,
@@ -46,9 +56,9 @@ export function Stamp({ title, attribution, time, detail, kind, photo, state = "
         {attribution && <Text style={[type.supporting, { color: color.muted }]}>{attribution}</Text>}
         {detail && <Text style={[type.supporting, { color: color.ink }]}>{detail}</Text>}
         {stateLabel && <Text style={[type.supporting, { color: statusInk }]}>{stateLabel}</Text>}
-        {photo && (
+        {thumbnail ?? (photo && (
           <Image accessible accessibilityLabel={photo.accessibilityLabel} source={photo.source} style={[styles.photo, { borderRadius: radius.smallTile }]} />
-        )}
+        ))}
       </View>
     </View>
   );

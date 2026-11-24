@@ -19,11 +19,12 @@ export default function ChatDetailsScreen() {
 
 export function ChatDetailsView({ data, onClose, onLanguage, onHelp }: { data: ThreadDetails | null; onClose: () => void; onLanguage: () => void; onHelp: () => void }) {
   const t = useT();
-  return <Sheet visible title={t("mobile.chat.details")} closeLabel={t("mobile.chat.close")} onClose={onClose}>
+  const subtitle = !data ? undefined : data.audience === "session" ? `${data.session.title} · ${data.session.reference}` :
+    `${data.audience === "crew" ? t("mobile.chat.crew") : t("mobile.chat.job")} · ${data.job.reference}`;
+  return <Sheet visible title={t("mobile.chat.details")} subtitle={subtitle} closeLabel={t("mobile.chat.close")} onClose={onClose}>
     {!data ? <Copy>{t("mobile.chat.loading")}</Copy> : <>
-      <Copy variant="supporting">{data.audience === "session" ? `${data.session.title} · ${data.session.reference}` : `${data.audience === "crew" ? t("mobile.chat.crew") : t("mobile.chat.job")} · ${data.job.reference}`}</Copy>
       <Copy>{data.audience === "crew" ? t("mobile.chat.audienceCrew") : t("mobile.chat.audienceJob")}</Copy>
-      {data.members.map((member, index) => <Card key={`${member.displayName}-${index}`}>
+      {data.members.map((member, index) => <Card dense key={`${member.displayName}-${index}`}>
         <Copy variant="label">{member.displayName} {member.isViewer ? `· ${t("mobile.chat.you")}` : ""}</Copy>
         <Copy variant="supporting">{roleLabel(t, member.role)}{member.isContact ? ` · ${t("mobile.chat.contact")}` : ""}</Copy>
         {member.writingLanguage && <Copy variant="supporting">{t("mobile.chat.writes", { language: readingLanguageLabel(t, member.writingLanguage) })}</Copy>}

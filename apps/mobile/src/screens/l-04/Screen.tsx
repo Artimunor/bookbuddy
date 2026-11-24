@@ -159,9 +159,9 @@ export function ReviewView({ hold, state, left, failure, booked, offline, leavin
     { label: t("mobile.laterCustomer.openBooking"), onPress: onBack } :
     { label: checking ? t("mobile.laterCustomer.checkBooking") : book, onPress: onBook, busy: processing, disabled: offline || leaving };
   return <>
-    <Screen title={t("mobile.laterCustomer.review")} navigation={{ kind: "back", label: t("mobile.laterCustomer.back"), onPress: onBack, disabled: processing || leaving }}
+    <Screen title={t("mobile.laterCustomer.review")} subtitle={`${hold.bookerName} · ${placeCount}`}
+      navigation={{ kind: "back", label: t("mobile.laterCustomer.back"), onPress: onBack, disabled: processing || leaving }}
       dock={<Dock primary={primary} context={ended || state === "booked" ? undefined : offline ? t("mobile.laterCustomer.connectBook") : checking ? t("mobile.laterCustomer.checkingBooking") : t("mobile.laterCustomer.notYetBooked")} />}>
-      <Copy variant="supporting">{hold.bookerName} · {placeCount}</Copy>
       {state === "booked" && booked ? <Notice tone="success" title={t("mobile.laterCustomer.booked")}><Copy>{booked.reference}</Copy></Notice> : ended ?
         <Notice tone="critical" title={t("mobile.laterCustomer.notBooked")}>
           <Copy>{failure?.reason === "expired" ? t("mobile.laterCustomer.holdEnded", { time: display.absolute(failure.expiresAt, siteZone) }) :
@@ -176,7 +176,7 @@ export function ReviewView({ hold, state, left, failure, booked, offline, leavin
             statusLabel={[expiry.zone, expiry.viewer, minutes === 5 || minutes === 1 ? t("mobile.laterCustomer.minutesRemain", { count: minutes }) : null].filter(Boolean).join(" · ")} />
         </Notice> : <Notice tone="attention" title={t("mobile.laterCustomer.checkingBooking")}><Copy>{t("mobile.laterCustomer.heldUntil", { time: display.absolute(hold.expiresAt, siteZone) })}</Copy></Notice>}
       {releaseFailed && <Notice tone="critical" title={t("mobile.laterCustomer.releaseFailed")} />}
-      <Card>
+      <Card dense>
         <View style={{ gap: 3 }}>
           <Copy variant="sectionTitle">{version.title}</Copy><Copy variant="supporting">{version.venue.name} · {version.venue.locality}</Copy>
         </View>
@@ -191,7 +191,7 @@ export function ReviewView({ hold, state, left, failure, booked, offline, leavin
           {!!hold.moveFrom && <Copy>{t("mobile.laterCustomer.originalUntilMove", { reference: hold.moveFrom.reference })}</Copy>}
         </View>
       </Card>
-      <Card>
+      <Card dense>
         <View style={{ gap: 4 }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: 8 }}>
             <Copy variant="label">{t("mobile.laterCustomer.total")}</Copy><Copy variant="sectionTitle">{amount}</Copy>

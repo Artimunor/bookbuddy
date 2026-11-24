@@ -6,11 +6,12 @@ import { Pressable, TextInput, View } from "react-native";
 import { useCommand, useRemote, useSeedRemote } from "../../api";
 import { useLiveHints } from "../../api/live";
 import { useApiAccess } from "../../api/provider";
-import { useLocale, useT } from "../../i18n";
+import { useFormat, useT } from "../../i18n";
 import { useAttach, useOpenMediaPreview, type MediaTransfer } from "../../media";
+import { useMediaReadBatch } from "../../media/read-batch";
 import { useDraft, useOutbox, useRepository } from "../../repository/hooks";
 import type { OutboxEntry } from "../../repository/repository";
-import { Button, Screen } from "../../ui/controls";
+import { Button, Screen, Thumb } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { Stamp } from "../../ui/live/Stamp";
 import { TwinBubble } from "../../ui/live/TwinBubble";
@@ -67,6 +68,10 @@ export default function ChatScreen() {
   const older = history.id === id && history.repo === repo ? history.entries : [];
   const cursor = history.id === id && history.repo === repo && history.entries.length ? history.cursor : undefined;
   const entries = currentPage && { ...currentPage, entries: [...currentPage.entries, ...older.filter(old => !currentPage.entries.some(entry => entry.id === old.id))], page: cursor === undefined ? currentPage.page : { cursor, hasMore: cursor !== null } } as ThreadEntriesPage;
+  const photoIds = entries?.entries.flatMap(entry => entry.attachments
+    .filter(attachment => attachment.kind === "photo" && attachment.availability === "available")
+    .map(attachment => attachment.attachmentId)) ?? [];
+  const photoUrls = useMediaReadBatch(photoIds, data ? { caller: "chat", parentScopeId: id } : null);
   const lastMarked = useRef(0);
   useEffect(() => { setDraft(""); attempt.current = null; lastMarked.current = 0; }, [id, repo]);
   const position = entries?.entries.reduce((max, entry) => Math.max(max, entry.position), 0) ?? 0;
@@ -127,6 +132,7 @@ export default function ChatScreen() {
     if (data && page.status === "ready") seed(getThreadRoute, { params: { id } }, data, page.lastConfirmedAt);
     router.push(`/threads/${id}/details` as Href);
   }}
+    photoUrls={photoUrls}
     attachmentDraft={{ items: draftItems, complete: attachmentsReady, enabled: mediaDraft.loaded && !!repo?.isActive,
       onAttach: () => { void attach(); },
       onOpen: item => router.push({ pathname: "/media/[attachmentId]", params: { attachmentId: item.attachmentId } } as Href),
@@ -139,16 +145,24 @@ export default function ChatScreen() {
     onRetry={() => { if (!retryLive()) refreshThread(); }} onReport={entry => { const locale = entry.preferredTranslation?.targetLocale; if (locale) void report.run({ params: { id: entry.id }, body: { payload: { targetLocale: locale } } }).then(result => setReported(result.ok)); }} onTranslate={entry => { const locale = entry.preferredTranslation?.targetLocale; if (locale) void translate.run({ params: { id: entry.id }, body: { payload: { targetLocale: locale } } }).then(result => { if (result.ok) void page.refresh(); }); }} />;
 }
 
-type ChatViewProps = { data: ThreadDetails | null; page: ThreadEntriesPage | null; pending: PendingMessage[]; offline: boolean; draft: string; busy: boolean; failed: boolean; reported: boolean; attachmentDraft?: DraftAttachments; onDraft: (value: string) => void; onSend: () => void; onMore: () => void; onBack: () => void; onDetails: () => void; onRetry: () => void; onRemovePending: (id: string) => void; onRetryPending: (id: string) => void; onOpenAttachment: (item: Attachment) => void; onReport: (entry: ChatEntryProjection) => void; onTranslate: (entry: ChatEntryProjection) => void };
-export function ChatView({ data, page, pending, offline, draft, busy, failed, reported, attachmentDraft, onDraft, onSend, onMore, onBack, onDetails, onRetry, onRemovePending, onRetryPending, onOpenAttachment, onReport, onTranslate }: ChatViewProps) {
-  const t = useT(); const { locale } = useLocale(); const { color, space, radius } = useBeaconTheme();
+type ChatViewProps = { data: ThreadDetails | null; page: ThreadEntriesPage | null; pending: PendingMessage[]; offline: boolean; draft: string; busy: boolean; failed: boolean; reported: boolean; attachmentDraft?: DraftAttachments; photoUrls?: ReadonlyMap<string, string>; onDraft: (value: string) => void; onSend: () => void; onMore: () => void; onBack: () => void; onDetails: () => void; onRetry: () => void; onRemovePending: (id: string) => void; onRetryPending: (id: string) => void; onOpenAttachment: (item: Attachment) => void; onReport: (entry: ChatEntryProjection) => void; onTranslate: (entry: ChatEntryProjection) => void };
+export function ChatView({ data, page, pending, offline, draft, busy, failed, reported, attachmentDraft, photoUrls, onDraft, onSend, onMore, onBack, onDetails, onRetry, onRemovePending, onRetryPending, onOpenAttachment, onReport, onTranslate }: ChatViewProps) {
+  const t = useT(); const format = useFormat(); const { color, space, radius, type } = useBeaconTheme();
   const [selected, setSelected] = useState<string | null>(null);
   const heading = data?.audience === "session" ? data.session : data?.job;
-  const time = (at: number) => new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", timeZone: heading?.siteZone ?? "UTC" }).format(at);
+  const siteZone = heading?.siteZone ?? "UTC";
+  const time = (at: number) => {
+    const clock = format.siteTime(at, siteZone);
+    return clock.kind === "available" ? clock.site.time : "";
+  };
   const contact = data?.members.find(member => member.isContact) ?? data?.members.find(member => !member.isViewer);
   const items = page ? [...page.entries.map(entry => ({ at: entry.receivedAt, entry })), ...page.stamps.map(stamp => ({ at: "update" in stamp ? stamp.update.recordedAt : stamp.at, stamp }))].sort((a, b) => a.at - b.at) : [];
-  const composer = data && (data.canSend ? <View style={{ padding: space.contentInset, gap: space.grid[2], backgroundColor: color.surface }}>
-    <Copy variant="supporting">{data.audience === "crew" ? t("mobile.chat.crewHint") : t("mobile.chat.writeHint")}</Copy>
+  const first = items[0] && format.siteTime(items[0].at, siteZone);
+  const last = items.length > 1 ? format.siteTime(items[items.length - 1]!.at, siteZone) : first;
+  const threadDate = first?.kind === "available" && last?.kind === "available" && first.site.date === last.site.date
+    ? t("mobile.chat.threadDate", { date: first.site.date, zone: format.zoneLabel(siteZone, first.site) }) : null;
+  const composer = data && (data.canSend ? <View style={{ padding: space.contentInset, gap: space.grid[2], backgroundColor: color.surface, borderTopWidth: 1, borderTopColor: color.separator }}>
+    <Copy variant="caption" style={{ color: color.muted, textAlign: "center" }}>{data.audience === "crew" ? t("mobile.chat.crewHint") : t("mobile.chat.writeHint")}</Copy>
     {!!attachmentDraft?.items.length && <>
       {attachmentDraft.items.map(item => {
         const label = item.file.kind === "photo" ? t("mobile.media.photo") : t("mobile.media.voiceNote");
@@ -164,11 +178,22 @@ export function ChatView({ data, page, pending, offline, draft, busy, failed, re
     </>}
     <View style={{ flexDirection: "row", alignItems: "center", gap: space.grid[2] }}>
       {attachmentDraft && <Button variant="neutral" label={t("mobile.media.attachTitle")} glyph="＋" iconOnly disabled={!attachmentDraft.enabled || busy} onPress={attachmentDraft.onAttach} />}
-      <TextInput accessibilityLabel={t("mobile.chat.compose")} placeholder={t("mobile.chat.compose")} placeholderTextColor={color.muted} multiline maxLength={16000} value={draft} onChangeText={onDraft} editable={!busy} style={{ flex: 1, minHeight: 56, maxHeight: 120, borderWidth: 1, borderColor: color.outline, borderRadius: radius.card, paddingHorizontal: space.grid[4], color: color.ink }} />
-      <Button label={failed ? t("mobile.chat.retry") : t("mobile.chat.send")} disabled={busy || attachmentDraft?.complete === false || (!draft.trim() && !attachmentDraft?.items.some(item => item.selected && item.state === "ready"))} busy={busy} onPress={onSend} />
+      <TextInput accessibilityLabel={t("mobile.chat.compose")} placeholder={t("mobile.chat.compose")} placeholderTextColor={color.muted}
+        multiline maxLength={16000} value={draft} onChangeText={onDraft} editable={!busy}
+        style={[type.body, { flex: 1, minHeight: 56, maxHeight: 120, borderWidth: 1, borderColor: color.outline,
+          borderRadius: radius.pill, paddingHorizontal: space.grid[4], paddingVertical: space.grid[3], color: color.ink }]} />
+      <Button label={failed ? t("mobile.chat.retry") : t("mobile.chat.send")} arrow={failed ? undefined : "next"} iconOnly={!failed}
+        disabled={busy || attachmentDraft?.complete === false || (!draft.trim() && !attachmentDraft?.items.some(item => item.selected && item.state === "ready"))}
+        busy={busy} onPress={onSend} />
     </View>{failed && <Copy>{t("mobile.chat.failed")}</Copy>}</View> : <View style={{ padding: space.contentInset }}><Copy>{data.readOnlyReason === "job_closed" ? t("mobile.chat.closed") : t("mobile.chat.readOnly")}</Copy></View>);
-  return <Screen title={data?.audience === "session" ? data.session.title : data?.audience === "crew" ? t("mobile.chat.crew") : t("mobile.chat.job")} navigation={{ kind: "back", label: t("mobile.chat.back"), onPress: onBack }} dock={composer} bell={<Button variant="navigation" label={t("mobile.chat.details")} glyph="ⓘ" iconOnly onPress={onDetails} />}>
-    {data && heading && <><Copy variant="supporting">{heading.reference}{data.audience !== "session" && heading.title ? ` · ${heading.title}` : ""}</Copy><Pressable accessibilityRole="button" onPress={onDetails} style={{ backgroundColor: color.subtle, padding: space.grid[3], borderRadius: radius.card }}><Copy variant="supporting">{t("mobile.chat.languageLine", { reading: readingLanguageLabel(t, data.readingLocale), name: contact?.displayName ?? "", writing: readingLanguageLabel(t, contact?.writingLanguage ?? null) })}</Copy></Pressable></>}
+  return <Screen title={data?.audience === "session" ? data.session.title : data?.audience === "crew" ? t("mobile.chat.crew") : t("mobile.chat.job")}
+    subtitle={heading && [data?.audience !== "session" ? heading.title : undefined, heading.reference].filter(Boolean).join(" · ")}
+    navigation={{ kind: "back", label: t("mobile.chat.back"), onPress: onBack }} dock={composer}
+    trailing={<Button variant="navigation" label={t("mobile.chat.details")} glyph="ⓘ" iconOnly onPress={onDetails} />}>
+    {data && heading && <Pressable accessibilityRole="button" onPress={onDetails}
+      style={{ backgroundColor: color.subtle, paddingHorizontal: space.grid[3], paddingVertical: space.grid[2], borderRadius: radius.pill }}>
+      <Copy variant="supporting">{t("mobile.chat.languageLine", { reading: readingLanguageLabel(t, data.readingLocale), name: contact?.displayName ?? "", writing: readingLanguageLabel(t, contact?.writingLanguage ?? null) })}</Copy>
+    </Pressable>}
     {data?.audience === "crew" && data.safetyHold && <View role="status" accessibilityLiveRegion="polite" style={{ backgroundColor: color.attentionSoft, borderColor: color.attentionInk, borderWidth: 1, borderRadius: radius.card, padding: space.cardPadding }}>
       <Copy variant="sectionTitle" style={{ color: color.attentionInk }}>{t("mobile.liveShift.hold")}</Copy>
     </View>}
@@ -176,6 +201,7 @@ export function ChatView({ data, page, pending, offline, draft, busy, failed, re
     {!data && <><Copy>{offline ? t("mobile.chat.offline") : t("mobile.chat.loading")}</Copy><Button variant="neutral" label={t("mobile.chat.retry")} onPress={onRetry} /></>}
     {page?.page.hasMore && <Button variant="quiet" label={t("mobile.chat.more")} disabled={busy || offline} onPress={onMore} />}
     {page && items.length === 0 && pending.length === 0 && <Copy>{t("mobile.chat.emptyThread")}</Copy>}
+    {!!threadDate && <Copy variant="caption" style={{ textAlign: "center", color: color.muted }}>{threadDate}</Copy>}
     {items.map(item => {
       if ("stamp" in item && item.stamp) {
         const stamp = item.stamp; const kind = "update" in stamp ? stamp.update.kind : stamp.kind;
@@ -183,16 +209,23 @@ export function ChatView({ data, page, pending, offline, draft, busy, failed, re
           : kind === "crew_confirmed" ? t("mobile.chat.eventCrewConfirmed") : kind === "crew_updated" ? t("mobile.chat.eventCrewUpdated") : kind === "on_the_way" ? t("mobile.chat.eventOnWay") : kind === "arrival_revised" ? t("mobile.chat.eventArrivalRevised") : kind === "arrival_withdrawn" ? t("mobile.chat.eventArrivalWithdrawn") : kind === "on_site" ? t("mobile.chat.eventOnSite") : kind === "cover_arranging" ? t("mobile.chat.eventCover") : kind === "paused" || kind === "work_paused" ? t("mobile.chat.eventPaused") : kind === "photo" ? t("mobile.chat.eventPhoto") : kind === "working" || kind === "work_started" ? t("mobile.chat.eventWorking") : kind === "finished" || kind === "work_finished" ? t("mobile.chat.eventFinished") : kind === "cover_confirmed" ? t("mobile.chat.eventCoverConfirmed") : kind === "checked_in" ? t("mobile.chat.eventCheckIn") : t("mobile.chat.eventCheckOut");
         const update = "update" in stamp ? stamp.update : null;
         const detail = update && "band" in update ? `${time(update.band.startsAt)} – ${time(update.band.endsAt)}` : undefined;
-        return <Stamp key={update ? update.id : ("id" in stamp ? stamp.id : "")} kind="system" title={title} detail={detail} time={time(item.at)} />;
+        return <Stamp key={update ? update.id : ("id" in stamp ? stamp.id : "")} compact
+          kind={kind === "crew_confirmed" || kind === "crew_updated" || kind === "on_the_way" ? "crew" : "system"}
+          title={title} detail={detail} time={time(item.at)} />;
       }
       if (!("entry" in item) || !item.entry) return null;
       const entry = item.entry; const tr = entry.preferredTranslation;
       const translation = tr?.state === "ready" ? { state: "translated" as const, text: tr.text, label: t("mobile.chat.translation", { language: readingLanguageLabel(t, tr.targetLocale) }), originalLabel: t("mobile.chat.original", { language: readingLanguageLabel(t, entry.sourceLanguage) }), languageTag: tr.targetLocale } : tr?.state === "pending" ? { state: "pending" as const, label: t("mobile.chat.translating") } : tr?.state === "unavailable" ? { state: "unavailable" as const, label: t("mobile.chat.translationUnavailable") } : { state: "sameLanguage" as const };
       return <View key={entry.id} style={{ gap: 4 }}><Pressable accessibilityRole="button" onPress={() => setSelected(selected === entry.id ? null : entry.id)}><TwinBubble side={entry.author.isViewer ? "outgoing" : "incoming"} attribution={`${entry.author.displayName} · ${roleLabel(t, entry.author.role)}`} time={time(entry.receivedAt)} original={{ text: entry.originalText ?? t("mobile.chat.attachment"), dir: /^(ar|he|fa|ur)(-|$)/i.test(entry.sourceLanguage ?? "") ? "rtl" : "ltr", languageTag: entry.sourceLanguage ?? undefined }} translation={translation} delivery={entry.author.isViewer ? { state: "received", label: entry.readingLocales?.length ? t("mobile.chat.sentReads", { languages: entry.readingLocales.map(tag => readingLanguageLabel(t, tag)).join(", ") }) : t("mobile.chat.sent") } : undefined} /></Pressable>
         {entry.attachments.length > 0 && <View style={{ flexDirection: "row", justifyContent: entry.author.isViewer ? "flex-end" : "flex-start", flexWrap: "wrap", gap: space.grid[2] }}>
-          {entry.attachments.map(attachment => <Button key={attachment.attachmentId} variant="neutral"
-            glyph={attachment.kind === "photo" ? "▧" : "♫"} label={attachment.kind === "photo" ? t("mobile.media.photo") : t("mobile.media.voiceNote")}
-            disabled={offline || attachment.availability !== "available"} onPress={() => onOpenAttachment(attachment)} />)}
+          {entry.attachments.map(attachment => {
+            const disabled = offline || attachment.availability !== "available";
+            const open = () => onOpenAttachment(attachment);
+            return attachment.kind === "photo"
+              ? <Thumb key={attachment.attachmentId} uri={disabled ? undefined : photoUrls?.get(attachment.attachmentId)}
+                label={t("mobile.media.photo")} disabled={disabled} onPress={open} />
+              : <Button key={attachment.attachmentId} variant="neutral" glyph="♫" label={t("mobile.media.voiceNote")} disabled={disabled} onPress={open} />;
+          })}
         </View>}
         {selected === entry.id && tr?.state === "ready" && <Button variant="quiet" label={t("mobile.chat.report")} onPress={() => onReport(entry)} />}
         {tr?.state === "unavailable" && tr.canRetry && <Button variant="quiet" label={t("mobile.chat.retry")} onPress={() => onTranslate(entry)} />}

@@ -9,6 +9,7 @@ import { Copy, controlMetrics } from "./shared";
 export type OverlayProps = {
   visible: boolean;
   title: string;
+  subtitle?: string;
   closeLabel: string;
   onClose: () => void;
   children: ReactNode;
@@ -22,7 +23,8 @@ export function Sheet({ dock, ...props }: SheetProps) {
   return <Overlay {...props} kind="sheet" footer={dock} />;
 }
 
-export type DialogProps = OverlayProps & {
+export type DialogProps = Omit<OverlayProps, "closeLabel"> & {
+  closeLabel?: string;
   cancel: ControlAction;
   confirm: ControlAction & { variant?: Extract<ButtonVariant, "primary" | "live" | "destructive"> };
   actionOrder?: "cancel-first" | "confirm-first";
@@ -50,7 +52,8 @@ export function Dialog({ cancel, confirm, actionOrder = "cancel-first", ...props
   );
 }
 
-function Overlay({ visible, title, closeLabel, onClose, children, returnFocusRef, kind, footer }: OverlayProps & {
+function Overlay({ visible, title, subtitle, closeLabel, onClose, children, returnFocusRef, kind, footer }: Omit<OverlayProps, "closeLabel"> & {
+  closeLabel?: string;
   kind: "sheet" | "dialog";
   footer?: ReactNode;
 }) {
@@ -107,10 +110,10 @@ function Overlay({ visible, title, closeLabel, onClose, children, returnFocusRef
             accessibilityViewIsModal
             style={[styles.panel, {
               backgroundColor: color.raised,
-              borderTopStartRadius: sheet ? radius.sheetTop : radius.card,
-              borderTopEndRadius: sheet ? radius.sheetTop : radius.card,
-              borderBottomStartRadius: sheet ? 0 : radius.card,
-              borderBottomEndRadius: sheet ? 0 : radius.card,
+              borderTopStartRadius: radius.sheetTop,
+              borderTopEndRadius: radius.sheetTop,
+              borderBottomStartRadius: sheet ? 0 : radius.sheetTop,
+              borderBottomEndRadius: sheet ? 0 : radius.sheetTop,
               borderColor: color.separator,
               borderWidth: 1,
             }, !sheet && styles.dialog]}
@@ -118,11 +121,14 @@ function Overlay({ visible, title, closeLabel, onClose, children, returnFocusRef
             <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
               <View style={{ padding: space.contentInset, gap: space.grid[2] }}>
                 {sheet && <View style={[styles.handle, { backgroundColor: color.outline, borderRadius: radius.pill }]} />}
-                <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel={title} nativeID={titleId}>
-                  <Copy variant="sectionTitle">{title}</Copy>
-                </View>
-                <View style={styles.close}>
-                  <Button label={closeLabel} onPress={onClose} variant="quiet" />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: space.grid[2] }}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View ref={titleRef} accessible accessibilityRole="header" accessibilityLabel={title} nativeID={titleId}>
+                      <Copy variant="sectionTitle">{title}</Copy>
+                    </View>
+                    {!!subtitle && <Copy variant="supporting" style={{ color: color.muted }}>{subtitle}</Copy>}
+                  </View>
+                  {!!closeLabel && <Button label={closeLabel} onPress={onClose} variant="neutral" glyph="×" iconOnly />}
                 </View>
               </View>
               <View style={{ paddingHorizontal: space.contentInset, paddingBottom: space.contentInset, gap: controlMetrics(field).controlGap }}>
@@ -143,8 +149,7 @@ const styles = StyleSheet.create({
   sheetPosition: { justifyContent: "flex-end", alignItems: "stretch" },
   dialogPosition: { justifyContent: "center", alignItems: "center" },
   panel: { maxHeight: "100%", flexShrink: 1 },
-  dialog: { width: "100%", maxWidth: 480 },
+  dialog: { width: "100%", maxWidth: 480, overflow: "hidden" },
   handle: { height: 4, width: 32, alignSelf: "center" },
-  close: { alignSelf: "flex-start", maxWidth: "100%" },
   body: { flexGrow: 0, flexShrink: 1 },
 });

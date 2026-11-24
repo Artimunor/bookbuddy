@@ -8,30 +8,48 @@ import { Copy, Target, controlMetrics } from "./shared";
 
 export type ScreenHeaderProps = {
   title: string;
+  subtitle?: string;
   navigation?: ControlAction & { kind: "back" | "close" };
   identity?: ReactNode;
   bell?: ReactNode;
+  trailing?: ReactNode;
 };
 
-export function ScreenHeader({ title, navigation, identity, bell }: ScreenHeaderProps) {
-  const { field, space } = useBeaconTheme();
+export function ScreenHeader({ title, subtitle, navigation, identity, bell, trailing }: ScreenHeaderProps) {
+  const { color, field, space } = useBeaconTheme();
   const back = navigation?.kind === "back";
+  const gap = controlMetrics(field).controlGap;
+  const heading = (
+    <View style={{ flex: 1, minWidth: 0, gap: space.grid[1] }}>
+      <Copy accessibilityRole="header" variant={navigation ? "sectionTitle" : "pageTitle"}>{title}</Copy>
+      {!!subtitle && <Copy variant="supporting" style={{ color: color.muted }}>{subtitle}</Copy>}
+    </View>
+  );
   return (
     <View style={{ paddingHorizontal: space.contentInset, paddingVertical: space.grid[2], gap: space.grid[2] }}>
-      {(navigation || identity || bell) && (
-        <View style={[styles.header, { gap: controlMetrics(field).controlGap }]}>
-          <View style={[styles.leading, { gap: controlMetrics(field).controlGap }]}>
-            {navigation && (
-              <View style={styles.navigation}>
-                <Button {...navigation} variant={back ? "navigation" : "quiet"} arrow={back ? "back" : undefined} />
-              </View>
-            )}
-            {identity}
-          </View>
-          {bell && <View style={styles.bell}>{bell}</View>}
+      {back ? (
+        <View style={[styles.header, { gap: space.grid[2] }]}>
+          <View style={{ marginStart: -space.grid[2] }}><Button {...navigation} variant="navigation" arrow="back" iconOnly /></View>
+          {heading}
+          {(trailing ?? bell) && <View style={styles.bell}>{trailing ?? bell}</View>}
         </View>
+      ) : (
+        <>
+          {(navigation || identity || bell) && (
+            <View style={[styles.header, { gap }]}>
+              <View style={[styles.leading, { gap }]}>
+                {navigation && <View style={styles.navigation}><Button {...navigation} variant="quiet" /></View>}
+                {identity}
+              </View>
+              {bell && <View style={styles.bell}>{bell}</View>}
+            </View>
+          )}
+          <View style={[styles.header, { gap }]}>
+            {heading}
+            {trailing && <View style={styles.bell}>{trailing}</View>}
+          </View>
+        </>
       )}
-      <Copy accessibilityRole="header" variant={navigation ? "sectionTitle" : "pageTitle"}>{title}</Copy>
     </View>
   );
 }

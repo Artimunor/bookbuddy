@@ -12,7 +12,7 @@ import { useStatusCards } from "../../system/status-cards";
 import { Button, Card, Dock, ListRow, Screen, Sheet } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { LiveCapsule, TwoClock, type LiveCapsuleProps } from "../../ui/live";
-import { dayKey, holdHref, Notice, Separator, SessionState, useSessionDisplay, useSessionsBack, type Agreement } from "../l-01/common";
+import { dayKey, holdHref, Notice, Separator, SessionFact, SessionState, useSessionDisplay, useSessionsBack, type Agreement } from "../l-01/common";
 import { useDeadline } from "../s-02/flow";
 import { confirmAction } from "../s-17/confirmAction";
 import { FeedbackSheet, type FeedbackDraft } from "./Feedback";
@@ -230,7 +230,7 @@ export function BookingView({ booking, viewerZone, now, onBack, onRespond, onMov
   const proposalOpen = !!proposal && proposal.respondBy > at;
   const newTime = proposal && (proposal.proposed.startsAt !== startsAt || proposal.proposed.endsAt !== endsAt);
   const zoneLine = [clock.zone, clock.viewer].filter(Boolean).join(" · ");
-  const message = { label: t("mobile.laterCustomer.messageStudio"), onPress: onMessage ?? onBack, disabledReason: onMessage ? undefined : t("mobile.laterCustomer.messageUnavailable") };
+  const message = { label: t("mobile.laterCustomer.messageStudio"), glyph: "◫", onPress: onMessage ?? onBack, disabledReason: onMessage ? undefined : t("mobile.laterCustomer.messageUnavailable") };
   const dock = cancelled ? undefined : checking ? <Dock context={t("mobile.laterCustomer.checkingResponse")} primary={{ label: t("mobile.laterCustomer.checkResult"), onPress: onCheck ?? onBack, disabled: !onCheck, busy }} /> :
     done ? onFeedback ? <Dock primary={{ label: t("mobile.laterCustomer.rateSession"), onPress: onFeedback, busy }} /> : undefined :
     proposal && actions.respond && proposalOpen ? <Dock context={t("mobile.laterCustomer.respondBy", { time: display.absolute(proposal.respondBy, siteZone) })}
@@ -238,9 +238,9 @@ export function BookingView({ booking, viewerZone, now, onBack, onRespond, onMov
     today ? <Dock primary={{ label: t("mobile.laterCustomer.directions"), onPress: () => { setMapsFailed(false); setSheet("directions"); } }} secondary={onMessage ? { ...message, iconOnly: true, glyph: "◫" } : undefined} /> : <Dock primary={message} />;
   const free = !cancelled && !done && agreement.freeCancellationUntil > at && (actions.move || actions.cancel);
   return <>
-    <Screen title={version.title} navigation={{ kind: "back", label: t("mobile.laterCustomer.back"), onPress: onBack }} dock={dock}>
-      <Copy variant="supporting">{reference} · {venue.name} · {venue.locality}</Copy>
-      <LiveCapsule size="hero" state={cancelled ? "paused" : done ? "finished" : current ? "crewConfirmed" : "quiet"} pulse={!cancelled && !!day && !done}
+    <Screen title={version.title} subtitle={`${reference} · ${venue.name} · ${venue.locality}`}
+      navigation={{ kind: "back", label: t("mobile.laterCustomer.back"), onPress: onBack }} dock={dock}>
+      <LiveCapsule size="hero" state={cancelled ? "paused" : done ? "finished" : current ? "crewConfirmed" : today ? "quiet" : "booked"} pulse={!cancelled && !!day && !done}
         stateLabel={stage} source={provider.name} reference={reference} time={clock.time} zoneLine={zoneLine} estimate={estimate || undefined}
         sessionLine={sessionLine} provenance={provenance} crew={!cancelled && host ? { audience: "customer", people: [{ id: host.name, name: host.name, initials: host.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("") }] } : undefined}
         accessibilityLabel={[version.title, stage, estimate, clock.time, clock.zone, clock.viewer, !cancelled && host ? hostName : null, provenance, lineLabel].filter(Boolean).join(", ")} />
@@ -264,14 +264,11 @@ export function BookingView({ booking, viewerZone, now, onBack, onRespond, onMov
         <Button variant="neutral" label={isFollowing ? t("mobile.laterCustomer.following") : t("mobile.laterCustomer.turnOn")} onPress={onFollow ?? onBack} busy={following} disabled={isFollowing || !onFollow} />
         {followFailed && <Copy accessibilityLiveRegion="polite">{t("mobile.laterCustomer.followFailed")}</Copy>}
       </Notice>}
-      {!cancelled && <Card>
-        {!done && <><View style={{ gap: 3 }}><Copy variant="label">{t("mobile.laterCustomer.checkIn")}</Copy><Copy>{venue.arrivalNote}</Copy><Copy variant="supporting">{venue.accessNote}</Copy></View><Separator /></>}
-        <View style={{ gap: 3 }}>
-          <Copy variant="label">{t("mobile.laterCustomer.dueToProvider", { amount: format.money(agreement.totalMinor, version.price.currency) })}</Copy>
-          <Copy>{display.price(version.price)} · {t("mobile.laterCustomer.payProvider", { name: provider.name })}</Copy>
-          <Copy variant="supporting">{t("mobile.laterCustomer.noPayment")}</Copy>
-        </View>
-        {free && !checking && <><Separator /><ListRow label={t("mobile.laterCustomer.changeCancel")}
+      {!cancelled && <Card dense>
+        {!done && <><SessionFact glyph="⌑" title={t("mobile.laterCustomer.checkIn")} detail={`${venue.arrivalNote} · ${venue.accessNote}`} /><Separator /></>}
+        <SessionFact glyph="€" title={t("mobile.laterCustomer.dueToProvider", { amount: format.money(agreement.totalMinor, version.price.currency) })}
+          detail={`${display.price(version.price)} · ${t("mobile.laterCustomer.payProvider", { name: provider.name })} ${t("mobile.laterCustomer.noPayment")}`} />
+        {free && !checking && <><Separator /><ListRow glyph="□" label={t("mobile.laterCustomer.changeCancel")}
           description={t("mobile.laterCustomer.freeUntil", { time: display.absolute(agreement.freeCancellationUntil, siteZone) })}
           onPress={() => setSheet("changes")} disabled={busy || proposalOpen} /></>}
       </Card>}

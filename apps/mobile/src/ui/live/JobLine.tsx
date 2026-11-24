@@ -15,7 +15,7 @@ export type JobLineProps = JobLineStage & {
   /** A whole, localised step announcement, including any exception or estimate. */
   accessibilityLabel: string;
   status?: { state: "delayed" | "cover" | "cancelled"; label: string };
-  activity?: "live" | "quiet" | "finished";
+  activity?: "live" | "quiet" | "upcoming" | "finished";
   pulse?: boolean;
   /** Glance surfaces may omit labels when they show the state separately. */
   compact?: boolean;
@@ -84,7 +84,8 @@ export function JobLine({
     const isDone = i < current || (i === current && activity === "finished");
     const isCurrent = i === current && !isDone;
     const beadColor = isDone ? (live ? palette.done : steady) : isCurrent && live ? palette.current : surfaceColor;
-    const borderColor = isDone ? beadColor : isCurrent ? (live ? palette.currentRing : steady) : palette.nextRing;
+    const currentRing = activity === "upcoming" && surface === "capsule" ? palette.progress : live ? palette.currentRing : steady;
+    const borderColor = isDone ? beadColor : isCurrent ? currentRing : palette.nextRing;
     return (
       <View style={styles.socket}>
         {isCurrent && live && <Animated.View style={[styles.ring, { opacity: pulse, borderColor }]} />}

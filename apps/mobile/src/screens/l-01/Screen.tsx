@@ -1,10 +1,11 @@
 import { listSessionsRoute, type CustomerSessionCard, type RouteResponse } from "@bookbuddy/api-contract";
-import type { Translator } from "@bookbuddy/i18n";
+import { sessionCategoryLabelKey } from "@bookbuddy/domain";
+import { sharedEnumLabel } from "@bookbuddy/i18n/shared";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { useRemote } from "../../api";
-import { useT } from "../../i18n";
+import { useFormat, useT } from "../../i18n";
 import { Button, Card, Dock, EmptyState, Screen, Sheet, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { ChoiceRadio } from "../s-12/ChoiceRadio";
@@ -66,18 +67,9 @@ function BrowseResults({ filter, onPlace, onCategory, onCard, onBack }: Pick<Bro
     onMore={() => { if (data?.page.cursor) setPage({ cursor: data.page.cursor, prior: { ...data, sessions } }); }} />;
 }
 
-function categoryLabel(category: string, t: Translator<"mobile">["t"]) {
-  switch (category) {
-    case "pilates": return t("mobile.laterCustomer.pilates");
-    case "massage": return t("mobile.laterCustomer.massage");
-    case "sport_coaching": case "sport-coaching": return t("mobile.laterCustomer.coaching");
-    case "tours": return t("mobile.laterCustomer.tours");
-    default: return category.replace(/[_-]/g, " ");
-  }
-}
-
 export function BrowseView({ sessions, categories, locality, category, status, hasMore, pageError, onCategory, onPlace, onCard, onBack, onMore, onRetry }: BrowseProps) {
   const t = useT();
+  const format = useFormat();
   const display = useSessionDisplay();
   const first = sessions[0];
   const place = locality || first?.version.venue.locality;
@@ -86,12 +78,11 @@ export function BrowseView({ sessions, categories, locality, category, status, h
   const zone = first && siteZone && sessions.every(item => item.version.venue.siteZone === siteZone) ? display.instant(first.nextSlot.startsAt, siteZone).zone : "";
   const emptyAction = category ? { label: t("mobile.laterCustomer.showAll"), onPress: () => onCategory() } :
     onPlace ? { label: t("mobile.laterCustomer.changePlace"), onPress: onPlace } : undefined;
-  return <Screen title={t("mobile.laterCustomer.sessions")} navigation={{ kind: "back", label: t("mobile.laterCustomer.back"), onPress: onBack }}
-    bell={onPlace ? <Button label={t("mobile.laterCustomer.changePlace")} variant="neutral" glyph="⌖" iconOnly onPress={onPlace} /> : undefined}>
-    <Copy variant="supporting">{placeLabel}</Copy>
+  return <Screen title={t("mobile.laterCustomer.sessions")} subtitle={placeLabel} navigation={{ kind: "back", label: t("mobile.laterCustomer.back"), onPress: onBack }}
+    trailing={onPlace ? <Button label={t("mobile.laterCustomer.changePlace")} variant="neutral" glyph="⌖" iconOnly onPress={onPlace} /> : undefined}>
     {!!categories.length && <View accessibilityRole="radiogroup" accessibilityLabel={t("mobile.laterCustomer.categories")} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
       <ChoiceRadio pill label={t("mobile.laterCustomer.all")} selected={!category} onPress={() => onCategory()} />
-      {categories.map(slug => <ChoiceRadio key={slug} pill label={categoryLabel(slug, t)} selected={category === slug} onPress={() => onCategory(slug)} />)}
+      {categories.map(slug => <ChoiceRadio key={slug} pill label={sharedEnumLabel(t, sessionCategoryLabelKey(slug))} selected={category === slug} onPress={() => onCategory(slug)} />)}
     </View>}
     {status === "loading" ? <SessionSkeleton /> : status !== "ready" ? <EmptyState
       title={status === "offline" ? t("mobile.laterCustomer.offline") : t("mobile.laterCustomer.unavailable")}
@@ -99,21 +90,34 @@ export function BrowseView({ sessions, categories, locality, category, status, h
       action={status === "error" && onRetry ? { label: t("mobile.laterCustomer.retry"), onPress: onRetry } : undefined} /> :
       !sessions.length ? <EmptyState title={place ? t("mobile.laterCustomer.noneNearby", { place }) : t("mobile.laterCustomer.none")}
         description={t("mobile.laterCustomer.noneBody")} action={emptyAction} /> : <>
-        <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.laterCustomer.resultCount", { count: sessions.length })}</Copy>
-        <Copy variant="supporting">{[t("mobile.laterCustomer.nextFirst"), zone].filter(Boolean).join(" · ")}</Copy>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", columnGap: 8 }}>
+          <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.laterCustomer.resultCount", { count: sessions.length })}</Copy>
+          <Copy variant="supporting">{[t("mobile.laterCustomer.nextFirst"), zone].filter(Boolean).join(" · ")}</Copy>
+        </View>
         {sessions.map(({ id, version, nextSlot }) => {
           const venue = version.venue;
-          const next = t("mobile.laterCustomer.next", { time: display.absolute(nextSlot.startsAt, venue.siteZone) });
-          const price = display.price(version.price);
+          const start = display.instant(nextSlot.startsAt, venue.siteZone);
+          const next = t("mobile.laterCustomer.next", { time: [display.date(nextSlot.startsAt, venue.siteZone), start.time, zone ? null : start.zone].filter(Boolean).join(" · ") });
+          const amount = format.money(version.price.unitMinor, version.price.currency);
+          const unit = version.price.basis === "per_person" ? t("mobile.laterCustomer.perPersonUnit") : t("mobile.laterCustomer.perAppointmentUnit");
           const available = !nextSlot.placesLeft ? t("mobile.laterCustomer.full") : version.format === "private" ? t("mobile.laterCustomer.available") :
             t("mobile.laterCustomer.placesLeft", { count: nextSlot.placesLeft });
-          const facts = [t("mobile.laterCustomer.minutes", { count: Math.round(version.durationMs / 60_000) }), t("mobile.laterCustomer.taughtIn", { language: display.language(version.language) }), venue.accessNote];
-          return <Card key={id} accessibilityLabel={[version.title, price, venue.name, next, available, ...facts].join(", ")} onPress={() => onCard(id)}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-              <Copy variant="sectionTitle">{version.title}</Copy><Copy variant="label">{price}</Copy>
+          const facts = [t("mobile.laterCustomer.shortMinutes", { count: Math.round(version.durationMs / 60_000) }), t("mobile.laterCustomer.taughtIn", { language: display.language(version.language) }), venue.accessNote];
+          return <Card dense key={id} accessibilityLabel={[version.title, amount, unit, venue.name, next, available, ...facts].join(", ")} onPress={() => onCard(id)}>
+            <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Copy variant="label">{version.title}</Copy>
+                <Copy variant="supporting">{venue.name} · {venue.locality}</Copy>
+              </View>
+              <View style={{ maxWidth: "42%", alignItems: "flex-end" }}>
+                <Copy variant="label" style={{ fontVariant: ["tabular-nums"] }}>{amount}</Copy>
+                <Copy variant="caption" style={{ textAlign: "right" }}>{unit}</Copy>
+              </View>
             </View>
-            <Copy variant="supporting">{venue.name} · {venue.locality}</Copy>
-            <Copy variant="label">{next} · {available}</Copy>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", columnGap: 8 }}>
+              <Copy variant="supporting" style={{ fontWeight: "700" }}>{next}</Copy>
+              <Copy variant="supporting" style={{ fontWeight: "700" }}>{available}</Copy>
+            </View>
             <Copy variant="supporting">{facts.join(" · ")}</Copy>
           </Card>;
         })}

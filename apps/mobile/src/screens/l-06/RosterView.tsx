@@ -9,6 +9,7 @@ import { CrewDots, type CrewMember } from "../../ui/live/CrewDots";
 import { LiveCapsule } from "../../ui/live/LiveCapsule";
 import { OfferClock } from "../../ui/live/OfferClock";
 import { useBeaconTheme } from "../../ui/theme";
+import { Separator, SessionFact } from "../l-01/common";
 
 type Slot = ProviderSessionRoster["slot"];
 type Assignment = ProviderSessionRoster["assignments"][number];
@@ -127,8 +128,7 @@ export function RosterView({ detail, roster, slot, role, status, busy, checking,
   const crewRow = (item: Assignment): CrewMember => ({ id: item.id, initials: item.name.split(/\s+/).slice(0, 2).map(part => part[0]).join(""),
     name: item.name, role: `${item.roleLabel} · ${language(item.language)}`, status: item.state === "confirmed" ? "confirmed" : item.state === "released" ? "gap" : "hold", statusLabel: offerLabel(item) });
 
-  return <Screen title={title} navigation={navigation} dock={dock}>
-    {detail && <Copy variant="supporting">{detail.provider.name} · {role}</Copy>}
+  return <Screen title={title} subtitle={detail ? `${detail.provider.name} · ${role}` : undefined} navigation={navigation} dock={dock}>
     {(status === "idle" || status === "loading") && <Copy>{t("mobile.provider.loading")}</Copy>}
     {(status === "offline" || status === "error") && <><Copy>{status === "offline" ? t("mobile.sessionSetup.offline") : t("mobile.provider.unavailable")}</Copy><Button label={t("mobile.provider.retry")} onPress={onRetry} /></>}
     {checking && <Copy accessibilityLiveRegion="polite">{t("mobile.cover.checking")}</Copy>}
@@ -137,7 +137,7 @@ export function RosterView({ detail, roster, slot, role, status, busy, checking,
     {detail && slot && <>
       <LiveCapsule source={version?.title ?? title} stateLabel={capsuleLabel}
         reference={start && start.kind === "available" ? start.site.date : undefined}
-        state={slot.state === "finished" ? "finished" : cover || !day ? "quiet" : day.stage === "in_session" ? "working" : "crewConfirmed"}
+        state={slot.state === "finished" ? "finished" : cover ? "quiet" : !day ? published ? "booked" : "quiet" : day.stage === "in_session" ? "working" : "crewConfirmed"}
         pulse={!!day && published && allowed} time={`${time(slot.startsAt)}–${time(slot.endsAt)}`}
         zoneLine={[zoneLabel, capacity, !cover && bookingStatus].filter(Boolean).join(" · ")} provenance={provenance}
         sessionLine={!draft && slot.state !== "cancelled" ? { steps: stages, current: day ? stageStep[day.stage] : 0, accessibilityLabel: stages[day ? stageStep[day.stage] : 0] } : undefined}
@@ -170,19 +170,22 @@ export function RosterView({ detail, roster, slot, role, status, busy, checking,
         <Copy variant="supporting">{t("mobile.sessionSetup.customerView")}</Copy>
         {future && !offered && <Button variant="destructive" label={t("mobile.sessionSetup.cancel")} disabled={!allowed} onPress={() => onAction({ kind: "cancel" })} />}
       </> : <>
-        {version && setupMatches ? <Card><Copy variant="sectionTitle">{t("mobile.sessionSetup.setup")}</Copy>
-          <Copy>{version.format === "private" ? t("mobile.sessionSetup.private", { count: slot.capacity }) : t("mobile.sessionSetup.group", { count: slot.capacity })}
-            {" · "}{t("mobile.cover.minutes", { count: Math.round(version.durationMs / minute) })}</Copy>
-          <Copy>{t("mobile.sessionSetup.taughtIn", { language: language(version.language) })} · {version.venue.accessNote}</Copy>
-          <Copy>{version.price.basis === "per_person" ? t("mobile.sessionSetup.perPerson", { price: format.money(version.price.unitMinor, version.price.currency) }) : t("mobile.sessionSetup.perAppointment", { price: format.money(version.price.unitMinor, version.price.currency) })}
-            {" · "}{t("mobile.sessionSetup.payProvider")}</Copy>
-          <Copy>{version.terms.text}</Copy>
+        {version && setupMatches ? <Card dense>
+          <SessionFact glyph="◎" title={version.format === "private" ? t("mobile.sessionSetup.private", { count: slot.capacity }) : t("mobile.sessionSetup.group", { count: slot.capacity })}
+            detail={[t("mobile.laterCustomer.shortMinutes", { count: Math.round(version.durationMs / minute) }),
+              t("mobile.sessionSetup.taughtIn", { language: language(version.language) }), version.venue.accessNote].join(" · ")} />
+          <Separator />
+          <SessionFact glyph="€" title={version.price.basis === "per_person" ? t("mobile.sessionSetup.perPerson", { price: format.money(version.price.unitMinor, version.price.currency) }) : t("mobile.sessionSetup.perAppointment", { price: format.money(version.price.unitMinor, version.price.currency) })}
+            detail={`${t("mobile.sessionSetup.payProvider")} · ${version.terms.text}`} />
         </Card> : <Copy variant="supporting">{t("mobile.sessionSetup.earlierVersion")}</Copy>}
         {draft && <Card><Badge tone="attention" label={t("mobile.sessionSetup.approval")} />
           <Copy>{!slot.coordinator ? t("mobile.sessionSetup.missingCoordinator") : vacancy !== undefined ? t("mobile.sessionSetup.missingHosts") : t("mobile.sessionSetup.approvalChecks")}</Copy>
           <Button variant="quiet" label={t("mobile.sessionSetup.help")} onPress={onHelp} /></Card>}
-        <Card><Copy variant="sectionTitle">{t("mobile.sessionSetup.roster")}</Copy>
-          <Copy>{t("mobile.sessionSetup.hostCount", { count: confirmed.length, needed: slot.hostsRequired })}</Copy>
+        <Card dense>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: space.grid[2] }}>
+            <Copy variant="sectionTitle">{t("mobile.sessionSetup.roster")}</Copy>
+            <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.sessionSetup.hostCount", { count: confirmed.length, needed: slot.hostsRequired })}</Copy>
+          </View>
           <CrewDots audience="foreman" people={assignments.map(crewRow)} />
           {slot.coordinator && <Copy>{t("mobile.sessionSetup.coordinator", { name: slot.coordinator.name })}</Copy>}
           {active && future && assignments.filter(item => item.state === "confirmed" || item.state === "proposed" && !item.cover).map(item =>

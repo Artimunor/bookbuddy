@@ -134,18 +134,19 @@ export type SegmentOption<Value extends string = string> = {
 
 export type SegmentedControlProps<Value extends string = string> = {
   label: string;
+  hideLabel?: boolean;
   options: readonly SegmentOption<Value>[];
   value: Value;
   onChange: (value: Value) => void;
   disabled?: boolean;
 };
 
-export function SegmentedControl<Value extends string>({ label, options, value, onChange, disabled }: SegmentedControlProps<Value>) {
+export function SegmentedControl<Value extends string>({ label, hideLabel, options, value, onChange, disabled }: SegmentedControlProps<Value>) {
   const { color, field, radius, space } = useBeaconTheme();
   const metrics = controlMetrics(field);
   return (
     <View style={{ gap: space.grid[2] }}>
-      <Copy variant="label">{label}</Copy>
+      {!hideLabel && <Copy variant="label">{label}</Copy>}
       <View role="group" accessibilityLabel={label} style={[styles.segments, { gap: metrics.controlGap }]}>
         {options.map((option) => {
           const selected = option.value === value;
