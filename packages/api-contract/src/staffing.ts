@@ -50,12 +50,13 @@ const crewStatus = z.discriminatedUnion("state", [
 ]);
 export const crewRosterSchema = crewScope.extend({
   date: z.iso.date(), total: z.int().nonnegative(), page: paginationSchema,
-  members: z.array(crewProfile.extend({ status: crewStatus })),
+  members: z.array(crewProfile.extend({ eligibility, status: crewStatus })),
 });
 
 // F-09: check results only, no eligibility evidence or details of conflicting work.
 export const crewMemberSchema = crewScope.extend({
   member: crewProfile,
+  eligibility,
   availability: z.array(z.object({ date: z.iso.date(), available: z.array(visitSpan), busy: z.array(visitSpan) })).length(7),
   shiftFit: z.object({ shift: shiftNeed, fit: shiftFit, crewThreadId: idSchemaFor<"chat_thread">().nullable() }).nullable(),
 });
