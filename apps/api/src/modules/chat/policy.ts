@@ -9,7 +9,7 @@ const audiences = "(SELECT 'job' AS audience UNION ALL SELECT 'crew')";
 const actorContext = "c.id = (SELECT context_id FROM live_scope)";
 const jobFields = `j.business_id, j.place_id, j.requester_id, j.accountable_foreman_membership_id,
   j.reference, j.trade AS title, j.state = 'open' AS parent_open, NULL AS site_zone,
-  NULL AS slot_id, NULL AS booked_at, NULL AS host_language, NULL AS guaranteed_host_id`;
+  NULL AS slot_id, NULL AS booked_at, NULL AS host_language, NULL AS guaranteed_host_id, NULL AS session_area_id`;
 const staff = `JOIN membership_roles role ON role.id = c.role_grant_id AND role.revoked_at IS NULL AND role.granted_at <= ${at}
   JOIN memberships m ON m.id = role.membership_id AND m.state = 'active' AND m.business_id = t.business_id
   JOIN businesses b ON b.id = m.business_id AND b.state = 'approved'`;

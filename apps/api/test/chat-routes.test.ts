@@ -29,7 +29,7 @@ async function fixture() {
     CHAT_TRANSLATION_PAIRS: '[["en","pt-PT"],["en","es"],["en","en-GB"]]',
     GOOGLE_TRANSLATION_PROJECT: "isolated-chat-project", GOOGLE_TRANSLATION_CREDENTIAL: "fake-bearer-token",
     EFFECTS: { async send({ workKeys }: { workKeys: string[] }) { wakes.push(workKeys); } },
-    LIVE: { getByName(name: string) { return { async publishInvalidation() { hints.push(name); } }; } },
+    LIVE: { getByName() { return { async publishInvalidation(name: string) { hints.push(name); } }; } },
   } as unknown as Bindings;
   const ctx = { waitUntil(task: Promise<unknown>) { pending.push(task); }, passThroughOnException() {} };
   const credentials = new Map<Person, string>();
@@ -410,7 +410,7 @@ test("session chat opens lazily for the exact booking, fences flags and hosts, a
           'session-slot','session-version','session-terms',1,'booked',?)`)
           .bind(`${booker}-booking`, `BB-SESSION${index}`, booker, `${booker}-hold`, now - 2000),
       ]),
-      f.db.prepare("INSERT INTO feature_flags VALUES ('sessions','chat-area:pilates',1,1)"),
+      f.db.prepare("INSERT INTO feature_flags VALUES ('sessions','chat-area:pilates',1,1), ('sessions','chat-business',1,1)"),
     ]);
     const booking = data(getSessionBookingRoute.output, await f.request("/session-bookings/customer-booking", "customer"));
     const threadId = booking.threadId;
@@ -418,7 +418,7 @@ test("session chat opens lazily for the exact booking, fences flags and hosts, a
     expect(threadId).toMatch(/^session-[a-f0-9]{32}$/);
     expect(otherThread).not.toBe(threadId);
     expect(await f.request(entries(threadId), "viewer")).toMatchObject({ status: 404, body: noAccess });
-    await f.db.prepare("UPDATE feature_flags SET enabled=0 WHERE key='sessions'").run();
+    await f.db.prepare("UPDATE feature_flags SET enabled=0 WHERE key='sessions' AND scope_key='chat-business'").run();
     expect(await f.request(entries(threadId), "customer")).toMatchObject({ status: 404, body: noAccess });
     expect(await f.db.prepare("SELECT count(*) AS total FROM chat_threads WHERE audience='session'").first("total")).toBe(0);
     await f.db.prepare("UPDATE feature_flags SET enabled=1 WHERE key='sessions'").run();
@@ -443,6 +443,11 @@ test("session chat opens lazily for the exact booking, fences flags and hosts, a
       .first<string>("link_token");
     expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "customer"))).toEqual({ kind: "thread", threadId, audience: "session" });
     expect(data(openLinkRoute.output, await f.request(`/links/${token}`, "viewer"))).toMatchObject({ kind: "unavailable" });
+
+    await f.db.prepare("UPDATE place_grants SET revoked_at=?, revoked_by='customer' WHERE id='chat-view'").bind(now).run();
+    expect(await f.request(entries(otherThread), "viewer")).toMatchObject({ status: 404, body: noAccess });
+    expect(data(listThreadsRoute.output, await f.request("/threads", "viewer")).threads)
+      .not.toContainEqual(expect.objectContaining({ id: otherThread, audience: "session" }));
 
     await f.db.prepare("UPDATE session_host_assignments SET state='released' WHERE id='session-host'").run();
     expect(await f.request(entries(threadId), "worker")).toMatchObject({ status: 404, body: noAccess });

@@ -24,8 +24,8 @@ async function fieldFixture() {
   const app = createApp();
   app.onError((error) => { throw error; });
   const hints: string[] = [];
-  const env = { DB: db, SYNC_CURSOR_HMAC_KEY: "field-test-cursor-key-with-enough-bytes", LIVE: { getByName: (name: string) => ({
-    publishInvalidation: async () => { hints.push(name); },
+  const env = { DB: db, SYNC_CURSOR_HMAC_KEY: "field-test-cursor-key-with-enough-bytes", LIVE: { getByName: () => ({
+    publishInvalidation: async (name: string) => { hints.push(name); },
   }) } } as unknown as Bindings;
   const execution = { props: {}, waitUntil() {}, passThroughOnException() {} };
   const startsAt = Date.now() - 10 * minute;

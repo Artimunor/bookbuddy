@@ -1,6 +1,8 @@
 import { app } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { runEffectBatch } from "../src/effects";
+import { isSyntheticMailbox } from "../src/providers/mail";
+import type { MailDelivery } from "../src/providers/mail";
 import { TestD1 } from "../test/d1";
 import { fixtureBindings, hostname, localRequest, port } from "./config";
 import { openBunDatabase } from "./db";
@@ -15,9 +17,21 @@ function unavailable(feature: string): never {
 }
 
 const live = {
-  getByName: () => ({ async publishInvalidation() { unavailable("Live invalidation"); } }),
+  getByName: () => ({ async publishInvalidation() { unavailable("Live invalidation"); }, async closeSession() {} }),
 } as unknown as Bindings["LIVE"];
 const delivery = { metadata: { get metrics() { return unavailable("Queue metrics"); } } };
+const fixtureMail: MailDelivery = {
+  async send(messages) {
+    for (const message of messages) {
+      if (config.OTP_DEV_LOG_CODE === "true" && message.syntheticOtp && isSyntheticMailbox(message.to)) {
+        console.info("bookbuddy.mail.fixture_code", message.syntheticOtp);
+      } else {
+        console.info("bookbuddy.mail.dev_delivery");
+      }
+    }
+    return messages.map(() => "delivered");
+  },
+};
 const noVendorFetch = async () => unavailable("Push provider HTTP");
 let drain = Promise.resolve();
 
@@ -51,11 +65,11 @@ const server = Bun.serve({
     });
     if (keys || background) {
       // Run the Worker's durable outbox consumer after returning the response.
-      // Only the wake transport differs; SQL, claim fencing, and mail are shared.
+      // SQL and claim fencing are shared; the transports are local-only.
       setImmediate(() => {
         drain = drain.then(async () => {
           if (background) await Promise.allSettled(background);
-          if (keys?.size) await runEffectBatch(env, [...keys], undefined, noVendorFetch);
+          if (keys?.size) await runEffectBatch(env, [...keys], undefined, noVendorFetch, undefined, fixtureMail);
         }).catch((error: unknown) => console.error("Bun demo effect failed", error));
       });
     }

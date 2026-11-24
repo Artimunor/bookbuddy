@@ -45,6 +45,7 @@ async function fixture(enabled = true) {
       db.prepare(`INSERT INTO venues (id, business_id, area_id, site_zone, name, locality, address, access_note, arrival_note, state, approved_at)
        VALUES ('venue', 'studio', 'area', 'Europe/Madrid', 'Studio Venue', 'Xàbia', 'Studio address', 'Step-free', 'Reception', 'approved', 1)`),
       ...(enabled ? [db.prepare("INSERT INTO feature_flags VALUES ('sessions', 'area:pilates', 1, 1)")] : []),
+      db.prepare("INSERT INTO feature_flags VALUES ('sessions', 'studio', 1, 1), ('sessions', 'outside', 1, 1)"),
       ...credentials.flatMap(([actor, hash]) => {
         const role = roles[actor];
         const business = actor === "foreign" || actor === "outsider" ? "outside" : "studio";
@@ -197,6 +198,26 @@ test("sessions flag defaults off for provider writes and reads", async () => {
     data(await f.call("admin", publishSessionRoute, { payload: listing }));
     const slot = await f.publish("morning");
     await f.db.prepare("UPDATE feature_flags SET enabled = 0 WHERE scope_key = 'area:pilates'").run();
+    expect(await f.call("coordinator", getSessionRosterRoute, { query: { slotId: slot.id } })).toMatchObject(notFound);
+    expect(await f.call("coordinator", updateSessionRosterRoute, { payload: {
+      kind: "release_host", slotId: slot.id, slotRevision: slot.revision, assignmentId: "morning-original-host",
+    } })).toMatchObject(notFound);
+  } finally { f.close(); }
+});
+
+test("a live category does not bypass the target provider business flag", async () => {
+  const f = await fixture();
+  try {
+    await f.db.prepare("UPDATE feature_flags SET enabled = 0 WHERE scope_key = 'studio'").run();
+    const save = { payload: listing, operationId: "save-with-business-gate" };
+    expect(await f.call("admin", publishSessionRoute, save)).toMatchObject(notFound);
+    expect(await f.call("admin", listBusinessSessionsRoute)).toMatchObject(notFound);
+    expect(await f.call("cover", listMySessionHostOffersRoute)).toMatchObject(notFound);
+    await f.db.prepare("UPDATE feature_flags SET enabled = 1 WHERE scope_key = 'studio'").run();
+    data(await f.call("admin", publishSessionRoute, save));
+    const slot = await f.publish("morning");
+    await f.db.prepare("DELETE FROM feature_flags WHERE scope_key = 'studio'").run();
+    expect(await f.call("admin", publishSessionRoute, save)).toMatchObject(notFound);
     expect(await f.call("coordinator", getSessionRosterRoute, { query: { slotId: slot.id } })).toMatchObject(notFound);
     expect(await f.call("coordinator", updateSessionRosterRoute, { payload: {
       kind: "release_host", slotId: slot.id, slotRevision: slot.revision, assignmentId: "morning-original-host",

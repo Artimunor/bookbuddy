@@ -363,3 +363,35 @@ test("support takes opaque contact intake with independent anonymous limits and 
     expect(f.notices).toHaveLength(4);
   } finally { f.db.close(); clock.mockRestore(); }
 });
+
+test("signed-in support caps new cases per account in a rolling day but replays for free", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(tuesday);
+  const f = await fixture();
+  const contact = { operationId: "first-help", payload: { kind: "access", message: "Cannot open my link" } };
+  try {
+    const original = await f.call("/support", "admin", contact);
+    expect(original.status).toBe(200);
+    clock.mockReturnValue(tuesday + hour);
+    for (let i = 0; i < 8; i++) {
+      expect((await f.call("/support", "admin", { ...contact, operationId: `help-${i}` })).status).toBe(200);
+    }
+    await f.db.prepare("UPDATE sessions SET active_context_id = 'admin-customer' WHERE account_id = 'admin'").run();
+    const { batch, query } = f.db.calls;
+    const competing = await Promise.all(["race-a", "race-b"].map((operationId) =>
+      f.call("/support", "admin", { ...contact, operationId }, false)));
+    expect(f.db.calls.batch - batch).toBe(2);
+    expect(f.db.calls.query - query).toBe(0);
+    expect(competing.map(({ status }) => status).sort()).toEqual([200, 429]);
+    expect(competing.find(({ status }) => status === 429)?.body)
+      .toMatchObject({ error: { code: "RATE_LIMITED", retryAt: tuesday + 24 * hour } });
+    expect((await f.call("/support", "admin", contact)).body).toMatchObject({ data: original.body.data });
+    expect((await f.call("/support", "admin", { ...contact, payload: { ...contact.payload, message: "Different" } })).body)
+      .toMatchObject({ error: { code: "OPERATION_ID_REUSED" } });
+    expect((await f.call("/support", "other", contact)).status).toBe(200);
+    expect(f.notices).toHaveLength(11);
+    clock.mockReturnValue(tuesday + 24 * hour);
+    expect((await f.call("/support", "admin", { ...contact, operationId: "after-window" })).status).toBe(200);
+    expect((await f.call("/support", "admin", { ...contact, operationId: "next-window" })).body)
+      .toMatchObject({ error: { code: "RATE_LIMITED", retryAt: tuesday + 25 * hour } });
+  } finally { f.db.close(); clock.mockRestore(); }
+});

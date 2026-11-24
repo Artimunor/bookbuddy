@@ -1,9 +1,9 @@
-import { customerSessionBookingSchema, sessionCategorySchema, timestampSchema } from "@bookbuddy/api-contract";
+import { sessionBookingSyncSummarySchema, timestampSchema } from "@bookbuddy/api-contract";
 import type {
   bookSessionHoldRoute, cancelSessionBookingRoute, createSessionHoldRoute, listSessionsRoute, moveSessionBookingRoute,
   releaseSessionHoldRoute, respondToSessionChangeRoute, submitSessionBookingFeedbackRoute, ErrorBody, OperationId, RouteRequest,
 } from "@bookbuddy/api-contract";
-import { SESSIONS_FEATURE_FLAG, SESSION_PAYMENT_METHOD } from "@bookbuddy/domain";
+import { SESSION_PAYMENT_METHOD } from "@bookbuddy/domain";
 import type { CommandInput, CommandStatement } from "../../db/commit";
 import { planOperation } from "../../db/operations";
 import type { OperationResult, OperationSpec } from "../../db/operations";
@@ -11,6 +11,7 @@ import type { RequestScope } from "../../db/scope";
 import { accessClock, at, displayName, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
 import type { SyncProjectionReader } from "../sync/registry";
+import { sessionsBusinessEnabled, sessionsCategories, sessionsCustomerCategory, sessionsCustomerMarket, sessionsCustomerTarget } from "./policy";
 
 const pageSize = 30;
 // The current category policy is ten minutes in flag-enabled markets, capped at start.
@@ -19,9 +20,12 @@ export const sessionBookingKind = "session_booking";
 const bool = (predicate: string) => `json(CASE WHEN ${predicate} THEN 'true' ELSE 'false' END)`;
 const jsonArray = (select: string) => `(SELECT json_group_array(json(value)) FROM (${select}))`;
 const provider = (b: string) => `json_object('id', ${b}.id, 'name', ${b}.public_name)`;
-const enabledScope = (venue: string, listing: string) => `EXISTS (SELECT 1 FROM feature_flags flag
-  WHERE flag.key = '${SESSIONS_FEATURE_FLAG}' AND flag.scope_key = ${venue}.area_id || ':' || ${listing}.category AND flag.enabled = 1)`;
-const availableVenue = (venue: string, listing: string) => `(${venue}.state = 'approved' AND ${enabledScope(venue, listing)})`;
+const customerCategory = (account: string, venue: string, listing: string, now = at) =>
+  sessionsCustomerCategory(account, `${venue}.area_id`, `${listing}.category`, now);
+const customerTarget = (account: string, venue: string, listing: string, now = at) =>
+  sessionsCustomerTarget(account, `${listing}.business_id`, `${venue}.area_id`, `${listing}.category`, now);
+const availableVenue = (account: string, venue: string, listing: string) =>
+  `(${venue}.state = 'approved' AND ${customerCategory(account, venue, listing)})`;
 const safeTotal = (version: string, places: string) => `${version}.price_minor <= ${Number.MAX_SAFE_INTEGER} / ${places}`;
 
 // Include active target reservations for material changes. Accepting converts the
@@ -57,20 +61,20 @@ function agreement(slot: string, v: string, venue: string, places: string): stri
     'freeCancellationUntil', ${slot}.starts_at)`;
 }
 
-function host(slot: string, v: string, now: string, booking?: string): string {
+function host(slot: string, v: string, now: string, booking?: string, summary = false): string {
   const confirmed = `json_object('name', ${displayName("person")}, 'language', assignment.language,
     'confirmed', json_object('at', assignment.confirmed_at, 'byName', ${displayName("actor")}))`;
-  return `(SELECT ${booking ? `json_object('status', 'confirmed', 'host', ${confirmed},
-    'isSubstitute', ${bool(`${v}.guaranteed_host_membership_id IS NULL AND EXISTS (
-      SELECT 1 FROM session_host_assignments earlier WHERE earlier.slot_id = assignment.slot_id
-        AND earlier.position = assignment.position AND earlier.membership_id <> assignment.membership_id
-        AND earlier.state = 'released' AND earlier.confirmed_at IS NOT NULL
-        AND earlier.changed_at BETWEEN ${booking}.booked_at AND assignment.confirmed_at
-    )`)})` : confirmed}
+  const substitute = booking && bool(`${v}.guaranteed_host_membership_id IS NULL AND EXISTS (
+    SELECT 1 FROM session_host_assignments earlier WHERE earlier.slot_id = assignment.slot_id
+      AND earlier.position = assignment.position AND earlier.membership_id <> assignment.membership_id
+      AND earlier.state = 'released' AND earlier.confirmed_at IS NOT NULL
+      AND earlier.changed_at BETWEEN ${booking}.booked_at AND assignment.confirmed_at)`);
+  return `(SELECT ${summary ? `json_object('hostDisplayName', ${displayName("person")}, 'substituteHost', ${substitute})`
+    : booking ? `json_object('status', 'confirmed', 'host', ${confirmed}, 'isSubstitute', ${substitute})` : confirmed}
     FROM session_host_assignments assignment
     JOIN memberships member ON member.id = assignment.membership_id AND member.business_id = ${slot}.business_id AND member.state = 'active'
     JOIN accounts person ON person.id = member.account_id AND person.state = 'active'
-    JOIN accounts actor ON actor.id = assignment.changed_by_id
+    ${summary ? "" : "JOIN accounts actor ON actor.id = assignment.changed_by_id"}
     WHERE assignment.slot_id = ${slot}.id AND assignment.state = 'confirmed' AND assignment.confirmed_at <= ${now}
       AND assignment.language = ${v}.language
       AND (${v}.guaranteed_host_membership_id IS NULL OR member.id = ${v}.guaranteed_host_membership_id)
@@ -91,6 +95,9 @@ const openProposal = (now: string) => `EXISTS (SELECT 1 FROM session_change_prop
     AND pending.booked_slot_id = b.slot_id AND pending.booked_listing_version_id = b.listing_version_id)`;
 const canMove = (now: string) => `${canCancel(now)} AND NOT ${openProposal(now)}`;
 
+const proposalDestination = (now: string) => `JOIN session_listing_versions next ON next.id = offer.proposed_listing_version_id
+  JOIN venues destination ON destination.id = next.venue_id AND ${customerCategory("b.booker_id", "destination", "l", now)}`;
+
 function proposalJson(now: string): string {
   return `(SELECT json_object('id', offer.id, 'version', offer.version,
     'state', CASE WHEN offer.state = 'pending' AND offer.respond_by <= ${now} THEN 'expired' ELSE offer.state END,
@@ -98,10 +105,9 @@ function proposalJson(now: string): string {
     'sent', json_object('at', offer.proposed_at, 'byName', ${displayName("sender")}), 'decidedAt', offer.resolved_at)
     FROM session_change_proposals offer
     JOIN session_slots target ON target.id = offer.proposed_slot_id
-    JOIN session_listing_versions next ON next.id = offer.proposed_listing_version_id
-    JOIN venues destination ON destination.id = next.venue_id
+    ${proposalDestination(now)}
     JOIN accounts sender ON sender.id = offer.proposed_by_id
-    WHERE offer.booking_id = b.id AND offer.proposed_at <= ${now} AND ${enabledScope("destination", "l")}
+    WHERE offer.booking_id = b.id AND offer.proposed_at <= ${now}
       AND ${safeTotal("next", "b.places")}
     ORDER BY offer.version DESC LIMIT 1)`;
 }
@@ -111,9 +117,8 @@ const canGiveFeedback = (now: string) => `b.state IN ('booked', 'completed') AND
     SELECT 1 FROM session_attendance attendance WHERE attendance.booking_id = b.id AND attendance.recorded_at <= ${now}
   )) AND NOT EXISTS (SELECT 1 FROM session_booking_feedback feedback WHERE feedback.booking_id = b.id)`;
 
-function bookingJson(now: string, projection: "detail" | "sync"): string {
-  return `json_object('id', b.id, 'reference', b.reference, 'listingId', b.listing_id,
-    ${projection === "sync" ? "'category', l.category," : ""} 'provider', ${provider("business")},
+function bookingJson(now: string): string {
+  return `json_object('id', b.id, 'reference', b.reference, 'listingId', b.listing_id, 'provider', ${provider("business")},
     'revision', b.revision, 'state', b.state, 'bookerName', ${displayName("booker")}, 'bookedAt', b.booked_at,
     'original', json_object('slotId', b.original_slot_id, 'listingVersionId', b.original_listing_version_id, 'termsHash', b.original_terms_hash),
     'agreement', ${agreement("s", "v", "venue", "b.places")},
@@ -129,25 +134,43 @@ function bookingJson(now: string, projection: "detail" | "sync"): string {
       WHERE actor.id = b.cancelled_by_id)),
     'canGiveFeedback', ${bool(canGiveFeedback(now))},
     'actions', json_object('move', ${bool(canMove(now))}, 'cancel', ${bool(canCancel(now))},
-      'respond', ${bool(`${canCancel(now)} AND ${openProposal(now)}`)}))`;
+      'respond', ${bool(`${canCancel(now)} AND EXISTS (
+        SELECT 1 FROM session_change_proposals offer ${proposalDestination(now)}
+        WHERE offer.booking_id = b.id AND offer.state = 'pending' AND offer.proposed_at <= ${now} AND offer.respond_by > ${now}
+          AND offer.booked_slot_id = b.slot_id AND offer.booked_listing_version_id = b.listing_version_id)`) }))`;
 }
 
-function scopedBookingValue(id: string, scope: string, projection: string): string {
-  return `(SELECT ${projection} FROM ${bookingTables()}
-    JOIN accounts booker ON booker.id = b.booker_id
-    WHERE b.id = ${id} AND b.booker_id = ${scope}.account_id AND ${scope}.role = 'customer' AND ${enabledScope("venue", "l")})`;
+function bookingSyncSummary(now: string): string {
+  return `json_patch(json_object('bookingId', b.id, 'listingTitle', v.title, 'category', l.category,
+    'slotStart', s.starts_at, 'slotEnd', s.ends_at, 'siteZone', venue.site_zone, 'partySize', b.places,
+    'state', b.state, 'hostDisplayName', NULL, 'substituteHost', json('false'),
+    'pendingChange', json((SELECT json_object('kind', 'proposal', 'respondBy', offer.respond_by)
+      FROM session_change_proposals offer ${proposalDestination(now)}
+      WHERE offer.booking_id = b.id AND offer.state = 'pending' AND offer.proposed_at <= ${now} AND offer.respond_by > ${now}
+        AND offer.booked_slot_id = b.slot_id AND offer.booked_listing_version_id = b.listing_version_id)),
+    'price', json_object('amountMinor', v.price_minor, 'currency', v.currency, 'basis', v.price_basis),
+    'venue', json_object('publicName', venue.name, 'locality', venue.locality)),
+    coalesce(${host("s", "v", now, "b", true)}, '{}'))`;
 }
 
-export const sessionBookingValue = (id: string, scope: string): string => scopedBookingValue(id, scope, bookingJson(at, "detail"));
+function scopedBookingValue(id: string, scope: string, now: string, summary = false): string {
+  return `(SELECT ${summary ? bookingSyncSummary(now) : bookingJson(now)} FROM ${bookingTables()}
+    ${summary ? "" : "JOIN accounts booker ON booker.id = b.booker_id"}
+    WHERE b.id = ${id} AND b.booker_id = ${scope}.account_id AND ${scope}.role = 'customer'
+      AND ${customerTarget("b.booker_id", "venue", "l", now)})`;
+}
+
+export const sessionBookingValue = (id: string, scope: string): string => scopedBookingValue(id, scope, at);
 
 export const sessionBookingSyncProjection: SyncProjectionReader = {
-  kind: sessionBookingKind, schema: customerSessionBookingSchema.extend({ category: sessionCategorySchema }), roles: ["customer"],
-  snapshotIds() {
+  kind: sessionBookingKind, schema: sessionBookingSyncSummarySchema, roles: ["customer"],
+  snapshotIds(now) {
     return { sql: `SELECT b.id AS resource_id FROM snapshot_scope scope CROSS JOIN ${bookingTables()}
-      WHERE scope.role = 'customer' AND scope.account_id = b.booker_id AND b.id > scope.after_id AND ${enabledScope("venue", "l")}` };
+      WHERE scope.role = 'customer' AND scope.account_id = b.booker_id AND b.id > scope.after_id
+        AND ${customerTarget("b.booker_id", "venue", "l", String(now))}` };
   },
   project(now) {
-    const value = scopedBookingValue("k.resource_id", "scope", bookingJson(String(now), "sync"));
+    const value = scopedBookingValue("k.resource_id", "scope", String(now), true);
     return { sql: `SELECT k.resource_id, ${value} AS value
       FROM projection_keys k CROSS JOIN live_scope scope WHERE k.kind = '${sessionBookingKind}' AND scope.role = 'customer'` };
   },
@@ -181,20 +204,21 @@ type BrowseQuery = Required<Pick<RouteRequest<typeof listSessionsRoute.input>["q
 export function readSessions(session: SessionAccess, now: number, query: BrowseQuery, position: Position): CommandStatement {
   const language = query.language === undefined ? null : Intl.getCanonicalLocales(query.language)[0]!;
   return scopedStatement(accessClock(session, now), `, request(area, locality, category, language, from_at, before_at, after_at, after_id)
-    AS (VALUES (?, ?, ?, ?, ?, ?, ?, ?)), enabled(category) AS MATERIALIZED (
-      SELECT substr(flag.scope_key, length(i.area) + 2) FROM request i JOIN feature_flags flag
-      WHERE flag.key = '${SESSIONS_FEATURE_FLAG}' AND flag.enabled = 1
-        AND flag.scope_key > i.area || ':' AND flag.scope_key < i.area || ';'
+    AS (VALUES (?, ?, ?, ?, ?, ?, ?, ?)), permitted AS MATERIALIZED (
+      SELECT i.* FROM live_scope scope CROSS JOIN request i
+      WHERE scope.role = 'customer' AND ${sessionsCustomerMarket("scope.account_id", "i.area")}
+    ), enabled(category) AS MATERIALIZED (
+      ${sessionsCategories("(SELECT area FROM permitted)")}
     ), candidates AS MATERIALIZED (
       SELECT s.*, ${placesLeft("s", at)} AS available
-      FROM live_scope scope CROSS JOIN request i
+      FROM permitted i
       JOIN venues venue ON venue.area_id = i.area AND venue.state = 'approved' AND (i.locality IS NULL OR venue.locality = i.locality COLLATE NOCASE)
       JOIN session_listing_versions v ON v.venue_id = venue.id AND (i.language IS NULL OR v.language = i.language COLLATE NOCASE)
       JOIN session_listings l ON l.id = v.listing_id
       JOIN enabled e ON e.category = l.category
       JOIN businesses business ON business.id = l.business_id AND business.state = 'approved'
       JOIN session_slots s ON s.listing_id = l.id AND s.listing_version_id = v.id
-      WHERE scope.role = 'customer' AND (i.category IS NULL OR l.category = i.category)
+      WHERE ${sessionsBusinessEnabled("l.business_id")} AND (i.category IS NULL OR l.category = i.category)
         AND s.state = 'published' AND s.starts_at > ${at}
         AND (i.from_at IS NULL OR s.starts_at >= i.from_at) AND (i.before_at IS NULL OR s.starts_at < i.before_at)
     ), ranked AS (
@@ -202,8 +226,7 @@ export function readSessions(session: SessionAccess, now: number, query: BrowseQ
     ), page_slots AS MATERIALIZED (
       SELECT ranked.* FROM ranked CROSS JOIN request i WHERE rank = 1 AND (starts_at, listing_id) > (i.after_at, i.after_id)
       ORDER BY starts_at, listing_id LIMIT ${pageSize + 1}
-    ) SELECT CASE WHEN EXISTS (SELECT 1 FROM live_scope WHERE role = 'customer')
-      AND EXISTS (SELECT 1 FROM enabled e CROSS JOIN request i WHERE i.category IS NULL OR e.category = i.category) THEN
+    ) SELECT CASE WHEN EXISTS (SELECT 1 FROM enabled e CROSS JOIN permitted i WHERE i.category IS NULL OR e.category = i.category) THEN
       json_object('categories', json((SELECT json_group_array(category) FROM (SELECT category FROM enabled ORDER BY category))),
         'sessions', json(${jsonArray(`SELECT json_object('id', l.id, 'provider', ${provider("business")}, 'category', l.category,
           'version', ${versionJson("v", "venue", false)}, 'nextSlot', ${slotJson("s", "s.available")}) AS value
@@ -217,13 +240,15 @@ export function readSessions(session: SessionAccess, now: number, query: BrowseQ
 export function customerSessionValue(id: string, position: Position): CommandStatement {
   return { params: [id, position.start, position.id], sql: `WITH request(id, after_at, after_id) AS (VALUES (?, ?, ?)),
     public_listing AS MATERIALIZED (
-      SELECT l.id, l.category, ${provider("business")} AS provider FROM request i
+      SELECT l.id, l.category, scope.account_id, ${provider("business")} AS provider FROM request i
       JOIN session_listings l ON l.id = i.id JOIN businesses business ON business.id = l.business_id AND business.state = 'approved'
+      CROSS JOIN live_scope scope
+      WHERE scope.role = 'customer' AND ${sessionsBusinessEnabled("l.business_id")}
     ), candidates AS MATERIALIZED (
       SELECT s.*, ${placesLeft("s", at)} AS available
       FROM public_listing l JOIN session_slots s ON s.listing_id = l.id
       JOIN session_listing_versions v ON v.id = s.listing_version_id JOIN venues venue ON venue.id = v.venue_id
-      WHERE s.state IN ('published', 'paused') AND s.starts_at > ${at} AND ${availableVenue("venue", "l")}
+      WHERE s.state IN ('published', 'paused') AND s.starts_at > ${at} AND ${availableVenue("l.account_id", "venue", "l")}
     ), page_slots AS MATERIALIZED (
       SELECT s.* FROM candidates s CROSS JOIN request i WHERE (s.starts_at, s.id) > (i.after_at, i.after_id)
       ORDER BY s.starts_at, s.id LIMIT ${pageSize + 1}
@@ -294,7 +319,8 @@ function bookerChanges(id: string, now: number): CommandStatement {
 
 const bookingSubject = (join = "") => `subject AS (
     SELECT b.* FROM live_scope scope CROSS JOIN request i CROSS JOIN ${bookingTables()} ${join}
-    WHERE b.id = i.booking_id AND scope.role = 'customer' AND b.booker_id = scope.account_id AND ${enabledScope("venue", "l")}
+    WHERE b.id = i.booking_id AND scope.role = 'customer' AND b.booker_id = scope.account_id
+      AND ${customerTarget("scope.account_id", "venue", "l")}
   )`;
 const subjectBooking = sessionBookingValue("(SELECT id FROM subject)", "scope");
 const subjectRevision = "(SELECT revision FROM subject)";
@@ -307,9 +333,9 @@ export function planSessionHold(ctx: RequestScope, session: SessionAccess, listi
     JOIN session_slots s ON s.id = i.slot_id AND s.listing_id = i.listing_id AND s.state IN ('published', 'paused')
     JOIN session_listing_versions v ON v.id = s.listing_version_id JOIN venues venue ON venue.id = v.venue_id
     JOIN session_listings l ON l.id = s.listing_id JOIN businesses business ON business.id = l.business_id AND business.state = 'approved'
-    WHERE scope.role = 'customer' AND ${availableVenue("venue", "l")}
+    WHERE scope.role = 'customer' AND ${sessionsBusinessEnabled("l.business_id")} AND ${availableVenue("scope.account_id", "venue", "l")}
       AND (i.move_id IS NULL OR EXISTS (SELECT 1 FROM ${bookingTables()} WHERE b.id = i.move_id
-        AND b.booker_id = scope.account_id AND b.listing_id = i.listing_id AND ${enabledScope("venue", "l")}))
+        AND b.booker_id = scope.account_id AND b.listing_id = i.listing_id AND ${customerCategory("b.booker_id", "venue", "l")}))
   )`);
   const bookable = `s.state = 'published' AND s.starts_at > ${at} AND (s.format <> 'private' OR s.quantity = 1)
     AND ${safeTotal("s", "s.quantity")} AND (s.move_id IS NULL OR EXISTS (
@@ -323,12 +349,12 @@ export function planSessionHold(ctx: RequestScope, session: SessionAccess, listi
     'provider', ${provider("business")}, 'bookerName', ${displayName("booker")}, 'expiresAt', h.expires_at,
     'agreement', ${agreement("s", "chosen", "location", "h.places")}, 'host', json(${host("s", "chosen", at)}),
     'moveFrom', json((SELECT json_object('id', b.id, 'reference', b.reference, 'startsAt', s.starts_at, 'endsAt', s.ends_at, 'siteZone', venue.site_zone)
-      FROM ${bookingTables()} WHERE b.id = h.move_booking_id AND ${enabledScope("venue", "l")})))
+      FROM ${bookingTables()} WHERE b.id = h.move_booking_id AND ${customerCategory("b.booker_id", "venue", "l")})))
     FROM subject s JOIN session_holds h ON h.id = s.hold_id AND h.booker_id = s.account_id AND h.slot_id = s.id
     JOIN session_listing_versions chosen ON chosen.id = h.listing_version_id JOIN venues location ON location.id = chosen.venue_id
     JOIN session_listings l ON l.id = h.listing_id JOIN businesses business ON business.id = l.business_id
     JOIN accounts booker ON booker.id = h.booker_id
-    WHERE h.state = 'held' AND h.expires_at > ${at} AND ${availableVenue("location", "l")}`;
+    WHERE h.state = 'held' AND h.expires_at > ${at} AND ${availableVenue("h.booker_id", "location", "l")}`;
   return sessionReceipt(ctx, access, {
     operationId: body.operationId, command: "session_hold", input: [listingId, body], resultRef: id,
     eligible: { sql: `EXISTS (SELECT 1 FROM subject s WHERE ${bookable} AND NOT ${activeHold} AND s.quantity <= ${available}
@@ -354,14 +380,14 @@ const authorizedHold = `owned_hold AS (
   JOIN session_holds h ON h.id = i.hold_id JOIN session_listings l ON l.id = h.listing_id
   JOIN businesses business ON business.id = l.business_id AND business.state = 'approved'
   JOIN session_listing_versions held ON held.id = h.listing_version_id JOIN venues original ON original.id = held.venue_id
-  WHERE scope.role = 'customer' AND scope.account_id = h.booker_id AND ${enabledScope("original", "l")}
+  WHERE scope.role = 'customer' AND scope.account_id = h.booker_id AND ${customerTarget("h.booker_id", "original", "l")}
 )`;
 const holdTarget = `hold_target AS (
   SELECT target.id, target.listing_version_id, target.state, target.starts_at, next.terms_hash, next.price_minor
   FROM owned_hold h JOIN session_slots target ON target.id = h.slot_id
   JOIN session_listing_versions next ON next.id = target.listing_version_id JOIN venues destination ON destination.id = next.venue_id
   JOIN session_listings listing ON listing.id = h.listing_id
-  WHERE ${availableVenue("destination", "listing")} AND ${safeTotal("next", "h.places")}
+  WHERE ${availableVenue("h.booker_id", "destination", "listing")} AND ${safeTotal("next", "h.places")}
     AND (next.format <> 'private' OR h.places = 1)
 )`;
 const targetOpen = `target.state = 'published' AND target.starts_at > ${at}`;
@@ -469,18 +495,20 @@ export function planRespondToSessionChange(ctx: RequestScope, session: SessionAc
   const accept = decision === "accept";
   const access = sessionSubject(session, ctx.now, "booking_id, proposal_id, proposal_version", [id, proposalId, version], bookingSubject());
   const targetAvailable = `EXISTS (SELECT 1 FROM session_slots target
-    JOIN session_listing_versions next ON next.id = target.listing_version_id
+    JOIN session_listing_versions next ON next.id = offer.proposed_listing_version_id
     JOIN venues destination ON destination.id = next.venue_id JOIN session_listings listing ON listing.id = target.listing_id
-    WHERE target.id = offer.proposed_slot_id AND target.listing_version_id = offer.proposed_listing_version_id AND ${targetOpen}
-      AND ${availableVenue("destination", "listing")} AND ${safeTotal("next", "b.places")}
+    WHERE target.id = offer.proposed_slot_id
+      AND ${customerCategory("b.booker_id", "destination", "listing")}
+      ${accept ? `AND target.listing_version_id = next.id AND ${targetOpen}
+      AND destination.state = 'approved' AND ${safeTotal("next", "b.places")}
       AND (next.format <> 'private' OR b.places = 1)
-      AND (target.id = b.slot_id OR b.places <= ${placesLeft("target", at, "b.id")}))`;
+      AND (target.id = b.slot_id OR b.places <= ${placesLeft("target", at, "b.id")})` : ""})`;
   return sessionReceipt(ctx, access, {
     operationId: body.operationId, command: "session_respond", input: [id, body], resultRef: id,
     eligible: { sql: `EXISTS (SELECT 1 FROM subject b JOIN session_slots s ON s.id = b.slot_id CROSS JOIN request i
       JOIN session_change_proposals offer ON offer.booking_id = b.id AND offer.id = i.proposal_id AND offer.version = i.proposal_version
       WHERE b.revision = ? AND ${canCancel(at)} AND offer.state = 'pending' AND offer.proposed_at <= ${at} AND offer.respond_by > ${at}
-        AND offer.booked_slot_id = b.slot_id AND offer.booked_listing_version_id = b.listing_version_id${accept ? ` AND ${targetAvailable}` : ""})`,
+        AND offer.booked_slot_id = b.slot_id AND offer.booked_listing_version_id = b.listing_version_id AND ${targetAvailable})`,
     params: [bookingRevision] },
     writes: (guard) => ({ statements: [
       { sql: `UPDATE session_change_proposals SET state = ?, resolved_at = ?, resolved_by_id =

@@ -3,7 +3,7 @@ import type {
   RouteResponse, changeSessionHostRoute, getSessionBookingFeedbackRoute, getSessionHostOffersRoute, getSessionRosterRoute,
   getSessionRoute, listBusinessSessionsRoute, publishSessionRoute, replyToSessionHostOfferRoute, updateSessionRosterRoute,
 } from "@bookbuddy/api-contract";
-import { SESSION_PAYMENT_METHOD, SESSIONS_FEATURE_FLAG } from "@bookbuddy/domain";
+import { SESSION_PAYMENT_METHOD } from "@bookbuddy/domain";
 import type { SessionCommitment } from "@bookbuddy/domain";
 import type { CommandInput, CommandStatement } from "../../db/commit";
 import { planOperation } from "../../db/operations";
@@ -13,13 +13,12 @@ import type { SessionAccess } from "../auth/session";
 import { currentMembership } from "../jobs/projections";
 import { createLinkTarget, linkTokenFor } from "../links";
 import { calendarDay as DAY_MS } from "../schedule/calendar";
+import { sessionsBusinessEnabled, sessionsCategoryEnabled as enabled, sessionsMarketEnabled } from "./policy";
 
 const pageSize = 50;
 const actor = "(SELECT account_id FROM live_scope)";
 const hostingSlotId = "(SELECT id FROM hosting_slot)";
 const boolean = (expression: string) => `json(CASE WHEN ${expression} THEN 'true' ELSE 'false' END)`;
-const enabled = (area: string, category: string) => `EXISTS (SELECT 1 FROM feature_flags flag
-  WHERE flag.key = '${SESSIONS_FEATURE_FLAG}' AND flag.scope_key = ${area} || ':' || ${category} AND flag.enabled = 1)`;
 const admin = (scope: string, business: string) => `(${scope}.role = 'provider_admin' AND ${scope}.business_id = ${business}
   AND ${currentMembership(scope, at)} IS NOT NULL)`;
 const managesSlot = (scope: string, slot: string) => `(${admin(scope, `${slot}.business_id`)} OR
@@ -156,6 +155,7 @@ function detailValue(id: string, after: [number | null, string | null], rosterSl
       FROM input i JOIN session_listings listing ON listing.id = i.id
       JOIN businesses b ON b.id = listing.business_id AND b.state = 'approved'
       JOIN live_scope scope ON scope.business_id = listing.business_id AND scope.role IN ('provider_admin', 'foreman')
+      WHERE ${sessionsBusinessEnabled("listing.business_id")}
     ), chosen_version AS MATERIALIZED (
       SELECT ${version} AS value FROM listing l WHERE l.member_id IS NOT NULL
     ), slot_page AS MATERIALIZED (
@@ -186,7 +186,7 @@ export function hostingSlotAccess(session: SessionAccess, now: number, listingId
       FROM session_slots sl JOIN session_listings l ON l.id = sl.listing_id
       JOIN businesses business ON business.id = l.business_id AND business.state = 'approved'
       JOIN session_listing_versions v ON v.id = sl.listing_version_id JOIN venues venue ON venue.id = v.venue_id
-      WHERE l.id = ? AND sl.id = ? AND ${enabled("venue.area_id", "l.category")}
+      WHERE l.id = ? AND sl.id = ? AND ${sessionsBusinessEnabled("l.business_id")} AND ${enabled("venue.area_id", "l.category")}
     )`, params: [...access.params, listingId, slotId],
   };
 }
@@ -203,12 +203,10 @@ function scopedValue(access: SessionAccess, value: CommandStatement): CommandSta
   return scopedStatement(access, `SELECT (${value.sql}) AS value FROM acting_session`, ...value.params ?? []);
 }
 
-// An allowed empty worklist exists only if at least one category is on in the business's market or an owned venue's market.
-const marketEnabled = (area: string) => `EXISTS (SELECT 1 FROM feature_flags category_flag
-  WHERE category_flag.key = '${SESSIONS_FEATURE_FLAG}' AND category_flag.enabled = 1
-    AND category_flag.scope_key >= ${area} || ':' AND category_flag.scope_key < ${area} || ';')`;
-const businessMarketEnabled = (b: string) => `(${marketEnabled(`${b}.catchment_id`)} OR EXISTS (
-  SELECT 1 FROM venues owned WHERE owned.business_id = ${b}.id AND ${marketEnabled("owned.area_id")}))`;
+// An allowed empty worklist still requires the enabled business and at least one market category.
+const businessMarketEnabled = (b: string) => `(${sessionsBusinessEnabled(`${b}.id`)} AND (
+  ${sessionsMarketEnabled(`${b}.catchment_id`)} OR EXISTS (
+    SELECT 1 FROM venues owned WHERE owned.business_id = ${b}.id AND ${sessionsMarketEnabled("owned.area_id")})))`;
 
 export function readBusinessSessions(session: SessionAccess, now: number,
   { params, query }: RouteResponse<typeof listBusinessSessionsRoute.input>): CommandStatement | null {
@@ -390,7 +388,8 @@ async function saveListing(now: number, session: SessionAccess, input: PublishIn
   return hostingCommand(now, access, {
     operationId: body.operationId, command: "session.save_listing", input, resultRef: id,
     authorize: { sql: `EXISTS (SELECT 1 FROM hosting_input i JOIN venues venue ON venue.id = i.venue_id
-      WHERE ${admin("scope", "venue.business_id")} AND ${enabled("venue.area_id", "i.category")}
+      WHERE ${admin("scope", "venue.business_id")} AND ${sessionsBusinessEnabled("venue.business_id")}
+        AND ${enabled("venue.area_id", "i.category")}
         AND NOT EXISTS (SELECT 1 FROM session_listings foreign_listing WHERE foreign_listing.id = i.listing_id
           AND foreign_listing.business_id <> scope.business_id))` },
     eligible: { sql: `EXISTS (SELECT 1 FROM hosting_input i JOIN venues venue ON venue.id = i.venue_id
@@ -425,7 +424,7 @@ function saveSlot(now: number, session: SessionAccess, input: PublishInput, draf
     operationId: body.operationId, command: "session.save_slot", input, resultRef: slotId,
     authorize: { sql: `EXISTS (SELECT 1 FROM hosting_input i JOIN session_listings l ON l.id = i.listing_id
       JOIN session_listing_versions v ON v.listing_id = l.id AND v.id = i.version_id JOIN venues venue ON venue.id = v.venue_id
-      WHERE ${admin("scope", "l.business_id")} AND ${enabled("venue.area_id", "l.category")})` },
+      WHERE ${admin("scope", "l.business_id")} AND ${sessionsBusinessEnabled("l.business_id")} AND ${enabled("venue.area_id", "l.category")})` },
     eligible: { sql: `EXISTS (SELECT 1 FROM hosting_input i JOIN session_listings l ON l.id = i.listing_id
       JOIN session_listing_versions v ON v.listing_id = l.id AND v.id = i.version_id JOIN venues venue ON venue.id = v.venue_id
       LEFT JOIN session_slots sl ON sl.id = i.slot_id

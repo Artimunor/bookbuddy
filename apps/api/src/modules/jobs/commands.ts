@@ -17,17 +17,18 @@ export interface JobCommandResult {
   error?: ErrorBody;
 }
 
-type Projection = { value: string | null; revision: number | null };
+type Projection = { value: string | null; revision: number | null; retry_at: number | null };
 
 async function planReceipt(ctx: RequestScope, access: SessionAccess, spec: Omit<OperationSpec, "access">,
-  projection: CommandStatement, revision?: { sql: string; expected: number },
+  projection: CommandStatement, revision?: { sql: string; expected: number }, limitedUntil?: CommandStatement,
 ): Promise<CommandInput<JobCommandResult>> {
   const plan = await planOperation(ctx, { ...spec, access });
   const authorize = spec.authorize ?? { sql: "1" };
-  const result = scopedStatement(access, `SELECT (${projection.sql}) AS value, (${revision?.sql ?? "NULL"}) AS revision
+  const result = scopedStatement(access, `SELECT (${projection.sql}) AS value, (${revision?.sql ?? "NULL"}) AS revision,
+      CASE WHEN r.operation_id IS NULL THEN (${limitedUntil?.sql ?? "NULL"}) END AS retry_at
     FROM live_scope scope LEFT JOIN operation_receipts r ON r.account_id = scope.account_id AND r.context_id = scope.context_id
       AND r.operation_id = ? AND r.command = ? WHERE (${authorize.sql})`,
-  ...projection.params ?? [], spec.operationId, spec.command, ...authorize.params ?? []);
+  ...projection.params ?? [], ...limitedUntil?.params ?? [], spec.operationId, spec.command, ...authorize.params ?? []);
   const index = plan.statements.length;
   return { statements: [...plan.statements, result], decode(results) {
     const operation = plan.decode(results);
@@ -35,7 +36,9 @@ async function planReceipt(ctx: RequestScope, access: SessionAccess, spec: Omit<
     if (operation.outcome.status === "rejected") {
       const error: ErrorBody = operation.outcome.error.code === "CONFLICT" && revision && row?.revision != null && row.revision !== revision.expected
         ? { code: "STALE_REVISION", current: { kind: "revision", revision: row.revision } }
-        : operation.outcome.error;
+        : operation.outcome.error.code === "CONFLICT" && row?.retry_at != null
+          ? { code: "RATE_LIMITED", retryAt: row.retry_at }
+          : operation.outcome.error;
       return { operation, value: null, error };
     }
     return { operation, value: row?.value ?? null };
@@ -397,6 +400,7 @@ type SupportInput = RouteResponse<(typeof submitSupportRoute)["input"]>["body"];
 type AnonymousSupport = { lookup: CryptoKey; source: string };
 const anonymousSupportLimit = 3;
 const anonymousSupportWindow = 60 * minute;
+const accountSupportLimit = 10;
 
 function supportEffect(id: string, now: number): CommandStatement {
   return { sql: `SELECT ? AS id, 'support_intake' AS kind, ? AS dedupe_key, ? AS resource_ref, ? AS due_at, ? AS expires_at`,
@@ -413,15 +417,21 @@ export async function planSupport(ctx: RequestScope, access: SessionAccess | Ano
   const fields = `id, reporter_id, kind, state, message, reported_reference, reply_email_ciphertext, received_at`;
   const projection = "json_object('reference', c.id, 'receivedAt', c.received_at)";
   if ("sql" in access) {
+    const unusedId = "NOT EXISTS (SELECT 1 FROM support_cases WHERE reporter_id = scope.account_id AND operation_id = ?)";
+    // An indexed, bounded scan finds the case whose expiry frees the next slot.
+    const quota = `FROM support_cases WHERE reporter_id = scope.account_id AND received_at > ?
+      ORDER BY received_at DESC LIMIT 1 OFFSET ${accountSupportLimit - 1}`;
+    const cutoff = ctx.now - day;
     return planReceipt(ctx, access, {
       command: "access.submit_support", operationId, input, resultRef: id,
-      eligible: { sql: "NOT EXISTS (SELECT 1 FROM support_cases WHERE reporter_id = scope.account_id AND operation_id = ?)", params: [operationId] },
+      eligible: { sql: `${unusedId} AND (SELECT received_at ${quota}) IS NULL`, params: [operationId, cutoff] },
       writes: (guard) => ({
         statements: [scopedStatement(access, `INSERT INTO support_cases (${fields}, operation_id)
           SELECT ?, s.account_id, ?, 'open', ?, ?, ?, ?, ? FROM live_scope s WHERE ${guard.sql}`, ...params, operationId, ...guard.params ?? [])],
         effects: supportEffect(id, ctx.now),
       }),
-    }, { sql: `SELECT ${projection} FROM support_cases c WHERE c.id = r.result_ref AND c.reporter_id = scope.account_id` });
+    }, { sql: `SELECT ${projection} FROM support_cases c WHERE c.id = r.result_ref AND c.reporter_id = scope.account_id` },
+    undefined, { sql: `CASE WHEN ${unusedId} THEN (SELECT received_at + ${day} ${quota}) END`, params: [operationId, cutoff] });
   }
   return planAnonymousSupport(ctx, access, input, id, fields, params, projection);
 }

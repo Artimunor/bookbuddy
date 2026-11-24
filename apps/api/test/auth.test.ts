@@ -345,3 +345,41 @@ test("OTP mail claims encrypted payload once, batches delivery, and scrubs settl
     provider.mockRestore();
   }
 });
+
+test("auth JSON routes stop streaming at 16 KiB despite an understated Content-Length", async () => {
+  const { db, env, wakes } = await fixture();
+  const app = createApp();
+  const { batch, query } = db.calls;
+  for (const [path, method] of [
+    [start, "POST"], [emailPath(randomToken(), "resend"), "POST"], [emailPath(randomToken(), "verify"), "POST"],
+    ["/session/context", "POST"], ["/account/settings", "PATCH"],
+  ] as const) {
+    let cancelled = false, chunks = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (chunks++ === 3) controller.close();
+        else controller.enqueue(new Uint8Array(9 * 1024).fill(32));
+      },
+      cancel() { cancelled = true; },
+    });
+    await error(await app.fetch(new Request(`${origin}/api/v1${path}`, {
+      method, headers: { "Content-Type": "application/json", "Content-Length": "1" }, body: stream,
+    }), env), 422);
+    expect(cancelled).toBe(true);
+  }
+  expect(db.calls).toMatchObject({ batch, query });
+  expect(wakes).toHaveLength(0);
+});
+
+test("Worker mail fails closed with a dev flag even when Postmark is configured", async () => {
+  const { db, env, req, wakes } = await fixture();
+  const { attemptId } = await data<EmailAttempt>(await req(start, "POST", person));
+  env.OTP_MAIL_DEV = "true";
+  const provider = spyOn(globalThis, "fetch").mockResolvedValue(Response.json([{ ErrorCode: 0 }]));
+  const { batch, query } = db.calls;
+  await runEffectBatch(env, wakes, now);
+  expect(db.calls.batch - batch).toBe(2);
+  expect(db.calls.query - query).toBe(0);
+  expect(provider).not.toHaveBeenCalled();
+  expect((await data<EmailAttempt>(await req(emailPath(attemptId, "status")))).delivery).toBe("failed");
+});

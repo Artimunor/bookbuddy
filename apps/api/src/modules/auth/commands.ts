@@ -59,7 +59,7 @@ export async function switchContext(ctx: RequestScope, access: SessionAccess, op
   }));
 }
 
-export async function endSession(ctx: RequestScope, access: SessionAccess): Promise<boolean> {
+export async function endSession(ctx: RequestScope, access: SessionAccess): Promise<string | null> {
   return commitCommand(ctx, prepareCommand(ctx, {
     statements: [
       {
@@ -81,7 +81,7 @@ export async function endSession(ctx: RequestScope, access: SessionAccess): Prom
         params: [crypto.randomUUID(), access.params[0]],
       },
     ],
-    decode: (results) => Boolean(results[1]?.results.length),
+    decode: (results) => (results[1]?.results[0] as { id: string } | undefined)?.id ?? null,
   }));
 }
 

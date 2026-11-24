@@ -25,7 +25,7 @@ async function fixture() {
   const env = {
     DB: db,
     SYNC_CURSOR_HMAC_KEY: "field-live-test-cursor-key-with-more-than-32-bytes",
-    LIVE: { getByName: (name: string) => ({ async publishInvalidation() { topics.push(name); } }) },
+    LIVE: { getByName: () => ({ async publishInvalidation(name: string) { topics.push(name); } }) },
     EFFECTS: { async send({ workKeys }: { workKeys: readonly string[] }) { wakes.push(workKeys); } },
   } as unknown as Bindings;
   const execution = { waitUntil() {}, passThroughOnException() {} };

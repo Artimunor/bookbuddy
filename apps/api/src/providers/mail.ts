@@ -32,18 +32,8 @@ export function isSyntheticMailbox(email: string): boolean {
 }
 
 export function createMailDelivery(env: AuthBindings, transport: MailFetch = fetch): MailDelivery | null {
-  if (env.OTP_MAIL_DEV === "true") {
-    return { async send(batch) {
-      for (const message of batch) {
-        if (env.OTP_DEV_LOG_CODE === "true" && message.syntheticOtp && isSyntheticMailbox(message.to)) {
-          console.info("bookbuddy.mail.fixture_code", message.syntheticOtp);
-        } else {
-          console.info("bookbuddy.mail.dev_delivery");
-        }
-      }
-      return batch.map(() => "delivered");
-    } };
-  }
+  // Deployment bindings never select a fake provider, even with valid Postmark credentials.
+  if (env.OTP_MAIL_DEV !== undefined || env.OTP_DEV_LOG_CODE !== undefined || env.OTP_DEV_TEST_CODE !== undefined) return null;
   const config = postmarkConfig(env);
   if (!config) return null;
   return { async send(batch) {

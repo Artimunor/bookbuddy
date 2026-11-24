@@ -20,6 +20,7 @@ const { LiveTopic } = await import("../src/realtime/live-topic");
 class TestSocket {
   readyState = WebSocket.OPEN;
   attachment: LiveAttachment | null = null;
+  tags: readonly string[] = [];
   readonly messages: string[] = [];
   readonly closeCodes: number[] = [];
   serializeAttachment(value: LiveAttachment) { this.attachment = structuredClone(value); }
@@ -61,6 +62,7 @@ async function fixture() {
   const now = Date.now();
   const wakes: Promise<unknown>[] = [];
   const calls = { upgrade: 0, publish: 0, fanout: 0, queue: 0 };
+  const closedSessions: string[] = [];
   const objects = new Map<string, { topic: InstanceType<typeof LiveTopic>; sockets: TestSocket[] }>();
   const env = {
     DB: db,
@@ -69,8 +71,8 @@ async function fixture() {
       if (!object) {
         const sockets: TestSocket[] = [];
         const state = {
-          acceptWebSocket(socket: TestSocket) { sockets.push(socket); },
-          getWebSockets() { calls.fanout++; return sockets; },
+          acceptWebSocket(socket: TestSocket, tags: readonly string[]) { socket.tags = tags; sockets.push(socket); },
+          getWebSockets(tag: string) { calls.fanout++; return sockets.filter((socket) => socket.tags.includes(tag)); },
           blockConcurrencyWhile<T>(run: () => Promise<T>) { return run(); },
         } as unknown as DurableObjectState;
         object = { topic: new LiveTopic(state, env), sockets };
@@ -79,7 +81,11 @@ async function fixture() {
       const { topic } = object;
       return {
         fetch(request: Request) { calls.upgrade++; return topic.fetch(request); },
-        async publishInvalidation(revokedScopeIds?: readonly string[]) { calls.publish++; topic.publishInvalidation(revokedScopeIds); },
+        async publishInvalidation(name: string, revokedScopeIds?: readonly string[]) {
+          calls.publish++;
+          await topic.publishInvalidation(name, revokedScopeIds);
+        },
+        async closeSession(sessionId: string) { closedSessions.push(sessionId); await topic.closeSession(sessionId); },
       };
     } },
     EFFECTS: { async send() { calls.queue++; } },
@@ -134,10 +140,12 @@ async function fixture() {
     ]);
   } catch (error) { db.close(); throw error; }
 
-  async function open(topic: string, person?: Person, mode: "bearer" | "cookie" | "untrusted" = "bearer", expectedReads = 1) {
+  async function open(topic: string, person?: Person, mode: "bearer" | "cookie" | "untrusted" = "bearer",
+    expectedReads = 1, extra?: HeadersInit) {
     const before = { ...db.calls };
     const previousCalls = { ...calls };
-    const headers = new Headers({ Upgrade: "websocket" });
+    const headers = new Headers(extra);
+    headers.set("Upgrade", "websocket");
     if (person && mode === "bearer") headers.set("Authorization", `Bearer ${credentials.get(person)}`);
     if (person && mode !== "bearer") {
       headers.set("Cookie", `${sessionCookieName}=${credentials.get(person)}`);
@@ -152,7 +160,7 @@ async function fixture() {
     expect(calls.queue).toBe(previousCalls.queue);
     expect(calls.publish).toBe(previousCalls.publish);
     expect(response.headers.get("Cache-Control")).toBe("private, no-store");
-    return { response, socket: response.status === 101 ? objects.get(topic)?.sockets.at(-1) : undefined };
+    return { response, socket: response.status === 101 ? objects.values().next().value?.sockets.at(-1) : undefined };
   }
   async function command(person: Person, path: string, body: unknown, operationId?: string) {
     const before = { ...db.calls };
@@ -164,7 +172,7 @@ async function fixture() {
     expect(db.calls.query).toBe(before.query);
     return response;
   }
-  return { db, calls, objects, wakes, open, command };
+  return { db, calls, objects, wakes, open, command, closedSessions };
 }
 
 test("live authenticates cookie and bearer, rejects unauthorized topics and never exposes a different scope", async () => {
@@ -195,7 +203,7 @@ test("cold thread catch-up is bounded and later committed hints reveal no projec
     expect(response.status).toBe(101);
     expect(socket).toBeDefined();
     expect(socket!.messages).toHaveLength(1);
-    expect(socket!.attachment).toEqual({ scopeId: "customer-scope", leaseUntil: expect.any(Number) });
+    expect(socket!.attachment).toEqual({ sessionId: "customer-session", scopeId: "customer-scope", leaseUntil: expect.any(Number) });
     const initial = parseLiveFrame(socket!.messages[0]);
     expect(initial).toMatchObject({ kind: "thread_catch_up", details: { id: "thread" }, page: { threadId: "thread",
       page: { hasMore: true, cursor: "before~3" } } });
@@ -215,7 +223,7 @@ test("cold thread catch-up is bounded and later committed hints reveal no projec
     expect((await append()).status).toBe(200);
     expect(f.wakes).toHaveLength(0);
     expect(f.calls.publish).toBe(1);
-    f.objects.get("thread:thread")!.sockets.length = 0;
+    f.objects.values().next().value!.sockets.length = 0;
     expect((await f.command("foreman", "/threads/thread/entries", { operations: [{
       operationId: "idle-append-op", payload: { id: "idle-append", originalText: secret, sourceLanguage: "en" },
     }] })).status).toBe(200);
@@ -231,7 +239,7 @@ test("committed scope revoke closes the attached socket without another read; ex
     const { socket: revoked } = await f.open("scope-inbox:worker-scope", "worker");
     const { socket: current } = await f.open("thread:thread", "customer");
     const { socket: expired } = await f.open("thread:thread", "foreman");
-    const thread = f.objects.get("thread:thread")!;
+    const thread = f.objects.values().next().value!;
     expired!.attachment = { ...expired!.attachment!, leaseUntil: Date.now() - 1 };
     const before = { ...f.db.calls };
     const response = await f.command("admin", "/members/worker-member/revoke", {
@@ -243,7 +251,7 @@ test("committed scope revoke closes the attached socket without another read; ex
     expect(f.calls.publish).toBe(1);
     expect(revoked?.closeCodes).toEqual([1008]);
     expect(revoked?.messages).toEqual(['{"kind":"ready"}']);
-    thread.topic.publishInvalidation();
+    await thread.topic.publishInvalidation("thread:thread");
     expect(expired?.closeCodes).toEqual([1008]);
     expect(expired?.messages).toHaveLength(1);
     expect(current?.messages.at(-1)).toBe('{"kind":"invalidate"}');
@@ -252,5 +260,54 @@ test("committed scope revoke closes the attached socket without another read; ex
     expect(f.calls.fanout).toBe(2);
     expect(f.calls.queue).toBe(0);
     expect((await f.open("scope-inbox:worker-scope", "worker")).response.status).toBe(404);
+  } finally { f.db.close(); }
+});
+
+test("live ingress rejects malformed credentials without routing arbitrary topics", async () => {
+  const f = await fixture();
+  try {
+    const token = randomToken();
+    const malformed: HeadersInit[] = [
+      { Authorization: "Basic ignored" }, { Authorization: "Bearer malformed" },
+      { Cookie: "unrelated=value", Origin: origin },
+      { Cookie: `${sessionCookieName}=malformed`, Origin: origin },
+      { Cookie: `${sessionCookieName}=${token}; ${sessionCookieName}=${token}`, Origin: origin },
+    ];
+    for (const headers of malformed) {
+      expect((await f.open("thread:another", undefined, "bearer", 0, headers)).response.status).toBe(401);
+    }
+    expect(f.objects.size).toBe(0);
+    for (const topic of ["thread:another", "provider-job:different"]) {
+      expect((await f.open(topic, undefined, "bearer", 1, { Authorization: `Bearer ${token}` })).response.status).toBe(401);
+    }
+    expect(f.objects.size).toBe(1);
+  } finally { f.db.close(); }
+});
+
+test("committed session end closes all of that session's sockets but preserves a second session in the same scope", async () => {
+  const f = await fixture();
+  try {
+    const otherToken = randomToken();
+    await f.db.prepare(`INSERT INTO sessions (id, account_id, secret_hash, active_context_id, device_id, issued_at, expires_at)
+      SELECT 'second-session', account_id, ?, active_context_id, 'other-device', issued_at, expires_at
+      FROM sessions WHERE id = 'customer-session'`).bind(await hashSessionCredential(otherToken)).run();
+    const { socket: first } = await f.open("thread:thread", "customer");
+    const { socket: secondTopic } = await f.open("scope-inbox:customer-scope", "customer");
+    const { socket: other } = await f.open("thread:thread", undefined, "bearer", 1, { Authorization: `Bearer ${otherToken}` });
+    const { socket: otherTopic } = await f.open("customer-visit:visit", undefined, "bearer", 1, { Authorization: `Bearer ${otherToken}` });
+    expect(f.objects.size).toBe(1);
+    const response = await f.command("customer", "/session/end", undefined);
+    expect(response.status).toBe(200);
+    expect(f.closedSessions).toEqual(["customer-session"]);
+    expect(first?.closeCodes).toEqual([1008]);
+    expect(secondTopic?.closeCodes).toEqual([1008]);
+    expect(other?.closeCodes).toEqual([]);
+    expect(otherTopic?.closeCodes).toEqual([]);
+    const hub = f.objects.values().next().value!.topic;
+    await hub.publishInvalidation("thread:thread");
+    expect(first?.messages).toHaveLength(1);
+    expect(other?.messages.at(-1)).toBe('{"kind":"invalidate"}');
+    expect(otherTopic?.messages).toEqual(['{"kind":"ready"}']);
+    expect((await f.open("thread:thread", "customer")).response.status).toBe(401);
   } finally { f.db.close(); }
 });

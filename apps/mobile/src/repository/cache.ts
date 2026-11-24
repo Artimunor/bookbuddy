@@ -1,4 +1,4 @@
-import { cachedAssignmentBriefingSchema, cachedWorkerFieldShiftSchema, customerSessionBookingSchema, notificationSchema, sessionCategorySchema } from "@bookbuddy/api-contract";
+import { cachedAssignmentBriefingSchema, cachedWorkerFieldShiftSchema, notificationSchema, sessionBookingSyncSummarySchema } from "@bookbuddy/api-contract";
 import type { CachedAssignmentBriefing, NotificationProjection, SyncProjection, WorkerFieldShift } from "@bookbuddy/api-contract";
 
 export const day = 24 * 60 * 60 * 1000;
@@ -54,22 +54,10 @@ const cachedFieldShift = cachedWorkerFieldShiftSchema.extend({
 const cachedBriefing = cachedAssignmentBriefingSchema.pick({
   assignmentId: true, siteZone: true, bookedWindow: true, hasActiveHold: true, instruction: true,
 }).strict();
-const bookingSync = customerSessionBookingSchema.extend({ category: sessionCategorySchema });
 
 function cacheSessionBooking(resourceId: string, value: unknown) {
-  const parsed = bookingSync.safeParse(value);
-  if (!parsed.success || parsed.data.id !== resourceId) return null;
-  const { id, category, agreement, state, host, proposal } = parsed.data;
-  const { title, venue, price } = agreement.version;
-  return {
-    bookingId: id, listingTitle: title, category, slotStart: agreement.startsAt, slotEnd: agreement.endsAt,
-    siteZone: venue.siteZone, partySize: agreement.places, state,
-    hostDisplayName: host.status === "confirmed" ? host.host.name : null,
-    substituteHost: host.status === "confirmed" && host.isSubstitute,
-    pendingChange: proposal?.state === "pending" ? { kind: "proposal" as const, respondBy: proposal.respondBy } : null,
-    price: { amountMinor: price.unitMinor, currency: price.currency, basis: price.basis },
-    venue: { publicName: venue.name, locality: venue.locality },
-  };
+  const parsed = sessionBookingSyncSummarySchema.safeParse(value);
+  return parsed.success && parsed.data.bookingId === resourceId ? parsed.data : null;
 }
 
 export type CachedWorkerFieldShift = SelectFields<WorkerFieldShift, typeof workerFields>;

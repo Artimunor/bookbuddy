@@ -19,7 +19,8 @@ const providerCrewAccess = `s.business_id = ? AND ${currentMembership("s", at)} 
     SELECT 1 FROM jobs j JOIN places p ON p.id = j.place_id AND p.state = 'in_area'
     WHERE j.business_id = s.business_id AND j.state = 'open' AND ${foreman("s", "j")} AND ${approvedJob("j")})))`;
 const readScope = (access: SessionAccess, predicate: string, ...params: string[]) => scopedStatement(access, `
-  SELECT (SELECT s.context_id FROM live_scope s WHERE ${predicate}) AS scope_id, expires_at, NULL AS value FROM acting_session`, ...params);
+  SELECT session_id, (SELECT s.context_id FROM live_scope s WHERE ${predicate}) AS scope_id, expires_at, NULL AS value
+    FROM acting_session`, ...params);
 
 export function liveAccess(session: SessionAccess, now: number, topic: LiveTopicKey, env: Bindings) {
   const id = topic.opaqueId;

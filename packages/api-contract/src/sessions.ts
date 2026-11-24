@@ -92,6 +92,17 @@ export const customerSessionBookingSchema = z.strictObject({
   canGiveFeedback: z.boolean(),
   actions: z.strictObject({ move: z.boolean(), cancel: z.boolean(), respond: z.boolean() }),
 });
+
+// Offline booking consumers must not receive the full agreement or arrival directions.
+export const sessionBookingSyncSummarySchema = z.strictObject({
+  bookingId: sessionBookingIdSchema, listingTitle: display, category: sessionCategorySchema,
+  slotStart: timestampSchema, slotEnd: timestampSchema, siteZone, partySize: positive,
+  state: z.enum(SESSION_BOOKING_STATES), hostDisplayName: display.nullable(), substituteHost: z.boolean(),
+  pendingChange: z.strictObject({ kind: z.literal("proposal"), respondBy: timestampSchema }).nullable(),
+  price: z.strictObject({ amountMinor: count, currency: z.enum(CURRENCIES), basis: z.enum(SESSION_PRICE_BASES) }),
+  venue: z.strictObject({ publicName: display, locality: display }),
+});
+
 export const sessionHoldProjectionSchema = z.strictObject({
   status: z.literal("held"), id: sessionHoldIdSchema, listingId: sessionListingIdSchema, provider, bookerName: display,
   expiresAt: timestampSchema, agreement, host: confirmedHost.nullable(),

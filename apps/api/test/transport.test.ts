@@ -16,8 +16,8 @@ async function fixture(staff = false) {
   const db = await createTestD1();
   const app = createApp();
   const hints: string[] = [];
-  const env = { DB: db, SYNC_CURSOR_HMAC_KEY: secret, LIVE: { getByName: (name: string) => ({
-    publishInvalidation: async () => { hints.push(name); },
+  const env = { DB: db, SYNC_CURSOR_HMAC_KEY: secret, LIVE: { getByName: () => ({
+    publishInvalidation: async (name: string) => { hints.push(name); },
   }) } } as unknown as Bindings;
   const execution = { props: {}, waitUntil() {}, passThroughOnException() {} };
   const contextId = staff ? "staff-context" : "customer-context";

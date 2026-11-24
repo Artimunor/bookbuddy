@@ -32,13 +32,13 @@ interface Fixture {
   db: TestD1;
   call(actor: Actor, path: string, body?: RequestBody, race?: boolean): Promise<TestResponse>;
 }
-function version(db: TestD1, id: string, no: number, hash: string, price: number, language = "en", listing = "listing") {
+function version(db: TestD1, id: string, no: number, hash: string, price: number, language = "en", listing = "listing", venue = "venue") {
   return db.prepare(`INSERT INTO session_listing_versions (
     id, listing_id, business_id, no, venue_id, title, description, original_locale, language, format, duration_ms,
     price_minor, currency, price_basis, terms_text, terms_locale, terms_hash, cancellation_notice_ms, created_by_id, created_at
-  ) VALUES (?, ?, 'provider', ?, 'venue', 'Mat Pilates', 'Small group class', 'en', ?, 'group', ?,
+  ) VALUES (?, ?, 'provider', ?, ?, 'Mat Pilates', 'Small group class', 'en', ?, 'group', ?,
     ?, 'EUR', 'per_person', 'Pay the provider in person. Free to cancel before start.', 'en', ?, 0, 'coordinator', 1)`)
-    .bind(id, listing, no, language, duration, price, hash);
+    .bind(id, listing, no, venue, language, duration, price, hash);
 }
 
 function slot(db: TestD1, id: string, start: number, versionId: string, capacity: number, listing = "listing") {
@@ -81,6 +81,14 @@ async function fixture(): Promise<Fixture> {
     ]),
     db.prepare(`INSERT INTO venues (id, business_id, area_id, site_zone, name, locality, address, access_note, arrival_note, state, approved_at)
       VALUES ('venue', 'provider', 'area', 'Europe/Madrid', 'Demo Studio', 'Xàbia', 'Demo address', 'Step-free', 'Reception', 'approved', 1)`),
+    db.prepare(`INSERT INTO places (id, owner_id, alias, normalized_address, state)
+      VALUES ('booker-place', 'booker', 'Home', 'Home address', 'pending_verification')`),
+    db.prepare(`INSERT INTO place_people (place_id, account_id, verified_from, history_from)
+      VALUES ('booker-place', 'booker', 1, 1), ('booker-place', 'other', 1, 1)`),
+    db.prepare(`UPDATE places SET state = 'in_area', named_approver_id = 'booker', area_id = 'area', site_zone = 'Europe/Madrid',
+      pin = '{"latitude":0,"longitude":0}' WHERE id = 'booker-place'`),
+    db.prepare(`INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, valid_from)
+      VALUES ('other-view', 'booker-place', 'other', 'view', 'booker', 1)`),
     db.prepare("INSERT INTO session_listings (id, business_id, category) VALUES ('listing', 'provider', 'pilates'), ('disabled', 'provider', 'massage')"),
     version(db, "v1", 1, "hash-1", 1600), version(db, "v2", 2, "hash-2", 2200, "es"),
     version(db, "disabled-v1", 1, "not-public", 1000, "en", "disabled"),
@@ -227,6 +235,10 @@ test("material proposals reserve space but change the agreement only after the b
   const before = data(getSessionBookingRoute, await f.call("booker", "/session-bookings/booking"));
   expect(before).toMatchObject({ agreement: { slotId: "morning", totalMinor: 1600 }, actions: { move: false, respond: true, cancel: true },
     proposal: { id: "proposal", version: 1, state: "pending", proposed: { slotId: "afternoon", totalMinor: 2200 } } });
+  const cached = data(syncRoute, await f.call("booker", "/sync", { contextId: "booker-context", operations: [], cursor: null }))
+    .upserts.find(({ kind }) => kind === "session_booking")?.value;
+  expect(cached).toMatchObject({ pendingChange: { kind: "proposal", respondBy: clock.now + 10 * minute } });
+  expect(JSON.stringify(cached)).not.toMatch(/Demo address|Step-free|Reception|"agreement"|"proposed"/);
   expect(data(createSessionHoldRoute, await f.call("other", "/sessions/listing/holds", hold("other-hold", "afternoon"))))
     .toMatchObject({ status: "not_held", reason: "places_unavailable", placesLeft: 0 });
   expect(data(createSessionHoldRoute, await f.call("booker", "/sessions/listing/holds", hold("move-hold", "afternoon", { moveBookingId: "booking" }))))
@@ -254,11 +266,16 @@ test("booker sync and private links expose confirmed substitutes; moving and can
   ]);
   const replacement = { status: "confirmed", isSubstitute: true, host: { name: "Lucía", language: "en", confirmed: { byName: "Marina", at: clock.now } } };
   const synced = data(syncRoute, await f.call("booker", "/sync", { contextId: "booker-context", operations: [], cursor: initial.cursor }));
-  expect(synced.upserts.find(({ kind, resourceId }) => kind === "session_booking" && resourceId === "booking")?.value)
-    .toMatchObject({ category: "pilates", host: replacement });
+  const summary = synced.upserts.find(({ kind, resourceId }) => kind === "session_booking" && resourceId === "booking")?.value;
+  expect(summary).toEqual({ bookingId: "booking", listingTitle: "Mat Pilates", category: "pilates",
+    slotStart: morning, slotEnd: morning + duration, siteZone: "Europe/Madrid", partySize: 1, state: "booked",
+    hostDisplayName: "Lucía", substituteHost: true, pendingChange: null,
+    price: { amountMinor: 1600, currency: "EUR", basis: "per_person" }, venue: { publicName: "Demo Studio", locality: "Xàbia" } });
   const other = data(syncRoute, await f.call("other", "/sync", { contextId: "other-context", operations: [], cursor: null }));
   expect(other.upserts.filter(({ kind }) => kind === "session_booking")).toEqual([]);
-  expect(data(openLinkRoute, await f.call("booker", "/links/token"))).toMatchObject({ kind: "session_booking", booking: { host: replacement } });
+  expect(data(openLinkRoute, await f.call("booker", "/links/token"))).toMatchObject({ kind: "session_booking", booking: {
+    host: replacement, agreement: { version: { venue: { address: "Demo address", accessNote: "Step-free", arrivalNote: "Reception" } } },
+  } });
   expect(data(openLinkRoute, await f.call("other", "/links/token"))).toMatchObject({ kind: "unavailable" });
   status(await f.call("other", "/session-bookings/booking"), 404, "NOT_FOUND");
   const next = { listingVersionId: "v2", termsHash: "hash-2", totalMinor: 2200 };
@@ -298,7 +315,7 @@ test("feedback unlocks at scheduled end without attendance, is recorded once, an
   status(await f.call("booker", path, command("another-feedback", { stars: 1 })), 409, "CONFLICT");
   const changed = data(syncRoute, await f.call("booker", "/sync", { contextId: "booker-context", operations: [], cursor: initial.cursor }));
   expect(changed.upserts.find(({ kind, resourceId }) => kind === "session_booking" && resourceId === "booking")?.value)
-    .toMatchObject({ canGiveFeedback: false });
+    .toMatchObject({ bookingId: "booking", state: "booked" });
   expect(JSON.stringify(changed)).not.toContain("Clear instructions.");
   status(await f.call("booker", providerPath), 404, "NOT_FOUND");
   expect(data(getSessionBookingFeedbackRoute, await f.call("coordinator", providerPath)).feedback)
@@ -342,4 +359,34 @@ test("disabled or missing flags hide every route, including stored holds and boo
     const synced = data(syncRoute, await f.call("booker", "/sync", { contextId: "booker-context", operations: [], cursor: null }));
     expect(synced.upserts.filter(({ kind }) => kind === "session_booking")).toEqual([]);
   }
+}));
+
+test("Later browse and booking require both the target provider flag and a current place in the target market", () => withSessions(async (f) => {
+  const existing = await bookMorning(f);
+  await f.db.batch([
+    f.db.prepare("UPDATE feature_flags SET enabled = 1 WHERE scope_key = 'off-area:pilates'"),
+    f.db.prepare(`INSERT INTO venues (id, business_id, area_id, site_zone, name, locality, address, access_note, arrival_note, state, approved_at)
+      VALUES ('other-venue', 'provider', 'off-area', 'Europe/Madrid', 'Another Studio', 'Dénia',
+        'Other address', 'Private access', 'Private arrival', 'approved', 1)`),
+    version(f.db, "v3", 3, "hash-3", 1600, "en", "listing", "other-venue"),
+    slot(f.db, "off-market-slot", afternoon + duration, "v3", 1),
+    f.db.prepare("UPDATE place_grants SET revoked_at = ?, revoked_by = 'booker' WHERE id = 'other-view'").bind(now),
+  ]);
+  status(await f.call("booker", "/sessions?areaId=off-area&category=pilates"), 404, "NOT_FOUND");
+  const listing = data(getSessionRoute, await f.call("booker", "/sessions/listing"));
+  if (listing.audience !== "customer") throw new Error("Wrong audience");
+  expect(listing.slots.map(({ id }) => id)).not.toContain("off-market-slot");
+  status(await f.call("booker", "/sessions/listing/holds", hold("cross-market", "off-market-slot")), 404, "NOT_FOUND");
+  status(await f.call("other", "/sessions?areaId=area&category=pilates"), 404, "NOT_FOUND");
+  status(await f.call("other", "/sessions/listing"), 404, "NOT_FOUND");
+  status(await f.call("other", "/sessions/listing/holds", hold("no-grant", "afternoon")), 404, "NOT_FOUND");
+  expect(data(getSessionBookingRoute, await f.call("booker", "/session-bookings/booking"))).toEqual(existing);
+  await f.db.prepare("UPDATE feature_flags SET enabled = 0 WHERE scope_key = 'provider'").run();
+  expect(data(listSessionsRoute, await f.call("booker", "/sessions?areaId=area")).sessions).toEqual([]);
+  status(await f.call("booker", "/sessions/listing"), 404, "NOT_FOUND");
+  status(await f.call("booker", "/sessions/listing/holds", hold("provider-disabled", "afternoon")), 404, "NOT_FOUND");
+  status(await f.call("booker", "/holds/hold/book", book("booking")), 404, "NOT_FOUND");
+  status(await f.call("booker", "/session-bookings/booking"), 404, "NOT_FOUND");
+  const synced = data(syncRoute, await f.call("booker", "/sync", { contextId: "booker-context", operations: [], cursor: null }));
+  expect(synced.upserts.filter(({ kind }) => kind === "session_booking")).toEqual([]);
 }));

@@ -5,7 +5,7 @@ import { otpEmailEffect } from "../modules/auth/mail-effect";
 import { commercialMailEffect } from "../modules/commercial/mail";
 import type { Bindings } from "../bindings";
 import { createMailDelivery } from "../providers/mail";
-import type { MailMessage } from "../providers/mail";
+import type { MailDelivery, MailMessage } from "../providers/mail";
 import type { ExpoFetch } from "../providers/expo-push";
 import type { TranslationFetch } from "../providers/translate";
 import { dispatchPush, pushNotificationEffect, sweepPushReceipts } from "./push";
@@ -45,7 +45,7 @@ const leaseMs = 60_000;
 const effectClock = "WITH clock(at) AS (VALUES (?))";
 
 export async function runEffectBatch(env: Bindings, keys: readonly string[] | null, now = Date.now(),
-  expoFetch?: ExpoFetch, translationFetch?: TranslationFetch): Promise<void> {
+  expoFetch?: ExpoFetch, translationFetch?: TranslationFetch, mailDelivery?: MailDelivery): Promise<void> {
   if (keys?.length === 0) return;
   const { DB: db } = env;
   const claim = crypto.randomUUID();
@@ -95,7 +95,7 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
     else mailJobs.push(job);
   }
   const [mail, push, translation] = await Promise.all([
-    dispatchMail(env, mailJobs),
+    dispatchMail(env, mailJobs, mailDelivery),
     dispatchPush(env, pushJobs, claim, now, expoFetch),
     dispatchTranslation(env, translationJobs, claim, translationFetch),
   ]);
@@ -119,10 +119,10 @@ export async function runEffectBatch(env: Bindings, keys: readonly string[] | nu
   if (recovered.length || translated.length) await publishTranslationHints(env, [...recovered, ...translated]);
 }
 
-async function dispatchMail(env: Bindings, jobs: readonly ClaimedEffect[]): Promise<EffectOutcome[]> {
+async function dispatchMail(env: Bindings, jobs: readonly ClaimedEffect[], delivery?: MailDelivery): Promise<EffectOutcome[]> {
   if (jobs.length === 0) return [];
   const outcomes: EffectOutcome[] = jobs.map(({ id }) => ({ id, state: "failed" }));
-  const mail = createMailDelivery(env);
+  const mail = delivery ?? createMailDelivery(env);
   const key = mail && await loadDeliveryKey(env.EFFECTS_ENCRYPTION_KEY);
   if (mail && key) {
     const messages = (await Promise.all(jobs.map(async (job, index) => {

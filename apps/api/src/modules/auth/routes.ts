@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import type { ApiEnv } from "../../bindings";
 import { openRequestScope } from "../../db/scope";
+import { closeRevokedSession } from "../../realtime/topics";
 import { changeSettings, endSession, readSession, switchContext } from "./commands";
 import { loadOtpKey } from "./crypto";
 import { getOtpStatus, sendOtp, verifyOtp } from "./otp";
@@ -29,9 +30,30 @@ function fail(c: Context<ApiEnv>, error: ErrorBody) {
   return c.json<ErrorEnvelope>({ ok: false, error, meta: { requestId: c.var.requestId } }, errorStatus[error.code]);
 }
 
-async function body(c: Context<ApiEnv>): Promise<unknown> {
+async function body(c: Context<ApiEnv>, maxBytes = 16 * 1024): Promise<unknown> {
   if (c.req.header("Content-Type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") return undefined;
-  try { return await c.req.json(); } catch { return undefined; }
+  const { raw: request } = c.req;
+  if (!request.body || Number(request.headers.get("Content-Length")) > maxBytes) return undefined;
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let bytes = 0, json = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) return JSON.parse(json + decoder.decode());
+      bytes += value.byteLength;
+      if (bytes > maxBytes) {
+        void reader.cancel().catch(() => {});
+        return undefined;
+      }
+      json += decoder.decode(value, { stream: true });
+    }
+  } catch {
+    void reader.cancel().catch(() => {});
+    return undefined;
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 function allowsChallengeTransport(req: Request, mode: "web" | "native"): boolean {
@@ -142,7 +164,10 @@ authRoutes.post(sessionContextRoute.path, async (c) => {
 authRoutes.post(sessionEndRoute.path, async (c) => {
   const ctx = openRequestScope(c.env.DB, c.var.requestId);
   const access = await resolveSession(c.req.raw, null, ctx.now);
-  if (!access || !await endSession(ctx, access)) return fail(c, { code: "UNAUTHENTICATED" });
+  const revoked = access && await endSession(ctx, access);
+  if (!revoked) return fail(c, { code: "UNAUTHENTICATED" });
+  // D1 has revoked access. If the transport is unavailable, short socket leases still expire.
+  await closeRevokedSession(c.env.LIVE, revoked).catch(() => {});
   if (!c.req.header("Authorization")) c.header("Set-Cookie", clearSessionCookie);
   return ok(c, { ended: true as const }, ctx.now);
 });
