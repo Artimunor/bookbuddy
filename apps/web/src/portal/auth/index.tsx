@@ -1,4 +1,4 @@
-import { emailStartRoute, type AccountSettingsPatch, type EmailAttempt, type RouteRequest, type SessionBootstrap } from "@bookbuddy/api-contract";
+import { emailStartRoute, opaqueLinkPathSchema, type AccountSettingsPatch, type EmailAttempt, type RouteRequest, type SessionBootstrap } from "@bookbuddy/api-contract";
 import { formatTwoClock } from "@bookbuddy/domain";
 import { createWebTranslator } from "@bookbuddy/i18n/web";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -26,7 +26,7 @@ function attemptToken() {
   return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 function target(value: string | null) {
-  return value && /^\/portal\/(?!sign-in(?:[/?#]|$)|verify(?:[/?#]|$)|setup(?:[/?#]|$))[^\\]*$/.test(value) ? value : "/portal/now";
+  return value && (opaqueLinkPathSchema.safeParse(value).success || /^\/portal\/(?!sign-in(?:[/?#]|$)|verify(?:[/?#]|$)|setup(?:[/?#]|$))[^\\]*$/.test(value)) ? value : "/portal/now";
 }
 function useDestination() {
   const [params] = useSearchParams();

@@ -3,9 +3,9 @@ import type { HomeProjection } from "@bookbuddy/api-contract";
 import type { Translator } from "@bookbuddy/i18n";
 import { createWebTranslator } from "@bookbuddy/i18n/web";
 import { useMemo, type ReactNode } from "react";
-import { BookingCard, PortalShell, type JobLineProps } from "../../ui";
+import { BookingCard, PortalShell, TwoClock, type JobLineProps } from "../../ui";
 import { useSession } from "../session";
-import { formatPortalTime } from "../time";
+import { formatPortalClock, formatPortalTime } from "../time";
 
 export function usePortal() {
   const session = useSession();
@@ -63,6 +63,14 @@ export function line(t: T, journey: Journey): JobLineProps {
 export function date(locale: string, at: number, zone: string) {
   return formatPortalTime(at, zone, locale)?.site ?? "";
 }
+export function PortalClock({ at, end, zone, locale, viewerZone }: { at: number; end?: number; zone: string | null; locale: string; viewerZone?: string }) {
+  const clock = formatPortalClock(at, zone, locale, viewerZone, end);
+  return clock ? <TwoClock {...clock} /> : null;
+}
+export function usePortalViewerZone() {
+  const { preferences } = useSession();
+  return preferences?.twoClock ? preferences.displayZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
+}
 export function money(locale: string, minor: number, currency = "EUR") {
   return new Intl.NumberFormat(locale, { style: "currency", currency }).format(minor / 100);
 }
@@ -79,8 +87,8 @@ export function Frame({ current, children }: { current?: "now" | "bookings"; chi
   return <PortalShell identity={{ name, initials: name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(), to: "/portal/settings" }} nav={nav} current={current} navLabel={t("web.portal.work.navigation")} skipLabel={t("web.portal.work.skip")}><div className="space-y-6">{children}</div></PortalShell>;
 }
 type CustomerCard = Extract<HomeProjection, { audience: "customer" }>["upcoming"][number];
-export function Booking({ item }: { item: CustomerCard }) {
+export function Booking({ item, viewerZone }: { item: CustomerCard; viewerZone?: string }) {
   const { t, locale } = usePortal();
   const label = item.journey.cancelled ? t("web.portal.work.cancelled") : stageLabel(t, item.journey.step);
-  return <BookingCard to={`/portal/jobs/${encodeURIComponent(item.jobId)}`} title={item.title ?? t("web.portal.work.untitled")} reference={item.reference} place={`${item.place.alias} · ${item.providerName}`} stage={{ label }} stageLine={line(t, item.journey)} next={item.nextVisit ? date(locale, item.nextVisit.window.startsAt, item.siteZone) : undefined} />;
+  return <BookingCard to={`/portal/jobs/${encodeURIComponent(item.jobId)}`} title={item.title ?? t("web.portal.work.untitled")} reference={item.reference} place={`${item.place.alias} · ${item.providerName}`} stage={{ label }} stageLine={line(t, item.journey)} next={item.nextVisit && <PortalClock at={item.nextVisit.window.startsAt} zone={item.siteZone} locale={locale} viewerZone={viewerZone} />} />;
 }

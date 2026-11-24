@@ -32,7 +32,7 @@ export type BookingCardProps = {
   reference?: string;
   stage: BadgeProps;
   stageLine?: Omit<JobLineProps, "compact" | "surface">;
-  next?: string;
+  next?: ReactNode;
 };
 
 export function BookingCard({ to, title, place, reference, stage, stageLine, next }: BookingCardProps) {
@@ -48,7 +48,7 @@ export function BookingCard({ to, title, place, reference, stage, stageLine, nex
         </div>
         <div><Badge {...stage} /></div>
         {stageLine && <JobLine {...stageLine} compact />}
-        {next && <p className="text-supporting"><bdi>{next}</bdi></p>}
+        {next && (typeof next === "string" ? <p className="text-supporting"><bdi>{next}</bdi></p> : next)}
       </Link>
     </article>
   );
@@ -58,7 +58,7 @@ export type NeedsYouCardProps = {
   status: string;
   title: string;
   detail: string;
-  deadline?: string;
+  deadline?: ReactNode;
   action: { label: string; to: To };
 };
 
@@ -69,7 +69,7 @@ export function NeedsYouCard({ status, title, detail, deadline, action }: NeedsY
       <div>
         <h3 className="text-section-title" dir="auto">{title}</h3>
         <p className="mt-1" dir="auto">{detail}</p>
-        {deadline && <p className="mt-2 text-supporting tabular-nums"><bdi>{deadline}</bdi></p>}
+        {deadline && (typeof deadline === "string" ? <p className="mt-2 text-supporting tabular-nums"><bdi>{deadline}</bdi></p> : <div className="mt-2">{deadline}</div>)}
       </div>
       <div><ActionLink to={action.to}>{action.label}</ActionLink></div>
     </article>

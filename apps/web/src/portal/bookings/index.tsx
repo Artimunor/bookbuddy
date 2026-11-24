@@ -2,11 +2,12 @@ import type { JobsPage } from "@bookbuddy/api-contract";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Button, SegmentedControl, StatusBanner } from "../../ui";
-import { Booking, Frame, usePortal } from "../now/common";
+import { Booking, Frame, usePortal, usePortalViewerZone } from "../now/common";
 
 type Page = Extract<JobsPage, { audience: "customer" }>;
 export function Bookings() {
-  const { jobs, t } = usePortal();
+  const { jobs, t, bootstrap, activeContext } = usePortal();
+  const viewerZone = usePortalViewerZone();
   const [params, setParams] = useSearchParams();
   const segment = params.get("segment") === "past" ? "past" : "active";
   const [page, setPage] = useState<Page | null>(null);
@@ -21,7 +22,7 @@ export function Bookings() {
       if (result.ok && result.data.audience === "customer") setPage(result.data); else setFailed(true);
     });
     return () => controller.abort();
-  }, [jobs, segment, generation]);
+  }, [jobs, segment, generation, bootstrap?.sessionId, activeContext?.contextId]);
   async function more() {
     if (!page?.page.cursor || loadingMore) return;
     setLoadingMore(true);
@@ -36,6 +37,6 @@ export function Bookings() {
     <SegmentedControl label={t("web.portal.work.segment")} value={segment} options={[{ value: "active", label: t("web.portal.work.active") }, { value: "past", label: t("web.portal.work.past") }]} onValueChange={(value) => setParams({ segment: value })} />
     {!page && !failed && <p role="status">{t("web.portal.work.loading")}</p>}
     {failed && <StatusBanner title={t("web.portal.work.failed")} tone="critical" action={<Button onClick={() => setGeneration((n) => n + 1)}>{t("web.portal.work.retry")}</Button>} />}
-    {page && <>{page.items.length ? page.items.map((item) => <Booking key={item.jobId} item={item} />) : <p>{t("web.portal.work.empty")}</p>}{page.page.hasMore && <Button onClick={more} pending={loadingMore}>{t("web.portal.work.more")}</Button>}</>}
+    {page && <>{page.items.length ? page.items.map((item) => <Booking key={item.jobId} item={item} viewerZone={viewerZone} />) : <p>{t("web.portal.work.empty")}</p>}{page.page.hasMore && <Button onClick={more} pending={loadingMore}>{t("web.portal.work.more")}</Button>}</>}
   </Frame>;
 }

@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Link, type To } from "react-router";
 import { Glyph, type GlyphName } from "./glyph";
 
@@ -171,7 +171,7 @@ export type StampProps = {
   kind: keyof typeof stampGlyph;
   title: string;
   actor?: { name: string; role: string };
-  time: string;
+  time: ReactNode;
   dateTime?: string;
   delivery?: { state: "pending" | "rejected"; label: string };
   photo?: { src: string; alt: string };
@@ -185,7 +185,7 @@ export function Stamp({ kind, title, actor, time, dateTime, delivery, photo }: S
         <p className="text-label">{title}</p>
         {actor && <p className="text-supporting text-muted"><bdi>{actor.name}</bdi> · {actor.role}</p>}
         {delivery && <p className={`text-supporting ${delivery.state === "rejected" ? "text-critical-ink" : "text-attention-ink"}`}>{delivery.label}</p>}
-        <p className="text-supporting text-muted"><ClockValue value={time} dateTime={dateTime} zoneLabel="" /></p>
+        {typeof time === "string" ? <p className="text-supporting text-muted"><ClockValue value={time} dateTime={dateTime} zoneLabel="" /></p> : time}
       </div>
       {photo && <img className="bb-stamp-photo" src={photo.src} alt={photo.alt} loading="lazy" width={64} height={64} />}
     </article>

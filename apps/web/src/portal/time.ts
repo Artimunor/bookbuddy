@@ -19,6 +19,19 @@ export function zoneLabel(zone: string | null | undefined, parts: ClockParts, lo
   return parts.zoneName ?? zone ?? "";
 }
 
+export function formatPortalClock(at: number, zone: string | null | undefined, locale: string, viewerZone?: string | null, end?: number) {
+  const clock = formatTwoClock(at, zone, viewerZone, locale);
+  if (clock.kind !== "available") return null;
+  const until = end === undefined ? null : formatTwoClock(end, zone, viewerZone, locale);
+  const siteEnd = until?.kind === "available" ? ` – ${until.site.date === clock.site.date ? until.site.time : until.siteTime}` : "";
+  const viewerEnd = until?.kind === "available" && until.viewerTime ? ` – ${until.viewerTime}` : "";
+  const dateTime = end === undefined ? new Date(at).toISOString() : undefined;
+  return {
+    site: { value: `${clock.siteTime}${siteEnd}`, dateTime, zoneLabel: zoneLabel(zone, clock.site, locale) },
+    viewer: clock.viewer ? { value: `${clock.viewerTime}${viewerEnd}`, dateTime, zoneLabel: zoneLabel(viewerZone, clock.viewer, locale) } : undefined,
+  };
+}
+
 export function formatPortalTime(at: number, zone: string | null | undefined, locale: string, viewerZone?: string | null): { site: string; viewer: string | null } | null {
   const clock = formatTwoClock(at, zone, viewerZone, locale);
   if (clock.kind !== "available") return null;
