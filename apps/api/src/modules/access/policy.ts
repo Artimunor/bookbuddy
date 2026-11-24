@@ -24,7 +24,7 @@ export function managesBusiness(account: string, business: string): string {
   return `EXISTS (SELECT 1 FROM memberships admin
     JOIN accounts a ON a.id = admin.account_id AND a.state = 'active'
     JOIN businesses b ON b.id = admin.business_id AND b.state = 'approved'
-    JOIN membership_roles r ON r.membership_id = admin.id AND r.role = 'provider_admin' AND r.revoked_at IS NULL
+    JOIN membership_roles r ON r.membership_id = admin.id AND r.role = 'provider_admin' AND r.revoked_at IS NULL AND r.granted_at <= ${at}
     JOIN business_grants g ON g.membership_id = admin.id AND g.capability = 'membership_admin'
     WHERE admin.account_id = ${account} AND admin.business_id = ${business} AND admin.state = 'active' AND ${liveTerm("g")})`;
 }
@@ -125,7 +125,7 @@ export function memberEligibility(member: string): string {
 export function otherAdmin(member: string): string {
   return `EXISTS (SELECT 1 FROM memberships peer
     JOIN accounts a ON a.id = peer.account_id AND a.state = 'active'
-    JOIN membership_roles r ON r.membership_id = peer.id AND r.role = 'provider_admin' AND r.revoked_at IS NULL
+    JOIN membership_roles r ON r.membership_id = peer.id AND r.role = 'provider_admin' AND r.revoked_at IS NULL AND r.granted_at <= ${at}
     WHERE peer.business_id = ${member}.business_id AND peer.id <> ${member}.id AND peer.state = 'active')`;
 }
 

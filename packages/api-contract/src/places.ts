@@ -116,6 +116,16 @@ export type PlaceList = z.infer<typeof placeListSchema>;
 const placeEdit = z.strictObject({ alias, address, safeArrivalNote: safeArrivalNote.nullable() });
 const placePatch = placeEdit.partial().refine((fields) => Object.values(fields).some((value) => value !== undefined));
 const successor = z.strictObject({ successorAccountId: accountIdSchema });
+const placePersonPatch = z.strictObject({
+  view: z.boolean().optional(),
+  message: z.boolean().optional(),
+  // True names this person; withdrawing the current person's approval requires a successor.
+  approve: z.boolean().optional(),
+  successorAccountId: accountIdSchema.optional(),
+}).refine(({ view, message, approve, successorAccountId }) =>
+  (view !== undefined || message !== undefined || approve !== undefined) && (successorAccountId === undefined || approve === false));
+
+export type PlacePersonPatch = z.infer<typeof placePersonPatch>;
 
 function versionedPlaceCommand<Payload extends z.ZodType>(payload: Payload) {
   return z.object({ params: placeParams, body: commandInputSchema(payload).extend({ expectedRevision: revisionSchema }) });
@@ -145,6 +155,12 @@ export const createPlaceRoute = defineRoute({
 export const patchPlaceRoute = defineRoute({
   method: "PATCH", path: "/places/:p", auth: "context", command: true,
   input: versionedPlaceCommand(placePatch), output: placeDetailsSchema,
+});
+
+export const patchPlacePersonRoute = defineRoute({
+  method: "PATCH", path: "/places/:p/people/:person", auth: "context", command: true,
+  input: versionedPlaceCommand(placePersonPatch).extend({ params: placeParams.extend({ person: accountIdSchema }) }),
+  output: placeDetailsSchema,
 });
 
 export const verifyPlacePinRoute = defineRoute({

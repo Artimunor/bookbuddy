@@ -1,6 +1,6 @@
 import {
   acceptInvitationRoute, declineInvitationRoute, getBusinessEligibilityRoute, getBusinessPeopleRoute, getInvitationRoute,
-  inviteBusinessMemberRoute, openLinkRoute, reissueInvitationRoute, revokeBusinessMemberRoute, withdrawInvitationRoute,
+  inviteBusinessMemberRoute, openLinkRoute, patchBusinessMemberRolesRoute, reissueInvitationRoute, revokeBusinessMemberRoute, withdrawInvitationRoute,
 } from "@bookbuddy/api-contract";
 import type { RouteRequest } from "@bookbuddy/api-contract";
 import type { ApiClient, RequestOptions } from "./client";
@@ -14,6 +14,8 @@ export function createAccessClient(api: ApiClient) {
       api.request(getBusinessEligibilityRoute, { params: { b }, query }, options),
     inviteBusinessMember: (b: string, body: RouteRequest<typeof inviteBusinessMemberRoute.input>["body"], options?: RequestOptions) =>
       api.request(inviteBusinessMemberRoute, { params: { b }, body }, options),
+    patchBusinessMemberRoles: (b: string, m: string, body: RouteRequest<typeof patchBusinessMemberRolesRoute.input>["body"], options?: RequestOptions) =>
+      api.request(patchBusinessMemberRolesRoute, { params: { b, m }, body }, options),
     revokeBusinessMember: (member: string, body: RouteRequest<typeof revokeBusinessMemberRoute.input>["body"], options?: RequestOptions) =>
       api.request(revokeBusinessMemberRoute, { params: { member }, body }, options),
     getInvitation: (id: string, options?: RequestOptions) => api.request(getInvitationRoute, { params: { id } }, options),

@@ -1,6 +1,6 @@
 import {
   archivePlaceRoute, changePlaceApproverRoute, createPlaceRoute, getPlaceRoute, invitePlacePersonRoute,
-  listPlacesRoute, patchPlaceRoute, transferPlaceRoute, verifyPlacePinRoute,
+  listPlacesRoute, patchPlacePersonRoute, patchPlaceRoute, transferPlaceRoute, verifyPlacePinRoute,
 } from "@bookbuddy/api-contract";
 import type { RouteRequest } from "@bookbuddy/api-contract";
 import type { ApiClient, RequestOptions } from "./client";
@@ -14,6 +14,8 @@ export function createPlacesClient(api: ApiClient) {
       api.request(createPlaceRoute, { body }, options),
     patchPlace: (p: string, body: RouteRequest<typeof patchPlaceRoute.input>["body"], options?: RequestOptions) =>
       api.request(patchPlaceRoute, { params: { p }, body }, options),
+    patchPlacePerson: (p: string, person: string, body: RouteRequest<typeof patchPlacePersonRoute.input>["body"], options?: RequestOptions) =>
+      api.request(patchPlacePersonRoute, { params: { p, person }, body }, options),
     verifyPlacePin: (p: string, body: RouteRequest<typeof verifyPlacePinRoute.input>["body"], options?: RequestOptions) =>
       api.request(verifyPlacePinRoute, { params: { p }, body }, options),
     invitePlacePerson: (p: string, body: RouteRequest<typeof invitePlacePersonRoute.input>["body"], options?: RequestOptions) =>

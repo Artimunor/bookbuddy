@@ -3,7 +3,7 @@ import type { BusinessEligibility, BusinessPeople } from "@bookbuddy/api-contrac
 import type { SessionAccess } from "../auth/session";
 import { decodeManagedInvitations, managedInvitationProjection } from "./invitations";
 import { accountableForeman, at, checkPriority, currentCheck, displayName, eligibilityCutoff, eligibilityStatus,
-  managesBusiness, memberEligibility, otherAdmin, revokedRoleProjection, scopedStatement } from "./policy";
+  liveTerm, managesBusiness, memberEligibility, otherAdmin, revokedRoleProjection, scopedStatement } from "./policy";
 
 const pageSize = 50;
 
@@ -17,6 +17,8 @@ const currentCrew = (member: string) => `EXISTS (SELECT 1 FROM membership_roles 
 export function businessMemberProjection(member: string, viewer: string, canManage: string): string {
   return `json_object('id', ${member}.id, 'displayName', ${displayName("a")}, 'email', a.email_normalized,
     'isViewer', json(CASE WHEN ${member}.account_id = ${viewer} THEN 'true' ELSE 'false' END),
+    'backupForeman', json(CASE WHEN EXISTS (SELECT 1 FROM business_grants bg WHERE bg.membership_id = ${member}.id
+      AND bg.capability = 'backup_foreman' AND ${liveTerm("bg")}) THEN 'true' ELSE 'false' END),
     'eligibility', CASE WHEN ${currentCrew(member)} THEN ${memberEligibility(member)} END,
     'roles', json((SELECT json_group_array(json(value)) FROM (
       SELECT json_object('grantId', g.id, 'role', g.role, 'grantedAt', g.granted_at,

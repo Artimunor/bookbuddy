@@ -1,4 +1,4 @@
-import type { CommandInput as WireCommand, ErrorBody } from "@bookbuddy/api-contract";
+import type { BusinessMemberRolesPatch, CommandInput as WireCommand, ErrorBody } from "@bookbuddy/api-contract";
 import { invitationExpiresAt } from "@bookbuddy/domain";
 import type { CommandInput, CommandStatement } from "../../db/commit";
 import { bumpVisibilityEpoch, planOperation } from "../../db/operations";
@@ -12,7 +12,7 @@ import { invitationOpeningSql, managedInvitationAt } from "./invitations";
 import { invitationMailEffectSql, prepareInvitationLink, sealInviteEmail } from "./mail";
 import type { InvitationMailKeys } from "./mail";
 import { accountableForeman, at, canReplaceInvite, freePlaceSlots, intendedRecipient, inviteKind, inviteRole, managesBusiness,
-  mayGrantInvite, mayManageInvite, otherAdmin, reissueAt, revokedRoleProjection, scopedStatement } from "./policy";
+  liveTerm, mayGrantInvite, mayManageInvite, otherAdmin, reissueAt, revokedRoleProjection, scopedStatement } from "./policy";
 
 export interface AccessCommandResult {
   operation: OperationResult;
@@ -217,6 +217,109 @@ export function decideInvitation(ctx: RequestScope, access: SessionAccess, id: s
   }, isAcceptance ? `${invitationOpeningSql("scope.account_id")} AND ${inviteViaReceipt}`
     : `SELECT json_object('id', i.id, 'state', 'declined', 'declinedAt', i.ended_at) AS value FROM invitations i
       WHERE ${inviteViaReceipt} AND i.recipient_id = scope.account_id AND i.state = 'declined'`);
+}
+
+function withMemberRoleEdits(base: SessionAccess, business: string, member: string, roles: string | null, backup: boolean | null): SessionAccess {
+  return { sql: `${base.sql}, edited_member AS MATERIALIZED (
+    SELECT m.* FROM memberships m JOIN accounts a ON a.id = m.account_id AND a.state = 'active'
+    WHERE m.business_id = ? AND m.id = ?
+  ), edits(roles, backup) AS (VALUES (?, ?)),
+  requested_roles AS MATERIALIZED (SELECT value AS role FROM edits CROSS JOIN json_each(edits.roles)),
+  current_roles AS MATERIALIZED (
+    SELECT g.id, g.role, g.granted_at FROM edited_member m JOIN membership_roles g ON g.membership_id = m.id WHERE g.revoked_at IS NULL
+  ), added_roles AS MATERIALIZED (SELECT role FROM requested_roles WHERE role NOT IN (SELECT role FROM current_roles)),
+  removed_roles AS MATERIALIZED (
+    SELECT id, role FROM current_roles WHERE (SELECT roles FROM edits) IS NOT NULL AND role NOT IN (SELECT role FROM requested_roles)
+  ), foreman_verification AS (
+    SELECT v.id FROM edited_member m JOIN authority_verifications v ON v.business_id = m.business_id AND v.subject_account_id = m.account_id
+    CROSS JOIN live_scope scope WHERE v.kind = 'membership' AND v.verified_at <= ${at} AND v.verified_by <> scope.account_id
+    ORDER BY v.verified_at DESC, v.id LIMIT 1
+  ), backup_edit AS MATERIALIZED (
+    SELECT e.enabled FROM (SELECT coalesce(backup, CASE WHEN EXISTS (SELECT 1 FROM removed_roles WHERE role = 'foreman') THEN 0 END)
+      AS enabled FROM edits) e CROSS JOIN edited_member m WHERE e.enabled IS NOT NULL AND e.enabled <> EXISTS (
+        SELECT 1 FROM business_grants bg WHERE bg.membership_id = m.id AND bg.capability = 'backup_foreman'
+          AND ((${liveTerm("bg")} AND e.enabled = 1) OR (bg.revoked_at IS NULL AND e.enabled = 0)))
+  )`, params: [...base.params, business, member, roles, backup] };
+}
+
+const memberEditChanged = `EXISTS (SELECT 1 FROM added_roles) OR EXISTS (SELECT 1 FROM removed_roles) OR EXISTS (SELECT 1 FROM backup_edit)`;
+const memberEditAllowed = `EXISTS (SELECT 1 FROM edited_member m WHERE m.state = 'active'
+  AND NOT EXISTS (SELECT 1 FROM added_roles WHERE role = 'provider_admin')
+  AND (m.account_id <> scope.account_id OR (NOT EXISTS (SELECT 1 FROM added_roles)
+    AND NOT EXISTS (SELECT 1 FROM backup_edit WHERE enabled = 1)))
+  AND (NOT EXISTS (SELECT 1 FROM removed_roles WHERE role = 'provider_admin')
+    OR (m.account_id <> scope.account_id AND ${otherAdmin("m")}))
+  AND (NOT EXISTS (SELECT 1 FROM removed_roles WHERE role = 'foreman') OR NOT (${accountableForeman("m")}))
+  AND (NOT EXISTS (SELECT 1 FROM added_roles WHERE role = 'foreman') OR EXISTS (SELECT 1 FROM foreman_verification))
+  AND ((SELECT backup FROM edits) IS NOT 1 OR (NOT EXISTS (SELECT 1 FROM removed_roles WHERE role = 'foreman')
+    AND (EXISTS (SELECT 1 FROM added_roles WHERE role = 'foreman')
+      OR EXISTS (SELECT 1 FROM current_roles WHERE role = 'foreman' AND granted_at <= ${at})))))`;
+
+export function patchBusinessMemberRoles(ctx: RequestScope, base: SessionAccess, business: string, member: string,
+  input: WireCommand<BusinessMemberRolesPatch>) {
+  const roles = input.payload.roles ? JSON.stringify([...input.payload.roles].sort()) : null;
+  const backup = input.payload.backupForeman ?? null;
+  const access = withMemberRoleEdits(base, business, member, roles, backup);
+  const roleKey = input.payload.roles?.length ? crypto.randomUUID() : null;
+  const backupKey = backup === true ? crypto.randomUUID() : null;
+  return commandPlan(ctx, {
+    access, operationId: input.operationId, command: "access.patch_member_roles", input: [business, member, roles, backup, input.expectedRevision ?? null],
+    resultRef: member, authorize: { sql: `EXISTS (SELECT 1 FROM edited_member m WHERE ${issuerMember("m.business_id")})` },
+    eligible: { sql: `${memberEditAllowed} AND (${memberEditChanged})` },
+    unchanged: { sql: `${memberEditAllowed} AND NOT (${memberEditChanged})` },
+    writes: (guard) => ({ statements: [
+      bumpVisibilityEpoch(guard, scopedStatement(access, `SELECT c.id AS context_id FROM edited_member m
+        JOIN account_contexts c ON c.business_id = m.business_id AND c.account_id = m.account_id
+        WHERE c.role_grant_id IN (SELECT id FROM removed_roles)
+          OR (c.role = 'foreman' AND EXISTS (SELECT 1 FROM current_roles g WHERE g.id = c.role_grant_id)
+            AND EXISTS (SELECT 1 FROM backup_edit))`)),
+      scopedStatement(access, `, events(kind, verification_id) AS (
+        SELECT 'role_revoked', NULL FROM removed_roles
+        UNION ALL SELECT 'role_granted', CASE WHEN role = 'foreman' THEN (SELECT id FROM foreman_verification) END FROM added_roles
+        UNION ALL SELECT CASE enabled WHEN 1 THEN 'grant_issued' ELSE 'grant_revoked' END, NULL FROM backup_edit)
+        INSERT INTO access_audit (id, business_id, actor_id, subject_account_id, verification_id, kind, at)
+        SELECT lower(hex(randomblob(16))), m.business_id, scope.account_id, m.account_id, e.verification_id, e.kind, ${at}
+        FROM edited_member m CROSS JOIN live_scope scope CROSS JOIN events e WHERE ${guard.sql}`, ...guard.params ?? []),
+      scopedStatement(access, `UPDATE business_grants AS g SET revoked_at = max(g.valid_from, ${at})
+        WHERE g.membership_id = (SELECT id FROM edited_member) AND g.revoked_at IS NULL AND ${guard.sql}
+          AND (json_array_length((SELECT roles FROM edits)) = 0
+            OR (g.capability = 'membership_admin' AND EXISTS (SELECT 1 FROM removed_roles WHERE role = 'provider_admin'))
+            OR (g.capability = 'backup_foreman' AND EXISTS (SELECT 1 FROM backup_edit)))`, ...guard.params ?? []),
+      ...backupKey === null ? [] : [scopedStatement(access, `INSERT INTO business_grants
+        (id, business_id, membership_id, capability, issuer_id, valid_from)
+        SELECT ?, m.business_id, m.id, 'backup_foreman', scope.account_id, ${at}
+        FROM edited_member m CROSS JOIN live_scope scope JOIN backup_edit e ON e.enabled = 1 WHERE ${guard.sql}`,
+      backupKey, ...guard.params ?? [])],
+      ...roles === null ? [] : [scopedStatement(access, `UPDATE membership_roles SET revoked_at = max(granted_at, ${at}),
+        revoked_by = (SELECT account_id FROM live_scope) WHERE id IN (SELECT id FROM removed_roles) AND ${guard.sql}`, ...guard.params ?? [])],
+      ...roleKey === null ? [] : [
+        scopedStatement(access, `INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at)
+          SELECT ? || '_' || r.role, m.id, m.business_id, m.account_id, r.role, ${at}
+          FROM edited_member m CROSS JOIN added_roles r WHERE ${guard.sql}`, roleKey, ...guard.params ?? []),
+        scopedStatement(access, `INSERT INTO account_contexts (id, account_id, role, business_id, role_grant_id)
+          SELECT lower(hex(randomblob(16))), g.account_id, g.role, g.business_id, g.id FROM membership_roles g
+          WHERE g.membership_id = (SELECT id FROM edited_member) AND g.id = ? || '_' || g.role AND ${guard.sql}
+          ON CONFLICT (account_id, role, business_id) WHERE business_id IS NOT NULL DO UPDATE SET role_grant_id = excluded.role_grant_id`,
+        roleKey, ...guard.params ?? []),
+        bumpVisibilityEpoch(guard, { sql: `SELECT id AS context_id FROM account_contexts
+          WHERE account_id = (SELECT account_id FROM memberships WHERE id = ?) AND role_grant_id = ? || '_' || role`, params: [member, roleKey] }),
+      ],
+      ...input.payload.roles?.length === 0 ? [scopedStatement(access, `UPDATE memberships SET state = 'revoked'
+        WHERE id = (SELECT id FROM edited_member) AND ${guard.sql}`, ...guard.params ?? [])] : [],
+    ], topicChanges: scopedStatement(access, `, revoked AS MATERIALIZED (
+        SELECT c.id, c.business_id, c.role FROM edited_member m JOIN account_contexts c ON c.business_id = m.business_id AND c.account_id = m.account_id
+        JOIN membership_roles g ON g.id = c.role_grant_id CROSS JOIN live_scope scope
+        WHERE (SELECT roles FROM edits) IS NOT NULL AND c.role NOT IN (SELECT role FROM requested_roles)
+          AND g.revoked_at = max(g.granted_at, ${at}) AND g.revoked_by = scope.account_id)
+      SELECT 'scope-inbox' AS kind, id AS opaque_id, id AS revoked_scope_id FROM revoked
+      UNION ALL SELECT 'provider-crew', m.business_id, r.id FROM edited_member m LEFT JOIN revoked r ON r.role IN ('provider_admin', 'foreman')
+      UNION ALL SELECT 'scope-inbox', c.id, NULL FROM edited_member m
+        JOIN account_contexts c ON c.business_id = m.business_id AND c.account_id = m.account_id AND c.role = 'foreman'
+        JOIN business_grants g ON g.membership_id = m.id AND g.capability = 'backup_foreman'
+        WHERE (g.id = ? OR ((SELECT backup FROM edits) = 0 AND g.revoked_at = max(g.valid_from, ${at})))
+          AND NOT EXISTS (SELECT 1 FROM revoked WHERE role = 'foreman')`, backupKey) }),
+  }, `SELECT json_object('member', json(CASE WHEN m.state = 'active' THEN ${businessMemberProjection("m", "scope.account_id", "1")} END)) AS value
+    FROM edited_member m JOIN accounts a ON a.id = m.account_id`);
 }
 
 const revokeTarget = `FROM membership_roles g JOIN memberships m ON m.id = g.membership_id WHERE m.id = ? AND g.id = ?`;

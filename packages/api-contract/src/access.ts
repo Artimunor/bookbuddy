@@ -91,6 +91,7 @@ export const businessMemberSchema = z.object({
   email: z.email().nullable(),
   isViewer: z.boolean(),
   roles: z.array(currentRole),
+  backupForeman: z.boolean(),
   eligibility: eligibilityStatus.nullable(),
 });
 
@@ -239,6 +240,20 @@ export const inviteBusinessMemberRoute = defineRoute({
   method: "POST", path: "/businesses/:b/invitations", auth: "context", command: true,
   input: z.object({ params: businessParams, body: commandInputSchema(z.strictObject({ email: z.email(), role: invitationalRole })) }),
   output: managedBusinessInvitation,
+});
+
+const businessMemberRolesPatch = z.strictObject({
+  // Supplying roles replaces the set. Protected admin grants can be retained, not created.
+  roles: z.array(membershipRole).max(MEMBERSHIP_ROLES.length).refine((roles) => new Set(roles).size === roles.length).optional(),
+  backupForeman: z.boolean().optional(),
+}).refine(({ roles, backupForeman }) => roles !== undefined || backupForeman !== undefined);
+
+export type BusinessMemberRolesPatch = z.infer<typeof businessMemberRolesPatch>;
+
+export const patchBusinessMemberRolesRoute = defineRoute({
+  method: "PATCH", path: "/businesses/:b/members/:m/roles", auth: "context", command: true,
+  input: z.object({ params: businessParams.extend({ m: membershipIdSchema }), body: commandInputSchema(businessMemberRolesPatch) }),
+  output: z.object({ member: businessMemberSchema.nullable() }),
 });
 
 export const revokeBusinessMemberRoute = defineRoute({

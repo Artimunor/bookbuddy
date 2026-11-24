@@ -1,8 +1,9 @@
 import {
   archivePlaceRoute, changePlaceApproverRoute, createPlaceRoute, getPlaceRoute, invitePlacePersonRoute,
-  listPlacesRoute, operationIdHeader, patchPlaceRoute, transferPlaceRoute, verifyPlacePinRoute,
+  listPlacesRoute, operationIdHeader, patchPlacePersonRoute, patchPlaceRoute, transferPlaceRoute, verifyPlacePinRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
+import { looksLikeAccessCode } from "@bookbuddy/domain";
 import { Hono } from "hono";
 import type { Context } from "hono";
 import type { ApiEnv } from "../../bindings";
@@ -16,9 +17,8 @@ import { accessClock } from "../access/policy";
 import { resolveSession } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
-import { archivePlace, changePlaceApprover, createPlace, issuePlaceInvitation, patchPlace, verifyPlacePin } from "./commands";
+import { archivePlace, changePlaceApprover, createPlace, issuePlaceInvitation, patchPlace, patchPlacePerson, verifyPlacePin } from "./commands";
 import type { PlaceCommandResult } from "./commands";
-import { hasEntrySecret } from "./policy";
 import { decodePlace, decodePlaceCursor, decodePlaces, readPlace, readPlaces } from "./read";
 
 export const placesRoutes = new Hono<ApiEnv>();
@@ -79,7 +79,7 @@ function command<Input extends { body: { operationId: string } }>(route: Command
       const fields = text(input.data);
       for (const key of entryFields) {
         const value = fields[key];
-        if (value && hasEntrySecret(value, key === "safeArrivalNote")) {
+        if (value && looksLikeAccessCode(value)) {
           return transportFailure(c, { code: "VALIDATION_FAILED", fieldErrors: [{ path: ["payload", key], code: "INVALID_VALUE" }] });
         }
       }
@@ -102,6 +102,7 @@ function command<Input extends { body: { operationId: string } }>(route: Command
 
 command(createPlaceRoute, (ctx, access, { body }) => createPlace(ctx, access, body), "place", ({ body }) => body.payload);
 command(patchPlaceRoute, (ctx, access, { params, body }) => patchPlace(ctx, access, params.p, body), "place", ({ body }) => body.payload);
+command(patchPlacePersonRoute, (ctx, access, { params, body }) => patchPlacePerson(ctx, access, params.p, params.person, body));
 command(verifyPlacePinRoute, (ctx, access, { params, body }) => verifyPlacePin(ctx, access, params.p, body));
 command(changePlaceApproverRoute, (ctx, access, { params, body }) => changePlaceApprover(ctx, access, params.p, body));
 command(archivePlaceRoute, (ctx, access, { params, body }) => archivePlace(ctx, access, params.p, body), "json");

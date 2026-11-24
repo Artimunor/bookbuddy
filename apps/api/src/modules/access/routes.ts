@@ -1,6 +1,7 @@
 import {
   acceptInvitationRoute, declineInvitationRoute, getBusinessEligibilityRoute, getBusinessOverviewRoute, getBusinessPeopleRoute, getInvitationRoute,
-  inviteBusinessMemberRoute, openLinkRoute, operationIdHeader, reissueInvitationRoute, revokeBusinessMemberRoute, withdrawInvitationRoute,
+  inviteBusinessMemberRoute, openLinkRoute, operationIdHeader, patchBusinessMemberRolesRoute, reissueInvitationRoute,
+  revokeBusinessMemberRoute, withdrawInvitationRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
 import { Hono } from "hono";
@@ -17,7 +18,7 @@ import { decodeLink, readLink } from "../links";
 import type { LinkRow } from "../links";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import { decodeBusinessEligibility, decodeBusinessPeople, readBusinessEligibility, readBusinessPeople } from "./businesses";
-import { decideInvitation, issueBusinessInvitation, reissueInvitation, revokeBusinessRole, withdrawInvitation } from "./commands";
+import { decideInvitation, issueBusinessInvitation, patchBusinessMemberRoles, reissueInvitation, revokeBusinessRole, withdrawInvitation } from "./commands";
 import type { AccessCommandResult } from "./commands";
 import { decodeManagedInvitation, decodeOpening, readInvitation } from "./invitations";
 import "./links";
@@ -105,15 +106,16 @@ accessRoutes.get(getBusinessEligibilityRoute.path, async (c) => {
 
 type CommandRoute<Input> = {
   path: string;
+  method: "POST" | "PATCH";
   input: { safeParse(value: unknown): { success: true; data: Input } | { success: false } };
   output: ResponseSchema;
 };
 
-function post<Input extends { body: { operationId: string } }>(route: CommandRoute<Input>,
+function mountCommand<Input extends { body: { operationId: string } }>(route: CommandRoute<Input>,
   plan: (ctx: RequestScope, access: SessionAccess, input: Input, c: Context<ApiEnv>) => Promise<CommandInput<AccessCommandResult> | null>,
   mode: "active" | "account" = "active", projection: "json" | "managed" | "accepted" = "json",
 ) {
-  accessRoutes.post(route.path, async (c) => {
+  accessRoutes.on(route.method, route.path, async (c) => {
     const input = route.input.safeParse({ params: c.req.param(), body: await boundedBody(c.req.raw) });
     if (!input.success || input.data.body.operationId !== c.req.header(operationIdHeader)) return transportFailure(c, "VALIDATION_FAILED");
     const authorized = await authorize(c, mode);
@@ -132,15 +134,16 @@ function post<Input extends { body: { operationId: string } }>(route: CommandRou
   });
 }
 
-post(inviteBusinessMemberRoute, async (ctx, access, { params, body }, c) => {
+mountCommand(inviteBusinessMemberRoute, async (ctx, access, { params, body }, c) => {
   const keys = await invitationMailKeys(c.env);
   return keys && issueBusinessInvitation(ctx, access, keys, params.b, body);
 }, "active", "managed");
-post(reissueInvitationRoute, async (ctx, access, { params, body }, c) => {
+mountCommand(reissueInvitationRoute, async (ctx, access, { params, body }, c) => {
   const keys = await invitationMailKeys(c.env);
   return keys && reissueInvitation(ctx, access, keys, params.id, body);
 }, "active", "managed");
-post(withdrawInvitationRoute, (ctx, access, { params, body }) => withdrawInvitation(ctx, access, params.id, body));
-post(acceptInvitationRoute, (ctx, access, { params, body }) => decideInvitation(ctx, access, params.id, body, "accepted"), "account", "accepted");
-post(declineInvitationRoute, (ctx, access, { params, body }) => decideInvitation(ctx, access, params.id, body, "declined"), "account");
-post(revokeBusinessMemberRoute, (ctx, access, { params, body }) => revokeBusinessRole(ctx, access, params.member, body));
+mountCommand(withdrawInvitationRoute, (ctx, access, { params, body }) => withdrawInvitation(ctx, access, params.id, body));
+mountCommand(acceptInvitationRoute, (ctx, access, { params, body }) => decideInvitation(ctx, access, params.id, body, "accepted"), "account", "accepted");
+mountCommand(declineInvitationRoute, (ctx, access, { params, body }) => decideInvitation(ctx, access, params.id, body, "declined"), "account");
+mountCommand(revokeBusinessMemberRoute, (ctx, access, { params, body }) => revokeBusinessRole(ctx, access, params.member, body));
+mountCommand(patchBusinessMemberRolesRoute, (ctx, access, { params, body }) => patchBusinessMemberRoles(ctx, access, params.b, params.m, body));

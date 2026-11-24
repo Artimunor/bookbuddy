@@ -1,10 +1,10 @@
 import { expect, spyOn, test } from "bun:test";
 import {
   acceptInvitationRoute, archivePlaceRoute, getPlaceRoute, invitePlacePersonRoute, listPlacesRoute, openLinkRoute,
-  operationIdHeader, reissueInvitationRoute, resultSchema, transferPlaceRoute,
+  operationIdHeader, patchPlacePersonRoute, reissueInvitationRoute, resultSchema, transferPlaceRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
-import { INVITATION_POLICY } from "@bookbuddy/domain";
+import { INVITATION_POLICY, looksLikeAccessCode } from "@bookbuddy/domain";
 import { createApp } from "../src/app";
 import type { Bindings } from "../src/bindings";
 import { invitationMailEffect } from "../src/modules/access/mail";
@@ -122,9 +122,10 @@ test("create, scoped address search, normalization, patch, and local pin verific
     const inside = data(getPlaceRoute.output, await f.request(`${path}/verify-pin`, f.owner,
       { op: "inside", revision: hole.revision, payload: { pin: candidate } }));
     expect(inside).toMatchObject({ state: "in_area", areaName: "Atlantic", siteZone: "Europe/Lisbon", pin: candidate });
+    const safeArrivalNote = "Use the stairs to the 2nd floor after 9:00.";
     const moved = data(getPlaceRoute.output, await f.request(path, f.owner, { op: "move", revision: inside.revision,
-      method: "PATCH", payload: { address: "18 Praça do Mar" } }));
-    expect(moved).toMatchObject({ state: "pending_verification", pin: null, actions: { invite: false, transfer: false } });
+      method: "PATCH", payload: { address: "18 Praça do Mar", safeArrivalNote } }));
+    expect(moved).toMatchObject({ safeArrivalNote, state: "pending_verification", pin: null, actions: { invite: false, transfer: false } });
     const reused = data(getPlaceRoute.output, await f.request(`${path}/verify-pin`, f.owner,
       { op: "stale-proof", revision: moved.revision, payload: { pin: candidate } }));
     expect(reused.state).toBe("pending_verification");
@@ -159,6 +160,51 @@ test("independently verified approver replaces the current grant atomically; los
     expect([await f.epoch("owner"), await f.epoch("approver")]).toEqual(before.map((epoch) => epoch! + 1));
     expect((await f.request(path, f.owner, { ...change, op: "stale" })).body).toMatchObject({ error: { code: "STALE_REVISION" } });
     expect(await f.db.prepare("SELECT count(*) AS n FROM operation_receipts WHERE operation_id = 'stale'").first("n")).toBe(0);
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test("only the place owner may edit a grant; capabilities and approver replacement share one revision and epoch bump", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(start);
+  const f = await fixture();
+  try {
+    const viewer = await f.account("viewer"), place = await f.activate(await f.create());
+    const path = `/places/${place.id}/people/viewer`;
+    const invite = data(invitePlacePersonRoute.output, await f.issue(place, "viewer@example.test", "invite"));
+    await f.request(`/invitations/${invite.id}/accept`, viewer, { op: "accept" });
+    const patch = (op: string, revision: number, payload: unknown, actor = f.owner) =>
+      f.request(path, actor, { method: "PATCH", op, revision, payload });
+    const epochs = () => Promise.all([f.epoch("owner"), f.epoch("viewer")]);
+    const initialEpochs = await epochs();
+    expect(await patch("non-owner", place.revision, { message: true }, viewer)).toMatchObject({ status: 404, body: notFound });
+    expect((await patch("unverified", place.revision, { approve: true, message: true })).status).toBe(409);
+    expect(await epochs()).toEqual(initialEpochs);
+    const messaged = data(patchPlacePersonRoute.output, await patch("enable-message", place.revision, { message: true }));
+    expect(messaged.people.find(({ accountId }) => accountId === "viewer")?.capabilities).toEqual(["message", "view"]);
+    expect(messaged.revision).toBe(place.revision + 1);
+    expect(await epochs()).toEqual([initialEpochs[0], initialEpochs[1]! + 1]);
+    await f.verify(place.id, "viewer", "place_approver");
+    const promotion = { approve: true };
+    const promoted = data(patchPlacePersonRoute.output, await patch("promote", messaged.revision, promotion));
+    expect(promoted).toMatchObject({ revision: messaged.revision + 1, namedApproverDisplayName: "viewer" });
+    expect(promoted.people.find(({ accountId }) => accountId === "viewer")?.capabilities).toEqual(["approve", "message", "view"]);
+    const afterPromotion = await epochs();
+    expect(afterPromotion).toEqual([initialEpochs[0]! + 1, initialEpochs[1]! + 2]);
+    expect(data(patchPlacePersonRoute.output, await patch("promote", messaged.revision, promotion))).toEqual(promoted);
+    expect((await patch("needs-successor", promoted.revision, { approve: false })).status).toBe(409);
+    expect((await patch("needs-view", promoted.revision, { view: false })).status).toBe(409);
+    await f.verify(place.id, "owner", "place_approver");
+    const demote = { approve: false, successorAccountId: "owner", view: false, message: false };
+    expect((await patch("stale", messaged.revision, demote)).body).toMatchObject({ error: { code: "STALE_REVISION" } });
+    const replaced = data(patchPlacePersonRoute.output, await patch("replace", promoted.revision, demote));
+    expect(replaced).toMatchObject({ revision: promoted.revision + 1, viewerIsNamedApprover: true });
+    expect(replaced.people.find(({ accountId }) => accountId === "viewer")?.capabilities).toEqual([]);
+    expect(await epochs()).toEqual(afterPromotion.map((epoch) => epoch! + 1));
+    expect((await f.request(`/places/${place.id}`, viewer)).body).toMatchObject(notFound);
+    const { results } = await f.db.prepare("SELECT account_id FROM place_grants WHERE place_id = ? AND capability = 'approve' AND revoked_at IS NULL")
+      .bind(place.id).all();
+    expect(results).toEqual([{ account_id: "owner" }]);
+    expect(await f.db.prepare(`SELECT count(*) AS n FROM operation_receipts
+      WHERE operation_id IN ('non-owner', 'unverified', 'needs-successor', 'needs-view', 'stale')`).first("n")).toBe(0);
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
@@ -238,4 +284,29 @@ test("a transfer stays pending until the verified named successor accepts from t
     expect(data(archivePlaceRoute.output, await f.request(`${path}/archive`, successor, archive))).toEqual(done);
     expect(data(listPlacesRoute.output, await f.request("/places", successor)).total).toBe(0);
   } finally { f.db.close(); clock.mockRestore(); }
+});
+
+test.each([
+  ["Gate code is #4827", true],
+  ["Alarm code: １２３４", true],
+  ["Side door PIN: 6 4 2 8", true],
+  ["4827 is the key safe code", true],
+  ["Lockbox 5836", true],
+  ["The keypad accepts *2417#", true],
+  ["O código do portão é 6428", true],
+  ["Caixa das chaves: 42 83", true],
+  ["PIN do alarme: ٨٣٠٢", true],
+  ["La clave de la puerta es 5283", true],
+  ["Portón 2468", true],
+  ["Código de la caja de llaves: 7248", true],
+  ["12 Praça do Mar, 2750-642 Cascais", false],
+  ["1234 Gate Street, apt #2201", false],
+  ["Calle Portón 1234", false],
+  ["Postal code: 28290", false],
+  ["Use door 2, on the 2nd floor after 9:00.", false],
+  ["Meet by the gate after 09:00 or at 14:30.", false],
+  ["Puerta 3, segundo piso, después de las 9:00.", false],
+  ["I'll tell you the gate code when you arrive.", false],
+] as const)("classifies arrival text %s", (text, isCode) => {
+  expect(looksLikeAccessCode(text)).toBe(isCode);
 });

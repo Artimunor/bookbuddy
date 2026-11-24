@@ -52,16 +52,3 @@ export function placeChanges(place: string, now: number, operation: "upsert" | "
 export function normalizedAddress(value: string): string {
   return value.normalize("NFC").replace(/\s+/gu, " ").trim();
 }
-
-// The wire schemas disallow extra code fields. Existing free text is screened before any
-// receipt or data write: no numbers/keypad sequences in a note, no access-secret markers
-// in any field. Address street/postal numbers still work. Never echo the submitted text.
-// This is not a secret store or arbitrary prose classifier; live handoff is the only
-// supported channel for entry credentials, not euphemisms or spelling them out here.
-const secretWords = /\b(?:pin|passe|passcode|password|keypad|senha|codig\w*|contrase[nñ]a|alarme?|(?:gate|entry|door|access|alarm)\s*code|code\s*(?:for|to)\b)\b/i;
-const labeledDigits = /\b(?:gate|door|entry|access|portao|porta|entrada|puerta|porton)\s*[:=#-]?\s*\p{N}/iu;
-const keypadDigits = /[*#]\s*\p{N}|\p{N}\s*[*#]/u;
-export function hasEntrySecret(value: string, note = false): boolean {
-  const plain = value.normalize("NFKD").replace(/[\p{M}\p{Cf}]/gu, "").replace(/\s+/gu, " ");
-  return secretWords.test(plain) || labeledDigits.test(plain) || keypadDigits.test(plain) || (note && /\p{N}/u.test(plain));
-}

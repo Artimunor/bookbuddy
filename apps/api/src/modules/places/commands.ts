@@ -1,4 +1,4 @@
-import type { CommandInput as WireCommand, ErrorBody } from "@bookbuddy/api-contract";
+import type { CommandInput as WireCommand, ErrorBody, PlacePersonPatch } from "@bookbuddy/api-contract";
 import { invitationExpiresAt, INVITATION_POLICY } from "@bookbuddy/domain";
 import type { CommandInput, CommandStatement } from "../../db/commit";
 import { bumpVisibilityEpoch, planOperation } from "../../db/operations";
@@ -7,7 +7,7 @@ import type { RequestScope } from "../../db/scope";
 import { managedInvitationAt } from "../access/invitations";
 import { invitationMailEffectSql, prepareInvitationLink, sealInviteEmail } from "../access/mail";
 import type { InvitationMailKeys } from "../access/mail";
-import { addressResetPrefix, afterAddressReset, at, freePlaceSlots, inviteKind, scopedStatement } from "../access/policy";
+import { addressResetPrefix, afterAddressReset, at, freePlaceSlots, inviteKind, liveTerm, scopedStatement } from "../access/policy";
 import { mac, mailboxKey, randomToken } from "../auth/crypto";
 import { hashSessionCredential } from "../auth/session";
 import type { SessionAccess } from "../auth/session";
@@ -178,32 +178,105 @@ export function verifyPlacePin(ctx: RequestScope, base: SessionAccess, place: st
   });
 }
 
-export function changePlaceApprover(ctx: RequestScope, base: SessionAccess, place: string, input: Versioned<Successor>) {
-  const successor = input.payload.successorAccountId;
-  const selectedAccess = withPlace(base, place);
-  const access = { sql: `${selectedAccess.sql}, approver_verification AS MATERIALIZED (
+function withApproverReplacement(base: SessionAccess, successor: string | null): SessionAccess {
+  return { sql: `${base.sql}, approver_replacement AS MATERIALIZED (
     SELECT v.id, a.id AS account_id FROM selected_place p JOIN place_people person ON person.place_id = p.id
     JOIN accounts a ON a.id = person.account_id AND a.state = 'active'
     JOIN authority_verifications v ON v.place_id = p.id AND v.subject_account_id = a.id AND v.kind = 'place_approver'
-    WHERE a.id = ? AND ${currentPerson("person")} AND v.verified_at BETWEEN person.verified_from AND ${at}
-      AND v.verified_by <> p.owner_id AND ${placeCapability("p.id", "a.id", "view")}
-    ORDER BY v.verified_at DESC, v.id LIMIT 1)`, params: [...selectedAccess.params, successor] };
+    WHERE a.id = ? AND p.named_approver_id IS NOT a.id AND ${currentPerson("person")}
+      AND v.verified_at BETWEEN person.verified_from AND ${at} AND v.verified_by <> p.owner_id
+      AND ${placeCapability("p.id", "a.id", "view")}
+    ORDER BY v.verified_at DESC, v.id LIMIT 1)`, params: [...base.params, successor] };
+}
+
+const hasReplacement = "EXISTS (SELECT 1 FROM approver_replacement)";
+const replacementAccount = "(SELECT account_id FROM approver_replacement)";
+const verifiedReplacement = `${ownerVerified} AND ${hasReplacement}`;
+
+// Both entry points replace the exact approval grant before changing the named
+// person, in the same guarded batch. No intermediate state is visible.
+function replaceApproverGrants(access: SessionAccess, guard: CommandStatement): CommandStatement[] {
+  const replacing = { sql: `${guard.sql} AND ${hasReplacement}`, params: guard.params };
+  return [
+    scopedStatement(access, `UPDATE place_grants SET revoked_at = max(valid_from, ${at}) WHERE place_id = ${selected}
+      AND capability = 'approve' AND revoked_at IS NULL AND ${replacing.sql}`, ...guard.params ?? []),
+    scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, valid_from)
+      SELECT ?, p.id, v.account_id, 'approve', p.actor_id, v.id, ${at}
+      FROM selected_place p CROSS JOIN approver_replacement v WHERE ${guard.sql}`, crypto.randomUUID(), ...guard.params ?? []),
+    audit(access, replacing, "approver_changed", replacementAccount, "(SELECT id FROM approver_replacement)"),
+  ];
+}
+
+export function changePlaceApprover(ctx: RequestScope, base: SessionAccess, place: string, input: Versioned<Successor>) {
+  const successor = input.payload.successorAccountId;
+  const access = withApproverReplacement(withPlace(base, place), successor);
   return preparePlaceOperation(ctx, {
     access, operationId: input.operationId, command: "places.change_approver", input: [place, input.expectedRevision, successor],
     resultRef: place, revision: input.expectedRevision, authorize: ownerOnly,
-    eligible: byRevision(input.expectedRevision, `${activePlace("p")} AND ${ownerVerified}
-      AND p.named_approver_id IS NOT ? AND EXISTS (SELECT 1 FROM approver_verification)`, successor),
+    eligible: byRevision(input.expectedRevision, `${activePlace("p")} AND ${verifiedReplacement}`),
     writes: (guard) => ({ statements: [
       bumpVisibilityEpoch(guard, { sql: `SELECT c.id AS context_id FROM places p JOIN account_contexts c ON c.role = 'customer'
         AND c.account_id IN (p.named_approver_id, ?) WHERE p.id = ?`, params: [successor, place] }),
-      scopedStatement(access, `UPDATE place_grants SET revoked_at = max(valid_from, ${at}) WHERE place_id = ${selected}
-        AND capability = 'approve' AND revoked_at IS NULL AND ${guard.sql}`, ...guard.params ?? []),
-      scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, approval_verification_id, valid_from)
-        SELECT ?, p.id, v.account_id, 'approve', p.actor_id, v.id, ${at}
-        FROM selected_place p CROSS JOIN approver_verification v WHERE ${guard.sql}`, crypto.randomUUID(), ...guard.params ?? []),
+      ...replaceApproverGrants(access, guard),
       scopedStatement(access, `UPDATE places SET named_approver_id = ?, revision = revision + 1 WHERE id = ${selected} AND ${guard.sql}`,
       successor, ...guard.params ?? []),
-      audit(access, guard, "approver_changed", "(SELECT account_id FROM approver_verification)", "(SELECT id FROM approver_verification)"),
+    ], changes: placeChanges(place, ctx.now) }),
+  });
+}
+
+const editedPerson = "(SELECT account_id FROM edited_person)";
+const placePersonEditAllowed = `${activePlace("p")} AND EXISTS (SELECT 1 FROM edited_person e
+  WHERE (e.view_enabled IS NOT 0 OR e.account_id <> p.owner_id)
+    AND (e.approve_enabled IS NOT 0 OR CASE WHEN p.named_approver_id = e.account_id
+      THEN e.successor_id IS NOT NULL AND e.successor_id <> e.account_id ELSE e.successor_id IS NULL END)
+    AND (e.successor_id IS NULL OR CASE WHEN e.successor_id = p.named_approver_id
+      THEN ${placeCapability("p.id", "e.successor_id", "approve")} ELSE ${verifiedReplacement} END)
+    AND (e.account_id = p.owner_id OR coalesce(e.view_enabled, ${placeCapability("p.id", "e.account_id", "view")})
+      OR (coalesce(e.successor_id, p.named_approver_id) <> e.account_id
+        AND NOT coalesce(e.message_enabled, ${placeCapability("p.id", "e.account_id", "message")}))))`;
+const placePersonChanged = `${hasReplacement} OR EXISTS (SELECT 1 FROM changed_capabilities)`;
+
+export function patchPlacePerson(ctx: RequestScope, base: SessionAccess, place: string, person: string, input: Versioned<PlacePersonPatch>) {
+  const { view, message, approve, successorAccountId } = input.payload;
+  const successor = approve === true ? person : successorAccountId ?? null;
+  const selectedAccess = withApproverReplacement(withPlace(base, place), successor);
+  const access = { sql: `${selectedAccess.sql}, edited_person AS MATERIALIZED (
+    SELECT p.id AS place_id, peer.account_id, ? AS view_enabled, ? AS message_enabled, ? AS approve_enabled, ? AS successor_id
+    FROM selected_place p JOIN place_people peer ON peer.place_id = p.id
+    JOIN accounts a ON a.id = peer.account_id AND a.state = 'active' WHERE peer.account_id = ? AND ${currentPerson("peer")}
+  ), changed_capabilities AS MATERIALIZED (
+    SELECT e.place_id, e.account_id, cap.key AS capability, cap.value AS enabled FROM edited_person e
+    CROSS JOIN json_each(json_object('view', e.view_enabled, 'message', e.message_enabled)) cap
+    WHERE cap.value IS NOT NULL AND cap.value <> EXISTS (SELECT 1 FROM place_grants g
+      WHERE g.place_id = e.place_id AND g.account_id = e.account_id AND g.capability = cap.key
+        AND ((${liveTerm("g")} AND cap.value = 1) OR (g.revoked_at IS NULL AND cap.value = 0)))
+  )`, params: [...selectedAccess.params, view ?? null, message ?? null, approve ?? null, successor, person] };
+  return preparePlaceOperation(ctx, {
+    access, operationId: input.operationId, command: "places.patch_person", input: [place, person, input.expectedRevision, input.payload],
+    resultRef: place, revision: input.expectedRevision, projection: placeDetailsAt(selected),
+    authorize: { sql: `${ownerOnly.sql} AND EXISTS (SELECT 1 FROM edited_person)` },
+    eligible: byRevision(input.expectedRevision, `${placePersonEditAllowed} AND (${placePersonChanged})`),
+    unchanged: byRevision(input.expectedRevision, `${placePersonEditAllowed} AND NOT (${placePersonChanged})`),
+    writes: (guard) => ({ statements: [
+      bumpVisibilityEpoch(guard, scopedStatement(access, `SELECT c.id AS context_id FROM selected_place p CROSS JOIN edited_person e
+        JOIN account_contexts c ON c.role = 'customer'
+        WHERE (c.account_id = e.account_id AND EXISTS (SELECT 1 FROM changed_capabilities))
+          OR (${hasReplacement} AND c.account_id IN (p.named_approver_id, ${replacementAccount}))`)),
+      ...view === undefined && message === undefined ? [] : [
+        scopedStatement(access, `INSERT INTO access_audit (id, place_id, actor_id, subject_account_id, kind, at)
+          SELECT lower(hex(randomblob(16))), p.id, p.actor_id, e.account_id,
+            CASE e.enabled WHEN 1 THEN 'grant_issued' ELSE 'grant_revoked' END, ${at}
+          FROM selected_place p CROSS JOIN changed_capabilities e WHERE ${guard.sql}`, ...guard.params ?? []),
+        scopedStatement(access, `UPDATE place_grants SET revoked_at = max(valid_from, ${at})
+          WHERE place_id = ${selected} AND account_id = ${editedPerson} AND revoked_at IS NULL
+            AND capability IN (SELECT capability FROM changed_capabilities) AND ${guard.sql}`, ...guard.params ?? []),
+        scopedStatement(access, `INSERT INTO place_grants (id, place_id, account_id, capability, issuer_id, valid_from)
+          SELECT lower(hex(randomblob(16))), e.place_id, e.account_id, e.capability, p.actor_id, ${at}
+          FROM selected_place p CROSS JOIN changed_capabilities e WHERE e.enabled = 1 AND ${guard.sql}`, ...guard.params ?? []),
+      ],
+      ...(successor === null ? [] : replaceApproverGrants(access, guard)),
+      scopedStatement(access, `UPDATE places SET named_approver_id = coalesce(${replacementAccount}, named_approver_id), revision = revision + 1
+        WHERE id = ${selected} AND ${guard.sql}`, ...guard.params ?? []),
     ], changes: placeChanges(place, ctx.now) }),
   });
 }
