@@ -4,3 +4,4 @@ export * from "./transport";
 export * from "./jobs";
 export * from "./commercial";
 export * from "./schedule";
+export * from "./staffing";

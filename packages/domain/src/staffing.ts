@@ -9,6 +9,10 @@ export const COVER_POLICY = {
   confirmationMs: 5 * MINUTE_MS,
 } as const;
 
+export const DROPOUT_REASONS = ["transport", "another_job", "personal"] as const;
+export const DROPOUT_SOURCES = ["self", "phone_report"] as const;
+export const OFFER_DECLINE_REASONS = ["busy_then", "too_far_away"] as const;
+
 export type CoverDispatchInput = {
   readonly issuedAtMs: number;
   readonly safeCutoffMs: number;
