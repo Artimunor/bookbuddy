@@ -6,9 +6,11 @@ import { Image, View } from "react-native";
 import { useCommand, useRemote } from "../../api";
 import { useFormat, useT } from "../../i18n";
 import { useAttach, useOpenMediaPreview, type MediaTransfer } from "../../media";
+import { useMediaReadBatch } from "../../media/read-batch";
 import { useSession } from "../../session";
-import { Badge, Button, Card, Dock, ListRow, Screen, TextField } from "../../ui/controls";
+import { Badge, Button, Card, Dock, ListRow, Screen, TextField, Thumb } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
+import { useBeaconTheme } from "../../ui/theme";
 import { ScopeTwin, time } from "../c-06/Screen";
 import { useOffline } from "../s-02/flow";
 import { confirmAction } from "../s-17/confirmAction";
@@ -116,6 +118,8 @@ function QuoteRoute({ jobId, versionId }: { jobId: string; versionId?: string })
     });
   }
   const status = versionId && !revision ? remote.status : offline && editable ? "ready" : list.status !== "ready" ? list.status : selectedId && !data && remote.status !== "ready" ? remote.status : "ready";
+  const savedEvidence = status === "ready" && !revision && !editable && data ? data.evidence : [];
+  const evidenceUrls = useMediaReadBatch(savedEvidence.map(item => item.attachmentId), savedEvidence.length && data ? { caller: "quote", parentScopeId: data.id } : null);
   return <QuoteView data={revision ? null : data} draft={local.value} change={local.change} editable={editable} saved={local.saved} saveFailed={local.failed}
     status={status} offline={offline} busy={busy} checking={checking} failed={failed} hasTerms={offline || !!terms}
     draftMedia={editable && jobId ? {
@@ -125,6 +129,7 @@ function QuoteRoute({ jobId, versionId }: { jobId: string; versionId?: string })
       onRetry: attachmentId => { void media.retry(attachmentId).catch(() => {}); },
     } : undefined}
     onOpenEvidence={data ? attachmentId => openMediaPreview(attachmentId, { caller: "quote", parentScopeId: data.id }) : undefined}
+    evidenceUrls={evidenceUrls}
     onBack={() => router.back()} onJob={() => router.replace(`/f/jobs/${jobId}` as Href)} onRetry={refresh}
     onSend={() => { if (data && !revision) confirmNext(data); else void prepare(); }}
     onRevision={() => setRevision(true)} onChange={() => router.push(`/f/jobs/${jobId}/change` as Href)} />;
@@ -138,10 +143,11 @@ type Props = {
   data: StaffQuote | null; draft: QuoteDraft; change: (draft: QuoteDraft) => void; editable: boolean; saved: boolean; saveFailed: boolean; status: string;
   offline: boolean; busy: boolean; checking: boolean; failed: boolean; hasTerms: boolean; draftMedia?: DraftMedia;
   onOpenEvidence?: (id: StaffQuote["evidence"][number]["attachmentId"]) => void;
+  evidenceUrls?: ReadonlyMap<string, string>;
   onBack: () => void; onJob: () => void; onRetry: () => void; onSend: () => void; onRevision: () => void; onChange: () => void;
 };
 export function QuoteView(p: Props) {
-  const t = useT(); const format = useFormat(); const d = p.data; const review = d?.review;
+  const t = useT(); const format = useFormat(); const { color, space } = useBeaconTheme(); const d = p.data; const review = d?.review;
   const state = !d ? t("mobile.foremanQuote.draft") : d.state === "approved" ? t("mobile.foremanQuote.approved") : d.state === "issued" ? t("mobile.foremanQuote.sent") : d.state === "declined" ? t("mobile.foremanQuote.rejected") : d.state === "expired" ? t("mobile.customerQuote.expired") : d.state === "superseded" ? t("mobile.customerQuote.superseded") : d.state === "withdrawn" ? t("mobile.provider.withdrawn") : review?.state === "returned" ? t("mobile.foremanQuote.returned") : review?.state === "pending" ? t("mobile.foremanQuote.inReview") : t("mobile.foremanQuote.draft");
   const amount = p.draft.lines.reduce((sum, line) => sum + (minorAmount(line.amount) ?? 0), 0);
   const valid = !!p.draft.scope.trim() && !!p.draft.locale.trim() && p.draft.lines.every(x => !!x.label.trim() && !!x.evidence.trim() && minorAmount(x.amount) !== null) && amount > 0;
@@ -153,24 +159,40 @@ export function QuoteView(p: Props) {
     : d?.state === "approved" ? <Dock primary={{ label: t("mobile.foremanQuote.newChange"), onPress: p.onChange }} />
     : d && !submitAllowed && !p.editable ? <Dock primary={{ label: t("mobile.foremanQuote.backJob"), onPress: p.onJob }} />
     : <Dock context={actionContext} primary={{ label: actionLabel, onPress: p.onSend, disabled: !submitAllowed || p.offline || p.busy }} />;
-  return <Screen title={t("mobile.foremanQuote.title")} navigation={{ kind: "back", label: t("mobile.customerQuote.back"), onPress: p.onBack }} dock={dock}>
+  return <Screen title={t("mobile.foremanQuote.title")} subtitle={d ? [d.job.reference, d.job.jobTitle].filter(Boolean).join(" · ") : undefined} navigation={{ kind: "back", label: t("mobile.customerQuote.back"), onPress: p.onBack }} dock={dock}
+    trailing={p.status === "ready" ? <Badge label={d ? t("mobile.foremanQuote.version", { number: d.no, status: state }) : state} tone={d?.state === "approved" ? "success" : d?.state === "issued" || review?.state === "pending" ? "info" : "attention"} /> : undefined}>
     {(p.status === "loading" || p.status === "idle") && <Copy>{t("mobile.customerQuote.loading")}</Copy>}{p.status === "offline" && <Copy>{t("mobile.foremanQuote.offline")}</Copy>}{p.status === "error" && <><Copy>{t("mobile.customerQuote.error")}</Copy><Button label={t("mobile.customerQuote.retry")} onPress={p.onRetry} /></>}
-    {p.status === "ready" && <>{d && <Copy variant="supporting">{d.job.reference} · {d.job.jobTitle}</Copy>}<Badge label={d ? t("mobile.foremanQuote.version", { number: d.no, status: state }) : state} tone="neutral" />
+    {p.status === "ready" && <>
       {p.offline && <Copy>{t("mobile.foremanQuote.offline")}</Copy>}{p.checking && <Copy>{t("mobile.foremanQuote.checking")}</Copy>}{p.failed && !p.checking && <Copy>{t("mobile.foremanQuote.failed")}</Copy>}
       {review?.state === "pending" && <Card><Copy variant="sectionTitle">{t("mobile.foremanQuote.inReview")}</Copy><Copy>{t("mobile.foremanQuote.withReviewer", { name: review.reviewerDisplayName, time: time(format, review.submittedAt, d!.job.siteZone) })}</Copy><Copy>{t("mobile.foremanQuote.notReceived")}</Copy></Card>}
       {review?.state === "returned" && <Card><Copy variant="sectionTitle">{t("mobile.foremanQuote.returned")}</Copy><Copy>{review.returnReason}</Copy></Card>}
-      {p.editable ? <><Card><TextField label={t("mobile.foremanQuote.language")} helper={t("mobile.foremanQuote.languageHelp")} value={p.draft.locale} onChangeText={locale => p.change({ ...p.draft, locale })} /><TextField label={t("mobile.foremanQuote.scope")} multiline value={p.draft.scope} onChangeText={scope => p.change({ ...p.draft, scope })} /><TextField label={t("mobile.foremanQuote.exclusions")} multiline value={p.draft.exclusions} onChangeText={exclusions => p.change({ ...p.draft, exclusions })} /><Copy variant="supporting">{t("mobile.foremanQuote.previewPending")}</Copy>{p.saved && <Copy>{t("mobile.foremanQuote.saveLocal")}</Copy>}{p.saveFailed && <Copy>{t("mobile.foremanQuote.saveFailed")}</Copy>}</Card>
+      {p.editable ? <>
+        <Card>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: space.grid[2] }}>
+            <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.customerQuote.scope")}</Copy>
+            {p.saved && <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.foremanQuote.saveLocal")}</Copy>}
+          </View>
+          <TextField label={t("mobile.foremanQuote.scope")} multiline value={p.draft.scope} onChangeText={scope => p.change({ ...p.draft, scope })} />
+          <TextField label={t("mobile.foremanQuote.exclusions")} multiline value={p.draft.exclusions} onChangeText={exclusions => p.change({ ...p.draft, exclusions })} />
+          <TextField label={t("mobile.foremanQuote.language")} helper={t("mobile.foremanQuote.languageHelp")} value={p.draft.locale} onChangeText={locale => p.change({ ...p.draft, locale })} />
+          <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.foremanQuote.previewPending")}</Copy>
+          {p.saveFailed && <Copy>{t("mobile.foremanQuote.saveFailed")}</Copy>}
+        </Card>
         <Card><Copy variant="sectionTitle">{t("mobile.foremanQuote.lines")}</Copy>{p.draft.lines.map((line, index) => {
           const update = (patch: Partial<typeof line>) => p.change({ ...p.draft, lines: p.draft.lines.map((x, i) => i === index ? { ...x, ...patch } : x) });
-          return <Card key={index}>
+          return <View key={index} style={{ gap: space.grid[3], borderTopWidth: 1, borderTopColor: color.separator, paddingTop: space.grid[3] }}>
             <TextField label={t("mobile.foremanQuote.description")} value={line.label} onChangeText={label => update({ label })} />
             <TextField label={t("mobile.foremanQuote.amount")} value={line.amount} inputMode="decimal" onChangeText={amount => update({ amount })} />
             <TextField label={t("mobile.foremanQuote.evidenceRule")} value={line.evidence} onChangeText={evidence => update({ evidence })} />
             <TextField label={t("mobile.foremanQuote.evidenceAlternative")} helper={t("mobile.foremanQuote.evidenceAlternativeHelp")}
               value={line.evidenceAlternative ?? ""} onChangeText={evidenceAlternative => update({ evidenceAlternative })} maxLength={500} multiline />
             {p.draft.lines.length > 1 && <Button variant="quiet" label={t("mobile.foremanQuote.removeLine", { number: index + 1 })} onPress={() => p.change({ ...p.draft, lines: p.draft.lines.filter((_, i) => i !== index) })} />}
-          </Card>;
-        })}<Button variant="quiet" label={t("mobile.foremanQuote.addLine")} onPress={() => p.change({ ...p.draft, lines: [...p.draft.lines, { label: "", amount: "", evidence: "" }] })} /><Copy variant="sectionTitle">{t("mobile.foremanQuote.total")} · {format.money(amount, "EUR")}</Copy></Card>
+          </View>;
+        })}<Button variant="quiet" label={t("mobile.foremanQuote.addLine")} onPress={() => p.change({ ...p.draft, lines: [...p.draft.lines, { label: "", amount: "", evidence: "" }] })} />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: space.grid[2] }}>
+            <Copy variant="label">{t("mobile.foremanQuote.total")}</Copy><Copy variant="sectionTitle" style={{ fontVariant: ["tabular-nums"] }}>{format.money(amount, "EUR")}</Copy>
+          </View>
+        </Card>
         {!valid && <Copy>{t("mobile.foremanQuote.invalid")}</Copy>}{!p.hasTerms && <Copy>{t("mobile.foremanQuote.noTerms")}</Copy>}
         {p.draftMedia && <DraftAttachments media={p.draftMedia} busy={p.busy} />}
       </> : d && <>
@@ -178,8 +200,12 @@ export function QuoteView(p: Props) {
         {!!d.exclusions && <Copy>{d.exclusions}</Copy>}
         <Card>{d.items.map(item => {
           const label = d.readingAid.status === "ready" ? d.readingAid.items.find(x => x.lineNo === item.lineNo)?.label : null;
-          return <View key={item.lineNo}>
-            <Copy>{[item.originalLabel, label, format.money(item.netMinor + item.taxMinor, d.currency)].filter(Boolean).join(" · ")}</Copy>
+          return <View key={item.lineNo} style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: space.grid[2] }}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Copy variant="label">{item.originalLabel}</Copy>
+              {label && <Copy variant="supporting" style={{ color: color.muted }}>{label}</Copy>}
+            </View>
+            <Copy variant="label" style={{ fontVariant: ["tabular-nums"] }}>{format.money(item.netMinor + item.taxMinor, d.currency)}</Copy>
             {item.evidenceAlternative && <Copy variant="supporting">{t("mobile.foremanQuote.evidenceAlternative")}: {item.evidenceAlternative}</Copy>}
           </View>;
         })}<Copy variant="sectionTitle">{t("mobile.foremanQuote.total")} · {format.money(d.totalMinor, d.currency)}</Copy>
@@ -187,8 +213,12 @@ export function QuoteView(p: Props) {
         {d.decision?.decision === "approve" && <Copy>{t("mobile.foremanQuote.approvedBy", { name: d.decision.actorDisplayName, time: time(format, d.decision.at, d.job.siteZone) })}</Copy>}</Card>
         {!!d.evidence.length && p.onOpenEvidence && <Card>
           <Copy variant="sectionTitle">{t("mobile.foremanQuote.attachments")}</Copy>
-          {d.evidence.map(({ attachmentId }, index) => <ListRow key={attachmentId} glyph="▣"
-            label={t("mobile.foremanQuote.openAttachment", { number: index + 1 })} onPress={() => p.onOpenEvidence?.(attachmentId)} />)}
+          {d.evidence.map(({ attachmentId }, index) => {
+            const label = t("mobile.foremanQuote.openAttachment", { number: index + 1 });
+            const uri = p.evidenceUrls?.get(attachmentId);
+            const open = () => p.onOpenEvidence?.(attachmentId);
+            return uri ? <Thumb key={attachmentId} uri={uri} label={label} onPress={open} /> : <ListRow key={attachmentId} glyph="▣" label={label} onPress={open} />;
+          })}
         </Card>}
         {d.actions.createRevision && <Button variant="quiet" label={t("mobile.foremanQuote.editRevision")} onPress={p.onRevision} />}
       </>}

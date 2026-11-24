@@ -75,8 +75,7 @@ export function WindowView({ data, visitId, status, selection, taken = false, co
   const finished = !!booked && windows.length === 0; const busy = commandState === "checking" || commandState === "sending";
   const confirmedAt = booked ? format.siteTime(booked.confirmedAt, data?.siteZone) : null;
   const dock = data && visit ? <Dock primary={windows.length ? { label: booked ? t("mobile.visitWindow.accept") : t("mobile.visitWindow.confirm"), onPress: onConfirm, disabled: !selected?.confirmationMode || busy, busy: commandState === "sending" } : { label: t("mobile.visitWindow.message"), onPress: onMessage }} context={selected ? t("mobile.visitWindow.freeChange") : windows.length ? t("mobile.visitWindow.heading") : undefined} /> : undefined;
-  return <Screen title={t("mobile.visitWindow.title")} navigation={{ kind: "back", label: t("mobile.visitWindow.back"), onPress: onBack }} dock={dock}>
-    {data && <Copy variant="supporting">{data.job.reference} · {data.job.title}</Copy>}
+  return <Screen title={t("mobile.visitWindow.title")} subtitle={data ? [data.job.reference, data.job.title].filter(Boolean).join(" · ") : undefined} navigation={{ kind: "back", label: t("mobile.visitWindow.back"), onPress: onBack }} dock={dock}>
     {(status === "idle" || status === "loading") && <Copy>{t("mobile.visitWindow.loading")}</Copy>}
     {(status === "error" || status === "offline") && <><Copy>{t("mobile.visitWindow.unavailable")}</Copy><Button variant="neutral" label={t("mobile.visitWindow.retry")} onPress={onRetry} /></>}
     {data?.approvedQuote && <Badge tone="success" label={t("mobile.visitWindow.quote", { number: data.approvedQuote.number, amount: format.money(data.approvedQuote.totalMinor, data.approvedQuote.currency) })} />}

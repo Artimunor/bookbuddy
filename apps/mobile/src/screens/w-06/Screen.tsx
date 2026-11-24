@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { AppState } from "react-native";
+import { AppState, View } from "react-native";
 import { useFormat, useT } from "../../i18n";
 import type { AttendanceProgress } from "../../repository/attendance";
 import { useAttendanceStatus, useOutbox, useRepository } from "../../repository/hooks";
@@ -9,8 +9,8 @@ import { shiftCardSource, useStatusCards } from "../../system/status-cards";
 import { Button, Card, Dock, Sheet } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { HoldBanner } from "../../ui/live/HoldBanner";
-import { BeaconThemeProvider } from "../../ui/theme";
-import { siteTime } from "../f-01/Screen";
+import { BeaconThemeProvider, useBeaconTheme } from "../../ui/theme";
+import { siteWindow } from "../c-01/clock";
 import { LiveShiftView, useFieldShift, type FieldShift } from "../w-04/Screen";
 
 type Event = "arrival" | "departure";
@@ -81,14 +81,41 @@ function AttendanceRoute() {
   return <><LiveShiftView {...f} attendance={status} onBack={back} onNavigate={path => router.push(path as Href)} onRetry={() => void f.refresh()} /><AttendanceSheet data={f.data} event={event} progress={progress} offline={f.offline} lastConfirmedAt={f.lastConfirmedAt} eligible={eligible} busy={saving} failed={failure} cardControls={cardControls} now={Date.now()} onRecord={() => void record()} onClose={back} /></>;
 }
 export function AttendanceSheet(p: { data: FieldShift | null; event: Event; progress: AttendanceProgress | null; offline: boolean; lastConfirmedAt: number | null; eligible: boolean; busy: boolean; failed: boolean; cardControls?: ReactNode; now: number; onRecord: () => void; onClose: () => void }) {
-  const t = useT(); const format = useFormat(); const d = p.data; const zone = d?.siteZone ?? ""; const at = p.progress?.actualAt ?? p.now; const hold = d?.holds.some(h => h.state === "active") ?? false;
+  const t = useT(); const format = useFormat(); const { color, radius, space } = useBeaconTheme();
+  const d = p.data; const zone = d?.siteZone; const at = p.progress?.actualAt ?? p.now; const hold = d?.holds.some(h => h.state === "active") ?? false;
+  const clock = format.siteTime(at, zone);
+  const window = d ? siteWindow(format, d.bookedWindow.startsAt, d.bookedWindow.endsAt, zone) : null;
+  const confirmed = p.lastConfirmedAt != null ? format.lines(p.lastConfirmedAt, zone)?.site : null;
+  const place = d?.job && "placeAlias" in d.job && typeof d.job.placeAlias === "string" ? d.job.placeAlias : null;
   const title = p.event === "arrival" ? t("mobile.liveShift.checkIn") : t("mobile.liveShift.checkOut");
   const result = p.progress?.status === "recorded" ? t("mobile.liveShift.recorded") : p.busy && !p.offline ? t("mobile.liveShift.checking") : p.progress?.status === "saved_on_device" ? t("mobile.liveShift.saved") : p.progress?.status === "checking" || p.progress?.status === "sent" ? t("mobile.liveShift.checking") : p.progress ? t("mobile.liveShift.needsReview") : null;
-  return <Sheet visible title={title} closeLabel={t("mobile.liveShift.close")} onClose={p.onClose} dock={<Dock primary={p.progress ? { label: t("mobile.liveShift.backToShift"), onPress: p.onClose } : { label: p.event === "arrival" ? t("mobile.liveShift.recordIn") : t("mobile.liveShift.recordOut"), onPress: p.onRecord, disabled: !p.eligible || p.busy, busy: p.busy }} />}>
-    {d && <><Copy>{d.job.reference} · {d.job.title ?? d.task}</Copy>{p.offline && <Copy>{p.lastConfirmedAt ? t("mobile.liveShift.offlineAt", { time: `${siteTime(format, p.lastConfirmedAt, zone)} · ${zone}` }) : t("mobile.liveShift.offline")}</Copy>}<Card><Copy variant="sectionTitle">{result ?? title}</Copy><Copy variant="sectionTitle">{siteTime(format, at, zone)} · {zone}</Copy>{"placeAlias" in d.job && d.job.placeAlias && <Copy>{d.job.placeAlias}</Copy>}<Copy>{siteTime(format, d.bookedWindow.startsAt, zone)} – {siteTime(format, d.bookedWindow.endsAt, zone)} · {zone}</Copy></Card>
-      {p.progress?.status === "saved_on_device" && (!p.busy || p.offline) && <Copy>{t("mobile.liveShift.notSentYet", { name: d.foremanName })}</Copy>}{p.progress?.status === "recorded" && p.progress.receivedAt && <Copy>{t("mobile.liveShift.receivedAt", { time: `${siteTime(format, p.progress.receivedAt, zone)} · ${zone}` })}</Copy>}
-      <Copy>{t("mobile.liveShift.noLocation")}</Copy>{hold && <HoldBanner state="briefingRequired" label={t("mobile.liveShift.attendanceOnly")} blocked={t("mobile.liveShift.holdEffect")} action={t("mobile.liveShift.holdNotCleared")} />}
-      <Copy>{t("mobile.liveShift.attendanceAudience", { name: d.foremanName })}</Copy>{p.cardControls}
+  return <Sheet visible title={title} closeLabel={t("mobile.liveShift.close")} onClose={p.onClose} dock={<Dock primary={p.progress ? { label: t("mobile.liveShift.backToShift"), onPress: p.onClose } : { label: p.event === "arrival" ? t("mobile.liveShift.recordIn") : t("mobile.liveShift.recordOut"), onPress: p.onRecord, disabled: !p.eligible || p.busy, busy: p.busy, live: !p.offline }} />}>
+    {d && <>
+      <Copy variant="supporting" style={{ color: color.muted }}>{d.job.reference} · {d.job.title ?? d.task}</Copy>
+      {p.offline && <Copy variant="supporting">{confirmed ? t("mobile.liveShift.offlineAt", { time: confirmed }) : t("mobile.liveShift.offline")}</Copy>}
+      <View style={{ padding: space.grid[4], gap: space.grid[2], backgroundColor: color.surface, borderRadius: radius.card, borderColor: color.ink, borderWidth: 2 }}>
+        <Copy variant="label">{result ?? (p.event === "arrival" ? t("mobile.liveShift.yourCheckInTime") : t("mobile.liveShift.yourCheckOutTime"))}</Copy>
+        {clock.kind === "available" && <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.grid[3] }}>
+          <Copy variant="display" style={{ fontVariant: ["tabular-nums"] }}>{clock.site.time}</Copy>
+          <View style={{ flexShrink: 1 }}>
+            <Copy variant="label">{format.zoneLabel(zone, clock.site)}</Copy>
+            {clock.site.date && <Copy variant="supporting" style={{ color: color.muted }}>{clock.site.date}</Copy>}
+          </View>
+        </View>}
+        {(place || window) && <Copy variant="supporting" style={{ color: color.muted }}>{[place, window ? t("mobile.jobControl.windowTime", { time: window.time }) : null].filter(Boolean).join(" · ")}</Copy>}
+      </View>
+      {p.progress?.status === "saved_on_device" && (!p.busy || p.offline) && <Copy>{t("mobile.liveShift.notSentYet", { name: d.foremanName })}</Copy>}
+      {p.progress?.status === "recorded" && p.progress.receivedAt && <Copy>{t("mobile.liveShift.receivedAt", { time: format.lines(p.progress.receivedAt, zone)?.site ?? "" })}</Copy>}
+      <View style={{ flexDirection: "row", alignItems: "flex-start", padding: space.grid[3], gap: space.grid[3], borderRadius: radius.card, backgroundColor: color.successSoft }}>
+        <Copy variant="label" aria-hidden style={{ color: color.successInk }}>✓</Copy>
+        <Copy variant="supporting" style={{ color: color.successInk, flex: 1 }}>{t("mobile.liveShift.noLocation")}</Copy>
+      </View>
+      {hold && <HoldBanner state="briefingRequired" label={t("mobile.liveShift.attendanceOnly")} blocked={t("mobile.liveShift.holdEffect")} action={t("mobile.liveShift.holdNotCleared")} />}
+      <View style={{ flexDirection: "row", alignItems: "flex-start", padding: space.grid[3], gap: space.grid[3], borderRadius: radius.card, backgroundColor: color.infoSoft }}>
+        <Copy variant="label" aria-hidden style={{ color: color.infoInk }}>ⓘ</Copy>
+        <Copy variant="supporting" style={{ color: color.infoInk, flex: 1 }}>{t("mobile.liveShift.attendanceAudience", { name: d.foremanName })}</Copy>
+      </View>
+      {p.cardControls}
     </>}{!d && <Copy>{t("mobile.liveShift.unavailable")}</Copy>}{!p.eligible && !p.progress && d && <Copy>{t("mobile.liveShift.notEligible")}</Copy>}{p.failed && <Copy>{t("mobile.liveShift.notSaved")}</Copy>}
   </Sheet>;
 }

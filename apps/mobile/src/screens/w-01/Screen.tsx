@@ -5,12 +5,13 @@ import { useRemote, type CachedRead } from "../../api";
 import { useFormat, useT } from "../../i18n";
 import { useOutbox } from "../../repository/hooks";
 import { useSession } from "../../session";
-import { Button, Card, Dock, IdentityChip, Screen } from "../../ui/controls";
+import { Badge, Button, Card, Dock, IdentityChip, ListRow, Screen, StatusBanner } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { HoldBanner } from "../../ui/live/HoldBanner";
 import { LiveCapsule } from "../../ui/live/LiveCapsule";
 import { useBeaconTheme } from "../../ui/theme";
-import { siteTime } from "../f-01/Screen";
+import { siteWindow } from "../c-01/clock";
+import { readingLanguageLabel } from "../s-12/language";
 import { useSessionHostOffers } from "../w-03/SessionOffer";
 import { Deadline, useClock } from "../w-03/Screen";
 
@@ -29,7 +30,7 @@ export default function NowScreen() {
     onRetry={() => void home.refresh()} onNavigate={path => router.push(path as Href)} />;
 }
 export function NowView(p: { data: Home | CachedHome | null; status: Status; lastConfirmedAt: number | null; agenda: ShiftAgenda | CachedRead<"shift_agenda"> | null; hostOffers?: readonly WorkerSessionHostOffer[]; pendingCount?: number; name: string; now: number; onRetry: () => void; onNavigate: (path: string) => void }) {
-  const t = useT(); const format = useFormat(); const { color, radius, space } = useBeaconTheme(); const d = p.data; const zone = d?.siteZone ?? "";
+  const t = useT(); const format = useFormat(); const { color, field, radius, space } = useBeaconTheme(); const d = p.data; const zone = d?.siteZone;
   const current = d?.assignment && d.assignment.assignment.state === "confirmed" && sameDay(d.assignment.assignment.window.startsAt, p.now, d.assignment.siteZone) ? d.assignment : null;
   const upcoming = !current && p.agenda?.segment === "upcoming" ? p.agenda.rows.filter(row => sameDay(row.shift.startsAt, p.now, row.shift.siteZone)) : [];
   const urgent = upcoming.find(row => row.nextAction === "check_in" || row.nextAction === "check_out" || row.nextAction === "check_briefing");
@@ -46,18 +47,64 @@ export function NowView(p: { data: Home | CachedHome | null; status: Status; las
   const offerPath = offer ? `/w/offers/${offer.offerId}${offerGap ? `?gapId=${encodeURIComponent(offerGap)}` : ""}` : "";
   const openOffer = () => p.onNavigate(offerPath);
   const title = current?.title ?? shift?.shift.job.title ?? t("mobile.workerOffer.shift");
-  const when = current ? `${siteTime(format, current.assignment.window.startsAt, current.siteZone)} – ${siteTime(format, current.assignment.window.endsAt, current.siteZone)} · ${current.siteZone}` : shift ? `${siteTime(format, shift.shift.startsAt, shift.shift.siteZone)} – ${siteTime(format, shift.shift.endsAt, shift.shift.siteZone)} · ${shift.shift.siteZone}` : "";
-  return <Screen title={t("mobile.workerOffer.now")} identity={<IdentityChip name={p.name || t("mobile.workerOffer.worker")} initials={p.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2)} context={[t("mobile.workerOffer.worker"), d?.businessName].filter(Boolean).join(" · ")} accessibilityLabel={t("mobile.foremanHome.profile")} onPress={() => p.onNavigate("/you")} />} bell={<Button variant="quiet" label={t("mobile.workerOffer.notifications")} onPress={() => p.onNavigate("/notifications")} />} dock={offer && p.status === "ready" ? <Dock primary={{ label: offer.awaitingConfirmationUntil ? t("mobile.workerOffer.open") : t("mobile.workerOffer.accept"), onPress: () => p.onNavigate(`${offerPath}${offerGap ? "&" : "?"}${offer.awaitingConfirmationUntil ? "" : "accept=1"}`) }} secondary={{ label: offer.awaitingConfirmationUntil ? t("mobile.workerOffer.withdraw") : t("mobile.workerOffer.decline"), onPress: () => p.onNavigate(`${offerPath}${offerGap ? "&" : "?"}decision=${offer.awaitingConfirmationUntil ? "withdraw" : "decline"}`) }} /> : shiftId ? <Dock primary={{ label: p.status === "offline" && shiftAction.path === "depart" ? t("mobile.workerOffer.openShift") : shiftAction.label, onPress: () => p.onNavigate(p.status === "offline" && shiftAction.path === "depart" ? `/w/shifts/${shiftId}${assignmentQuery}` : shiftPath) }} /> : undefined}>
+  const when = current ? siteWindow(format, current.assignment.window.startsAt, current.assignment.window.endsAt, current.siteZone) : shift ? siteWindow(format, shift.shift.startsAt, shift.shift.endsAt, shift.shift.siteZone) : null;
+  const offerWindow = offer ? siteWindow(format, offer.window.startsAt, offer.window.endsAt, offer.siteZone) : null;
+  const clock = format.siteTime(p.now, zone);
+  const subtitle = clock.kind === "available" ? [clock.site.date, format.zoneLabel(zone, clock.site)].filter(Boolean).join(" · ") : undefined;
+  const activeOffer = !!offer && !offer.awaitingConfirmationUntil && p.status === "ready" && p.now < offer.replyBy;
+  const offerLabel = offer?.awaitingConfirmationUntil ? t("mobile.workerOffer.waiting") : offer?.kind === "cover" ? t("mobile.workerOffer.offer") : t("mobile.workerOffer.assignmentOffer");
+  const offerEffect = offer?.awaitingConfirmationUntil ? t("mobile.workerOffer.noTravel") : offer?.kind === "cover" ? t("mobile.workerOffer.provisional") : t("mobile.workerOffer.ordinaryEffect");
+  const offerDeadline = offer ? format.lines(offer.awaitingConfirmationUntil ?? offer.replyBy, offer.siteZone)?.site : null;
+  const offerDeadlineLabel = offerDeadline ? offer?.awaitingConfirmationUntil ? t("mobile.workerOffer.confirmBy", { time: offerDeadline }) : t("mobile.workerOffer.replyBy", { time: offerDeadline }) : null;
+  const offerInk = activeOffer && field ? color.onLive : color.ink;
+  const showShiftAction = () => p.onNavigate(p.status === "offline" && shiftAction.path === "depart" ? `/w/shifts/${shiftId}${assignmentQuery}` : shiftPath);
+  const coverUntil = d?.openToCoverUntil ? format.lines(d.openToCoverUntil, d.siteZone)?.site : null;
+  const steps: [string, string, string, string, string] = [t("mobile.liveShift.confirmed"), t("mobile.liveShift.onWay"), t("mobile.liveShift.onSite"), t("mobile.liveShift.working"), t("mobile.liveShift.departed")];
+  const step = onSite ? 2 : 0;
+  const dock = offer && p.status === "ready" ? <Dock
+    primary={{ label: offer.awaitingConfirmationUntil ? t("mobile.workerOffer.open") : t("mobile.workerOffer.accept"), live: activeOffer, onPress: () => p.onNavigate(`${offerPath}${offerGap ? "&" : "?"}${offer.awaitingConfirmationUntil ? "" : "accept=1"}`) }}
+    secondary={{ label: offer.awaitingConfirmationUntil ? t("mobile.workerOffer.withdraw") : t("mobile.workerOffer.decline"), onPress: () => p.onNavigate(`${offerPath}${offerGap ? "&" : "?"}decision=${offer.awaitingConfirmationUntil ? "withdraw" : "decline"}`) }} />
+    : shiftId ? <Dock primary={{ label: p.status === "offline" && shiftAction.path === "depart" ? t("mobile.workerOffer.openShift") : shiftAction.label, live: p.status === "ready" && (shiftAction.path === "depart" || shiftAction.path === "attendance"), onPress: showShiftAction }} /> : undefined;
+  return <Screen title={t("mobile.workerOffer.now")} subtitle={subtitle} dock={dock}
+    identity={<IdentityChip name={p.name || t("mobile.workerOffer.worker")} initials={p.name.split(/\s+/).map(part => part[0]).join("").slice(0, 2)} person="personD" context={[t("mobile.workerOffer.worker"), d?.businessName].filter(Boolean).join(" · ")} accessibilityLabel={t("mobile.foremanHome.profile")} onPress={() => p.onNavigate("/you")} />}
+    bell={<Button variant="neutral" iconOnly glyph="🔔︎" label={t("mobile.workerOffer.notifications")} onPress={() => p.onNavigate("/notifications")} />}>
     {(p.status === "idle" || p.status === "loading") && <Copy>{t("mobile.workerOffer.loading")}</Copy>}{p.status === "error" && <><Copy>{t("mobile.workerOffer.error")}</Copy><Button label={t("mobile.workerOffer.retry")} onPress={p.onRetry} /></>}
-    {p.status === "offline" && <><Copy>{t("mobile.workerOffer.offline")}</Copy>{p.lastConfirmedAt !== null && zone && <Copy>{t("shared.status.lastConfirmed", { time: `${siteTime(format, p.lastConfirmedAt, zone)} · ${zone}` })}</Copy>}{!!p.pendingCount && <Copy>{t("mobile.workerOffer.pendingEvents", { count: p.pendingCount })}</Copy>}</>}
-    {offer && <Pressable accessibilityRole="button" onPress={openOffer} style={{ backgroundColor: color.live, borderRadius: radius.card, padding: space.cardPadding, gap: space.grid[3] }}><Copy variant="sectionTitle" style={{ color: color.onLive }}>{offer.awaitingConfirmationUntil ? t("mobile.workerOffer.waiting") : offer.kind === "cover" ? t("mobile.workerOffer.offer") : t("mobile.workerOffer.assignmentOffer")}</Copy>{"task" in offer && typeof offer.task === "string" && <Copy style={{ color: color.onLive }}>{offer.task}</Copy>}<Copy style={{ color: color.onLive }}>{offer.town} · {offer.skill}</Copy><Copy style={{ color: color.onLive }}>{siteTime(format, offer.window.startsAt, offer.siteZone)} – {siteTime(format, offer.window.endsAt, offer.siteZone)} · {offer.siteZone}</Copy><Copy style={{ color: color.onLive }}>{t("mobile.workerOffer.language", { language: offer.briefingLanguage })}</Copy><Deadline deadline={offer.awaitingConfirmationUntil ?? offer.replyBy} starts={offer.awaitingConfirmationUntil ?? offer.replyBy} zone={offer.siteZone} now={p.now} confirmation={!!offer.awaitingConfirmationUntil} field />{offer.awaitingConfirmationUntil && <Copy style={{ color: color.onLive }}>{t("mobile.workerOffer.noTravel")}</Copy>}</Pressable>}
-    {offer && !offer.awaitingConfirmationUntil && <Copy>{offer.kind === "cover" ? t("mobile.workerOffer.provisional") : t("mobile.workerOffer.ordinaryEffect")}</Copy>}
-    {shiftId && <><LiveCapsule size="hero" state={onSite ? "onSite" : "crewConfirmed"} stateLabel={onSite ? t("mobile.workerOffer.onSite") : t("mobile.workerOffer.confirmed")} source={title} reference={current?.reference ?? shift?.shift.job.reference} time={when} provenance={t("mobile.workerOffer.confirmed")} accessibilityLabel={`${title} · ${when} · ${t("mobile.workerOffer.confirmed")}`} onPress={() => p.onNavigate(`/w/shifts/${shiftId}${assignmentQuery}`)} />{current?.assignment.safetyHold && <><HoldBanner state="briefingRequired" label={t("mobile.workerOffer.briefingHold")} blocked={t("mobile.workerOffer.holdEffect")} action={t("mobile.workerOffer.openBriefing")} /><Button label={t("mobile.workerOffer.openBriefing")} variant="quiet" onPress={() => p.onNavigate(`/w/shifts/${shiftId}/briefing${assignmentQuery}`)} /></>}</>}
+    {p.status === "offline" && <>
+      <StatusBanner state="offline" label={t("mobile.workerOffer.offline")} detail={p.lastConfirmedAt !== null && zone ? t("shared.status.lastConfirmed", { time: format.lines(p.lastConfirmedAt, zone)?.site ?? "" }) : undefined} />
+      {!!p.pendingCount && <Copy>{t("mobile.workerOffer.pendingEvents", { count: p.pendingCount })}</Copy>}
+    </>}
+    {offer && <Pressable accessibilityRole="button" accessibilityLabel={[offerLabel, "task" in offer ? offer.task : null, offerWindow?.date, offerWindow?.time, offerWindow?.zone, offer.town, offer.skill, t("mobile.workerOffer.language", { language: readingLanguageLabel(t, offer.briefingLanguage) }), offerDeadlineLabel, offerEffect].filter(Boolean).join(" · ")} onPress={openOffer}
+      style={({ pressed }) => ({ backgroundColor: activeOffer && field ? pressed ? color.livePressed : color.live : pressed ? color.subtle : color.surface, borderColor: activeOffer && field ? color.onLive : color.outline, borderWidth: activeOffer && field ? 2 : 1, borderRadius: radius.capsule, padding: space.cardPadding, gap: space.grid[3] })}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: space.grid[2], alignItems: "center" }}>
+        <Badge label={offerLabel} tone={activeOffer && !field ? "attention" : "neutral"} />
+        {!!d?.businessName && <Copy variant="supporting" style={{ color: offerInk }}>{d.businessName}</Copy>}
+      </View>
+      {offerWindow && <View>
+        <Copy variant="pageTitle" style={{ color: offerInk, fontVariant: ["tabular-nums"] }}>{offerWindow.time}</Copy>
+        <Copy variant="supporting" style={{ color: offerInk }}>{[offerWindow.date, offerWindow.zone].filter(Boolean).join(" · ")}</Copy>
+      </View>}
+      <View>
+        {"task" in offer && typeof offer.task === "string" && <Copy variant="label" style={{ color: offerInk }}>{offer.task}</Copy>}
+        <Copy variant="supporting" style={{ color: offerInk }}>{offer.town} · {offer.skill} · {t("mobile.workerOffer.language", { language: readingLanguageLabel(t, offer.briefingLanguage) })}</Copy>
+      </View>
+      <View style={{ borderTopWidth: 1, borderColor: activeOffer && field ? color.onLive : color.separator, paddingTop: space.grid[3] }}>
+        <Deadline deadline={offer.awaitingConfirmationUntil ?? offer.replyBy} starts={offer.awaitingConfirmationUntil ?? offer.replyBy} zone={offer.siteZone} now={p.now} confirmation={!!offer.awaitingConfirmationUntil} field={activeOffer && field} />
+      </View>
+      <Copy variant="supporting" style={{ color: offerInk }}>{offerEffect}</Copy>
+    </Pressable>}
+    {shiftId && <>
+      <LiveCapsule size="hero" state={p.status === "offline" ? "quiet" : onSite ? "onSite" : "crewConfirmed"} stateLabel={steps[step]} source={title} reference={current?.reference ?? shift?.shift.job.reference}
+        time={when?.time} zoneLine={[when?.date, when?.zone].filter(Boolean).join(" · ")} provenance={t("mobile.liveShift.confirmedSource")}
+        line={{ kind: "visit", steps, current: step, accessibilityLabel: t("mobile.liveVisit.step", { step: step + 1, stage: steps[step] }) }}
+        accessibilityLabel={[title, when?.time, when?.zone, steps[step]].filter(Boolean).join(" · ")} onPress={() => p.onNavigate(`/w/shifts/${shiftId}${assignmentQuery}`)} />
+      {current?.assignment.safetyHold && <><HoldBanner state="briefingRequired" label={t("mobile.workerOffer.briefingHold")} blocked={t("mobile.workerOffer.holdEffect")} action={t("mobile.workerOffer.openBriefing")} /><Button label={t("mobile.workerOffer.openBriefing")} variant="quiet" onPress={() => p.onNavigate(`/w/shifts/${shiftId}/briefing${assignmentQuery}`)} /></>}
+    </>}
     {shiftId && (next === "travel" || next === "depart") && <Button label={t("mobile.workerOffer.alreadyOnSite")} variant="quiet" onPress={() => p.onNavigate(`/w/shifts/${shiftId}/attendance${assignmentQuery}`)} />}
     {!!hostOffers?.length && <View style={{ gap: space.grid[3] }}>
       <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.sessionHostOffer.section")}</Copy>
       {hostOffers.map(item => {
-        const when = `${siteTime(format, item.startsAt, item.siteZone)} – ${siteTime(format, item.endsAt, item.siteZone)} · ${item.siteZone}`;
+        const clock = siteWindow(format, item.startsAt, item.endsAt, item.siteZone);
+        const when = clock ? [clock.date, `${clock.time} ${clock.zone}`].filter(Boolean).join(" · ") : "";
         const path = `/w/offers/${item.id}?sessionHost=1&listingId=${encodeURIComponent(item.listingId)}&slotId=${encodeURIComponent(item.slotId)}`;
         return <Card key={item.id} accessibilityLabel={`${item.title} · ${item.roleLabel} · ${when}`} onPress={() => p.onNavigate(path)}>
           <Copy variant="label">{item.title}</Copy><Copy>{item.roleLabel}</Copy><Copy variant="supporting">{when}</Copy>
@@ -65,6 +112,6 @@ export function NowView(p: { data: Home | CachedHome | null; status: Status; las
       })}
     </View>}
     {p.status === "ready" && d && !offer && !shiftId && !hostOffers?.length && <Card><Copy>{t("mobile.workerOffer.empty")}</Copy></Card>}
-    {d && <View><Button variant="quiet" label={d.openToCoverUntil ? t("mobile.workerOffer.coverUntil", { time: `${siteTime(format, d.openToCoverUntil, d.siteZone)} · ${d.siteZone}` }) : t("mobile.workerOffer.availability")} onPress={() => p.onNavigate("/w/availability")} /></View>}
+    {d && <Card><ListRow glyph="◷" label={t("mobile.workerOffer.availability")} description={coverUntil ? t("mobile.workerOffer.coverUntil", { time: coverUntil }) : undefined} onPress={() => p.onNavigate("/w/availability")} /></Card>}
   </Screen>;
 }

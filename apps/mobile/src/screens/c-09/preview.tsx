@@ -15,8 +15,8 @@ const base = {
 };
 const fixture = (status: string | null, step: string | null, changes: Record<string, unknown> = {}) => customerLiveVisitSchema.parse({ ...base, ...changes, live: { ...base.live, status, step, arrival: status === "on_the_way" ? arrival : null, ...(status === "on_site" ? { source: { at: time(9, 14), sharedByName: null }, since: time(9, 14) } : {}), ...(status === "cover_arranging" ? { nextUpdateAt: time(8, 45) } : {}), ...(changes.live as object ?? {}) } });
 const noop = () => {};
-const switcher = <SegmentedControl label="Job view" value="today" options={[{ value: "today", label: "Today" }, { value: "whole", label: "Whole job" }]} onChange={noop} />;
-const render = (visit: CustomerLiveVisit, now = time(8, 58)) => <LiveVisitView visit={visit} status="ready" now={now} twoClock viewerZone="Europe/London" viewSwitcher={switcher} onBack={noop} onRefresh={noop} onNavigate={noop} onFollow={noop} />;
+const switcher = <SegmentedControl label="Job view" hideLabel value="today" options={[{ value: "today", label: "Today" }, { value: "whole", label: "Whole job" }]} onChange={noop} />;
+const render = (visit: CustomerLiveVisit, now = time(8, 58)) => <LiveVisitView visit={visit} status="ready" now={now} twoClock viewerZone="Europe/London" viewSwitcher={switcher} statusCardsAvailable onBack={noop} onRefresh={noop} onNavigate={noop} onFollow={noop} />;
 const cover = fixture("cover_arranging", "confirmed", { confirmedCrewNames: ["Mateo Ruiz"], live: { source: { at: time(8, 36), sharedByName: "Mateo Ruiz" }, since: time(8, 36) }, moments: [{ kind: "cover_arranging", id: "update-cover", recordedAt: time(8, 36), sharedByName: "Mateo Ruiz", nextUpdateAt: time(8, 45) }] });
 export const previews: ScreenPreview[] = [
   { id: "C-09", state: "on-the-way", render: () => render(fixture("on_the_way", "on_the_way")) },

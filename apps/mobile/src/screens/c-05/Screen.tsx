@@ -11,8 +11,10 @@ import { useFormat, useT } from "../../i18n";
 import { useSession } from "../../session";
 import { Badge, Button, Card, Dock, ListRow, Screen, SegmentedControl, StatusBanner } from "../../ui/controls";
 import { Copy, Target } from "../../ui/controls/shared";
-import { CrewDots, JobLine, Stamp } from "../../ui/live";
+import { JobLine, Stamp } from "../../ui/live";
 import { journeyLabels } from "../c-01/common";
+import { siteWindow } from "../c-01/clock";
+import { useBeaconTheme } from "../../ui/theme";
 import { LiveVisitScreen } from "../c-09/Screen";
 import { readingLanguageLabel } from "../s-12/language";
 
@@ -73,7 +75,7 @@ export default function JobHomeScreen() {
 
 function JobViewSwitcher({ value, onChange }: { value: "today" | "whole"; onChange: (value: "today" | "whole") => void }) {
   const t = useT();
-  return <SegmentedControl label={t("mobile.liveVisit.views")} value={value} onChange={onChange} options={[{ value: "today", label: t("mobile.liveVisit.today") }, { value: "whole", label: t("mobile.liveVisit.whole") }]} />;
+  return <SegmentedControl label={t("mobile.liveVisit.views")} hideLabel value={value} onChange={onChange} options={[{ value: "today", label: t("mobile.liveVisit.today") }, { value: "whole", label: t("mobile.liveVisit.whole") }]} />;
 }
 
 /** C-09 can supply an in-place Today/Whole job switch without adding a route. */
@@ -82,7 +84,7 @@ export function JobHomeView({ job, status, twoClock = false, onBack, onRetry, on
   onNavigate: (path: string) => void; viewSwitcher?: ReactNode;
   history?: ReactNode; receipts?: ReactNode;
 }) {
-  const t = useT(); const format = useFormat(); const [more, setMore] = useState(false);
+  const t = useT(); const format = useFormat(); const { color, space } = useBeaconTheme(); const [more, setMore] = useState(false);
   const current = job ? JOURNEY_STEPS.indexOf(job.journey.step) as 0 | 1 | 2 | 3 | 4 | 5 : 0;
   const labels = journeyLabels(t);
   const readable = status === "ready" ? job : null;
@@ -93,13 +95,10 @@ export function JobHomeView({ job, status, twoClock = false, onBack, onRetry, on
   const cancellation = readable?.cancellation;
   const lead = crew?.leadName;
   const stage = !readable ? "" : readable.journey.cancelled ? t("mobile.customerHome.cancelled") : readable.state === "closed" ? t("mobile.jobHome.closed") : next?.kind === "review_completion" || next?.kind === "sign_off" ? t("mobile.jobHome.finished") : quote?.state === "approved" && readable.journey.step === "quoted" ? t("mobile.jobHome.quoteApproved") : quote?.state === "issued" && readable.journey.step === "quoted" ? t("mobile.jobHome.quoteReady") : labels[current];
-  const at = (value: number) => { const time = format.siteTime(value, readable?.siteZone); return time.kind === "available" ? time.siteTime : readable?.siteZone ?? ""; };
+  const message = readable?.foremanName ? t("mobile.liveVisit.message", { name: readable.foremanName }) : t("mobile.jobHome.message");
   const band = readable?.nextVisit?.window;
-  const visitTime = band ? t("mobile.jobHome.range", { start: at(band.startsAt), end: at(band.endsAt) }) : null;
-  const viewerZone = twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
-  const viewerStart = band ? format.twoClock(band.startsAt, readable?.siteZone, viewerZone) : null;
-  const viewerEnd = band ? format.twoClock(band.endsAt, readable?.siteZone, viewerZone) : null;
-  const viewerTime = viewerStart?.kind === "available" && viewerEnd?.kind === "available" && viewerStart.viewerTime && viewerEnd.viewerTime ? t("mobile.jobHome.yourTime", { time: t("mobile.jobHome.range", { start: viewerStart.viewerTime, end: viewerEnd.viewerTime }) }) : null;
+  const clock = band ? siteWindow(format, band.startsAt, band.endsAt, readable?.siteZone, twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined) : null;
+  const visitTime = clock ? [clock.date, `${clock.time} ${clock.zone}`].filter(Boolean).join(" · ") : null;
   const chat = readable?.chatThreadId ? () => onNavigate(`/threads/${readable.chatThreadId}`) : undefined;
   let primary: { label: string; onPress: () => void } | undefined;
   if (readable && !readable.journey.cancelled) {
@@ -111,23 +110,26 @@ export function JobHomeView({ job, status, twoClock = false, onBack, onRetry, on
       case "see_bill": primary = { label: t("mobile.customerHome.seeBill"), onPress: () => onNavigate(`${root}/bill`) }; break;
       case "open_case": if (readable.openCase) primary = { label: t("mobile.jobHome.openCase"), onPress: () => onNavigate(`${root}/case/${readable.openCase!.caseId}`) }; break;
       case "rate_job": primary = { label: t("mobile.jobHome.rate"), onPress: () => onNavigate(`${root}/rating`) }; break;
-      case "wait_for_windows": case "visit": if (chat) primary = { label: t("mobile.jobHome.message"), onPress: chat }; break;
+      case "wait_for_windows": case "visit": if (chat) primary = { label: message, onPress: chat }; break;
     }
     if (readable.openCase) primary = { label: t("mobile.jobHome.openCase"), onPress: () => onNavigate(`${root}/case/${readable.openCase!.caseId}`) };
   }
-  const dock = primary ? <Dock primary={primary} secondary={chat && primary.onPress !== chat ? { label: t("mobile.jobHome.message"), onPress: chat } : undefined} /> : undefined;
-  return <Screen title={readable?.title || t("mobile.customerHome.untitled")} navigation={{ kind: "back", label: t("mobile.jobHome.back"), onPress: onBack }} dock={dock}>
+  const dock = primary ? <Dock primary={{ ...primary, glyph: primary.onPress === chat ? "✉" : undefined }} secondary={chat && primary.onPress !== chat ? { label: message, onPress: chat } : undefined} /> : undefined;
+  return <Screen title={readable?.title || t("mobile.customerHome.untitled")} subtitle={readable ? `${readable.reference} · ${readable.place.alias}` : undefined}
+    navigation={{ kind: "back", label: t("mobile.jobHome.back"), onPress: onBack }} dock={dock}
+    trailing={readable ? <Button variant="navigation" iconOnly glyph="⋯" label={t("mobile.jobHome.more")} onPress={() => setMore(!more)} /> : undefined}>
     {(status === "loading" || status === "idle") && <Copy>{t("mobile.jobHome.loading")}</Copy>}
     {status === "offline" && <StatusBanner state="offline" label={t("mobile.jobHome.offline")} />}
     {(status === "error" || (status === "ready" && !readable)) && <><Copy>{t("mobile.jobHome.unavailable")}</Copy><Button label={t("mobile.jobHome.retry")} onPress={onRetry} /></>}
     {readable && <>
-      <Copy variant="supporting">{readable.reference} · {readable.place.alias}</Copy>
-      <Button variant="quiet" label={t("mobile.jobHome.more")} onPress={() => setMore(!more)} />
       {more && <Card><ListRow label={t("mobile.jobHome.cancel")} onPress={() => onNavigate(`${root}/cancel`)} /><ListRow label={t("mobile.jobHome.report")} onPress={() => onNavigate(`${root}/case/${readable.openCase?.caseId ?? "new"}`)} /><ListRow label={t("mobile.jobHome.place")} onPress={() => onNavigate(`/c/places/${readable.place.placeId}`)} /></Card>}
       {readable.hasTodayView && viewSwitcher}
       <Card>
-        <Copy variant="supporting">{readable.providerName} · {t("mobile.customerHome.step", { step: current + 1, stage: labels[current] })}</Copy>
-        <Copy variant="display" accessibilityLiveRegion="polite">{stage}</Copy>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", columnGap: space.grid[3] }}>
+          <Copy variant="caption" style={{ color: color.muted }}>{readable.providerName}</Copy>
+          <Copy variant="caption" style={{ color: color.muted }}>{t("mobile.jobHome.journeyStep", { step: current + 1 })}</Copy>
+        </View>
+        <Copy variant="pageTitle" accessibilityLiveRegion="polite">{stage}</Copy>
         {cancellation && <Copy variant="supporting">{cancellation.by
           ? t("mobile.jobHome.cancelledBy", { name: cancellation.by, time: format.lines(cancellation.at, readable.siteZone)?.site ?? readable.siteZone })
           : t("mobile.jobHome.cancelledAt", { time: format.lines(cancellation.at, readable.siteZone)?.site ?? readable.siteZone })}</Copy>}
@@ -136,20 +138,19 @@ export function JobHomeView({ job, status, twoClock = false, onBack, onRetry, on
         {next?.kind === "wait_for_approver" && next.waitingOn && <Copy variant="supporting">{t("mobile.jobHome.waitingApprover", { name: next.waitingOn })}</Copy>}
         {next?.kind === "wait_for_quote" && <Copy variant="supporting">{t("mobile.jobHome.requestedDetail")}</Copy>}
         {next?.kind === "wait_for_windows" && <Copy variant="supporting">{t("mobile.jobHome.waitingWindows")}</Copy>}
-        {readable.journey.step === "booked" && visitTime && <><Copy>{t("mobile.jobHome.nextVisit", { time: visitTime })}</Copy><Copy variant="supporting">{t("mobile.jobHome.nothingNeeded")}</Copy></>}
+        {readable.journey.step === "booked" && clock && <><Copy variant="label">{t("mobile.jobHome.nextVisit", { time: clock.date ?? clock.time })}</Copy><Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.jobHome.nothingNeeded")}</Copy></>}
         <JobLine kind="journey" steps={labels} current={current} pulse={false} activity={readable.journey.complete ? "finished" : "live"} status={readable.journey.cancelled ? { state: "cancelled", label: t("mobile.customerHome.cancelled") } : undefined} accessibilityLabel={t("mobile.customerHome.step", { step: current + 1, stage })} />
       </Card>
       {readable.change?.state === "issued" && <Card onPress={() => onNavigate(`${root}/change/${readable.change!.versionId}`)} accessibilityLabel={t("mobile.jobHome.change", { amount: format.money(readable.change.delta.minor, readable.change.delta.currency) })}><Badge tone="attention" label={t("mobile.jobHome.change", { amount: format.money(readable.change.delta.minor, readable.change.delta.currency) })} /></Card>}
       {readable.openCase && <Card onPress={() => onNavigate(`${root}/case/${readable.openCase!.caseId}`)} accessibilityLabel={t("mobile.jobHome.openCase")}><Badge tone="critical" label={t("mobile.jobHome.problemOpen")} />{readable.openCase.state === "awaiting_plan" && <Copy>{t("mobile.jobHome.awaitingPlan")}</Copy>}</Card>}
       <Card>
-        <ListRow label={quote ? t("mobile.jobHome.quote", { version: quote.version, amount: format.money(quote.total.minor, quote.total.currency) }) : t("mobile.jobHome.noQuote")} onPress={quote ? () => onNavigate(`${root}/quote/${quote.versionId}`) : undefined} />
-        {quote?.sent && <Stamp kind="decision" title={quote.sent.by ? t("mobile.jobHome.sentBy", { name: quote.sent.by }) : t("mobile.jobHome.eventQuote")} time={format.lines(quote.sent.at, readable.siteZone)?.site ?? readable.siteZone} />}
-        {quote?.approved && <Stamp kind="decision" title={quote.approved.by ? t("mobile.jobHome.approvedBy", { name: quote.approved.by }) : t("mobile.jobHome.eventApproved")} time={format.lines(quote.approved.at, readable.siteZone)?.site ?? readable.siteZone} />}
-        <ListRow label={t("mobile.jobHome.visit")} description={visitTime ?? (quote?.state === "issued" ? t("mobile.jobHome.afterApproval") : t("mobile.jobHome.noWindows"))} onPress={() => onNavigate(`${root}/windows`)} />
-        {viewerTime && <Copy variant="supporting">{viewerTime}</Copy>}
+        <ListRow glyph="≋" label={quote ? t("mobile.jobHome.quote", { version: quote.version, amount: format.money(quote.total.minor, quote.total.currency) }) : t("mobile.jobHome.noQuote")} description={quote?.approved
+          ? `${quote.approved.by ? t("mobile.jobHome.approvedBy", { name: quote.approved.by }) : t("mobile.jobHome.eventApproved")} · ${format.lines(quote.approved.at, readable.siteZone)?.site ?? readable.siteZone}`
+          : quote?.sent ? `${quote.sent.by ? t("mobile.jobHome.sentBy", { name: quote.sent.by }) : t("mobile.jobHome.eventQuote")} · ${format.lines(quote.sent.at, readable.siteZone)?.site ?? readable.siteZone}` : undefined}
+          onPress={quote ? () => onNavigate(`${root}/quote/${quote.versionId}`) : undefined} />
+        <ListRow glyph="▦" label={t("mobile.jobHome.visit")} description={visitTime ? [visitTime, clock?.viewer].filter(Boolean).join("\n") : quote?.state === "issued" ? t("mobile.jobHome.afterApproval") : t("mobile.jobHome.noWindows")} onPress={() => onNavigate(`${root}/windows`)} />
         {crew ? <>
-          <ListRow label={lead ?? t("mobile.jobHome.crewConfirmed")} description={lead ? t("mobile.jobHome.crewLeadCount", { count: crew.count }) : t("mobile.jobHome.crewCount", { count: crew.count })} onPress={chat} />
-          {lead && <CrewDots audience="customer" people={[{ id: lead, name: lead, initials: lead.trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join("").toUpperCase(), role: t("mobile.jobHome.crewLead") }]} />}
+          <ListRow glyph="●" label={lead ?? t("mobile.jobHome.crewConfirmed")} description={lead ? t("mobile.jobHome.crewLeadCount", { count: crew.count }) : t("mobile.jobHome.crewCount", { count: crew.count })} onPress={chat} />
           {readable.foremanName && readable.foremanName !== lead && <ListRow label={readable.foremanName} description={t("mobile.jobHome.foreman")} onPress={chat} />}
         </> : <ListRow label={t("mobile.jobHome.crewPending")} />}
         {readable.bill && <ListRow label={t("mobile.customerHome.seeBill")} description={format.money(readable.bill.total.minor, readable.bill.total.currency)} onPress={() => onNavigate(`${root}/bill`)} />}

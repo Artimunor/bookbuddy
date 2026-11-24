@@ -1,12 +1,19 @@
 import { getBusinessOverviewRoute, type BusinessOverview } from "@bookbuddy/api-contract";
 import { useRouter, type Href } from "expo-router";
+import { View } from "react-native";
 import { useRemote } from "../../api";
-import { useT } from "../../i18n";
+import { useFormat as useClockFormat, useT } from "../../i18n";
 import { useSession } from "../../session";
-import { Badge, Card } from "../../ui/controls";
+import { Badge, Card, ListRow } from "../../ui/controls";
 import { Copy, Target } from "../../ui/controls/shared";
+import { LiveCapsule, type LiveCapsuleState } from "../../ui/live";
 import { useBeaconTheme } from "../../ui/theme";
 import { ProviderScreenView, ReadState, useProvider, useProviderFormat as useFormat, useProviderLabels } from "./shared";
+
+const liveStates: Record<NonNullable<BusinessOverview["liveJob"]>["step"], LiveCapsuleState> = {
+  confirmed: "crewConfirmed", on_the_way: "onTheWay", on_site: "onSite", working: "working", finished: "finished",
+};
+const liveSteps = ["confirmed", "on_the_way", "on_site", "working", "finished"] as const;
 
 export default function BusinessNowScreen() {
   const { businessId, actor } = useProvider(); const router = useRouter();
@@ -20,8 +27,19 @@ export default function BusinessNowScreen() {
 }
 
 export function BusinessNowView({ overview, status, actor, onProfile, onNotifications, onRetry, onJob, onJobs, onPeople, onEligibility, laterEntry }: { overview: BusinessOverview | null; status: string; actor: string; onProfile: () => void; onNotifications: () => void; onRetry: () => void; onJob: (id: string) => void; onJobs: () => void; onPeople: () => void; onEligibility: () => void; laterEntry?: React.ReactNode }) {
-  const t = useT(); const format = useFormat(); const labels = useProviderLabels(); const { color, radius, space } = useBeaconTheme();
-  return <ProviderScreenView title={t("mobile.provider.now")} business={overview?.business.publicName} actor={actor} onProfile={onProfile} onNotifications={onNotifications}>
+  const t = useT(); const format = useFormat(); const clock = useClockFormat(); const labels = useProviderLabels(); const { color, radius, space } = useBeaconTheme();
+  const live = overview?.liveJob;
+  const pulse = live ? clock.siteTime(live.since, live.siteZone) : null;
+  const siteZone = pulse?.kind === "available" ? clock.zoneLabel(live?.siteZone, pulse.site) : undefined;
+  const siteDate = pulse?.kind === "available" ? pulse.site.date : undefined;
+  const since = pulse?.kind === "available" ? t("mobile.provider.since", { time: pulse.site.time }) : undefined;
+  const stage = live ? labels.visit(live.step) : "";
+  const steps: [string, string, string, string, string] = [labels.visit("confirmed"), labels.visit("on_the_way"), labels.visit("on_site"), labels.visit("working"), labels.visit("finished")];
+  const step = live ? liveSteps.indexOf(live.step) as 0 | 1 | 2 | 3 | 4 : 0;
+  const provenance = live ? [live.accountableForeman ? t("mobile.provider.foreman", { name: live.accountableForeman }) : t("mobile.provider.noForeman"),
+    t("mobile.provider.crewCount", { count: live.crewSize }),
+    live.sharedBy && pulse?.kind === "available" ? t("mobile.customerHome.shared", { name: live.sharedBy, time: pulse.site.time }) : null].filter(Boolean).join(" · ") : "";
+  return <ProviderScreenView title={t("mobile.provider.now")} subtitle={[siteDate, siteZone].filter(Boolean).join(" · ") || undefined} business={overview?.business.publicName} actor={actor} onProfile={onProfile} onNotifications={onNotifications}>
     <ReadState status={status} retry={onRetry} />
     {overview && status === "ready" && <>
       {(overview.handoffs.stuck.length > 0 || overview.bills.openCount > 0) && <Copy variant="sectionTitle">{t("mobile.provider.needsYou")}</Copy>}
@@ -30,12 +48,27 @@ export function BusinessNowView({ overview, status, actor, onProfile, onNotifica
         <Copy>{t("mobile.provider.since", { time: format.siteTime(job.since, job.siteZone) })}</Copy><Copy>{t("mobile.provider.offeredTo", { name: job.offeredTo })}</Copy><Copy>{job.accountableForeman ? t("mobile.provider.foreman", { name: job.accountableForeman }) : t("mobile.provider.noForeman")}</Copy>
       </Target>)}
       {overview.bills.openCount > 0 && <Target accessibilityRole="button" onPress={onJobs} accessibilityLabel={`${t("mobile.provider.recordPaid")} · ${t("mobile.provider.bills", { count: overview.bills.openCount, amount: format.money(overview.bills.totalMinor, overview.bills.currency) })}`} style={{ backgroundColor: color.attentionSoft, borderRadius: radius.card, padding: space.cardPadding, gap: space.grid[2] }}><Badge tone="attention" label={t("mobile.provider.recordPaid")} /><Copy>{t("mobile.provider.bills", { count: overview.bills.openCount, amount: format.money(overview.bills.totalMinor, overview.bills.currency) })}</Copy></Target>}
-      <Copy variant="sectionTitle">{t("mobile.provider.liveNow")}</Copy>
-      {overview.liveJob ? <Card onPress={() => onJob(overview.liveJob!.jobId)} accessibilityLabel={`${overview.liveJob.title} · ${overview.liveJob.reference} · ${labels.visit(overview.liveJob.step)} · ${t("mobile.provider.since", { time: format.siteTime(overview.liveJob.since, overview.liveJob.siteZone) })}`}><Copy variant="sectionTitle">{overview.liveJob.title} · {overview.liveJob.reference}</Copy><Badge label={labels.visit(overview.liveJob.step)} tone="success" /><Copy>{t("mobile.provider.since", { time: format.siteTime(overview.liveJob.since, overview.liveJob.siteZone) })}</Copy><Copy>{overview.liveJob.accountableForeman ? t("mobile.provider.foreman", { name: overview.liveJob.accountableForeman }) : t("mobile.provider.noForeman")}</Copy><Copy>{t("mobile.provider.crewCount", { count: overview.liveJob.crewSize })}</Copy></Card> : <><Copy>{t("mobile.provider.nothingLive")}</Copy>{overview.nextVisit && <Copy>{t("mobile.provider.nextVisit", { job: overview.nextVisit.title, time: format.siteTime(overview.nextVisit.startsAt, overview.nextVisit.siteZone) })}</Copy>}</>}
-      <Copy variant="sectionTitle">{t("mobile.provider.business")}</Copy>
-      <Card onPress={onJobs} accessibilityLabel={t("mobile.provider.handoffs", { count: overview.handoffs.offeredCount })}><Copy>{t("mobile.provider.handoffs", { count: overview.handoffs.offeredCount })}</Copy>{overview.handoffs.nextReplyAt && <Copy>{t("mobile.provider.replyBy", { time: format.siteTime(overview.handoffs.nextReplyAt, overview.business.siteZone) })}</Copy>}<Copy>{t("mobile.provider.unassigned", { count: overview.unassignedCount })}</Copy><Copy>{t("mobile.provider.reviews", { count: overview.commercialReviewCount })}</Copy><Copy>{t("mobile.provider.bills", { count: overview.bills.openCount, amount: format.money(overview.bills.totalMinor, overview.bills.currency) })}</Copy></Card>
-      <Card onPress={onEligibility} accessibilityLabel={t("mobile.provider.eligibility")}><Copy>{t("mobile.provider.eligibility")}</Copy><Badge label={labels.eligibility(overview.eligibility.status)} /><Copy>{t("mobile.provider.pendingReviews", { count: overview.eligibility.pendingReviewCount })}</Copy></Card>
-      <Card onPress={onPeople} accessibilityLabel={t("mobile.provider.people")}><Copy>{t("mobile.provider.people")}</Copy></Card>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "baseline", gap: space.grid[2] }}>
+        <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.provider.liveNow")}</Copy>
+        {live && <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.customerHome.liveCount", { count: 1 })}</Copy>}
+      </View>
+      {live ? <LiveCapsule size="card" state={liveStates[live.step]} stateLabel={stage} source={live.title} reference={live.reference} time={since}
+        zoneLine={siteZone} provenance={provenance}
+        line={{ kind: "visit", steps, current: step, accessibilityLabel: t("mobile.liveVisit.step", { step: step + 1, stage }) }}
+        accessibilityLabel={[live.title, live.reference, stage, since, siteZone, provenance].filter(Boolean).join(" · ")} onPress={() => onJob(live.jobId)} />
+        : <Card><Copy variant="label">{t("mobile.provider.nothingLive")}</Copy>{overview.nextVisit && <Copy variant="supporting">{t("mobile.provider.nextVisit", { job: overview.nextVisit.title, time: clock.lines(overview.nextVisit.startsAt, overview.nextVisit.siteZone)?.site ?? "" })}</Copy>}</Card>}
+      <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.provider.business")}</Copy>
+      <Card>
+        <ListRow glyph="↔" label={t("mobile.provider.handoffsTitle")} description={[
+          t("mobile.provider.handoffs", { count: overview.handoffs.offeredCount }),
+          overview.handoffs.nextReplyAt ? t("mobile.provider.replyBy", { time: clock.lines(overview.handoffs.nextReplyAt, overview.business.siteZone)?.site ?? "" }) : null,
+          t("mobile.provider.unassigned", { count: overview.unassignedCount }),
+          t("mobile.provider.reviews", { count: overview.commercialReviewCount }),
+        ].filter(Boolean).join(" · ")} onPress={onJobs} />
+        <ListRow glyph="≋" label={t("mobile.provider.billsTitle")} description={t("mobile.provider.bills", { count: overview.bills.openCount, amount: format.money(overview.bills.totalMinor, overview.bills.currency) })} onPress={onJobs} />
+        <ListRow glyph="✓" label={t("mobile.provider.eligibility")} description={`${labels.eligibility(overview.eligibility.status)} · ${t("mobile.provider.pendingReviews", { count: overview.eligibility.pendingReviewCount })}`} onPress={onEligibility} />
+        <ListRow glyph="●" label={t("mobile.provider.people")} onPress={onPeople} />
+      </Card>
       {laterEntry}
     </>}
   </ProviderScreenView>;

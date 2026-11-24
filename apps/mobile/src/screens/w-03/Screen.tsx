@@ -17,7 +17,11 @@ type Status = "idle" | "loading" | "ready" | "error" | "offline";
 type CachedOffer = Extract<CachedRead<"home">, { audience: "worker" }>["offers"][number];
 export function useClock() { const [now, setNow] = useState(Date.now); useEffect(() => { const id = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(id); }, []); return now; }
 export function Deadline({ deadline, starts, zone, now, confirmation = false, field = false }: { deadline: number; starts: number; zone: string; now: number; confirmation?: boolean; field?: boolean }) {
-  const t = useT(); const format = useFormat(); const remaining = Math.max(0, deadline - now); const label = confirmation ? t("mobile.workerOffer.confirmBy", { time: `${siteTime(format, deadline, zone)} · ${zone}` }) : t("mobile.workerOffer.replyBy", { time: `${siteTime(format, deadline, zone)} · ${zone}` });
+  const t = useT(); const format = useFormat(); const remaining = Math.max(0, deadline - now);
+  const clock = format.siteTime(deadline, zone);
+  const current = format.siteTime(now, zone);
+  const time = clock.kind === "available" ? [current.kind === "available" && clock.site.date === current.site.date ? null : clock.site.date, `${clock.site.time} ${format.zoneLabel(zone, clock.site)}`].filter(Boolean).join(" · ") : "";
+  const label = confirmation ? t("mobile.workerOffer.confirmBy", { time }) : t("mobile.workerOffer.replyBy", { time });
   return <OfferClock state="running" surface={field ? "fieldCapsule" : "neutral"} deadline={label} remaining={t("mobile.workerOffer.minutes", { count: Math.ceil(remaining / 60000) })} fraction={deadline > starts ? Math.max(0, Math.min(1, remaining / (deadline - starts))) : 0} />;
 }
 export default function OfferScreen() {

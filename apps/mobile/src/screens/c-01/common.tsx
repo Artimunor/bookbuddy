@@ -7,6 +7,7 @@ import { Badge, BookingCard, Button, Card, IdentityChip, StatusBanner } from "..
 import { Copy } from "../../ui/controls/shared";
 import { JobLine, LiveCapsule, type LiveCapsuleState } from "../../ui/live";
 import type { ReactNode } from "react";
+import { siteWindow } from "./clock";
 
 type Home = Extract<HomeProjection, { audience: "customer" }>;
 export type CustomerCard = Extract<JobsPage, { audience: "customer" }>["items"][number];
@@ -21,7 +22,7 @@ export function HeaderIdentity({ name, place, onPress }: { name: string | null; 
 }
 export function Bell({ count, onPress }: { count: number; onPress: () => void }) {
   const t = useT();
-  return <Button iconOnly glyph="♧" label={t("mobile.customerHome.notifications", { count })} variant="neutral" onPress={onPress} />;
+  return <Button iconOnly glyph="🔔︎" label={t("mobile.customerHome.notifications", { count })} variant="neutral" onPress={onPress} />;
 }
 export function OfflineNotice({ confirmed, zone }: { confirmed: number | null; zone: string | null }) {
   const t = useT(); const format = useFormat();
@@ -71,15 +72,19 @@ export function Live({ item, onPress, quiet = false, pill = false, twoClock = fa
   };
   const [state, stateLabel] = states[status];
   const band = item.visit.arrival ?? item.visit.window;
-  const start = format.siteTime(band.startsAt, item.siteZone), end = format.siteTime(band.endsAt, item.siteZone);
   const viewerZone = twoClock ? Intl.DateTimeFormat().resolvedOptions().timeZone : undefined;
-  const viewerStart = format.twoClock(band.startsAt, item.siteZone, viewerZone), viewerEnd = format.twoClock(band.endsAt, item.siteZone, viewerZone);
-  const viewerTime = viewerStart.kind === "available" && viewerEnd.kind === "available" && viewerStart.viewerTime && viewerEnd.viewerTime
-    ? t("mobile.customerHome.yourTime", { time: t("mobile.customerHome.timeRange", { start: viewerStart.viewerTime, end: viewerEnd.viewerTime }) }) : undefined;
-  const time = start.kind === "available" && end.kind === "available" ? t("mobile.customerHome.timeRange", { start: start.siteTime, end: end.siteTime }) : undefined;
+  const clocks = siteWindow(format, band.startsAt, band.endsAt, item.siteZone, viewerZone);
+  const time = clocks ? `${clocks.time} ${clocks.zone}` : undefined;
   const at = format.siteTime(item.visit.source.at, item.siteZone);
-  const provenance = at.kind !== "available" ? "" : item.visit.source.by ? t("mobile.customerHome.shared", { name: item.visit.source.by, time: at.siteTime }) : t("mobile.customerHome.confirmedAt", { time: at.siteTime });
-  return <LiveCapsule size={pill ? "pill" : "card"} state={quiet ? "quiet" : state} pulse={false} stateLabel={stateLabel} source={[item.title, item.providerName, item.crewName].filter(Boolean).join(" · ")} reference={item.reference} time={time} zoneLine={viewerTime} provenance={provenance} accessibilityLabel={[item.title, stateLabel, time, viewerTime, provenance].filter(Boolean).join(", ")} onPress={onPress} />;
+  const sourceTime = at.kind === "available" ? `${at.site.time} ${format.zoneLabel(item.siteZone, at.site)}` : null;
+  const provenance = !sourceTime ? "" : item.visit.source.by ? t("mobile.customerHome.shared", { name: item.visit.source.by, time: sourceTime }) : t("mobile.customerHome.confirmedAt", { time: sourceTime });
+  const steps = [t("mobile.liveVisit.stepConfirmed"), t("mobile.liveVisit.stepWay"), t("mobile.liveVisit.stepSite"), t("mobile.liveVisit.working"), t("mobile.liveVisit.stepFinished")] as const;
+  const step = item.visit.step;
+  const current = step === "on_the_way" ? 1 : step === "on_site" ? 2 : step === "working" ? 3 : step === "finished" ? 4 : 0;
+  const progress = t("mobile.liveVisit.step", { step: current + 1, stage: steps[current] });
+  const title = item.title || t("mobile.customerHome.untitled");
+  return <LiveCapsule size={pill ? "pill" : "card"} state={quiet ? "quiet" : state} pulse={false} stateLabel={stateLabel} source={title} reference={item.reference} time={time} zoneLine={clocks?.viewer ?? undefined} provenance={[item.crewName, item.providerName, provenance].filter(Boolean).join(" · ")}
+    line={{ kind: "visit", steps: [...steps], current, accessibilityLabel: progress }} accessibilityLabel={[title, stateLabel, time, clocks?.viewer, progress, item.crewName, item.providerName, provenance].filter(Boolean).join(", ")} onPress={onPress} />;
 }
 export function Section({ title, children }: { title: string; children: ReactNode }) { return <><Copy variant="sectionTitle" accessibilityRole="header">{title}</Copy>{children}</>; }
 

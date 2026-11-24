@@ -12,6 +12,8 @@ import { useSession } from "../../session";
 import { Badge, Button, Card, Dock, ListRow, Screen, SegmentedControl } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { CrewDots, JobLine, LiveCapsule, Stamp, type LiveCapsuleState } from "../../ui/live";
+import { useBeaconTheme } from "../../ui/theme";
+import { siteWindow } from "../c-01/clock";
 import { journeyLabels } from "../c-01/common";
 import { stageLabel } from "../f-01/Screen";
 import { confirmAction } from "../s-17/confirmAction";
@@ -83,7 +85,7 @@ export function JobControlView({ job, visit, status, visitStatus, busy, checking
   initialView?: ViewMode; viewMode?: ViewMode; onView?: (view: ViewMode) => void; earlier?: Moment[]; earlierStatus?: RemoteStatus;
   onEarlier?: () => void; onRetryEarlier?: () => void; payee?: string; canSwitchToProvider?: boolean;
 }) {
-  const t = useT(), { locale } = useLocale(); const [previewView, setPreviewView] = useState<ViewMode>(initialView ?? "today");
+  const t = useT(), { locale } = useLocale(); const { space } = useBeaconTheme(); const [previewView, setPreviewView] = useState<ViewMode>(initialView ?? "today");
   const view = viewMode ?? previewView;
   const root = job ? `/f/jobs/${job.jobId}` : ""; const ready = status === "ready" && visitStatus === "ready"; const live = visit?.customerPreview.live;
   const statusLabels = { confirmed: t("mobile.foremanHome.confirmed"), on_the_way: t("mobile.foremanHome.onWay"), on_site: t("mobile.foremanHome.onSite"), working: t("mobile.foremanHome.working"), finished: t("mobile.foremanHome.finished"), paused: t("mobile.foremanHome.paused"), cover_arranging: t("mobile.foremanHome.gap"), no_crew_available: t("mobile.liveVisit.noCrew") };
@@ -91,9 +93,12 @@ export function JobControlView({ job, visit, status, visitStatus, busy, checking
   const customerLabel = live?.status ? statusLabels[live.status] : t("mobile.jobControl.noUpdate");
   const at = (value: number) => clockTime(value, visit?.siteZone ?? job?.siteZone ?? "UTC", locale);
   const format = useFormat();
-  const zoneClock = visit ? format.siteTime(visit.window.startsAt, visit.siteZone) : null;
-  const siteZoneLabel = zoneClock?.kind === "available" ? format.zoneLabel(visit?.siteZone, zoneClock.site) : "";
-  const band = visit?.window; const bandLabel = band ? `${at(band.startsAt)} – ${at(band.endsAt)}` : "";
+  const booked = visit ? siteWindow(format, visit.window.startsAt, visit.window.endsAt, visit.siteZone) : null;
+  const arrival = live?.arrival?.band;
+  const estimated = visit && arrival ? siteWindow(format, arrival.startsAt, arrival.endsAt, visit.siteZone) : null;
+  const since = live?.since != null && (live.status === "working" || live.status === "on_site" || live.status === "finished") ? at(live.since) : null;
+  const heroTime = estimated?.time ?? since ?? booked?.time;
+  const zoneLine = [booked?.zone, (estimated || since) && booked ? t("mobile.jobControl.windowTime", { time: booked.time }) : null].filter(Boolean).join(" · ");
   const days = [t("mobile.foremanHome.confirmed"), t("mobile.foremanHome.onWay"), t("mobile.foremanHome.onSite"), t("mobile.foremanHome.working"), t("mobile.foremanHome.finished")] as [string,string,string,string,string];
   const steps = ["confirmed", "on_the_way", "on_site", "working", "finished"] as const;
   const dayIndex = Math.max(0, steps.findIndex(s => s === live?.step)) as 0|1|2|3|4;
@@ -124,22 +129,22 @@ export function JobControlView({ job, visit, status, visitStatus, busy, checking
         dock = <Dock primary={{ label: t("mobile.jobControl.chat"), onPress: () => onNavigate(`/threads/${job.chatThreadId}`) }} />;
       } else if (canWork) {
         dock = <Dock context={visit.workGate.status === "held" ? t("mobile.jobControl.hold") : !workAllowed ? t("mobile.jobControl.notReady") : t("mobile.jobControl.workEffect")}
-          primary={{ label: workKind === "start" ? t("mobile.jobControl.start") : t("mobile.jobControl.finish"), onPress: () => onWork(workKind), disabled: !workAllowed }}
+          primary={{ label: workKind === "start" ? t("mobile.jobControl.start") : t("mobile.jobControl.finish"), onPress: () => onWork(workKind), disabled: !workAllowed, live: true }}
           secondary={{ label: t("mobile.jobControl.shareTitle"), onPress: share, disabled: !ready }} />;
       }
     }
   }
-  return <Screen title={job?.title ?? t("mobile.foremanHome.untitled")} navigation={{ kind: "back", label: t("mobile.crewSchedule.back"), onPress: onBack }} dock={dock}>
+  return <Screen title={job?.title ?? t("mobile.foremanHome.untitled")} subtitle={job ? `${job.reference} · ${job.place.alias}` : undefined} navigation={{ kind: "back", label: t("mobile.crewSchedule.back"), onPress: onBack }} dock={dock}>
     {(status === "idle" || status === "loading") && <Copy>{t("mobile.foremanHome.loading")}</Copy>}{status === "offline" && <Copy>{t("mobile.foremanHome.offline")}</Copy>}{status === "error" && <><Copy>{t("mobile.jobControl.error")}</Copy><Button label={t("mobile.foremanHome.retry")} onPress={onRetry} /></>}
-    {job && <><Copy variant="supporting">{job.reference} · {job.place.alias}</Copy>
-      {job.nextVisit && <SegmentedControl label={t("mobile.jobControl.whole")} value={view} onChange={onView ?? setPreviewView} options={[{ value: "today", label: t("mobile.jobControl.today") }, { value: "whole", label: t("mobile.jobControl.whole") }]} />}
+    {job && <>
+      {job.nextVisit && <SegmentedControl label={t("mobile.liveVisit.views")} hideLabel value={view} onChange={onView ?? setPreviewView} options={[{ value: "today", label: t("mobile.jobControl.today") }, { value: "whole", label: t("mobile.jobControl.whole") }]} />}
       {job.flags.includes("crew_gap") && <Badge label={t("mobile.foremanHome.gap")} tone="critical" />}
       {job.flags.includes("open_problem") && <Badge label={t("mobile.jobHome.problemOpen")} tone="critical" />}
       {job.flags.includes("open_change") && <Card><Copy>{t("mobile.jobControl.changePending")}</Copy></Card>}
       {view === "whole" && <>
         <Card>
           <Copy variant="supporting">{stageSummary}{stageAccent?.by ? ` · ${stageAccent.by}` : ""}</Copy>
-          <Copy variant="display">{stageLabelText}</Copy>
+          <Copy variant="pageTitle">{stageLabelText}</Copy>
           {stageAccent && <Copy>{stampTime(format, stageAccent.at, job.siteZone)}</Copy>}
           <View aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             <JobLine kind="journey" steps={journeyLabels(t)} current={stageIndex} accessibilityLabel={stageSummary} pulse={false} activity={job.journey.complete ? "finished" : "quiet"}
@@ -158,20 +163,37 @@ export function JobControlView({ job, visit, status, visitStatus, busy, checking
         <History history={job.history?.items ?? []} earlier={earlier} status={earlierStatus} siteZone={job.siteZone} onEarlier={onEarlier} onRetry={onRetryEarlier} />
       </>}
       {view === "today" && <>
-      {visit && <Copy variant="label">{t("mobile.jobControl.window")}</Copy>}
-      {visit && <><LiveCapsule size="hero" state={live?.status ? statusStates[live.status] : "quiet"} stateLabel={customerLabel} source={`${job.customerName} · ${job.place.alias}`} reference={job.reference} time={bandLabel} zoneLine={siteZoneLabel} provenance={t("mobile.jobControl.shared", { status: customerLabel })} accessibilityLabel={[customerLabel, bandLabel, siteZoneLabel].join(", ")} line={{ kind: "visit", steps: days, current: dayIndex, accessibilityLabel: customerLabel }} /><Card><Copy variant="label">{t("mobile.jobControl.preview")}</Copy><Copy>{t("mobile.jobControl.shared", { status: customerLabel })}</Copy>{live?.source?.sharedByName && <Copy>{t("mobile.jobControl.sharedAt", { name: live.source.sharedByName, time: at(live.source.at) })}</Copy>}<Button label={t("mobile.jobControl.shareTitle")} variant="quiet" onPress={share} disabled={!ready} /></Card>
-      <Card><Copy variant="sectionTitle">{t("mobile.jobControl.crew")}</Copy>{!visit.crew.length && <Copy>{t("mobile.jobControl.noCrew")}</Copy>}{visit.crew.map(person => { const hold = person.holds.some(h => h.state === "active"); const label = hold ? t("mobile.foremanHome.briefingHold") : person.attendance.departure ? t("mobile.foremanHome.departed") : person.attendance.arrival ? t("mobile.foremanHome.onSite") : person.estimate ? t("mobile.foremanHome.onWay") : t("mobile.foremanHome.confirmed"); return <View key={person.assignmentId}><CrewDots audience="foreman" people={[{ id: person.assignmentId, initials: person.workerName.split(/\s+/).map(x => x[0]).join("").slice(0,2), name: person.workerName, status: hold ? "hold" : person.attendance.arrival ? "onSite" : person.estimate ? "onTheWay" : "confirmed", statusLabel: label }]} />{person.attendance.arrival && <Copy>{at(person.attendance.arrival.actualAt)}</Copy>}{person.instruction && <Copy>{person.briefingReceipt?.acknowledgement ? t("mobile.foremanHome.briefingDone") : t("mobile.foremanHome.briefingDue")} · v{person.instruction.version.no}</Copy>}</View>; })}</Card></>}
+      {visit && <>
+        <LiveCapsule size="hero" state={live?.status ? statusStates[live.status] : "quiet"} stateLabel={customerLabel} source={`${job.customerName} · ${job.place.alias}`}
+          reference={booked?.date ?? job.reference} time={heroTime} zoneLine={zoneLine} provenance={t("mobile.jobControl.shared", { status: customerLabel })}
+          accessibilityLabel={[customerLabel, heroTime, zoneLine].filter(Boolean).join(", ")} line={{ kind: "visit", steps: days, current: dayIndex, accessibilityLabel: t("mobile.liveVisit.step", { step: dayIndex + 1, stage: days[dayIndex] }) }} />
+        <Card><ListRow glyph="◉" label={t("mobile.jobControl.preview")} description={live?.source?.sharedByName
+          ? t("mobile.jobControl.sharedAt", { name: live.source.sharedByName, time: at(live.source.at) })
+          : t("mobile.jobControl.shared", { status: customerLabel })} onPress={share} disabled={!ready} /></Card>
+        <Card>
+          <Copy variant="label" accessibilityRole="header">{t("mobile.jobControl.crew")}</Copy>
+          {!visit.crew.length && <Copy variant="supporting">{t("mobile.jobControl.noCrew")}</Copy>}
+          {visit.crew.map(person => {
+            const hold = person.holds.some(h => h.state === "active");
+            const label = hold ? t("mobile.foremanHome.briefingHold") : person.attendance.departure ? t("mobile.foremanHome.departed") : person.attendance.arrival ? t("mobile.foremanHome.onSite") : person.estimate ? t("mobile.foremanHome.onWay") : t("mobile.foremanHome.confirmed");
+            const arrival = person.attendance.arrival ? at(person.attendance.arrival.actualAt) : null;
+            const briefing = person.instruction ? `${person.briefingReceipt?.acknowledgement ? t("mobile.foremanHome.briefingDone") : t("mobile.foremanHome.briefingDue")} · v${person.instruction.version.no}` : null;
+            return <CrewDots key={person.assignmentId} audience="foreman" people={[{ id: person.assignmentId, initials: person.workerName.split(/\s+/).map(x => x[0]).join("").slice(0, 2), name: person.workerName,
+              status: hold ? "hold" : person.attendance.arrival ? "onSite" : person.estimate ? "onTheWay" : "confirmed", statusLabel: [label, arrival, briefing].filter(Boolean).join(" · ") }]} />;
+          })}
+        </Card>
+      </>}
       {!visit && job.nextVisit && <><Copy>{visitStatus === "offline" ? t("mobile.foremanHome.offline") : visitStatus === "error" ? t("mobile.jobControl.error") : t("mobile.foremanHome.loading")}</Copy>{visitStatus === "error" && <Button label={t("mobile.foremanHome.retry")} onPress={onRetry} />}</>}
       {!hasSignedOff && visit?.work?.kind === "work_finished" && <Copy>{t("mobile.jobControl.awaiting")}</Copy>}
       </>}
       {!hasSignedOff && assignmentShift && !assignmentSlot && <Copy>{t("mobile.jobControl.assignUnavailable")}</Copy>}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {[...(view === "today" ? [{ label: t("mobile.jobControl.quote"), path: versionPath(root, "quote", job.quote?.versionId) }, { label: t("mobile.jobControl.schedule"), path: `${root}/schedule` }] : []),
-          { label: t("mobile.jobControl.siteLog"), path: `${root}/site-log` },
-          ...(!job.change || view === "today" ? [{ label: t("mobile.jobControl.change"), path: versionPath(root, "change", job.change?.versionId) }] : []),
-          { label: t("mobile.jobControl.wrap"), path: `${root}/wrap-up` },
-          ...(job.chatThreadId ? [{ label: t("mobile.jobControl.chat"), path: `/threads/${job.chatThreadId}` }] : []),
-        ].map(link => <Button key={link.path} label={link.label} variant="neutral" onPress={() => onNavigate(link.path)} />)}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.grid[2] }}>
+        {[...(view === "today" ? [{ glyph: "≋", label: t("mobile.jobControl.quote"), path: versionPath(root, "quote", job.quote?.versionId) }, { glyph: "▦", label: t("mobile.jobControl.schedule"), path: `${root}/schedule` }] : []),
+          { glyph: "≡", label: t("mobile.jobControl.siteLog"), path: `${root}/site-log` },
+          ...(!job.change || view === "today" ? [{ glyph: "✎", label: t("mobile.jobControl.change"), path: versionPath(root, "change", job.change?.versionId) }] : []),
+          { glyph: "⚑", label: t("mobile.jobControl.wrap"), path: `${root}/wrap-up` },
+          ...(job.chatThreadId ? [{ glyph: "✉", label: t("mobile.jobControl.chat"), path: `/threads/${job.chatThreadId}` }] : []),
+        ].map(link => <Button key={link.path} glyph={link.glyph} label={link.label} variant="neutral" onPress={() => onNavigate(link.path)} />)}
       </View>
       {checking && <Copy>{t("mobile.jobControl.checking")}</Copy>}{failed && <Copy>{t("mobile.jobControl.failed")}</Copy>}
     </>}

@@ -17,10 +17,10 @@ export function ProviderScreen({ title, business, children, dock }: { title: str
   return <ProviderScreenView title={title} business={business} actor={actor} dock={dock} onProfile={() => router.push("/you" as Href)} onNotifications={() => router.push("/notifications" as Href)}>{children}</ProviderScreenView>;
 }
 
-export function ProviderScreenView({ title, business, actor, children, dock, onProfile, onNotifications }: { title: string; business?: string; actor: string; children: ReactNode; dock?: ReactNode; onProfile: () => void; onNotifications: () => void }) {
+export function ProviderScreenView({ title, subtitle, business, actor, children, dock, onProfile, onNotifications }: { title: string; subtitle?: string; business?: string; actor: string; children: ReactNode; dock?: ReactNode; onProfile: () => void; onNotifications: () => void }) {
   const t = useT();
-  return <Screen title={title} identity={<IdentityChip initials={actor.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()} name={actor} context={[t("mobile.provider.admin"), business].filter(Boolean).join(" · ")} onPress={onProfile} />}
-    bell={<Button label={t("mobile.provider.notifications")} glyph="♧" iconOnly variant="quiet" onPress={onNotifications} />} dock={dock}>{children}</Screen>;
+  return <Screen title={title} subtitle={subtitle} identity={<IdentityChip initials={actor.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()} name={actor} person="personB" context={[t("mobile.provider.admin"), business].filter(Boolean).join(" · ")} onPress={onProfile} />}
+    bell={<Button label={t("mobile.provider.notifications")} glyph="🔔︎" iconOnly variant="neutral" onPress={onNotifications} />} dock={dock}>{children}</Screen>;
 }
 
 export function useProviderFormat() {

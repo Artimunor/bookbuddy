@@ -2,12 +2,15 @@ import { completionIdSchema, completionItemIdSchema, getJobCompletionRoute, subm
 import { uuid } from "expo";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { useState } from "react";
+import { View } from "react-native";
 import { useCommand, useRemote } from "../../api";
 import { useFormat, useT } from "../../i18n";
 import { useAttach, useOpenMediaPreview, type MediaTransfer } from "../../media";
 import { useSession } from "../../session";
 import { Button, Card, Dock, Screen, SegmentedControl, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
+import { useBeaconTheme } from "../../ui/theme";
+import { readingLanguageLabel } from "../s-12/language";
 import { AttachmentTiles, PhotoTile, useAttachNavigation } from "../c-02/attachments";
 import { time } from "../c-06/Screen";
 import { minorAmount, useLocalDraft } from "../f-04/draft";
@@ -106,25 +109,39 @@ function WrapUpRoute() {
 }
 type Props = { data: ForemanCompletion | null; status: string; draft: Draft; change: (d: Draft) => void; saved: boolean; saveFailed: boolean; offline: boolean; busy: boolean; failed: boolean; photos?: PhotosByLine; photoCount?: number; waitingPhotos?: boolean; onAddPhoto?: (line: Line) => void; onRemovePhoto?: (line: Line, photo: MediaTransfer) => void; onRetryPhoto?: (id: string) => void; onOpenDraft?: (id: string) => void; onOpenPhoto?: (item: PublishedItem, photo: PublishedItem["photos"][number]) => void; onBack: () => void; onRetry: () => void; onSubmit: () => void; onJob: () => void };
 export function WrapUpView(p: Props) {
-  const t = useT(); const format = useFormat(); const d = p.data; const editable = !!d?.actions.submit;
+  const t = useT(); const format = useFormat(); const { color, radius, space } = useBeaconTheme(); const d = p.data; const editable = !!d?.actions.submit;
   const invoice = d ? invoiceDraft(p.draft, d.approvedScope.totalMinor) : null;
   const valid = invoice !== null && !p.waitingPhotos && (p.photoCount ?? 0) <= 8 && !!d?.approvedScope.lines.length && d.approvedScope.lines.every(line => {
     const key = lineKey(line); const x = p.draft.items[key];
     return !!x && !!x.note.trim() && (x.outcome === "not_done" || (x.outcome === "done" && (!!p.photos?.[key]?.length || !!line.evidenceAlternative)));
   });
   const set = (line: Line, patch: Partial<DraftItem>) => p.change(patchItem(p.draft, lineKey(line), patch));
-  return <Screen title={t("mobile.wrapUp.title")} navigation={{ kind: "back", label: t("mobile.wrapUp.back"), onPress: p.onBack }} dock={d ? <Dock context={editable ? p.waitingPhotos ? t("mobile.photos.wait") : t("mobile.wrapUp.submitEffect") : t("mobile.wrapUp.waiting", { name: d.namedApproverDisplayName })} primary={editable ? { label: t("mobile.wrapUp.submit"), onPress: p.onSubmit, disabled: !valid || p.offline || p.busy || p.status !== "ready", busy: p.busy, live: true } : { label: t("mobile.wrapUp.job"), onPress: p.onJob }} /> : undefined}>
-    {(p.status === "loading" || p.status === "idle") && <Copy>{t("mobile.wrapUp.loading")}</Copy>}{(p.status === "error" || p.status === "offline") && <><Copy>{t("mobile.wrapUp.unavailable")}</Copy><Button label={t("mobile.wrapUp.retry")} onPress={p.onRetry} /></>}{p.offline && <Copy>{t("mobile.wrapUp.offline")}</Copy>}{p.saved && editable && <Copy>{t("mobile.wrapUp.saved")}</Copy>}{p.saveFailed && <Copy>{t("mobile.wrapUp.saveFailed")}</Copy>}{p.busy && <Copy>{t("mobile.wrapUp.checking")}</Copy>}{p.failed && <Copy>{t("mobile.wrapUp.failed")}</Copy>}
-    {d && <><Copy variant="supporting">{d.job.reference} · {d.job.title} · {d.job.siteZone}</Copy>{d.work && <Card><Copy>{t("mobile.wrapUp.finishedAt", { time: time(format, d.work.finishedAt, d.job.siteZone) })}</Copy>{d.work.crewCheckedOutAt && <Copy>{t("mobile.wrapUp.checkedOutAt", { time: time(format, d.work.crewCheckedOutAt, d.job.siteZone) })}</Copy>}</Card>}
+  return <Screen title={t("mobile.wrapUp.title")} subtitle={d ? [d.job.reference, d.job.title].filter(Boolean).join(" · ") : undefined} navigation={{ kind: "back", label: t("mobile.wrapUp.back"), onPress: p.onBack }} dock={d ? <Dock context={editable ? p.waitingPhotos ? t("mobile.photos.wait") : t("mobile.wrapUp.submitEffect") : t("mobile.wrapUp.waiting", { name: d.namedApproverDisplayName })} primary={editable ? { label: t("mobile.wrapUp.submit"), onPress: p.onSubmit, disabled: !valid || p.offline || p.busy || p.status !== "ready", busy: p.busy, live: true } : { label: t("mobile.wrapUp.job"), onPress: p.onJob }} /> : undefined}>
+    {(p.status === "loading" || p.status === "idle") && <Copy>{t("mobile.wrapUp.loading")}</Copy>}{(p.status === "error" || p.status === "offline") && <><Copy>{t("mobile.wrapUp.unavailable")}</Copy><Button label={t("mobile.wrapUp.retry")} onPress={p.onRetry} /></>}{p.offline && <Copy>{t("mobile.wrapUp.offline")}</Copy>}{p.saveFailed && <Copy>{t("mobile.wrapUp.saveFailed")}</Copy>}{p.busy && <Copy>{t("mobile.wrapUp.checking")}</Copy>}{p.failed && <Copy>{t("mobile.wrapUp.failed")}</Copy>}
+    {d && <>
+      {d.work && <View style={{ padding: space.grid[3], borderRadius: radius.card, backgroundColor: color.subtle }}>
+        <Copy variant="supporting">{[
+          t("mobile.wrapUp.finishedAt", { time: format.lines(d.work.finishedAt, d.job.siteZone)?.site ?? "" }),
+          d.work.crewCheckedOutAt ? t("mobile.wrapUp.checkedOutAt", { time: format.lines(d.work.crewCheckedOutAt, d.job.siteZone)?.site ?? "" }) : null,
+        ].filter(Boolean).join(" · ")}</Copy>
+      </View>}
     {d.submission?.state === "returned" ? <Card><Copy variant="sectionTitle">{t("mobile.wrapUp.returned")}</Copy>{d.correction && <Copy>{d.correction.reason.original.text}</Copy>}</Card>
       : d.submission && <Card><Copy variant="sectionTitle">{t("mobile.wrapUp.submitted")}</Copy><Copy>{d.submission.state === "submitted" && `${t("mobile.wrapUp.waiting", { name: d.namedApproverDisplayName })} · `}{time(format, d.submission.submitted.at, d.job.siteZone)}</Copy></Card>}
-    <Card><Copy variant="sectionTitle">{t("mobile.wrapUp.scope")}</Copy><Copy>{t("mobile.wrapUp.version", { number: d.approvedScope.version })} · {format.money(d.approvedScope.totalMinor, d.approvedScope.currency)}</Copy><Copy>{d.approvedScope.scope.original.text}</Copy>{d.approvedScope.exclusions && <Copy>{t("mobile.wrapUp.excluded")}: {d.approvedScope.exclusions.original.text}</Copy>}</Card>
+    <Card>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: space.grid[2] }}>
+        <Copy variant="sectionTitle" accessibilityRole="header">{t("mobile.wrapUp.scope")}</Copy>
+        <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.wrapUp.version", { number: d.approvedScope.version })} · {format.money(d.approvedScope.totalMinor, d.approvedScope.currency)}</Copy>
+      </View>
+      <Copy variant="caption" style={{ color: color.muted }}>{t("mobile.aftercare.original", { language: readingLanguageLabel(t, d.approvedScope.scope.original.language) })}</Copy>
+      <Copy>{d.approvedScope.scope.original.text}</Copy>
+      {p.saved && editable && <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.wrapUp.saved")}</Copy>}
     {d.approvedScope.lines.map(line => {
       const key = lineKey(line);
       const item = p.draft.items[key] ?? emptyLine;
       const photos = p.photos?.[key] ?? [];
       const submitted = d.submission?.items.find(x => JSON.stringify(x.scope) === JSON.stringify(line.ref));
-      return <Card key={key}><Copy variant="sectionTitle">{line.label.original.text}</Copy><Copy variant="supporting">{line.evidenceRule}</Copy>
+      return <View key={key} style={{ gap: space.grid[3], borderTopWidth: 1, borderTopColor: color.separator, paddingTop: space.grid[3] }}>
+        <View><Copy variant="label">{line.label.original.text}</Copy><Copy variant="supporting" style={{ color: color.muted }}>{line.evidenceRule}</Copy></View>
         {editable ? <>
           <SegmentedControl label={t("mobile.wrapUp.outcome")} options={[{ value: "done", label: t("mobile.wrapUp.done") }, { value: "not_done", label: t("mobile.wrapUp.notDone") }]} value={item.outcome} disabled={p.busy} onChange={outcome => set(line, { outcome })} />
           {item.outcome !== "" && <TextField label={item.outcome === "done" ? t("mobile.wrapUp.result") : t("mobile.wrapUp.reason")} multiline value={item.note} disabled={p.busy} onChangeText={note => set(line, { note })} />}
@@ -136,8 +153,10 @@ export function WrapUpView(p: Props) {
         </> : submitted && <><Copy>{submitted.outcome === "done" ? t("mobile.wrapUp.done") : t("mobile.wrapUp.notDone")}</Copy><Copy>{submitted.outcome === "done" ? submitted.result.original.text : submitted.reason.original.text}</Copy>
           {submitted.photos.map(photo => photo.availability === "available" ? <PhotoTile key={photo.attachmentId} label={photo.caption?.original.text ?? t("mobile.case.evidencePhoto")} onOpen={p.onOpenPhoto ? () => p.onOpenPhoto?.(submitted, photo) : undefined} /> : <Copy key={photo.attachmentId}>{t("mobile.case.evidenceUnavailable")}</Copy>)}
         </>}
-      </Card>;
+      </View>;
     })}
+    {d.approvedScope.exclusions && <Copy variant="supporting" style={{ color: color.muted }}>{t("mobile.wrapUp.excluded")}: {d.approvedScope.exclusions.original.text}</Copy>}
+    </Card>
     {editable && !!p.photoCount && <Copy variant="supporting">{t("mobile.photos.completionCount", { count: p.photoCount })}</Copy>}
     {editable ? <Card>
       <TextField label={t("mobile.wrapUp.billReference")} value={p.draft.billReference ?? ""} maxLength={500}

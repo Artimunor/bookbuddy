@@ -1,12 +1,12 @@
 import { getJobRoute, getVisitLogRoute, type CustomerUpdate, type VisitLog } from "@bookbuddy/api-contract";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useRemote } from "../../api";
 import { useFormat, useT } from "../../i18n";
 import { useOpenMediaPreview, type MediaPreviewDetails, type MediaScope } from "../../media";
-import { Button, Card, Dock, Screen, SegmentedControl } from "../../ui/controls";
+import { useMediaReadBatch } from "../../media/read-batch";
+import { Button, Card, Dock, Screen, SegmentedControl, Thumb } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
-import { PhotoTile } from "../c-02/attachments";
 import { time } from "../c-06/Screen";
 
 type AllLog = Extract<VisitLog, { view: "all" }>;
@@ -50,29 +50,61 @@ export default function SiteLogScreen() {
   const log = useRemote(getVisitLogRoute, { params: { id: currentVisit ?? "" }, query: { view, ...(shiftId ? { shiftId } : {}), ...(pages.at(-1) ? { cursor: pages.at(-1) } : {}) } }, { enabled: !!currentVisit });
   const open = useOpenMediaPreview();
   const share = (stamp?: ProgressStamp, parent?: string) => router.push({ pathname: "/f/jobs/[jobId]/share", params: { jobId, ...(currentVisit && { visitId: currentVisit }), ...(stamp && parent && { progressEventId: stamp.id, attachmentId: stamp.photo.attachmentId, shiftId: parent }) } } as Href);
-  return <SiteLogView data={log.data ?? null} status={!currentVisit ? job.status : log.status} view={view} onView={v => { setPages([undefined]); setView(v); }} onBack={() => router.back()} onRetry={() => { if (currentVisit) void log.refresh(); else void job.refresh(); }} onShare={() => share()} onShareProgress={share} onPhoto={open} onWrap={() => router.push(`/f/jobs/${jobId}/wrap-up` as Href)} onHold={(id) => router.push(`/safety/${id}` as Href)} onChange={() => router.push(`/f/jobs/${jobId}/change` as Href)} onPrevious={pages.length > 1 ? () => setPages(pages.slice(0, -1)) : undefined} onNext={log.data?.page.hasMore && log.data.page.cursor ? () => setPages([...pages, log.data!.page.cursor!]) : undefined} />;
+  const props: Props = { data: log.data ?? null, status: !currentVisit ? job.status : log.status, view, onView: v => { setPages([undefined]); setView(v); }, onBack: () => router.back(), onRetry: () => { if (currentVisit) void log.refresh(); else void job.refresh(); }, onShare: () => share(), onShareProgress: share, onPhoto: open, onWrap: () => router.push(`/f/jobs/${jobId}/wrap-up` as Href), onHold: id => router.push(`/safety/${id}` as Href), onChange: () => router.push(`/f/jobs/${jobId}/change` as Href), onPrevious: pages.length > 1 ? () => setPages(pages.slice(0, -1)) : undefined, onNext: log.data?.page.hasMore && log.data.page.cursor ? () => setPages([...pages, log.data!.page.cursor!]) : undefined };
+  const groups = new Map<string, { scope: MediaScope; ids: string[] }>();
+  const add = (stamp: ProgressStamp | UpdateStamp, parent: string | null) => {
+    if (!parent || stamp.photo.availability !== "available") return;
+    const scope = { caller: stamp.kind === "progress_photo" ? "progress" as const : "update" as const, parentScopeId: parent };
+    const key = `${scope.caller}:${scope.parentScopeId}`;
+    const group = groups.get(key);
+    if (group) group.ids.push(stamp.photo.attachmentId);
+    else groups.set(key, { scope, ids: [stamp.photo.attachmentId] });
+  };
+  if (props.status === "ready" && props.data) {
+    if (props.data.view === "all") {
+      for (const stamp of props.data.stamps) {
+        if (stamp.kind === "progress_photo") add(stamp, stamp.shiftId ?? props.data.shiftId);
+        if (stamp.kind === "customer_update" && stamp.update.kind === "photo") add(stamp.update, stamp.update.id);
+      }
+    } else {
+      for (const stamp of props.data.stamps) if (stamp.kind === "photo") add(stamp, stamp.id);
+    }
+  }
+  const render = [...groups].sort(([a], [b]) => a.localeCompare(b)).reduceRight<(url?: LogPhotoUrl) => ReactNode>(
+    (next, [key, group]) => url => <LogPhotoGroup key={key} scope={group.scope} ids={group.ids} previous={url}>{next}</LogPhotoGroup>,
+    photoUrl => <SiteLogView {...props} photoUrl={photoUrl} />,
+  );
+  return render();
 }
 type Props = { data: VisitLog | null; status: string; view: "all" | "customer"; onView: (v: "all" | "customer") => void; onBack: () => void; onRetry: () => void; onShare: () => void; onShareProgress?: (stamp: ProgressStamp, shiftId: string) => void; onPhoto?: (id: Photo["attachmentId"], scope: MediaScope, details?: MediaPreviewDetails) => void; onWrap: () => void; onHold: (id: string) => void; onChange: () => void; onPrevious?: () => void; onNext?: () => void };
 
-function LogPhoto({ stamp, parent, onOpen }: { stamp: ProgressStamp | UpdateStamp; parent?: string | null; onOpen?: Props["onPhoto"] }) {
+type LogPhotoUrl = (scope: MediaScope, attachmentId: string) => string | undefined;
+
+function LogPhotoGroup({ scope, ids, previous, children }: { scope: MediaScope; ids: string[]; previous?: LogPhotoUrl; children: (url: LogPhotoUrl) => ReactNode }) {
+  const urls = useMediaReadBatch(ids, scope);
+  return children((requested, attachmentId) => requested.caller === scope.caller && requested.parentScopeId === scope.parentScopeId ? urls.get(attachmentId) : previous?.(requested, attachmentId));
+}
+
+function LogPhoto({ stamp, parent, onOpen, photoUrl }: { stamp: ProgressStamp | UpdateStamp; parent?: string | null; onOpen?: Props["onPhoto"]; photoUrl?: LogPhotoUrl }) {
   const t = useT();
   const { photo, caption } = stamp;
   const reading = caption?.reading?.status === "ready" ? caption.reading : undefined;
-  const access = photo.availability === "available" && parent && onOpen ? () => onOpen(photo.attachmentId, { caller: stamp.kind === "progress_photo" ? "progress" : "update", parentScopeId: parent }, {
+  const scope = parent ? { caller: stamp.kind === "progress_photo" ? "progress" as const : "update" as const, parentScopeId: parent } : null;
+  const access = photo.availability === "available" && scope && onOpen ? () => onOpen(photo.attachmentId, scope, {
     author: stamp.kind === "progress_photo" ? stamp.actorName : stamp.sharedByName,
     ...(caption && { caption: { original: caption.original.text, originalLanguage: caption.original.language, translation: reading?.text, translationLanguage: reading?.language } }),
   }) : undefined;
   return <>{caption && <Copy accessibilityLanguage={reading?.language ?? caption.original.language}>{reading?.text ?? caption.original.text}</Copy>}
-    {photo.availability === "available" ? <PhotoTile label={reading?.text ?? caption?.original.text ?? t("mobile.case.evidencePhoto")} onOpen={access} /> : <Copy>{t("mobile.siteLog.photoUnavailable")}</Copy>}
+    {photo.availability === "available" ? <Thumb uri={scope ? photoUrl?.(scope, photo.attachmentId) : undefined} label={reading?.text ?? caption?.original.text ?? t("mobile.case.evidencePhoto")} onPress={access} /> : <Copy>{t("mobile.siteLog.photoUnavailable")}</Copy>}
   </>;
 }
-export function SiteLogView(p: Props) {
+export function SiteLogView(p: Props & { photoUrl?: LogPhotoUrl }) {
   const t = useT(); const format = useFormat(); const all = p.data?.view === "all" ? p.data : null; const control = all?.control; const zone = control?.siteZone ?? (p.data?.view === "customer" ? p.data.siteZone : "");
   const finished = control?.work?.kind === "work_finished";
-  return <Screen title={t("mobile.siteLog.title")} navigation={{ kind: "back", label: t("mobile.siteLog.back"), onPress: p.onBack }} dock={<Dock primary={{ label: finished ? t("mobile.siteLog.wrap") : t("mobile.siteLog.share"), onPress: finished ? p.onWrap : () => p.onShare(), disabled: p.status !== "ready" }} />}>
+  return <Screen title={t("mobile.siteLog.title")} subtitle={control ? [control.job.reference, control.job.title].filter(Boolean).join(" · ") : undefined} navigation={{ kind: "back", label: t("mobile.siteLog.back"), onPress: p.onBack }} dock={<Dock primary={{ label: finished ? t("mobile.siteLog.wrap") : t("mobile.siteLog.share"), live: !finished, onPress: finished ? p.onWrap : () => p.onShare(), disabled: p.status !== "ready" }} />}>
     {(p.status === "idle" || p.status === "loading") && <Copy>{t("mobile.siteLog.loading")}</Copy>}
     {(p.status === "error" || p.status === "offline") && <><Copy>{t("mobile.siteLog.unavailable")}</Copy><Button label={t("mobile.siteLog.retry")} onPress={p.onRetry} /></>}
-    {control && <><Copy variant="supporting">{control.job.reference} · {control.job.title} · {zone}</Copy>{control.crew.map(worker => worker.holds.map(hold => <Card key={hold.id}><Copy variant="sectionTitle">{hold.state === "active" ? t("mobile.siteLog.holdActive") : t("mobile.siteLog.holdCleared")}</Copy><Copy>{worker.workerName}</Copy>{hold.instruction && <><Copy>{t("mobile.siteLog.instruction", { number: hold.instruction.version.no })}</Copy><Button variant="quiet" label={t("mobile.siteLog.openSafety")} onPress={() => p.onHold(hold.instruction!.instructionId)} /></>}</Card>))}</>}
+    {control && control.crew.map(worker => worker.holds.map(hold => <Card key={hold.id}><Copy variant="sectionTitle">{hold.state === "active" ? t("mobile.siteLog.holdActive") : t("mobile.siteLog.holdCleared")}</Copy><Copy>{worker.workerName}</Copy>{hold.instruction && <><Copy>{t("mobile.siteLog.instruction", { number: hold.instruction.version.no })}</Copy><Button variant="quiet" label={t("mobile.siteLog.openSafety")} onPress={() => p.onHold(hold.instruction!.instructionId)} /></>}</Card>))}
     <SegmentedControl label={t("mobile.siteLog.audience")} options={[{ value: "all", label: t("mobile.siteLog.everything") }, { value: "customer", label: t("mobile.siteLog.customerView") }]} value={p.view} onChange={p.onView} />
     {p.data && p.data.stamps.length === 0 && <Copy>{t("mobile.siteLog.empty")}</Copy>}
     {all?.stamps.map((e, i) => {
@@ -82,14 +114,14 @@ export function SiteLogView(p: Props) {
       const photoShift = e.kind === "progress_photo" ? e.shiftId ?? all.shiftId : null;
       return <Card key={`${at}-${i}`}><Copy variant="sectionTitle">{entryTitle(t, e)} · {time(format, at, zone)}</Copy><Copy>{actor}</Copy>
         {e.kind === "attendance" && <><Copy>{e.event.source === "self" ? t("mobile.siteLog.self") : e.event.source === "assisted" ? t("mobile.siteLog.assisted") : t("mobile.siteLog.manual")}</Copy>{e.event.reviewState !== "accepted" && <Copy>{t("mobile.siteLog.needsReview")}</Copy>}{e.event.correctsId && <Copy>{t("mobile.siteLog.corrected")}</Copy>}</>}
-        {e.kind === "progress_photo" && <LogPhoto stamp={e} parent={photoShift} onOpen={p.onPhoto} />}
-        {e.kind === "customer_update" && e.update.kind === "photo" && <LogPhoto stamp={e.update} parent={e.update.id} onOpen={p.onPhoto} />}
+        {e.kind === "progress_photo" && <LogPhoto stamp={e} parent={photoShift} onOpen={p.onPhoto} photoUrl={p.photoUrl} />}
+        {e.kind === "customer_update" && e.update.kind === "photo" && <LogPhoto stamp={e.update} parent={e.update.id} onOpen={p.onPhoto} photoUrl={p.photoUrl} />}
         {e.kind === "arrival_plan_set" && <Copy>{e.original.text}</Copy>}
         <Copy variant="supporting">{visible ? t("mobile.siteLog.customerVisible") : t("mobile.siteLog.crewOnly")}</Copy>
         {e.kind === "progress_photo" && e.canShareWithCustomer && e.photo.availability === "available" && photoShift && p.status === "ready" && control && p.onShareProgress && <Button variant="quiet" label={t("mobile.photos.shareWith", { name: control.customerName })} onPress={() => p.onShareProgress?.(e, photoShift)} />}
       </Card>;
     })}
-    {p.data?.view === "customer" && p.data.stamps.map(u => <Card key={u.id}><Copy variant="sectionTitle">{updateTitle(t, u)} · {time(format, u.recordedAt, zone)}</Copy>{u.kind === "photo" && <LogPhoto stamp={u} parent={u.id} onOpen={p.onPhoto} />}</Card>)}
+    {p.data?.view === "customer" && p.data.stamps.map(u => <Card key={u.id}><Copy variant="sectionTitle">{updateTitle(t, u)} · {time(format, u.recordedAt, zone)}</Copy>{u.kind === "photo" && <LogPhoto stamp={u} parent={u.id} onOpen={p.onPhoto} photoUrl={p.photoUrl} />}</Card>)}
     {p.onPrevious && <Button variant="quiet" label={t("mobile.siteLog.previous")} onPress={p.onPrevious} />}{p.onNext && <Button variant="quiet" label={t("mobile.siteLog.next")} onPress={p.onNext} />}
     <Button variant="quiet" label={t("mobile.siteLog.change")} onPress={p.onChange} />
   </Screen>;
