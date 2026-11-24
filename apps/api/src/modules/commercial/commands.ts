@@ -6,6 +6,7 @@ import type { CommandStatement } from "../../db/commit";
 import type { RequestScope } from "../../db/scope";
 import { at, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { linkTables, readyAttachmentSql, stagedAttachmentSql } from "../media/policy";
 import { withQuoteExpiry, withReviewDue } from "./deadlines";
 import {
   actionableDecision, approvedTotal, bookedWork, canPublish, canReturn, canSubmit, commercialAccess,
@@ -13,6 +14,7 @@ import {
 } from "./policy";
 import type { CommercialKind } from "./policy";
 import { versionProjection } from "./read";
+import { reviewedArtifact } from "./reading-aid";
 import { commercialReceipt, revisionGuard } from "./receipts";
 import { commercialSignals, mailIntent } from "./signals";
 import type { CommercialEvent } from "./signals";
@@ -56,14 +58,20 @@ export function createVersion(ctx: RequestScope, session: SessionAccess, job: st
   const { id, termsVersionId, originalLocale, items, evidence } = body.payload;
   const { operationId, expectedRevision } = body;
   const amounts = itemTotals(items);
-  // Media and reading-artifact migrations are later. Never persist an unchecked or dropped attachment.
-  if (evidence.length || !Number.isSafeInteger(amounts.gross)) return null;
+  if (!Number.isSafeInteger(amounts.gross)) return null;
+  const attachmentIds = evidence.length ? JSON.stringify(evidence.map(({ attachmentId }) => attachmentId)) : null;
+  const mediaEligible = attachmentIds === null ? "" : ` AND (
+    SELECT count(*) FROM json_each(?) selected JOIN attachments a ON a.id = selected.value
+    JOIN media_stages stage ON stage.id = a.stage_id
+    WHERE ${stagedAttachmentSql("a", "stage", kind, "scope.context_id", "j.id")}
+  ) = ?`;
   const access = commercialAccess(session, ctx.now, job);
   const preconditions = `SELECT 1 FROM commercial_job j WHERE ${jobOpen} AND ${revisionGuard}
     AND j.site_zone IS NOT NULL AND j.named_approver_id IS NOT NULL
     AND EXISTS (SELECT 1 FROM terms_versions t WHERE t.id = ? AND t.business_id = j.business_id)
-    AND NOT EXISTS (SELECT 1 FROM ${models[kind].versions} WHERE id = ?)`;
-  const guards = [expectedRevision ?? null, expectedRevision ?? null, termsVersionId, id];
+    AND NOT EXISTS (SELECT 1 FROM ${models[kind].versions} WHERE id = ?)${mediaEligible}`;
+  const guards = [expectedRevision ?? null, expectedRevision ?? null, termsVersionId, id,
+    ...(attachmentIds === null ? [] : [attachmentIds, evidence.length])];
   let eligible: CommandStatement;
   let insert: (guard: CommandStatement) => readonly CommandStatement[];
   if (draft.kind === "quote") {
@@ -93,9 +101,9 @@ export function createVersion(ctx: RequestScope, session: SessionAccess, job: st
         SELECT ?, j.id, ? FROM commercial_job j WHERE ${guard.sql} AND NOT EXISTS (SELECT 1 FROM change_proposals WHERE id = ?)`,
       proposalId, baseQuoteVersionId, ...guard.params ?? [], proposalId),
       scopedStatement(access, `INSERT INTO change_versions (id, proposal_id, job_id, business_id, no, author_id, terms_id,
-        original_locale, original_text, delta_minor, total_minor, timing, affected_items, state)
+        original_locale, original_text, delta_minor, total_minor, timing, affected_items, created_at, state)
         SELECT ?, ?, j.id, j.business_id, coalesce((SELECT max(no) FROM change_versions WHERE proposal_id = ?), 0) + 1,
-          actor.account_id, ?, ?, ?, ?, ${derivedTotal}, ?, ?, 'draft'
+          actor.account_id, ?, ?, ?, ?, ${derivedTotal}, ?, ?, ${at}, 'draft'
         FROM commercial_job j CROSS JOIN commercial_actor actor WHERE ${guard.sql}`,
       id, proposalId, proposalId, termsVersionId, originalLocale, originalText, amounts.gross, baseQuoteVersionId, amounts.gross,
       timing, affectedItems, ...guard.params ?? []),
@@ -104,7 +112,18 @@ export function createVersion(ctx: RequestScope, session: SessionAccess, job: st
   return commercialReceipt(ctx, access, {
     access, scope: actorScope, operationId, command: `${kind}.create`, input: [job, body], resultRef: id,
     authorize: { sql: `EXISTS (SELECT 1 FROM commercial_job j WHERE ${foreman("scope")})` }, eligible,
-    writes: (guard) => ({ statements: [...insert(guard), insertItems(kind, id, items, guard)] }),
+    writes: (guard) => ({ statements: [
+      ...insert(guard), insertItems(kind, id, items, guard),
+      ...(attachmentIds === null ? [] : [{
+        sql: `INSERT INTO ${linkTables[kind]} (${models[kind].ref}, attachment_id)
+          SELECT ?, value FROM json_each(?) WHERE ${guard.sql}`,
+        params: [id, attachmentIds, ...guard.params ?? []],
+      }, {
+        sql: `UPDATE attachments SET retention_class = 'decision', delete_after = NULL
+          WHERE id IN (SELECT value FROM json_each(?)) AND retention_class = 'unlinked' AND ${guard.sql}`,
+        params: [attachmentIds, ...guard.params ?? []],
+      }]),
+    ] }),
   }, versionProjection(kind, id), expectedRevision);
 }
 
@@ -166,7 +185,9 @@ export function transitionVersion(ctx: RequestScope, session: SessionAccess, kin
       }
       const expirySql = kind === "quote" ? expires.sql : `(SELECT ${expires.sql} FROM commercial_job j)`;
       checks.push(command.body.payload.termsHash, ...expires.params ?? []);
-      condition = `${canPublish(kind, "scope")} AND ${exactTerms} AND ${publicationCapacity} AND ${expirySql} > ${at}`;
+      condition = `${canPublish(kind, "scope")} AND ${exactTerms} AND ${publicationCapacity} AND ${expirySql} > ${at}
+        AND NOT EXISTS (SELECT 1 FROM ${linkTables[kind]} link JOIN attachments a ON a.id = link.attachment_id
+          WHERE link.${spec.ref} = v.id AND NOT (${readyAttachmentSql("a")}))`;
       event = kind === "quote" ? "quote_ready" : "change_ready";
       mutation = (guard) => [
         scopedStatement(access, `UPDATE ${spec.versions} SET state = 'superseded' WHERE state = 'issued'
@@ -183,16 +204,16 @@ export function transitionVersion(ctx: RequestScope, session: SessionAccess, kin
     }
     case "approve": case "decline": {
       const { termsHash, readingArtifactRef } = command.body.payload;
-      if (readingArtifactRef !== undefined) return null;
       const idOfDecision = crypto.randomUUID();
-      checks.push(termsHash);
-      condition = `${actionableDecision(kind, "scope")} AND ${exactTerms}`;
+      checks.push(termsHash, ...(readingArtifactRef === undefined ? [] : [readingArtifactRef]));
+      condition = `${actionableDecision(kind, "scope")} AND ${exactTerms}${readingArtifactRef === undefined ? "" :
+        ` AND EXISTS (SELECT 1 ${reviewedArtifact(kind, "v")} AND artifact.id = ?)`}`;
       event = action === "approve" ? "commercial_approved" : "commercial_declined";
       mutation = (guard) => [
-        scopedStatement(access, `INSERT INTO approvals (id, ${spec.ref}, account_id, grant_id, terms_hash, decision, at)
-          SELECT ?, ${candidate}, scope.account_id, (${decisionGrant("scope")}), ?, ?, ${at}
+        scopedStatement(access, `INSERT INTO approvals (id, ${spec.ref}, account_id, grant_id, terms_hash, reading_artifact_ref, decision, at)
+          SELECT ?, ${candidate}, scope.account_id, (${decisionGrant("scope")}), ?, ?, ?, ${at}
           FROM commercial_job j CROSS JOIN commercial_actor scope WHERE ${guard.sql}`,
-        idOfDecision, termsHash, action, ...guard.params ?? []),
+        idOfDecision, termsHash, readingArtifactRef ?? null, action, ...guard.params ?? []),
         versionUpdate(guard, "state = ?", action === "approve" ? "approved" : spec.declined),
       ];
       if (action === "approve") mail = mailIntent(`decision:${idOfDecision}`, `decision:${idOfDecision}`);

@@ -75,8 +75,8 @@ async function fixture() {
     db.prepare("UPDATE quote_versions SET state = 'approved'"),
     db.prepare("INSERT INTO change_proposals VALUES ('change', 'job', 'quote-v1')"),
     db.prepare(`INSERT INTO change_versions (id, proposal_id, job_id, business_id, no, author_id, terms_id, original_locale,
-      original_text, delta_minor, total_minor, timing, affected_items, state)
-      VALUES ('change-v1', 'change', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Carril', 1200, 25200, 'Same visit', 'Carril', 'draft')`),
+      original_text, delta_minor, total_minor, timing, affected_items, created_at, state)
+      VALUES ('change-v1', 'change', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Carril', 1200, 25200, 'Same visit', 'Carril', 4, 'draft')`),
     db.prepare(`INSERT INTO change_items (version_id, line_no, original_label, quantity, net_minor, tax_minor, evidence_rule)
       VALUES ('change-v1', 1, 'Carril', 1, 1000, 200, 'Foto')`),
     db.prepare("UPDATE change_versions SET publisher_id = 'admin', issued_at = 5, expires_at = 50, state = 'issued'"),

@@ -115,6 +115,7 @@ export const changeVersions = sqliteTable("change_versions", {
   totalMinor: integer("total_minor").notNull(),
   timing: text().notNull(),
   affectedItems: text("affected_items").notNull(),
+  createdAt: integer("created_at").notNull(),
   issuedAt: integer("issued_at"),
   expiresAt: integer("expires_at"),
   state: text({ enum: CHANGE_VERSION_STATES }).notNull(),
@@ -122,12 +123,14 @@ export const changeVersions = sqliteTable("change_versions", {
   check("change_versions_no", sql`typeof(${t.no}) = 'integer' AND ${t.no} > 0`),
   check("change_versions_delta", sql`typeof(${t.deltaMinor}) = 'integer'`),
   check("change_versions_total", sql`typeof(${t.totalMinor}) = 'integer' AND ${t.totalMinor} >= 0`),
+  check("change_versions_created_at", sql`typeof(${t.createdAt}) = 'integer'`),
   check("change_versions_state", sql`${t.state} IN ('draft', 'in_review', 'returned', 'issued', 'approved', 'rejected', 'superseded', 'withdrawn')`),
   check("change_versions_publication", sql`
     (${t.state} IN ('draft', 'in_review', 'returned') AND ${t.publisherId} IS NULL AND ${t.issuedAt} IS NULL AND ${t.expiresAt} IS NULL)
     OR (${t.state} NOT IN ('draft', 'in_review', 'returned') AND ${t.publisherId} IS NOT NULL
         AND typeof(${t.issuedAt}) = 'integer' AND typeof(${t.expiresAt}) = 'integer'
-        AND ${t.expiresAt} > ${t.issuedAt} AND ${t.expiresAt} - ${t.issuedAt} <= ${sql.raw(String(CHANGE_VALIDITY_MS))})`),
+        AND ${t.issuedAt} >= ${t.createdAt} AND ${t.expiresAt} > ${t.issuedAt}
+        AND ${t.expiresAt} - ${t.issuedAt} <= ${sql.raw(String(CHANGE_VALIDITY_MS))})`),
   foreignKey({ columns: [t.proposalId, t.jobId], foreignColumns: [changeProposals.id, changeProposals.jobId] }),
   foreignKey({ columns: [t.jobId, t.businessId], foreignColumns: [jobs.id, jobs.businessId] }),
   foreignKey({ columns: [t.termsId, t.businessId], foreignColumns: [termsVersions.id, termsVersions.businessId] }),
@@ -135,6 +138,7 @@ export const changeVersions = sqliteTable("change_versions", {
   uniqueIndex("change_versions_live").on(t.proposalId).where(sql`${t.state} = 'issued'`),
   index("change_versions_due").on(t.expiresAt, t.id).where(sql`${t.state} = 'issued'`),
   index("change_versions_job").on(t.jobId, t.businessId),
+  index("change_versions_job_created").on(t.jobId, t.createdAt, t.id),
   index("change_versions_terms").on(t.termsId, t.businessId),
 ]);
 
@@ -213,9 +217,16 @@ export const contractNotices = sqliteTable("contract_notices", {
   termsHash: text("terms_hash").notNull(),
   kind: text({ enum: CONTRACT_NOTICE_KINDS }).notNull(),
   at: integer().notNull(),
+  noticeText: text("notice_text"),
+  noticeLocale: text("notice_locale"),
 }, (t) => [
   check("contract_notices_kind", sql`${t.kind} IN ('early_start_request', 'early_start_acknowledgement', 'withdrawal')`),
   check("contract_notices_at", sql`typeof(${t.at}) = 'integer'`),
+  check("contract_notices_statement", sql`
+    (${t.kind} <> 'withdrawal' AND ${t.noticeText} IS NULL AND ${t.noticeLocale} IS NULL)
+    OR (${t.kind} = 'withdrawal' AND ${t.noticeText} IS NOT NULL AND ${t.noticeLocale} IS NOT NULL
+      AND length(${t.noticeText}) <= 16000 AND length(trim(${t.noticeText}, char(9, 10, 11, 12, 13, 32))) > 0
+      AND length(${t.noticeLocale}) BETWEEN 1 AND 255)`),
   foreignKey({ columns: [t.quoteVersionId, t.jobId], foreignColumns: [quoteVersions.id, quoteVersions.jobId] }),
   unique().on(t.quoteVersionId, t.kind),
   index("contract_notices_job_time").on(t.jobId, t.at, t.id),

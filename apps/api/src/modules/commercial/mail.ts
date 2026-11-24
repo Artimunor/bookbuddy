@@ -6,6 +6,7 @@ import { commercialMailKind } from "./signals";
 const receipt = `SELECT json_object('id', r.id, 'to', customer.email_normalized, 'reference', j.reference,
   'kind', r.kind, 'at', r.at, 'termsHash', t.hash, 'termsVersion', t.version, 'provider', t.provider_legal_snapshot,
   'terms', t.original_text, 'consent', t.consent_text, 'locale', t.contract_locale,
+  'noticeText', r.notice_text,
   'version', coalesce(q.no, ch.no), 'totalMinor', coalesce(q.total_minor, ch.total_minor), 'deltaMinor', ch.delta_minor,
   'scope', coalesce(q.scope, ch.original_text), 'exclusions', q.exclusions, 'timing', ch.timing, 'affectedItems', ch.affected_items,
   'items', json(CASE WHEN q.id IS NOT NULL THEN (SELECT json_group_array(json_object('label', original_label, 'quantity', quantity,
@@ -15,10 +16,10 @@ const receipt = `SELECT json_object('id', r.id, 'to', customer.email_normalized,
       'tax', tax_minor, 'rule', evidence_rule, 'alternative', evidence_alternative))
       FROM (SELECT * FROM change_items WHERE version_id = ch.id ORDER BY line_no)) END))
   FROM (
-    SELECT id, quote_version_id, change_version_id, account_id, terms_hash, decision AS kind, at FROM approvals
+    SELECT id, quote_version_id, change_version_id, account_id, terms_hash, decision AS kind, at, NULL AS notice_text FROM approvals
     WHERE e.resource_ref GLOB 'decision:*' AND id = substr(e.resource_ref, 10)
     UNION ALL
-    SELECT id, quote_version_id, NULL, account_id, terms_hash, kind, at FROM contract_notices
+    SELECT id, quote_version_id, NULL, account_id, terms_hash, kind, at, notice_text FROM contract_notices
     WHERE e.resource_ref GLOB 'notice:*' AND id = substr(e.resource_ref, 8)
   ) r JOIN accounts customer ON customer.id = r.account_id AND customer.state = 'active' AND customer.verified_at <= r.at
   LEFT JOIN quote_versions q ON q.id = r.quote_version_id LEFT JOIN change_versions ch ON ch.id = r.change_version_id
@@ -28,6 +29,7 @@ const receipt = `SELECT json_object('id', r.id, 'to', customer.email_normalized,
 type ReceiptCopy = {
   id: string; to: string; reference: string; kind: keyof typeof titles; at: number; termsHash: string; termsVersion: number;
   provider: string; terms: string; consent: string; locale: string; version: number; totalMinor: number; deltaMinor: number | null;
+  noticeText: string | null;
   scope: string; exclusions: string | null; timing: string | null; affectedItems: string | null;
   items: { label: string; quantity: number; net: number; tax: number; rule: string; alternative: string | null }[];
 };
@@ -53,7 +55,7 @@ export const commercialMailEffect: EffectHandler = {
     const money = (minor: number) => amounts.format(minor / 100);
     const subject = `BookBuddy ${copy.reference} · ${title}`;
     const text = [title, `${copy.reference} · v${copy.version} · ${copy.id}`, new Date(copy.at).toISOString(), copy.provider,
-      copy.scope, copy.exclusions, copy.affectedItems, copy.timing,
+      copy.noticeText, copy.scope, copy.exclusions, copy.affectedItems, copy.timing,
       copy.items.map((i) => [i.quantity + " × " + i.label, `${money(i.net)} + ${money(i.tax)}`, i.rule, i.alternative]
         .filter((part) => part !== null).join(" · ")).join("\n"),
       copy.deltaMinor === null ? null : money(copy.deltaMinor), money(copy.totalMinor),

@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import {
   approveChangeVersionRoute, approveQuoteVersionRoute, createQuoteVersionRoute, getQuoteVersionRoute,
-  listContractNoticesRoute, listQuoteVersionsRoute, openLinkRoute, operationIdHeader, requestEarlyStartRoute, resultSchema,
+  listChangeVersionsRoute, listContractNoticesRoute, listQuoteVersionsRoute, openLinkRoute, operationIdHeader, requestEarlyStartRoute, resultSchema,
   submitQuoteReviewRoute, withdrawContractRoute,
 } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
@@ -104,16 +104,37 @@ async function fixture() {
     return id;
   }
 
+  async function photo(id: string, kind: "quote" | "change", job = "job", context = "foreman-staff") {
+    await db.batch([
+      db.prepare("INSERT INTO media_stages VALUES (?, ?, ?, ?, ?, ?)").bind(`${id}-stage`, context, kind, job, start - 1, start + day),
+      db.prepare(`INSERT INTO attachments(id, stage_id, object_key, mime, bytes, state, retention_class, etag)
+        VALUES (?, ?, ?, 'image/jpeg', 100, 'ready', 'unlinked', 'etag')`).bind(id, `${id}-stage`, `fixture/${id}`),
+    ]);
+  }
+
+  async function reading(id: string, kind: "quote" | "change", version: string, text: string) {
+    await db.batch([
+      db.prepare(`INSERT INTO account_preferences (account_id, reading_locale) VALUES ('customer', 'en')
+        ON CONFLICT (account_id) DO UPDATE SET reading_locale = excluded.reading_locale`),
+      db.prepare(`INSERT INTO reading_artifacts
+        (id, ${kind === "quote" ? "quote_version_id" : "change_version_id"}, target_locale, translated_text, reviewed_by_context_id, reviewed_at)
+        VALUES (?, ?, 'en', ?, 'reviewer-staff', ?)`).bind(id, version, text, start),
+    ]);
+  }
+
   const quote = (id: string) => `/quote-versions/${id}`;
   const change = (id: string) => `/change-versions/${id}`;
-  return { db, wakes, request, switchApprover, quote, change,
-    draft: (id: string) => request("/jobs/job/quote-versions", "foreman", `create-${id}`, {
-      id, termsVersionId: "terms-v1", originalLocale: "es", scope: "Cambiar los rodillos", exclusions: "No incluye el vidrio", evidence: [],
-      items: [{ originalLabel: "Rodillos", quantity: 2, netMinor: 20_000, taxMinor: 4_000, evidenceRule: "Finished photo" }],
+  return { db, wakes, request, switchApprover, quote, change, photo, reading,
+    draft: (id: string, attachments: string[] = []) => request("/jobs/job/quote-versions", "foreman", `create-${id}`, {
+      id, termsVersionId: "terms-v1", originalLocale: "es", scope: "Cambiar los rodillos", exclusions: "No incluye el vidrio",
+      evidence: attachments.map((attachmentId) => ({ attachmentId })),
+      items: [{ originalLabel: "Rodillos", quantity: 2, netMinor: 20_000, taxMinor: 4_000,
+        evidenceRule: "Finished photo", evidenceAlternative: "Demonstrate that the door closes" }],
     }),
-    changeDraft: (id: string) => request("/jobs/job/change-versions", "foreman", `create-${id}`, {
-      id, termsVersionId: "terms-v1", originalLocale: "es", proposalId: "proposal", baseQuoteVersionId: "q1",
-      originalText: "Sustituir el carril", affectedItems: "El carril", timing: "Same visit if separately confirmed", evidence: [],
+    changeDraft: (id: string, attachments: string[] = [], proposalId = "proposal") => request("/jobs/job/change-versions", "foreman", `create-${id}`, {
+      id, termsVersionId: "terms-v1", originalLocale: "es", proposalId, baseQuoteVersionId: "q1",
+      originalText: "Sustituir el carril", affectedItems: "El carril", timing: "Same visit if separately confirmed",
+      evidence: attachments.map((attachmentId) => ({ attachmentId })),
       items: [{ originalLabel: "Carril", quantity: 1, netMinor: 3_000, taxMinor: 600, evidenceRule: "Finished photo" }],
     }),
     submit: (id: string) => request(`${quote(id)}/submit-review`, "foreman", `submit-${id}`),
@@ -130,10 +151,16 @@ test("quote review, publication and exact approval respect live roles, privacy a
   const f = await fixture();
   try {
     expect(resultSchema(listQuoteVersionsRoute.output).parse((await f.request("/jobs/job/quotes", "foreman")).body))
-      .toMatchObject({ data: { audience: "foreman", versions: [], currentTerms: { id: "terms-v1", version: 1 } } });
-    const draft = resultSchema(createQuoteVersionRoute.output).parse((await f.draft("q1")).body);
+      .toMatchObject({ data: { audience: "foreman", currentApprovedVersionId: null, versions: [], currentTerms: { id: "terms-v1", version: 1 } } });
+    await f.photo("quote-photo", "quote");
+    await f.photo("other-job-photo", "quote", "other-job");
+    await f.photo("other-author-photo", "quote", "job", "reviewer-staff");
+    expect(await f.draft("wrong-job", ["quote-photo", "other-job-photo"])).toMatchObject(conflict);
+    expect(await f.draft("wrong-author", ["other-author-photo"])).toMatchObject(conflict);
+    const draft = resultSchema(createQuoteVersionRoute.output).parse((await f.draft("q1", ["quote-photo"])).body);
     expect(draft).toMatchObject({ data: { audience: "foreman", state: "draft", totalMinor: 24000, actions: { submitReview: true, issue: false },
-      items: [{ lineNo: 1, originalLabel: "Rodillos", quantity: 2 }] } });
+      evidence: [{ attachmentId: "quote-photo" }], items: [{ lineNo: 1, originalLabel: "Rodillos", quantity: 2,
+        evidenceAlternative: "Demonstrate that the door closes" }] } });
     expect(await f.request("/jobs/job/quotes/q1", "customer")).toMatchObject(missing);
     expect(await f.request("/jobs/job/quotes/q1", "reviewer")).toMatchObject(missing);
     expect(resultSchema(listQuoteVersionsRoute.output).parse((await f.request("/jobs/job/quotes", "customer")).body))
@@ -156,8 +183,10 @@ test("quote review, publication and exact approval respect live roles, privacy a
     });
     expect((await f.request(`/links/${link!.token}`, "guest")).body).toMatchObject({ data: { kind: "unavailable", reason: "unavailable" } });
     const customerPath = "/jobs/job/quotes/q1";
+    await f.reading("quote-aid", "quote", "q1", "Replace the rollers.");
     const publicQuote = resultSchema(getQuoteVersionRoute.output).parse((await f.request(customerPath, "customer")).body);
-    expect(publicQuote).toMatchObject({ data: { audience: "customer", actions: { approve: true, decline: true }, terms: { hash: terms.termsHash } } });
+    expect(publicQuote).toMatchObject({ data: { audience: "customer", actions: { approve: true, decline: true }, terms: { hash: terms.termsHash },
+      evidence: [{ attachmentId: "quote-photo" }], readingAid: { status: "ready", ref: "quote-aid", locale: "en", scope: "Replace the rollers." } } });
     if (!publicQuote.ok) throw new Error(publicQuote.error.code);
     expect(publicQuote.data).not.toHaveProperty("review");
     expect(await f.request(customerPath, "stranger")).toMatchObject(missing);
@@ -170,13 +199,16 @@ test("quote review, publication and exact approval respect live roles, privacy a
     expect(await f.approve("q1", "reviewer")).toMatchObject(conflict);
     const grantId = await f.switchApprover("customer");
     expect(await f.request(`${f.quote("q1")}/approve`, "customer", "stale-terms", { termsHash: "another" })).toMatchObject(conflict);
-    const approved = resultSchema(approveQuoteVersionRoute.output).parse((await f.approve("q1")).body);
+    const approve = () => f.request(`${f.quote("q1")}/approve`, "customer", "approve-q1", { ...terms, readingArtifactRef: "quote-aid" });
+    const approved = resultSchema(approveQuoteVersionRoute.output).parse((await approve()).body);
     expect(approved).toMatchObject({ data: { state: "approved", actions: { approve: false, decline: false },
       decision: { decision: "approve", actorDisplayName: "customer", termsHash: terms.termsHash, at: start } } });
-    expect(await f.db.prepare("SELECT grant_id, quote_version_id, terms_hash FROM approvals").first())
-      .toEqual({ grant_id: grantId, quote_version_id: "q1", terms_hash: terms.termsHash });
+    expect(await f.db.prepare("SELECT grant_id, quote_version_id, terms_hash, reading_artifact_ref FROM approvals").first())
+      .toEqual({ grant_id: grantId, quote_version_id: "q1", terms_hash: terms.termsHash, reading_artifact_ref: "quote-aid" });
+    expect(resultSchema(listQuoteVersionsRoute.output).parse((await f.request("/jobs/job/quotes?cursor=1~q1", "foreman")).body))
+      .toMatchObject({ data: { versions: [], currentApprovedVersionId: "q1" } });
     await expect(f.db.prepare("UPDATE quote_versions SET scope = 'different' WHERE id = 'q1'").run()).rejects.toThrow("immutable");
-    expect((await f.approve("q1")).body).toMatchObject({ data: approved.ok ? approved.data : {} });
+    expect((await approve()).body).toMatchObject({ data: approved.ok ? approved.data : {} });
     expect((await f.request(`${f.quote("q1")}/approve`, "customer", "approve-q1", { termsHash: "different" })).body)
       .toMatchObject({ error: { code: "OPERATION_ID_REUSED" } });
     expect(f.wakes).toHaveLength(3);
@@ -229,12 +261,34 @@ test("change review and approval retain the approved quote and do not move the b
     expect(await f.request(`${f.change("ch1")}/return`, "reviewer", "return-ch1", { reason: "Clarify the trim" }))
       .toMatchObject({ status: 200, body: { data: { state: "returned", review: { state: "returned", returnReason: "Clarify the trim" } } } });
     expect(await f.request("/jobs/job/changes/ch1", "customer")).toMatchObject(missing);
-    expect((await f.changeDraft("ch2")).status).toBe(200);
+    await f.photo("change-photo", "change");
+    expect(await f.changeDraft("ch2", ["change-photo"])).toMatchObject({ status: 200, body: { data: { evidence: [{ attachmentId: "change-photo" }] } } });
     expect((await f.request(`${f.change("ch2")}/submit-review`, "foreman", "submit-ch2")).status).toBe(200);
     expect(await f.request(`${f.change("ch2")}/issue`, "reviewer", "issue-ch2", terms))
       .toMatchObject({ status: 200, body: { data: { state: "issued", expiresAt: bookedStart, deltaMinor: 3600, totalMinor: 27600 } } });
-    const approved = await f.request(`${f.change("ch2")}/approve`, "customer", "approve-ch2", terms);
-    expect(resultSchema(approveChangeVersionRoute.output).parse(approved.body)).toMatchObject({ data: { state: "approved", approvedBase: { id: "q1", totalMinor: 24000 } } });
+    clock.mockReturnValue(start + 1);
+    expect((await f.changeDraft("private-revision")).status).toBe(200);
+    clock.mockReturnValue(start + 2);
+    expect((await f.changeDraft("new-proposal", [], "proposal-2")).status).toBe(200);
+    const list = "/jobs/job/changes";
+    expect(resultSchema(listChangeVersionsRoute.output).parse((await f.request(list, "foreman")).body)).toMatchObject({
+      data: { versions: [{ id: "new-proposal", createdAt: start + 2, isCurrentProposal: true },
+        { id: "private-revision", createdAt: start + 1, isCurrentProposal: true },
+        { id: "ch2", createdAt: start, isCurrentProposal: false }, { id: "ch1", isCurrentProposal: false }] },
+    });
+    expect(resultSchema(listChangeVersionsRoute.output).parse((await f.request(list, "customer")).body))
+      .toMatchObject({ data: { versions: [{ id: "ch2", createdAt: start, isCurrentProposal: true }] } });
+    await f.reading("wrong-version-aid", "change", "ch1", "Different scope.");
+    expect(await f.request(`${f.change("ch2")}/approve`, "customer", "wrong-artifact", { ...terms, readingArtifactRef: "wrong-version-aid" }))
+      .toMatchObject(conflict);
+    await f.reading("change-aid", "change", "ch2", "Replace the track.");
+    expect(await f.request("/jobs/job/changes/ch2", "customer")).toMatchObject({
+      body: { data: { readingAid: { status: "ready", ref: "change-aid", text: "Replace the track.", timing: null, affectedItems: null } } },
+    });
+    const approved = await f.request(`${f.change("ch2")}/approve`, "customer", "approve-ch2", { ...terms, readingArtifactRef: "change-aid" });
+    expect(resultSchema(approveChangeVersionRoute.output).parse(approved.body)).toMatchObject({
+      data: { state: "approved", approvedBase: { id: "q1", totalMinor: 24000 }, evidence: [{ attachmentId: "change-photo" }] },
+    });
     expect(await f.db.prepare("SELECT state, starts_at FROM visit_windows WHERE id = 'window'").first()).toEqual({ state: "confirmed", starts_at: bookedStart });
     expect(await f.request("/jobs/job/changes", "customer")).toMatchObject({ body: { data: { versions: [{ id: "ch2", state: "approved" }] } } });
     expect(await f.changeDraft("ch3")).toMatchObject(conflict);
@@ -250,31 +304,42 @@ test("early start and withdrawal require the exact reviewed contract and keep du
     expect((await f.issue("q1")).status).toBe(200);
     expect((await f.approve("q1")).status).toBe(200);
     const v = { quoteVersionId: "q1", ...terms };
+    const withdrawalStatement = { ...v, noticeText: "I withdraw from this contract.\n", noticeLocale: "en-GB" };
     const earlyStart = "/jobs/job/contract/early-start", withdrawal = "/jobs/job/contract/withdrawal";
     expect(await f.request(earlyStart, "customer", "not-configured", v)).toMatchObject(conflict);
     await f.db.prepare("INSERT INTO feature_flags VALUES ('commercial_consumer_distance_14_day', 'terms-v1', 1, 1)").run();
-    expect(await f.request(withdrawal, "guest", "not-entitled", v)).toMatchObject(missing);
+    expect(await f.request(withdrawal, "guest", "not-entitled", withdrawalStatement)).toMatchObject(missing);
     const firstRequest = resultSchema(requestEarlyStartRoute.output).parse((await f.request(earlyStart, "customer", "request", v)).body);
     expect(firstRequest).toMatchObject({ data: { request: { kind: "early_start_request" }, acknowledgement: null } });
     const ack = resultSchema(requestEarlyStartRoute.output).parse((await f.request(earlyStart, "customer", "ack", { ...v, acknowledgement: true })).body);
     expect(ack).toMatchObject({ data: { request: firstRequest.ok ? firstRequest.data.request : {}, acknowledgement: { kind: "early_start_acknowledgement" } } });
     await f.db.prepare("UPDATE jobs SET state = 'closed' WHERE id = 'job'").run();
-    expect(await f.request(withdrawal, "customer", "wrong-version", { ...v, termsHash: "wrong" })).toMatchObject(conflict);
-    const receipt = resultSchema(withdrawContractRoute.output).parse((await f.request(withdrawal, "customer", "withdraw", v)).body);
+    expect(await f.request(withdrawal, "customer", "wrong-version", { ...withdrawalStatement, termsHash: "wrong" })).toMatchObject(conflict);
+    const receipt = resultSchema(withdrawContractRoute.output).parse((await f.request(withdrawal, "customer", "withdraw", withdrawalStatement)).body);
     expect(receipt).toMatchObject({ data: { kind: "withdrawal", quoteVersionId: "q1", at: start, termsHash: terms.termsHash } });
     clock.mockReturnValue(start + 30 * day);
-    expect((await f.request(withdrawal, "customer", "withdraw", v)).body).toMatchObject({ data: receipt.ok ? receipt.data : {} });
-    expect(await f.request(withdrawal, "customer", "duplicate", v)).toMatchObject(conflict);
+    expect((await f.request(withdrawal, "customer", "withdraw", withdrawalStatement)).body).toMatchObject({ data: receipt.ok ? receipt.data : {} });
+    expect(await f.request(withdrawal, "customer", "duplicate", withdrawalStatement)).toMatchObject(conflict);
+    await expect(f.db.prepare("UPDATE contract_notices SET notice_text = 'changed' WHERE kind = 'withdrawal'").run())
+      .rejects.toThrow("append-only");
+    if (!receipt.ok) throw new Error(receipt.error.code);
     expect(await f.db.prepare("SELECT count(*) FROM contract_notices").first("count(*)")).toBe(3);
     expect(await f.db.prepare("SELECT count(*) FROM effect_outbox WHERE kind = ?").bind(commercialMailEffect.kind).first("count(*)")).toBe(4);
     const history = "/jobs/job/contract/notices";
     const own = resultSchema(listContractNoticesRoute.output).parse((await f.request(history, "customer")).body);
-    expect([own, await f.request(history, "guest")]).toMatchObject([
-      { data: { notices: expect.arrayContaining([
-        { ...(receipt.ok ? receipt.data : {}), noticeText: "Exact original terms", deliveryState: "pending" },
-        { ...(ack.ok ? ack.data.acknowledgement : {}), noticeText: "Exact contractual consent", deliveryState: "pending" },
-      ]) } },
-      missing,
-    ]);
+    if (!own.ok) throw new Error(own.error.code);
+    expect(own.data.notices.find((notice) => notice.kind === "withdrawal")).toMatchObject({
+      ...receipt.data, noticeText: withdrawalStatement.noticeText, noticeLocale: withdrawalStatement.noticeLocale,
+      termsText: "Exact original terms", termsLocale: "es", deliveryState: "pending",
+    });
+    expect(own.data.notices.find((notice) => notice.kind === "early_start_acknowledgement")).toMatchObject({
+      ...(ack.ok ? ack.data.acknowledgement : {}), noticeText: "Exact contractual consent", noticeLocale: "es", deliveryState: "pending",
+    });
+    expect(await f.request(history, "guest")).toMatchObject(missing);
+    const copy = await f.db.prepare(`SELECT ${commercialMailEffect.claimResource} AS resource_ref
+      FROM effect_outbox e WHERE e.resource_ref = ?`).bind(`notice:${receipt.data.id}`).first<{ resource_ref: string }>();
+    const message = await commercialMailEffect.prepareMail((await loadDeliveryKey(secret))!,
+      { id: "mail", kind: commercialMailEffect.kind, ...copy! });
+    expect(message?.text).toContain(withdrawalStatement.noticeText);
   } finally { clock.mockRestore(); f.db.close(); }
 });

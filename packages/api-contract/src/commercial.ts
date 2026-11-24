@@ -77,8 +77,8 @@ const quoteReadingAid = z.discriminatedUnion("status", [noReadingAid, readyReadi
 })]);
 const changeReadingAid = z.discriminatedUnion("status", [noReadingAid, readyReadingAid.extend({
   text: z.string().min(1),
-  timing: z.string().min(1),
-  affectedItems: z.string().min(1),
+  timing: z.string().min(1).nullable(),
+  affectedItems: z.string().min(1).nullable(),
 })]);
 
 const commercialDecision = z.object({
@@ -204,16 +204,20 @@ export const quoteVersionSchema = z.discriminatedUnion("audience", [customerQuot
 export const changeVersionSchema = z.discriminatedUnion("audience", [customerChangeVersionSchema, staffChangeVersionSchema]);
 
 const currentTerms = terms.pick({ id: true, version: true }).nullable();
+const quoteList = paginationSchema.extend({ currentApprovedVersionId: quoteVersionIdSchema.nullable() });
+const changeListFields = { createdAt: timestampSchema, isCurrentProposal: z.boolean() };
+const customerChangeListItem = customerChangeSummary.extend(changeListFields);
+const staffChangeListItem = staffChangeSummary.extend(changeListFields);
 
 export const quoteVersionListSchema = z.discriminatedUnion("audience", [
-  paginationSchema.extend({ audience: z.literal("customer"), versions: z.array(customerQuoteSummary) }),
-  paginationSchema.extend({ audience: z.literal("foreman"), versions: z.array(staffQuoteSummary), currentTerms }),
-  paginationSchema.extend({ audience: z.literal("reviewer"), versions: z.array(staffQuoteSummary) }),
+  quoteList.extend({ audience: z.literal("customer"), versions: z.array(customerQuoteSummary) }),
+  quoteList.extend({ audience: z.literal("foreman"), versions: z.array(staffQuoteSummary), currentTerms }),
+  quoteList.extend({ audience: z.literal("reviewer"), versions: z.array(staffQuoteSummary) }),
 ]);
 export const changeVersionListSchema = z.discriminatedUnion("audience", [
-  paginationSchema.extend({ audience: z.literal("customer"), versions: z.array(customerChangeSummary) }),
-  paginationSchema.extend({ audience: z.literal("foreman"), versions: z.array(staffChangeSummary), currentTerms }),
-  paginationSchema.extend({ audience: z.literal("reviewer"), versions: z.array(staffChangeSummary) }),
+  paginationSchema.extend({ audience: z.literal("customer"), versions: z.array(customerChangeListItem) }),
+  paginationSchema.extend({ audience: z.literal("foreman"), versions: z.array(staffChangeListItem), currentTerms }),
+  paginationSchema.extend({ audience: z.literal("reviewer"), versions: z.array(staffChangeListItem) }),
 ]);
 
 // P-02 queue entries are visible to the designated reviewer or eligible backup, not all admins.
@@ -260,7 +264,11 @@ function commandRoute<
 
 // The caller supplies a stable new version ID, never the actor, the assigned publisher, an
 // acceptance or legal wording. Validate terms and ready evidence against job scope in the batch.
-const draftFields = { termsVersionId: termsVersionIdSchema, originalLocale: localeTagSchema, evidence: evidence.max(20) };
+const draftFields = {
+  termsVersionId: termsVersionIdSchema,
+  originalLocale: localeTagSchema,
+  evidence: evidence.max(20).refine((refs) => new Set(refs.map(({ attachmentId }) => attachmentId)).size === refs.length),
+};
 export const createQuoteVersionPayloadSchema = z.strictObject({
   ...draftFields,
   id: quoteVersionIdSchema,
@@ -326,6 +334,9 @@ export type ContractNoticeReceipt = z.output<typeof contractNoticeReceiptSchema>
 
 export const contractNoticeSchema = contractNoticeReceiptSchema.extend({
   noticeText: z.string(),
+  noticeLocale: localeTagSchema,
+  termsText: z.string(),
+  termsLocale: localeTagSchema,
   deliveryState: z.enum(EFFECT_STATES).nullable(),
 });
 export type ContractNotice = z.output<typeof contractNoticeSchema>;
@@ -342,5 +353,6 @@ export const requestEarlyStartRoute = commandRoute("/jobs/:j/contract/early-star
     request: contractNoticeReceiptSchema.extend({ kind: noticeKind.extract(["early_start_request"]) }),
     acknowledgement: contractNoticeReceiptSchema.extend({ kind: noticeKind.extract(["early_start_acknowledgement"]) }).nullable(),
   }));
-export const withdrawContractRoute = commandRoute("/jobs/:j/contract/withdrawal", jobParams, exactContract,
+export const withdrawContractRoute = commandRoute("/jobs/:j/contract/withdrawal", jobParams,
+  exactContract.extend({ noticeText: originalText, noticeLocale: localeTagSchema }),
   contractNoticeReceiptSchema.extend({ kind: noticeKind.extract(["withdrawal"]) }));

@@ -49,9 +49,9 @@ async function withJob(run: (db: TestD1) => Promise<void>) {
       db.prepare("UPDATE quote_versions SET state = 'approved' WHERE id = 'quote-v1'"),
       db.prepare(`INSERT INTO change_proposals VALUES ('change', 'job', 'quote-v1'), ('pending-change', 'job', 'quote-v1')`),
       db.prepare(`INSERT INTO change_versions (id, proposal_id, job_id, business_id, no, author_id, terms_id, original_locale,
-        original_text, delta_minor, total_minor, timing, affected_items, state) VALUES
-        ('change-v1', 'change', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Rail', 1000, 25000, 'Same visit', 'Rail', 'draft'),
-        ('pending-v1', 'pending-change', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Lock', 2000, 26000, 'Same visit', 'Lock', 'draft')`),
+        original_text, delta_minor, total_minor, timing, affected_items, created_at, state) VALUES
+        ('change-v1', 'change', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Rail', 1000, 25000, 'Same visit', 'Rail', 3, 'draft'),
+        ('pending-v1', 'pending-change', 'job', 'business', 1, 'foreman', 'terms', 'es', 'Lock', 2000, 26000, 'Same visit', 'Lock', 3, 'draft')`),
       db.prepare(`INSERT INTO change_items (version_id, line_no, original_label, quantity, net_minor, tax_minor, evidence_rule) VALUES
         ('change-v1', 1, 'Rail', 1, 800, 200, 'Result note'), ('pending-v1', 1, 'Lock', 1, 1600, 400, 'Result note')`),
       db.prepare("UPDATE change_versions SET publisher_id = 'admin', issued_at = 4, expires_at = 50, state = 'issued'"),

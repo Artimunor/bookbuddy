@@ -24,12 +24,14 @@ const receiptFields = `'id', n.id, 'jobId', n.job_id, 'quoteVersionId', n.quote_
 
 export function readContractNotices(session: SessionAccess, now: number, job: string): CommandStatement {
   const access = commercialAccess(session, now, job);
-  // Only the original contract wording is retained: the acknowledgement uses
-  // the exact consent text, and the other notices reference the immutable original.
+  // Withdrawal keeps the actual submitted statement. The early-start
+  // receipts derive their wording from the original immutable terms.
   return scopedStatement(access, `SELECT (
     SELECT (SELECT json_object('notices', json_group_array(json(receipt))) FROM (
-      SELECT json_object(${receiptFields}, 'noticeText', CASE n.kind
-        WHEN '${acknowledgement}' THEN t.consent_text ELSE t.original_text END, 'deliveryState', e.state) AS receipt
+      SELECT json_object(${receiptFields}, 'noticeText', coalesce(n.notice_text, CASE n.kind
+        WHEN '${acknowledgement}' THEN t.consent_text ELSE t.original_text END),
+        'noticeLocale', coalesce(n.notice_locale, t.contract_locale),
+        'termsText', t.original_text, 'termsLocale', t.contract_locale, 'deliveryState', e.state) AS receipt
       FROM contract_notices n JOIN accounts a ON a.id = n.account_id
       JOIN quote_versions v ON v.id = n.quote_version_id AND v.job_id = n.job_id
       JOIN terms_versions t ON t.id = v.terms_id AND t.business_id = j.business_id AND t.hash = n.terms_hash
@@ -55,6 +57,7 @@ export function recordContractNotice(ctx: RequestScope, session: SessionAccess, 
   const { action, body: { operationId, payload, expectedRevision } } = command;
   const { quoteVersionId, termsHash } = payload;
   const acknowledge = command.action === "early_start" && command.body.payload.acknowledgement === true;
+  const statement = command.action === "withdrawal" ? command.body.payload : null;
   const primaryKind = action === "early_start" ? request : action;
   const primaryId = crypto.randomUUID();
   const ackId = acknowledge ? crypto.randomUUID() : null;
@@ -78,10 +81,11 @@ export function recordContractNotice(ctx: RequestScope, session: SessionAccess, 
     eligible: { sql: eligible, params: [quoteVersionId, termsHash, expectedRevision ?? null, expectedRevision ?? null] },
     writes: (guard) => {
       const insert = (kind: string, id: string) => scopedStatement(access, `INSERT INTO contract_notices
-        (id, job_id, quote_version_id, account_id, terms_hash, kind, at)
-        SELECT ?, j.id, ?, scope.account_id, ?, ?, ${at} FROM commercial_job j CROSS JOIN commercial_actor scope
+        (id, job_id, quote_version_id, account_id, terms_hash, kind, at, notice_text, notice_locale)
+        SELECT ?, j.id, ?, scope.account_id, ?, ?, ${at}, ?, ? FROM commercial_job j CROSS JOIN commercial_actor scope
         WHERE ${guard.sql} AND NOT EXISTS (SELECT 1 FROM contract_notices WHERE quote_version_id = ? AND kind = ?)`,
-      id, quoteVersionId, termsHash, kind, ...guard.params ?? [], quoteVersionId, kind);
+      id, quoteVersionId, termsHash, kind, statement?.noticeText ?? null, statement?.noticeLocale ?? null,
+      ...guard.params ?? [], quoteVersionId, kind);
       const states = [primaryId, ...(ackId ? [ackId] : [])];
       const mail = mailIntent(noticeMailKey, noticeMailKey);
       const statements = [insert(primaryKind, primaryId)];

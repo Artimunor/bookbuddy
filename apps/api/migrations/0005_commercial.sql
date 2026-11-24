@@ -89,6 +89,7 @@ CREATE TABLE change_versions (
   total_minor INTEGER NOT NULL CHECK (typeof(total_minor) = 'integer' AND total_minor >= 0),
   timing TEXT NOT NULL,
   affected_items TEXT NOT NULL,
+  created_at INTEGER NOT NULL CHECK (typeof(created_at) = 'integer'),
   issued_at INTEGER,
   expires_at INTEGER,
   state TEXT NOT NULL CHECK (state IN ('draft', 'in_review', 'returned', 'issued', 'approved', 'rejected', 'superseded', 'withdrawn')),
@@ -96,7 +97,7 @@ CREATE TABLE change_versions (
     (state IN ('draft', 'in_review', 'returned') AND publisher_id IS NULL AND issued_at IS NULL AND expires_at IS NULL)
     OR (state NOT IN ('draft', 'in_review', 'returned') AND publisher_id IS NOT NULL
         AND typeof(issued_at) = 'integer' AND typeof(expires_at) = 'integer'
-        AND expires_at > issued_at AND expires_at - issued_at <= 259200000)
+        AND issued_at >= created_at AND expires_at > issued_at AND expires_at - issued_at <= 259200000)
   ),
   FOREIGN KEY (proposal_id, job_id) REFERENCES change_proposals (id, job_id),
   FOREIGN KEY (job_id, business_id) REFERENCES jobs (id, business_id),
@@ -106,6 +107,7 @@ CREATE TABLE change_versions (
 CREATE UNIQUE INDEX change_versions_live ON change_versions (proposal_id) WHERE state = 'issued';
 CREATE INDEX change_versions_due ON change_versions (expires_at, id) WHERE state = 'issued';
 CREATE INDEX change_versions_job ON change_versions (job_id, business_id);
+CREATE INDEX change_versions_job_created ON change_versions (job_id, created_at, id);
 CREATE INDEX change_versions_terms ON change_versions (terms_id, business_id);
 
 CREATE TABLE change_items (
@@ -170,6 +172,14 @@ CREATE TABLE contract_notices (
   terms_hash TEXT NOT NULL,
   kind TEXT NOT NULL CHECK (kind IN ('early_start_request', 'early_start_acknowledgement', 'withdrawal')),
   at INTEGER NOT NULL CHECK (typeof(at) = 'integer'),
+  notice_text TEXT,
+  notice_locale TEXT,
+  CONSTRAINT contract_notices_statement CHECK (
+    (kind <> 'withdrawal' AND notice_text IS NULL AND notice_locale IS NULL)
+    OR (kind = 'withdrawal' AND notice_text IS NOT NULL AND notice_locale IS NOT NULL
+      AND length(notice_text) <= 16000 AND length(trim(notice_text, char(9, 10, 11, 12, 13, 32))) > 0
+      AND length(notice_locale) BETWEEN 1 AND 255)
+  ),
   FOREIGN KEY (quote_version_id, job_id) REFERENCES quote_versions (id, job_id),
   UNIQUE (quote_version_id, kind)
 );
@@ -243,7 +253,7 @@ WHEN NEW.id IS NOT OLD.id OR NEW.proposal_id IS NOT OLD.proposal_id OR NEW.job_i
   OR NEW.business_id IS NOT OLD.business_id OR NEW.no IS NOT OLD.no OR NEW.author_id IS NOT OLD.author_id
   OR NEW.terms_id IS NOT OLD.terms_id OR NEW.original_locale IS NOT OLD.original_locale OR NEW.original_text IS NOT OLD.original_text
   OR NEW.delta_minor IS NOT OLD.delta_minor OR NEW.total_minor IS NOT OLD.total_minor
-  OR NEW.timing IS NOT OLD.timing OR NEW.affected_items IS NOT OLD.affected_items
+  OR NEW.timing IS NOT OLD.timing OR NEW.affected_items IS NOT OLD.affected_items OR NEW.created_at IS NOT OLD.created_at
   OR (OLD.issued_at IS NOT NULL AND (
     NEW.publisher_id IS NOT OLD.publisher_id OR NEW.issued_at IS NOT OLD.issued_at OR NEW.expires_at IS NOT OLD.expires_at
   ))

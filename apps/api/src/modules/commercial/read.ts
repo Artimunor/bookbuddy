@@ -1,17 +1,18 @@
 import type { CommandStatement } from "../../db/commit";
 import { at, displayName, scopedStatement } from "../access/policy";
 import type { SessionAccess } from "../auth/session";
+import { linkTables, readyAttachmentSql } from "../media/policy";
 import {
   actionableDecision, availableWindows, canPublish, canReturn, canSubmit, commercialAccess, customer, foreman,
   hasRouting, jobOpen, models, newest, noApproved, publicationCapacity, routedReviewer, routing, versionAudience,
   versionFrom, versionVisible,
 } from "./policy";
 import type { CommercialKind } from "./policy";
+import { readingAid } from "./reading-aid";
 
 const pageSize = 50;
 const name = (accountId: string) => `(SELECT ${displayName("a")} FROM accounts a WHERE a.id = ${accountId})`;
 const bool = (expression: string) => `json(CASE WHEN (${expression}) THEN 'true' ELSE 'false' END)`;
-const originalOnly = "json_object('status', 'original_only')";
 const displayedState = `CASE WHEN v.state = 'issued' AND v.expires_at <= ${at} THEN 'expired' ELSE v.state END`;
 const publication = `'publisherDisplayName', ${name("v.publisher_id")}, 'issuedAt', v.issued_at, 'expiresAt', v.expires_at`;
 
@@ -36,10 +37,13 @@ function content(kind: CommercialKind): string {
     : `'originalText', v.original_text, 'timing', v.timing, 'affectedItems', v.affected_items,
       'approvedBase', json((SELECT json_object('id', q.id, 'no', q.no, 'totalMinor', q.total_minor,
         'currency', q.currency, 'originalLocale', q.original_locale, 'scope', q.scope, 'exclusions', q.exclusions,
-        'readingAid', ${originalOnly}, 'approval', ${decisionJson}) FROM change_proposals cp
+        'readingAid', ${readingAid("quote", "q")}, 'approval', ${decisionJson}) FROM change_proposals cp
         JOIN quote_versions q ON q.id = cp.base_quote_version_id AND q.job_id = v.job_id
         JOIN approvals a ON a.quote_version_id = q.id AND a.decision = 'approve' WHERE cp.id = v.proposal_id))`;
-  return `${field}, 'originalLocale', v.original_locale, 'readingAid', ${originalOnly}, 'evidence', json_array(),
+  return `${field}, 'originalLocale', v.original_locale, 'readingAid', ${readingAid(kind, "v")},
+    'evidence', json((SELECT json_group_array(json_object('attachmentId', link.attachment_id))
+      FROM ${linkTables[kind]} link JOIN attachments a ON a.id = link.attachment_id
+      WHERE link.${models[kind].ref} = v.id AND ${readyAttachmentSql("a")})),
     'terms', json((${terms})), 'items', json((SELECT json_group_array(json_object('lineNo', line_no,
       'originalLabel', original_label, 'quantity', quantity, 'netMinor', net_minor, 'taxMinor', tax_minor,
       'evidenceRule', evidence_rule, 'evidenceAlternative', evidence_alternative))
@@ -90,8 +94,18 @@ export function readVersion(session: SessionAccess, now: number, kind: Commercia
 
 export function readVersionList(session: SessionAccess, now: number, kind: CommercialKind, job: string, cursor?: string): CommandStatement | null {
   const position = cursor && /^(\d+)~([A-Za-z0-9_-]{1,256})$/.exec(cursor);
-  if (cursor && (!position || !Number.isSafeInteger(Number(position[1])) || Number(position[1]) < 1)) return null;
+  if (cursor && (!position || !Number.isSafeInteger(Number(position[1])) || Number(position[1]) < (kind === "quote" ? 1 : 0))) return null;
   const access = commercialAccess(session, now, job);
+  const order = kind === "change" ? "v.created_at" : "v.no";
+  const version = kind === "change" ? `${summary(kind)}, 'createdAt', v.created_at, 'isCurrentProposal', ${bool(`v.state <> 'superseded' AND NOT EXISTS (
+    SELECT 1 FROM change_versions next LEFT JOIN commercial_reviews next_review ON next_review.change_version_id = next.id
+    WHERE next.proposal_id = v.proposal_id AND next.no > v.no AND ${versionVisible(kind, "scope", "next", "next_review")}
+  )`)}` : summary(kind);
+  const approved = kind === "quote" ? `, 'currentApprovedVersionId', (
+    SELECT v.id ${versionFrom(kind)} CROSS JOIN commercial_actor scope
+    WHERE v.quote_id = (SELECT id FROM quotes WHERE job_id = j.id)
+      AND v.state = 'approved' AND ${versionVisible(kind, "scope")}
+  )` : "";
   return scopedStatement(access, `, scoped_job AS MATERIALIZED (
     SELECT CASE WHEN scope.role = 'customer' THEN 'customer' WHEN ${foreman("scope")} THEN 'foreman' ELSE 'reviewer' END AS audience,
       CASE WHEN ${foreman("scope")} THEN (
@@ -102,19 +116,19 @@ export function readVersionList(session: SessionAccess, now: number, kind: Comme
       SELECT 1 FROM ${models[kind].versions} v JOIN commercial_reviews review ON review.${models[kind].ref} = v.id
       WHERE v.job_id = j.id AND ${routedReviewer("scope", "review")})
   ), version_list AS (
-    SELECT audience, current_terms, json_object('audience', audience, 'versions', json((SELECT json_group_array(json(summary)) FROM (
-      SELECT json_object(${summary(kind)}) AS summary ${versionFrom(kind)} CROSS JOIN commercial_actor scope
-      WHERE ${versionVisible(kind, "scope")} AND (v.no, v.id) < (?, ?)
-      ORDER BY v.no DESC, v.id DESC LIMIT ${pageSize + 1})))) AS value FROM scoped_job
+    SELECT audience, current_terms, json_object('audience', audience${approved}, 'versions', json((SELECT json_group_array(json(summary)) FROM (
+      SELECT json_object(${version}) AS summary ${versionFrom(kind)} CROSS JOIN commercial_actor scope
+      WHERE ${versionVisible(kind, "scope")} AND (${order}, v.id) < (?, ?)
+      ORDER BY ${order} DESC, v.id DESC LIMIT ${pageSize + 1})))) AS value FROM scoped_job
   ) SELECT (SELECT CASE WHEN audience = 'foreman' THEN json_set(value, '$.currentTerms', json(current_terms)) ELSE value END
     FROM version_list) AS value FROM acting_session`,
   position ? Number(position[1]) : Number.MAX_SAFE_INTEGER, position ? position[2]! : "~");
 }
 
 export function decodeVersionList(value: string): unknown {
-  const packet = JSON.parse(value) as { audience: string; versions: { no: number; id: string }[] };
+  const packet = JSON.parse(value) as { audience: string; versions: { no: number; id: string; createdAt?: number }[] };
   const hasMore = packet.versions.length > pageSize;
   if (hasMore) packet.versions.pop();
   const last = hasMore ? packet.versions.at(-1)! : null;
-  return { ...packet, hasMore, cursor: last ? `${last.no}~${last.id}` : null };
+  return { ...packet, hasMore, cursor: last ? `${last.createdAt ?? last.no}~${last.id}` : null };
 }

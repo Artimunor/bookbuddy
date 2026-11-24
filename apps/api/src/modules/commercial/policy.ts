@@ -68,10 +68,10 @@ export const routing = `review_routing AS MATERIALIZED (
 export const hasRouting = (author: string) => `EXISTS (SELECT 1 FROM review_routing route
   WHERE route.reviewer_id <> route.backup_id AND ${author} NOT IN (route.reviewer_id, route.backup_id))`;
 
-export const versionVisible = (kind: CommercialKind, scope: string) => `(
-  (${customer(scope)} AND v.state IN (${models[kind].visible}) AND v.issued_at <= ${at}) OR
-  (${foreman(scope)} AND (v.issued_at IS NOT NULL OR v.author_id = ${scope}.account_id)) OR
-  ${routedReviewer(scope, "review")})`;
+export const versionVisible = (kind: CommercialKind, scope: string, v = "v", review = "review") => `(
+  (${customer(scope)} AND ${v}.state IN (${models[kind].visible}) AND ${v}.issued_at <= ${at}) OR
+  (${foreman(scope)} AND (${v}.issued_at IS NOT NULL OR ${v}.author_id = ${scope}.account_id)) OR
+  ${routedReviewer(scope, review)})`;
 
 export const versionAudience = (scope: string) => `CASE WHEN ${scope}.role = 'customer' THEN 'customer'
   WHEN ${foreman(scope)} AND (v.issued_at IS NOT NULL OR v.author_id = ${scope}.account_id) THEN 'foreman'
