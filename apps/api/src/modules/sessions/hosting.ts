@@ -262,7 +262,7 @@ export function readSessionBookingFeedback(session: SessionAccess, now: number,
   return scopedValue(access, { sql: `WITH page_input(after_id) AS (VALUES (?)), permitted AS MATERIALIZED (
     SELECT sl.id FROM live_scope scope CROSS JOIN hosting_slot sl WHERE ${managesSlot("scope", "sl")}
   ), feedback_page AS MATERIALIZED (
-    SELECT f.* FROM permitted p JOIN session_bookings b ON b.slot_id = p.id AND b.state = 'completed'
+    SELECT f.* FROM permitted p JOIN session_bookings b ON b.slot_id = p.id
     JOIN session_booking_feedback f ON f.booking_id = b.id CROSS JOIN page_input i
     WHERE i.after_id IS NULL OR b.id > i.after_id ORDER BY b.id LIMIT ${pageSize + 1}
   ) SELECT json_object('feedback', json((SELECT json_group_array(json_object('bookingId', booking_id, 'stars', stars,

@@ -1,6 +1,6 @@
 import {
   bookSessionHoldRoute, cancelSessionBookingRoute, createSessionHoldRoute, getSessionBookingRoute, getSessionRoute,
-  listSessionsRoute, moveSessionBookingRoute, operationIdHeader, releaseSessionHoldRoute, respondToSessionChangeRoute,
+  listSessionsRoute, moveSessionBookingRoute, operationIdHeader, releaseSessionHoldRoute, respondToSessionChangeRoute, submitSessionBookingFeedbackRoute,
 } from "@bookbuddy/api-contract";
 import type { OperationId, ResponseSchema, RouteResponse } from "@bookbuddy/api-contract";
 import { Hono } from "hono";
@@ -16,7 +16,7 @@ import type { SessionAccess } from "../auth/session";
 import { boundedBody, scheduleOperationSignals, transportFailure, transportSuccess } from "../sync/http";
 import {
   customerSessionValue, planBookSession, planCancelSessionBooking, planMoveSessionBooking, planReleaseSessionHold,
-  planRespondToSessionChange, planSessionHold, readSessionBooking, readSessions, sessionPosition,
+  planRespondToSessionChange, planSessionBookingFeedback, planSessionHold, readSessionBooking, readSessions, sessionPosition,
 } from "./booking";
 import type { SessionCommandResult } from "./booking";
 
@@ -91,5 +91,6 @@ export function createSessionsBookingRoutes(providerValue: (input: RouteResponse
   post(moveSessionBookingRoute, planMoveSessionBooking);
   post(cancelSessionBookingRoute, planCancelSessionBooking);
   post(respondToSessionChangeRoute, planRespondToSessionChange);
+  post(submitSessionBookingFeedbackRoute, planSessionBookingFeedback);
   return routes;
 }

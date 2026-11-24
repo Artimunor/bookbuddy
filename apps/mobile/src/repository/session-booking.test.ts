@@ -18,7 +18,7 @@ const booking = { id: bookingId, reference: "BB-S1042", listingId: "listing", ca
   coordinatorName: "private coordinator name", threadId: "thread", cancellation: null,
   proposal: { id: "proposal", version: 1, state: "pending", respondBy: 1500,
     proposed: { ...agreement, startsAt: 3000, endsAt: 3900 }, sent: { at: 890, byName: "private sender name" }, decidedAt: null },
-  actions: { move: true, cancel: true, respond: true, leaveFeedback: false } };
+  canGiveFeedback: false, actions: { move: true, cancel: true, respond: true } };
 const projection: SyncProjection = { kind: "session_booking", resourceId: bookingId, value: booking };
 
 const expected = {
@@ -34,7 +34,7 @@ test("a customer booking persists only the designated booker projection fields",
     expect((await repository.getProjection("session_booking", bookingId))?.data).toEqual(expected);
     const row = database.query<{ value: string }, []>("SELECT value FROM projection WHERE kind = 'session_booking'").get();
     expect(JSON.parse(row!.value)).toEqual(expected);
-    expect(row!.value).not.toMatch(/private|paymentMethod|pay_provider|actions|terms-hash/);
+    expect(row!.value).not.toMatch(/private|paymentMethod|pay_provider|actions|terms-hash|canGiveFeedback/);
 
     const confirmedWithoutChange = { ...booking, host: { status: "arranging", nextUpdateAt: 1600 },
       proposal: { ...booking.proposal, state: "expired" } };

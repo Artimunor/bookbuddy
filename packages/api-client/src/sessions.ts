@@ -3,7 +3,7 @@ import {
   getSessionBookingRoute, getSessionHostOffersRoute, getSessionRosterRoute, getSessionRoute, listBusinessSessionsRoute, listSessionsRoute,
   listMySessionHostOffersRoute,
   moveSessionBookingRoute, publishSessionRoute, recordSessionAttendanceRoute, releaseSessionHoldRoute, replyToSessionHostOfferRoute,
-  respondToSessionChangeRoute, updateSessionRosterRoute,
+  respondToSessionChangeRoute, submitSessionBookingFeedbackRoute, updateSessionRosterRoute,
 } from "@bookbuddy/api-contract";
 import type { RouteRequest } from "@bookbuddy/api-contract";
 import type { ApiClient, RequestOptions } from "./client";
@@ -27,6 +27,8 @@ export function createSessionsClient(api: ApiClient) {
       api.request(cancelSessionBookingRoute, { params: { id }, body }, options),
     respondToSessionChange: (id: string, body: RouteRequest<typeof respondToSessionChangeRoute.input>["body"], options?: RequestOptions) =>
       api.request(respondToSessionChangeRoute, { params: { id }, body }, options),
+    submitSessionBookingFeedback: (id: string, body: RouteRequest<typeof submitSessionBookingFeedbackRoute.input>["body"], options?: RequestOptions) =>
+      api.request(submitSessionBookingFeedbackRoute, { params: { id }, body }, options),
     listBusinessSessions: (b: string, query?: RouteRequest<typeof listBusinessSessionsRoute.input>["query"], options?: RequestOptions) =>
       api.request(listBusinessSessionsRoute, { params: { b }, query }, options),
     publishSession: (id: string, body: RouteRequest<typeof publishSessionRoute.input>["body"], options?: RequestOptions) =>

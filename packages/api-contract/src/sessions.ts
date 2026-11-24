@@ -89,7 +89,8 @@ export const customerSessionBookingSchema = z.strictObject({
   ]),
   coordinatorName: display.nullable(), threadId: sessionThreadIdSchema.nullable(),
   proposal: proposal.nullable(), cancellation: z.strictObject(confirmation).nullable(),
-  actions: z.strictObject({ move: z.boolean(), cancel: z.boolean(), respond: z.boolean(), leaveFeedback: z.boolean() }),
+  canGiveFeedback: z.boolean(),
+  actions: z.strictObject({ move: z.boolean(), cancel: z.boolean(), respond: z.boolean() }),
 });
 export const sessionHoldProjectionSchema = z.strictObject({
   status: z.literal("held"), id: sessionHoldIdSchema, listingId: sessionListingIdSchema, provider, bookerName: display,
@@ -219,6 +220,11 @@ export const respondToSessionChangeRoute = sessionCommand("/session-bookings/:id
   decision: z.enum(["accept", "decline"]),
 }), customerSessionBookingSchema);
 
+const feedbackStars = z.int().min(1).max(5);
+export const submitSessionBookingFeedbackRoute = sessionCommand("/session-bookings/:id/feedback", bookingParams, z.strictObject({
+  stars: feedbackStars, comment: text.refine((value) => !value.includes("\0")).optional(),
+}), customerSessionBookingSchema);
+
 export const listBusinessSessionsRoute = defineSessionRoute({
   method: "GET", path: "/businesses/:b/sessions", auth: "context",
   input: z.strictObject({
@@ -246,7 +252,7 @@ export const getSessionBookingFeedbackRoute = defineSessionRoute({
   input: z.strictObject({ params: listingParams, query: rosterQuery }),
   output: z.strictObject({
     feedback: z.array(z.strictObject({
-      bookingId: sessionBookingIdSchema, stars: z.int().min(1).max(5), comment: text.nullable(), submittedAt: timestampSchema,
+      bookingId: sessionBookingIdSchema, stars: feedbackStars, comment: text.nullable(), submittedAt: timestampSchema,
     })).max(100),
     page: paginationSchema,
   }),

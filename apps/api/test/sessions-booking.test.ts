@@ -1,8 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
 import {
-  bookSessionHoldRoute, cancelSessionBookingRoute, createSessionHoldRoute, getSessionBookingRoute, getSessionRoute,
-  listSessionsRoute, moveSessionBookingRoute, openLinkRoute, operationIdHeader, releaseSessionHoldRoute,
-  respondToSessionChangeRoute, resultSchema, syncRoute,
+  bookSessionHoldRoute, cancelSessionBookingRoute, createSessionHoldRoute, getSessionBookingFeedbackRoute, getSessionBookingRoute,
+  getSessionRoute, listSessionsRoute, moveSessionBookingRoute, openLinkRoute, operationIdHeader, recordSessionAttendanceRoute,
+  releaseSessionHoldRoute, respondToSessionChangeRoute, resultSchema, submitSessionBookingFeedbackRoute, syncRoute,
 } from "@bookbuddy/api-contract";
 import type { ResponseSchema } from "@bookbuddy/api-contract";
 import { createApp } from "../src/app";
@@ -23,13 +23,14 @@ const command = (operationId: string, payload: unknown) => ({ operationId, paylo
 const hold = (id: string, slotId = "morning", extra = {}) => command(`op-${id}`, { id, slotId, places: 1, ...extra });
 const book = (id: string, terms = accepted) => command(`op-${id}`, { id, ...terms });
 const bookers = ["booker", "other"] as const;
-type Booker = typeof bookers[number];
+const actors = [...bookers, "coordinator"] as const;
+type Actor = typeof actors[number];
 
 type RequestBody = { operationId?: string } | { contextId: string; operations: []; cursor: string | null };
 interface TestResponse { status: number; body: unknown }
 interface Fixture {
   db: TestD1;
-  call(actor: Booker, path: string, body?: RequestBody, race?: boolean): Promise<TestResponse>;
+  call(actor: Actor, path: string, body?: RequestBody, race?: boolean): Promise<TestResponse>;
 }
 function version(db: TestD1, id: string, no: number, hash: string, price: number, language = "en", listing = "listing") {
   return db.prepare(`INSERT INTO session_listing_versions (
@@ -51,7 +52,7 @@ async function fixture(): Promise<Fixture> {
   const app = createApp().onError((error) => { throw error; });
   const env = { DB: db, SYNC_CURSOR_HMAC_KEY: "a-test-only-sync-cursor-key-for-sessions" } as Bindings;
   const execution = { waitUntil() {}, passThroughOnException() {} };
-  const credentials = await Promise.all(bookers.map(async (actor) => {
+  const credentials = await Promise.all(actors.map(async (actor) => {
     const token = randomToken();
     return { actor, token, digest: await hashSessionCredential(token) };
   }));
@@ -64,10 +65,17 @@ async function fixture(): Promise<Fixture> {
       ('host', 'host@example.test', 'Elena', 1, 'active'), ('substitute', 'substitute@example.test', 'Lucía', 1, 'active')`),
     db.prepare(`INSERT INTO memberships VALUES ('team', 'provider', 'coordinator', 'active'),
       ('host-team', 'provider', 'host', 'active'), ('substitute-team', 'provider', 'substitute', 'active')`),
+    db.prepare(`INSERT INTO membership_roles (id, membership_id, business_id, account_id, role, granted_at)
+      VALUES ('coordinator-role', 'team', 'provider', 'coordinator', 'foreman', 1)`),
     ...credentials.flatMap(({ actor, digest }) => [
-      db.prepare("INSERT INTO accounts (id, email_normalized, display_name, verified_at, state) VALUES (?, ?, ?, 1, 'active')")
-        .bind(actor, `${actor}@example.test`, actor === "booker" ? "Claire" : "Jo"),
-      db.prepare("INSERT INTO account_contexts (id, account_id, role) VALUES (?, ?, 'customer')").bind(`${actor}-context`, actor),
+      ...(actor === "coordinator" ? [
+        db.prepare(`INSERT INTO account_contexts (id, account_id, role, business_id, role_grant_id)
+          VALUES ('coordinator-context', 'coordinator', 'foreman', 'provider', 'coordinator-role')`),
+      ] : [
+        db.prepare("INSERT INTO accounts (id, email_normalized, display_name, verified_at, state) VALUES (?, ?, ?, 1, 'active')")
+          .bind(actor, `${actor}@example.test`, actor === "booker" ? "Claire" : "Jo"),
+        db.prepare("INSERT INTO account_contexts (id, account_id, role) VALUES (?, ?, 'customer')").bind(`${actor}-context`, actor),
+      ]),
       db.prepare(`INSERT INTO sessions (id, account_id, secret_hash, active_context_id, device_id, issued_at, expires_at)
         VALUES (?, ?, ?, ?, 'device', 1, ?)`).bind(`${actor}-session`, actor, digest, `${actor}-context`, morning + 7 * 86400_000),
     ]),
@@ -81,9 +89,9 @@ async function fixture(): Promise<Fixture> {
     db.prepare(`INSERT INTO session_host_assignments (id, slot_id, business_id, membership_id, position, role_label, language,
       state, changed_at, changed_by_id, confirmed_at)
       VALUES ('original-host', 'morning', 'provider', 'host-team', 1, 'Instructor', 'en', 'confirmed', 1, 'coordinator', 1)`),
-    db.prepare("INSERT INTO feature_flags VALUES ('sessions', 'area:pilates', 1, 1), ('sessions', 'off-area:pilates', 0, 1)"),
+    db.prepare("INSERT INTO feature_flags VALUES ('sessions', 'area:pilates', 1, 1), ('sessions', 'off-area:pilates', 0, 1), ('sessions', 'provider', 1, 1)"),
   ]);
-  async function call(actor: Booker, path: string, body?: RequestBody, race = false): Promise<TestResponse> {
+  async function call(actor: Actor, path: string, body?: RequestBody, race = false): Promise<TestResponse> {
     const before = { ...db.calls };
     const operationId = body && "operationId" in body ? body.operationId : undefined;
     const response = await app.request(`${origin}/api/v1${path}`, {
@@ -265,6 +273,53 @@ test("booker sync and private links expose confirmed substitutes; moving and can
     bookingRevision: 1, termsHash: next.termsHash,
   })));
   expect(cancelled).toMatchObject({ state: "cancelled", actions: { cancel: false, move: false }, cancellation: { byName: "Claire", at: clock.now } });
+  clock.now = afternoon + duration;
+  expect(data(getSessionBookingRoute, await f.call("booker", "/session-bookings/booking")).canGiveFeedback).toBe(false);
+  status(await f.call("booker", "/session-bookings/booking/feedback", command("cancelled-feedback", { stars: 5 })), 409, "CONFLICT");
+}));
+
+test("feedback unlocks at scheduled end without attendance, is recorded once, and is private to the provider", () => withSessions(async (f, clock) => {
+  const path = "/session-bookings/booking/feedback";
+  const bookingPath = "/session-bookings/booking";
+  const providerPath = "/sessions/listing/feedback?slotId=morning";
+  const body = command("feedback", { stars: 5, comment: "Clear instructions." });
+  expect((await bookMorning(f)).canGiveFeedback).toBe(false);
+  clock.now = morning + duration - 1;
+  status(await f.call("booker", path, body), 409, "CONFLICT");
+  clock.now += 1;
+  expect(data(getSessionBookingRoute, await f.call("booker", bookingPath))).toMatchObject({ state: "booked", canGiveFeedback: true });
+  const initial = data(syncRoute, await f.call("booker", "/sync", { contextId: "booker-context", operations: [], cursor: null }));
+  status(await f.call("other", path, body), 404, "NOT_FOUND");
+  status(await f.call("coordinator", path, body), 404, "NOT_FOUND");
+  const submitted = data(submitSessionBookingFeedbackRoute, await f.call("booker", path, body));
+  expect(submitted.canGiveFeedback).toBe(false);
+  expect(JSON.stringify(submitted)).not.toContain("Clear instructions.");
+  expect(data(submitSessionBookingFeedbackRoute, await f.call("booker", path, body))).toEqual(submitted);
+  status(await f.call("booker", path, command("another-feedback", { stars: 1 })), 409, "CONFLICT");
+  const changed = data(syncRoute, await f.call("booker", "/sync", { contextId: "booker-context", operations: [], cursor: initial.cursor }));
+  expect(changed.upserts.find(({ kind, resourceId }) => kind === "session_booking" && resourceId === "booking")?.value)
+    .toMatchObject({ canGiveFeedback: false });
+  expect(JSON.stringify(changed)).not.toContain("Clear instructions.");
+  status(await f.call("booker", providerPath), 404, "NOT_FOUND");
+  expect(data(getSessionBookingFeedbackRoute, await f.call("coordinator", providerPath)).feedback)
+    .toEqual([{ bookingId: "booking", stars: 5, comment: "Clear instructions.", submittedAt: clock.now }]);
+}));
+
+test("recorded attendance unlocks feedback before scheduled end; omitting a comment is allowed", () => withSessions(async (f, clock) => {
+  await bookMorning(f);
+  clock.now = morning + minute;
+  data(recordSessionAttendanceRoute, await f.call("coordinator", "/sessions/listing/attendance", command("attendance", {
+    slotId: "morning", slotRevision: 0, id: "attendance", bookingId: "booking", result: "attended", placesAttended: 1, correction: null,
+  })));
+  const params = { id: "booking" };
+  for (const stars of [0, 1.5, 6]) {
+    expect(submitSessionBookingFeedbackRoute.input.safeParse({ params, body: command("invalid-feedback", { stars }) }).success).toBe(false);
+  }
+  expect(data(getSessionBookingRoute, await f.call("booker", "/session-bookings/booking")).canGiveFeedback).toBe(true);
+  const result = data(submitSessionBookingFeedbackRoute, await f.call("booker", "/session-bookings/booking/feedback", command("vote", { stars: 1 })));
+  expect(result.canGiveFeedback).toBe(false);
+  expect(data(getSessionBookingFeedbackRoute, await f.call("coordinator", "/sessions/listing/feedback?slotId=morning")).feedback)
+    .toEqual([{ bookingId: "booking", stars: 1, comment: null, submittedAt: clock.now }]);
 }));
 
 test("disabled or missing flags hide every route, including stored holds and booking projections", () => withSessions(async (f) => {
@@ -282,6 +337,7 @@ test("disabled or missing flags hide every route, including stored holds and boo
     status(await f.call("booker", "/session-bookings/booking/move", command("move", { holdId: "second", bookingRevision: 0, ...accepted })), 404, "NOT_FOUND");
     status(await f.call("booker", "/session-bookings/booking/cancel", command("cancel", { bookingRevision: 0, termsHash: "hash-1" })), 404, "NOT_FOUND");
     status(await f.call("booker", "/session-bookings/booking/respond", command("respond", { bookingRevision: 0, proposalId: "missing", version: 1, decision: "decline" })), 404, "NOT_FOUND");
+    status(await f.call("booker", "/session-bookings/booking/feedback", command("feedback", { stars: 5 })), 404, "NOT_FOUND");
     expect(data(openLinkRoute, await f.call("booker", "/links/token"))).toMatchObject({ kind: "unavailable" });
     const synced = data(syncRoute, await f.call("booker", "/sync", { contextId: "booker-context", operations: [], cursor: null }));
     expect(synced.upserts.filter(({ kind }) => kind === "session_booking")).toEqual([]);

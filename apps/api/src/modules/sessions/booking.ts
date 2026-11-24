@@ -1,7 +1,7 @@
 import { customerSessionBookingSchema, sessionCategorySchema, timestampSchema } from "@bookbuddy/api-contract";
 import type {
   bookSessionHoldRoute, cancelSessionBookingRoute, createSessionHoldRoute, listSessionsRoute, moveSessionBookingRoute,
-  releaseSessionHoldRoute, respondToSessionChangeRoute, ErrorBody, OperationId, RouteRequest,
+  releaseSessionHoldRoute, respondToSessionChangeRoute, submitSessionBookingFeedbackRoute, ErrorBody, OperationId, RouteRequest,
 } from "@bookbuddy/api-contract";
 import { SESSIONS_FEATURE_FLAG, SESSION_PAYMENT_METHOD } from "@bookbuddy/domain";
 import type { CommandInput, CommandStatement } from "../../db/commit";
@@ -106,6 +106,11 @@ function proposalJson(now: string): string {
     ORDER BY offer.version DESC LIMIT 1)`;
 }
 
+const canGiveFeedback = (now: string) => `b.state IN ('booked', 'completed') AND b.booked_at <= ${now}
+  AND (s.ends_at <= ${now} OR (s.state = 'finished' AND s.stage_at <= ${now}) OR EXISTS (
+    SELECT 1 FROM session_attendance attendance WHERE attendance.booking_id = b.id AND attendance.recorded_at <= ${now}
+  )) AND NOT EXISTS (SELECT 1 FROM session_booking_feedback feedback WHERE feedback.booking_id = b.id)`;
+
 function bookingJson(now: string, projection: "detail" | "sync"): string {
   return `json_object('id', b.id, 'reference', b.reference, 'listingId', b.listing_id,
     ${projection === "sync" ? "'category', l.category," : ""} 'provider', ${provider("business")},
@@ -122,12 +127,9 @@ function bookingJson(now: string, projection: "detail" | "sync"): string {
     'proposal', json(${proposalJson(now)}),
     'cancellation', json((SELECT json_object('at', b.cancelled_at, 'byName', ${displayName("actor")}) FROM accounts actor
       WHERE actor.id = b.cancelled_by_id)),
+    'canGiveFeedback', ${bool(canGiveFeedback(now))},
     'actions', json_object('move', ${bool(canMove(now))}, 'cancel', ${bool(canCancel(now))},
-      'respond', ${bool(`${canCancel(now)} AND ${openProposal(now)}`)},
-      'leaveFeedback', ${bool(`b.state = 'completed' AND EXISTS (SELECT 1 FROM session_attendance attendance
-        WHERE attendance.booking_id = b.id AND attendance.result = 'attended' AND attendance.recorded_at <= ${now}
-          AND NOT EXISTS (SELECT 1 FROM session_attendance correction WHERE correction.corrects_id = attendance.id))
-        AND NOT EXISTS (SELECT 1 FROM session_booking_feedback feedback WHERE feedback.booking_id = b.id)`)}) )`;
+      'respond', ${bool(`${canCancel(now)} AND ${openProposal(now)}`)}))`;
 }
 
 function scopedBookingValue(id: string, scope: string, projection: string): string {
@@ -249,6 +251,7 @@ type ReleaseInput = RouteRequest<typeof releaseSessionHoldRoute.input>["body"]["
 type MoveInput = RouteRequest<typeof moveSessionBookingRoute.input>["body"]["payload"];
 type CancelInput = RouteRequest<typeof cancelSessionBookingRoute.input>["body"]["payload"];
 type RespondInput = RouteRequest<typeof respondToSessionChangeRoute.input>["body"]["payload"];
+type FeedbackInput = RouteRequest<typeof submitSessionBookingFeedbackRoute.input>["body"]["payload"];
 
 // The authorization CTE intentionally keeps terminal resources visible. A
 // replay rechecks live ownership and flags, not the pre-commit state guard.
@@ -490,4 +493,17 @@ export function planRespondToSessionChange(ctx: RequestScope, session: SessionAc
       ...(accept ? [releaseMoveHold(guard, id, ctx.now)] : []),
     ], changes: bookerChanges(id, ctx.now) }),
   }, { value: subjectBooking, revision: { sql: subjectRevision, expected: bookingRevision } });
+}
+
+export function planSessionBookingFeedback(ctx: RequestScope, session: SessionAccess, id: string, body: Body<FeedbackInput>) {
+  const { stars, comment } = body.payload;
+  const access = sessionSubject(session, ctx.now, "booking_id", [id], bookingSubject());
+  return sessionReceipt(ctx, access, {
+    operationId: body.operationId, command: "session_feedback", input: [id, body], resultRef: id,
+    eligible: { sql: `EXISTS (SELECT 1 FROM subject b JOIN session_slots s ON s.id = b.slot_id WHERE ${canGiveFeedback(at)})` },
+    writes: (guard) => ({ statements: [{
+      sql: `INSERT INTO session_booking_feedback (booking_id, stars, comment, submitted_at) SELECT ?, ?, ?, ? WHERE ${guard.sql}`,
+      params: [id, stars, comment ?? null, ctx.now, ...guard.params ?? []],
+    }], changes: bookerChanges(id, ctx.now) }),
+  }, { value: subjectBooking });
 }

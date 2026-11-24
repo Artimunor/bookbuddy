@@ -378,17 +378,18 @@ BEGIN SELECT RAISE(ABORT, 'session attendance already has a verified result or c
 CREATE TABLE session_booking_feedback (
   booking_id TEXT PRIMARY KEY NOT NULL REFERENCES session_bookings (id),
   stars INTEGER NOT NULL CHECK (typeof(stars) = 'integer' AND stars BETWEEN 1 AND 5),
-  comment TEXT CHECK (comment IS NULL OR length(trim(comment)) > 0),
+  comment TEXT CHECK (comment IS NULL OR (length(comment) <= 16000 AND length(trim(comment)) > 0)),
   submitted_at INTEGER NOT NULL CHECK (typeof(submitted_at) = 'integer')
 );
 CREATE TRIGGER session_booking_feedback_eligible BEFORE INSERT ON session_booking_feedback
 WHEN NOT EXISTS (
-  SELECT 1 FROM session_bookings AS booking JOIN session_attendance AS result ON result.booking_id = booking.id
-  WHERE booking.id = NEW.booking_id AND booking.state = 'completed' AND booking.completed_at <= NEW.submitted_at
-    AND result.result = 'attended' AND result.recorded_at <= NEW.submitted_at
-    AND NOT EXISTS (SELECT 1 FROM session_attendance WHERE corrects_id = result.id)
-)
-BEGIN SELECT RAISE(ABORT, 'session feedback requires a completed attended booking'); END;
+  SELECT 1 FROM session_bookings AS booking JOIN session_slots AS slot ON slot.id = booking.slot_id
+  WHERE booking.id = NEW.booking_id AND booking.state IN ('booked', 'completed') AND booking.booked_at <= NEW.submitted_at
+    AND (slot.ends_at <= NEW.submitted_at OR (slot.state = 'finished' AND slot.stage_at <= NEW.submitted_at)
+      OR EXISTS (SELECT 1 FROM session_attendance result
+        WHERE result.booking_id = booking.id AND result.recorded_at <= NEW.submitted_at))
+) OR EXISTS (SELECT 1 FROM session_booking_feedback prior WHERE prior.booking_id = NEW.booking_id)
+BEGIN SELECT RAISE(ABORT, 'session feedback requires an eligible booking without prior feedback'); END;
 
 -- Session conversations are booking-scoped, never a construction job or a whole-slot customer chat.
 CREATE TABLE session_threads (

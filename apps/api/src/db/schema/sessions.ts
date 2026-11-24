@@ -312,7 +312,7 @@ export const sessionBookingFeedback = sqliteTable("session_booking_feedback", {
   submittedAt: integer("submitted_at").notNull(),
 }, (t) => [
   check("session_booking_feedback_stars", sql`typeof(${t.stars}) = 'integer' AND ${t.stars} BETWEEN 1 AND 5`),
-  check("session_booking_feedback_comment", sql`${t.comment} IS NULL OR length(trim(${t.comment})) > 0`),
+  check("session_booking_feedback_comment", sql`${t.comment} IS NULL OR (length(${t.comment}) <= 16000 AND length(trim(${t.comment})) > 0)`),
   check("session_booking_feedback_submitted_at", sql`typeof(${t.submittedAt}) = 'integer'`),
 ]);
 
