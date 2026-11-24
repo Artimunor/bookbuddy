@@ -76,17 +76,40 @@ export function pendingOperationKey(identity: string | null, intent: string): St
 
 export function pendingOperationScopeIsCurrent(key: StorageKey) { return key.generation === generation; }
 
-export type StoredOperation = { operationId: string; routeId: string; resourceIds?: readonly string[] };
+export type StoredOperation = {
+  operationId: string;
+  routeId: string;
+  resourceIds?: readonly string[];
+  attemptedAt?: number;
+  retryReady?: true;
+  request?: { expectedRevision: number; fingerprint: string };
+};
 
 function operationMetadata(value: unknown): StoredOperation | null {
   if (!value || typeof value !== "object" || !("operationId" in value) || !("routeId" in value)) return null;
   const { operationId, routeId } = value;
   if (typeof operationId !== "string" || !operationIdSchema.safeParse(operationId).success ||
     typeof routeId !== "string" || !routePattern.test(routeId)) return null;
-  if (!("resourceIds" in value) || value.resourceIds === undefined) return { operationId, routeId };
-  const ids: unknown = value.resourceIds;
-  if (!Array.isArray(ids) || ids.length > 8 || ids.some(id => !idSchema.safeParse(id).success)) return null;
-  return { operationId, routeId, resourceIds: ids as string[] };
+  const metadata: StoredOperation = { operationId, routeId };
+  if ("resourceIds" in value && value.resourceIds !== undefined) {
+    const ids: unknown = value.resourceIds;
+    if (!Array.isArray(ids) || ids.length > 8 || ids.some(id => !idSchema.safeParse(id).success)) return null;
+    metadata.resourceIds = ids as string[];
+  }
+  if ("attemptedAt" in value && typeof value.attemptedAt === "number" &&
+    Number.isSafeInteger(value.attemptedAt) && value.attemptedAt >= 0) {
+    metadata.attemptedAt = value.attemptedAt;
+    if ("retryReady" in value && value.retryReady === true && routeId === "POST /requests") metadata.retryReady = true;
+  }
+  if (routeId === "POST /requests" && "request" in value && value.request &&
+    typeof value.request === "object" && "expectedRevision" in value.request && "fingerprint" in value.request) {
+    const { expectedRevision, fingerprint } = value.request;
+    if (typeof expectedRevision === "number" && Number.isSafeInteger(expectedRevision) && expectedRevision >= 0 &&
+      typeof fingerprint === "string" && /^[a-f0-9]{64}$/.test(fingerprint)) {
+      metadata.request = { expectedRevision, fingerprint };
+    }
+  }
+  return metadata;
 }
 export function readPendingOperation(key: StorageKey): StoredOperation | null {
   if (!pendingOperationScopeIsCurrent(key)) return null;
@@ -106,4 +129,17 @@ export function savePendingOperation(key: StorageKey, operation: StoredOperation
 export function clearPendingOperation(key: StorageKey, operationId: string) {
   if (readPendingOperation(key)?.operationId !== operationId) return;
   try { sessionStorage.removeItem(key.key); } catch { /* Storage can be disabled. */ }
+}
+
+const settleMs = 2 * 60_000;
+
+export function settleMissingPendingOperation(
+  key: StorageKey, operation: StoredOperation, checkedAt: number, retainForRetry: boolean,
+): boolean {
+  if (operation.attemptedAt === undefined || checkedAt - operation.attemptedAt < settleMs) return false;
+  const current = readPendingOperation(key);
+  if (current?.operationId !== operation.operationId || current.attemptedAt !== operation.attemptedAt) return false;
+  if (retainForRetry) return savePendingOperation(key, { ...current, retryReady: true });
+  clearPendingOperation(key, operation.operationId);
+  return true;
 }
