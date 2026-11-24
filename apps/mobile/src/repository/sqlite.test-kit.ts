@@ -8,7 +8,7 @@ import { createSqliteExecutor } from "./sqlite";
 export const context = scopeHeaderSchema.parse({ contextId: "context-test", role: "customer", businessId: null });
 export const accountId = "account-test";
 
-export async function testRepository() {
+export async function testRepository(eraseMedia: (uri: string) => Promise<void> = async () => {}) {
   const database = new Database(":memory:");
   const sql = await createSqliteExecutor({
     exec: async (statement) => { database.exec(statement); },
@@ -17,7 +17,7 @@ export async function testRepository() {
   });
   let id = 0;
   const clock = { now: 1_000 };
-  const mobile = new MobileRepository(sql, () => `op-${++id}`, () => clock.now);
+  const mobile = new MobileRepository(sql, () => `op-${++id}`, () => clock.now, eraseMedia);
   return { database, repository: mobile.openScope({ accountId, contextId: context.contextId }), mobile, clock };
 }
 

@@ -6,15 +6,15 @@ import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useRepository } from "../repository/hooks";
 import type { ScopedRepository } from "../repository/repository";
-import { releaseMediaCapture, stageLocalMediaFile, transferFiles } from "./files";
+import { prepareLocalMediaFile, releaseMediaCapture, transferFiles } from "./files";
 import { useMediaAccess } from "./provider";
-import { allowsVoice } from "./types";
+import { allowsVoice, photoResizeTarget } from "./types";
 import type { AttachmentId, MediaScope, MediaStageId, MediaTransfer, TransferQuery } from "./types";
 
 export type AttachSource = "camera" | "library" | { kind: "voice"; uri: string; durationMs: number };
 export type PickResult =
   | { status: "staged"; item: MediaTransfer }
-  | { status: "cancelled" | "denied" | "tooLarge" | "draftLimit" | "unavailable" };
+  | { status: "cancelled" | "denied" | "tooLarge" | "draftLimit" | "storageFull" | "unavailable" };
 const emptyTransfers: readonly MediaTransfer[] = [];
 
 export function useTransferRows(query: TransferQuery | null) {
@@ -42,8 +42,8 @@ export function useTransferRows(query: TransferQuery | null) {
 async function normalizePhoto({ uri, width, height }: ImagePicker.ImagePickerAsset) {
   const context = ImageManipulator.manipulate(uri);
   try {
-    const longestEdge = 3072;
-    if (Math.max(width, height) > longestEdge) context.resize(width >= height ? { width: longestEdge } : { height: longestEdge });
+    const resize = photoResizeTarget(width, height);
+    if (resize) context.resize(resize);
     const image = await context.renderAsync();
     try {
       // A fresh JPEG contains pixels, not the picked file's GPS/EXIF metadata.
@@ -65,7 +65,7 @@ async function capturePhoto(source: "camera" | "library"): Promise<PickResult | 
 
 async function stage(repo: ScopedRepository, scope: MediaScope, source: AttachSource, stageId?: MediaStageId): Promise<PickResult> {
   let uri: string | undefined;
-  let stagedUri: string | undefined;
+  let release: (() => void) | undefined;
   try {
     const voice = typeof source === "object";
     if (voice) {
@@ -78,24 +78,23 @@ async function stage(repo: ScopedRepository, scope: MediaScope, source: AttachSo
     }
     if (!repo.isActive) return { status: "unavailable" };
     const attachmentId = attachmentIdSchema.parse(uuid.v4());
-    const staged = await stageLocalMediaFile(uri, attachmentId, voice ? "audio/mp4" : "image/jpeg", voice ? mediaLimits.voiceBytes : mediaLimits.photoBytes);
+    const staged = await prepareLocalMediaFile(uri, attachmentId, voice ? "audio/mp4" : "image/jpeg",
+      voice ? mediaLimits.voiceBytes : mediaLimits.photoBytes, repo.persistentAuthoring);
     if (!staged) return { status: "tooLarge" };
-    stagedUri = staged.fileUri;
+    release = staged.release;
     const file = mediaFileSchema.safeParse(voice
       ? { kind: "voice", mime: staged.mime, bytes: staged.bytes, durationMs: Math.max(1, Math.round(source.durationMs)) }
       : { kind: "photo", mime: staged.mime, bytes: staged.bytes });
     if (!file.success) return { status: "unavailable" };
-    const item = await repo.createMediaTransfer({ ...scope, attachmentId, operationId: operationIdSchema.parse(uuid.v4()),
-      stageId, fileUri: stagedUri, file: file.data });
-    if (!item) return { status: "draftLimit" };
-    stagedUri = undefined; // Ownership now belongs to the durable queue.
-    return { status: "staged", item };
+    const result = await repo.createMediaTransfer({ ...scope, attachmentId, operationId: operationIdSchema.parse(uuid.v4()),
+      stageId, fileUri: staged.fileUri, file: file.data }, staged.copy);
+    return repo.isActive ? result : { status: "unavailable" };
   } catch (error) {
     const code = typeof error === "object" && error !== null && "code" in error ? error.code : null;
     return { status: typeof code === "string" && code.includes("PERMISSION") ? "denied" : "unavailable" };
   } finally {
     if (uri) await releaseMediaCapture(uri).catch(() => undefined);
-    if (stagedUri) await transferFiles.erase(stagedUri).catch(() => undefined);
+    release?.();
   }
 }
 
@@ -115,8 +114,13 @@ export function useAttach(caller: MediaCaller | undefined, parentScopeId: string
   }, [repo, queue]);
   const remove = useCallback(async (id: string) => {
     const attachmentId = attachmentIdSchema.safeParse(id).data;
-    return repo?.isActive && attachmentId ? repo.removeMediaTransfer(attachmentId, transferFiles.erase) : false;
-  }, [repo]);
+    if (!repo?.isActive || !attachmentId) return false;
+    const runtime = queue(repo);
+    const removed = await (runtime ? runtime.remove(attachmentId) : repo.removeMediaTransfer(attachmentId, transferFiles.erase));
+    // Existing drafts rotate after a reservation was started, since its server
+    // stage may still count the cancelled item until it expires.
+    return removed && !rows?.find((item) => item.attachmentId === attachmentId)?.started;
+  }, [repo, queue, rows]);
   return { pick, items: rows ?? emptyTransfers, loaded, retry, remove };
 }
 
@@ -131,7 +135,9 @@ export function useDraftMediaActions() {
     return true;
   }
   async function removeFromDraft(attachmentId: AttachmentId) {
-    return repo?.isActive ? repo.removeMediaTransfer(attachmentId, transferFiles.erase) : false;
+    if (!repo?.isActive) return false;
+    const runtime = queue(repo);
+    return runtime ? runtime.remove(attachmentId) : repo.removeMediaTransfer(attachmentId, transferFiles.erase);
   }
   return { useInDraft, removeFromDraft };
 }

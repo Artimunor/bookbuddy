@@ -22,9 +22,16 @@ export const syncState = table<Partition & { cursor: string | null; confirmed_at
 export const drafts = table<Partition & Saved & { key: string }>(
   "drafts", [...partitionKey, "key"], `${partition}, key TEXT NOT NULL, value TEXT NOT NULL, updated_at INTEGER NOT NULL`,
 );
-export const outbox = table<Partition & { operation_id: string; value: string; status: OutboxStatus; created_at: number; error: string | null }>(
+export const requestReconciliations = table<Partition & Saved & { key: string; operation_id: string; expected_revision: number; body: string | null }>(
+  "request_reconciliations", [...partitionKey, "key"], `${partition}, key TEXT NOT NULL, value TEXT NOT NULL, updated_at INTEGER NOT NULL,
+    operation_id TEXT NOT NULL, expected_revision INTEGER NOT NULL, body TEXT`,
+);
+export const outboxReviewColumn = "send_reviewed INTEGER NOT NULL DEFAULT 0 CHECK (send_reviewed IN (0, 1))";
+export const outbox = table<Partition & {
+  operation_id: string; value: string; status: OutboxStatus; created_at: number; error: string | null; send_reviewed: 0 | 1;
+}>(
   "outbox", [...partitionKey, "operation_id"], `${partition}, operation_id TEXT NOT NULL, value TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('queued', 'checking', 'conflict', 'rejected')), created_at INTEGER NOT NULL, error TEXT`,
+    status TEXT NOT NULL CHECK (status IN ('queued', 'checking', 'conflict', 'rejected')), created_at INTEGER NOT NULL, error TEXT, ${outboxReviewColumn}`,
 );
 
 // Acknowledged attendance must not go back into the send queue while its
@@ -57,7 +64,7 @@ export const localSettings = table<{ account_id: string; key: string; value: str
   "local_settings", ["account_id", "key"], "account_id TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL",
 );
 
-export const schema = [projection, syncState, drafts, outbox, attendanceReceipts, progressReceipts, stagedMedia, mediaTransfers, pendingOnlineReceipts, localSettings]
+export const schema = [projection, syncState, drafts, requestReconciliations, outbox, attendanceReceipts, progressReceipts, stagedMedia, mediaTransfers, pendingOnlineReceipts, localSettings]
   .map(({ schema }) => schema).join("\n") + `
   CREATE INDEX IF NOT EXISTS outbox_drain ON outbox(account_id, context_id, status, created_at, operation_id);
   CREATE INDEX IF NOT EXISTS attendance_by_assignment ON attendance_receipts(account_id, context_id, assignment_id, created_at, operation_id);

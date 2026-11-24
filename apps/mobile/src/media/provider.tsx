@@ -1,11 +1,12 @@
 import { createMediaClient } from "@bookbuddy/api-client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { AppState } from "react-native";
+import { AppState, View } from "react-native";
 import { useApiAccess } from "../api/provider";
 import { useRepository } from "../repository/hooks";
 import type { ScopedRepository } from "../repository/repository";
 import { transferFiles } from "./files";
+import { PendingWorkBanner } from "./PendingWorkBanner";
 import { MediaQueue } from "./queue";
 import type { AttachmentId, MediaScope } from "./types";
 
@@ -62,7 +63,13 @@ export function MediaTransferProvider({ children }: { children: ReactNode }) {
   useEffect(() => { showPreview((value) => value?.repository === repository ? value : null); }, [repository, requests]);
   const queue = useCallback((scope: ScopedRepository) => runtime.current?.repository === scope ? runtime.current.queue : null, []);
   const access = useMemo(() => ({ queue, preview, showPreview }), [queue, preview]);
-  return <MediaContext.Provider value={access}>{children}</MediaContext.Provider>;
+  return <MediaContext.Provider value={access}>
+    <View style={{ flex: 1 }}>
+      {repository?.isActive && requests.active && requests.authenticated &&
+        <PendingWorkBanner repository={repository} queue={queue} online={!!client && !offline} />}
+      {children}
+    </View>
+  </MediaContext.Provider>;
 }
 
 export function useMediaAccess() {

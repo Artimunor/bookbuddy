@@ -18,6 +18,10 @@ export type TransferProgress = {
   settlement: MediaSettlement | null;
   completedParts: CompletedPart[];
   terminal: boolean;
+  /** A committed journal row whose private copy is not yet ready for use. */
+  staging?: boolean;
+  cancelled?: boolean;
+  sendReviewed?: boolean;
 };
 export type MediaTransfer = MediaScope & TransferProgress & {
   attachmentId: AttachmentId;
@@ -32,9 +36,16 @@ export type NewMediaTransfer = Omit<MediaTransfer, keyof TransferProgress | "sta
   stageId?: MediaStageId;
 };
 export type TransferQuery = Partial<MediaScope> & { attachmentId?: AttachmentId; stageId?: MediaStageId };
+export type PreparedMedia = { fileUri: string; bytes: number; mime: string; copy: () => void | Promise<void>; release?: () => void };
 
 export function isSentDraft(item: MediaTransfer): boolean {
-  return item.selected && item.state === "ready" && item.fileUri === null;
+  return !item.cancelled && item.selected && item.state === "ready" && item.fileUri === null;
+}
+
+export function photoResizeTarget(width: number, height: number): { width: number } | { height: number } | undefined {
+  const longEdge = 2048;
+  if (Math.max(width, height) <= longEdge) return undefined;
+  return width >= height ? { width: longEdge } : { height: longEdge };
 }
 
 export function allowsVoice(caller: MediaCaller): boolean {

@@ -1,13 +1,16 @@
 /// <reference types="bun" />
+/// <reference lib="es2024.promise" />
 import type { ApiResult } from "@bookbuddy/api-client";
+import type { MediaUploadGrant } from "@bookbuddy/api-contract";
 import { attachmentIdSchema, mediaStageIdSchema, operationIdSchema } from "@bookbuddy/api-contract";
 import type { MediaFile } from "@bookbuddy/api-contract";
 import { expect, test } from "bun:test";
+import { pendingHoldAfter } from "../repository/pending-work";
 import type { ScopedRepository } from "../repository/repository";
 import { testRepository } from "../repository/sqlite.test-kit";
 import { MediaQueue } from "./queue";
 import type { TransferFiles } from "./queue";
-import { isSentDraft } from "./types";
+import { isSentDraft, photoResizeTarget } from "./types";
 
 const stageId = mediaStageIdSchema.parse("media-stage-test");
 const photo = { kind: "photo", mime: "image/jpeg", bytes: 1_800 } as const;
@@ -18,6 +21,13 @@ const single = { kind: "single", method: "PUT", url: signed, expiresAt: 4_000,
 const unknown = { ok: false, error: { code: "NETWORK_ERROR", delivery: "unknown" } } as const;
 const ready = { state: "ready" } as const;
 
+test("photo normalization scales only the long edge and never enlarges a capture", () => {
+  expect(photoResizeTarget(3072, 2048)).toEqual({ width: 2048 });
+  expect(photoResizeTarget(1080, 2400)).toEqual({ height: 2048 });
+  expect(photoResizeTarget(2048, 2048)).toBeUndefined();
+  expect(photoResizeTarget(1600, 900)).toBeUndefined();
+});
+
 function ok<T>(data: T): ApiResult<T> {
   return { ok: true, meta: { requestId: "media-test", serverTime: 1_000 }, data };
 }
@@ -25,7 +35,7 @@ function ok<T>(data: T): ApiResult<T> {
 async function staged(repo: ScopedRepository, name: string, file: MediaFile = photo, selected = true) {
   const attachmentId = attachmentIdSchema.parse(name);
   await repo.createMediaTransfer({ attachmentId, stageId, caller: "request", parentScopeId: "place",
-    operationId: operationIdSchema.parse(`operation-${name}`), file, fileUri: `file:///staged/${name}.jpg` });
+    operationId: operationIdSchema.parse(`operation-${name}`), file, fileUri: `file:///staged/${name}.jpg` }, () => {});
   if (selected) await repo.updateMediaTransfer(attachmentId, () => ({ selected: true }));
   return attachmentId;
 }
@@ -166,7 +176,7 @@ test("multipart completion keeps a durable receipt and probes once instead of re
   database.close();
 });
 
-test("remove is allowed only until transfer starts; failed rows wait for explicit retry", async () => {
+test("unstarted media can be removed offline and definite failures wait for explicit retry", async () => {
   const { repository: repo, database } = await testRepository();
   const removable = await staged(repo, "remove-me");
   const retryable = await staged(repo, "failed-upload");
@@ -190,13 +200,122 @@ test("remove is allowed only until transfer starts; failed rows wait for explici
   expect(await queue.remove(removable)).toBe(true);
   allowed = true;
   await queue.kick();
-  expect(await queue.remove(retryable)).toBe(false);
   expect((await repo.listMediaTransfers())[0]).toMatchObject({ state: "failed", probe: null });
   await queue.kick();
   expect(calls).toEqual(["file:///staged/remove-me.jpg", "grant", "put"]);
   await queue.retry(retryable);
   expect(calls).toEqual(["file:///staged/remove-me.jpg", "grant", "put", "grant", "put", "settle", "file:///staged/failed-upload.jpg"]);
   database.close();
+});
+
+test("removal while a grant is in flight fences off the first PUT", async () => {
+  const { repository: repo, database } = await testRepository();
+  const id = await staged(repo, "cancel-before-put");
+  const calls: string[] = [];
+  const grant = Promise.withResolvers<void>();
+  const entered = Promise.withResolvers<void>();
+  const queue = new MediaQueue(repo, {
+    async createGrants() {
+      calls.push("grant");
+      entered.resolve();
+      await grant.promise;
+      return ok({ stageId, grants: [{ attachmentId: id, state: "uploading", uploadGeneration: 1, grant: single }] });
+    },
+    async recover() { throw new Error("No PUT was issued"); },
+    async settle() { throw new Error("No PUT was issued"); },
+  }, {
+    size: () => photo.bytes,
+    async put() { calls.push("put"); return { status: 200 }; },
+    async erase() { calls.push("erase"); },
+  }, () => true, () => 1_000);
+  try {
+    const draining = queue.kick();
+    await entered.promise;
+    expect(await queue.remove(id)).toBeTrue();
+    grant.resolve();
+    await draining;
+    expect(calls).toEqual(["grant", "erase"]);
+    expect(await repo.listMediaTransfers()).toEqual([]);
+  } finally { grant.resolve(); queue.stop(); database.close(); }
+});
+
+test("durable cancellation during a PUT recovers the known generation before deleting local bytes", async () => {
+  const { repository: repo, mobile, database } = await testRepository();
+  const id = await staged(repo, "cancel-during-put");
+  const events: string[] = [];
+  const put = Promise.withResolvers<void>();
+  const entered = Promise.withResolvers<void>();
+  const files: TransferFiles = {
+    size: () => photo.bytes,
+    async put() { events.push("put"); entered.resolve(); await put.promise; return { status: 200 }; },
+    async erase() { events.push("erase"); },
+  };
+  const queue = new MediaQueue(repo, {
+    async createGrants() {
+      events.push("grant");
+      return ok({ stageId, grants: [{ attachmentId: id, state: "uploading", uploadGeneration: 3, grant: single }] });
+    },
+    async recover() { throw new Error("The runner is stopped before recovery"); },
+    async settle() { throw new Error("Never settle a cancelled PUT"); },
+  }, files, () => true, () => 1_000);
+  try {
+    const draining = queue.kick();
+    await entered.promise;
+    expect(await queue.remove(id)).toBeTrue();
+    expect(await repo.listMediaTransfers()).toEqual([]);
+    expect((await repo.listMediaTransfers({}, true))[0]).toMatchObject({ cancelled: true, selected: false, generation: 3, probe: "put" });
+    expect(events).toEqual(["grant", "put"]);
+    queue.stop();
+    put.resolve();
+    await draining;
+    repo.close();
+    const reopened = mobile.openScope(repo.scope);
+    const restored = new MediaQueue(reopened, {
+      async createGrants() { throw new Error("Never grant a cancelled item"); },
+      async settle() { throw new Error("Never settle a cancelled item"); },
+      async recover(body) {
+        events.push("recover");
+        expect(body).toEqual({ stageId, files: [{ attachmentId: id, uploadGeneration: 3, unknown: "put" }] });
+        return ok({ stageId, files: [{ attachmentId: id, uploadGeneration: 3, state: "uploading",
+          transfer: { kind: "single", object: "missing" } }] });
+      },
+    }, files, () => true, () => 1_000);
+    await restored.kick();
+    expect(events).toEqual(["grant", "put", "recover", "erase"]);
+    expect(await reopened.listMediaTransfers({}, true)).toEqual([]);
+    expect(await reopened.countStagedMedia()).toBe(0);
+  } finally { put.resolve(); queue.stop(); database.close(); }
+});
+
+test("a grant that arrives at day thirty cannot start a PUT before explicit approval", async () => {
+  const { repository: repo, clock, database } = await testRepository();
+  const id = await staged(repo, "expired-before-put");
+  clock.now += pendingHoldAfter - 1;
+  const events: string[] = [];
+  const queue = new MediaQueue(repo, {
+    async createGrants() {
+      events.push("grant");
+      const grant: MediaUploadGrant = { ...single, expiresAt: clock.now + 5_000 };
+      clock.now++;
+      return ok({ stageId, grants: [{ attachmentId: id, state: "uploading", uploadGeneration: 1, grant }] });
+    },
+    async recover() { throw new Error("Not an uncertain PUT"); },
+    async settle() {
+      events.push("settle");
+      return ok({ stageId, acknowledgements: [{ attachmentId: id, uploadGeneration: 1, ...ready }] });
+    },
+  }, {
+    size: () => photo.bytes,
+    async put() { events.push("put"); return { status: 200 }; },
+    async erase() { events.push("erase"); },
+  }, () => true, () => clock.now);
+  try {
+    await queue.kick();
+    await queue.retry(id);
+    expect(events).toEqual(["grant"]);
+    expect(await queue.sendHeld(id)).toBeTrue();
+    expect(events).toEqual(["grant", "put", "settle", "erase"]);
+  } finally { queue.stop(); database.close(); }
 });
 
 test("account wipe erases held files and does not read or wipe other accounts' media", async () => {

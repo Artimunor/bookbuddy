@@ -1,6 +1,6 @@
 import { serialize } from "./executor";
 import type { Executor, Rows, SqlValue } from "./executor";
-import { schema } from "./schema";
+import { outboxReviewColumn, schema } from "./schema";
 
 export interface SqliteConnection {
   exec(sql: string): Promise<void>;
@@ -34,6 +34,11 @@ function predicate<Row>(where: Partial<Row>, bindings: SqlValue[]): string {
 
 export async function createSqliteExecutor(connection: SqliteConnection): Promise<Executor> {
   await connection.exec(schema);
+  // Keep existing queued operation IDs and payloads when upgrading a device.
+  const columns = await connection.all<{ name: string }>("PRAGMA table_info(outbox)", []);
+  if (!columns.some(({ name }) => name === "send_reviewed")) {
+    await connection.exec(`ALTER TABLE outbox ADD COLUMN ${outboxReviewColumn}`);
+  }
   const rows: Rows = {
     select(table, where, { order, limit } = {}) {
       const bindings: SqlValue[] = [];

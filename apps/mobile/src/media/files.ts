@@ -1,17 +1,20 @@
-import type { AttachmentId } from "./types";
+import type { AttachmentId, PreparedMedia } from "./types";
 import type { TransferFiles } from "./queue";
 
 // The Expo web preview has a memory-only repository. Keep Blob references, not
 // serialized bytes, in the matching in-memory file store for that process.
 const stagedFiles = new Map<string, Blob>();
 
-export async function stageLocalMediaFile(uri: string, _attachmentId: AttachmentId, mime: string, limit: number) {
+export async function prepareLocalMediaFile(uri: string, _attachmentId: AttachmentId, mime: string, limit: number, _persistent: boolean): Promise<PreparedMedia | null> {
   if (!uri.startsWith("blob:") && !uri.startsWith("data:")) return null;
   const blob = await (await fetch(uri)).blob();
   if (blob.size === 0 || blob.size > limit) return null;
   const fileUri = URL.createObjectURL(blob);
-  stagedFiles.set(fileUri, blob);
-  return { fileUri, bytes: blob.size, mime: blob.type.split(";", 1)[0] || mime };
+  return {
+    fileUri, bytes: blob.size, mime: blob.type.split(";", 1)[0] || mime,
+    copy() { stagedFiles.set(fileUri, blob); },
+    release() { if (!stagedFiles.has(fileUri)) URL.revokeObjectURL(fileUri); },
+  };
 }
 
 export async function releaseMediaCapture(uri: string) {

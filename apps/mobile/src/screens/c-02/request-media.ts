@@ -16,15 +16,15 @@ export function useRequestMedia(local: { value: RequestDraft; draftId: string; l
     const cap = mode === "photo" ? 5 : 1;
     if (!placeId || !local.loaded || !transfers.loaded || draft.pendingOperation || wrongPlace || items.filter(item => item.file.kind === mode).length >= cap) return;
     const samePlace = draft.mediaPlaceId === placeId;
-    const useStages = samePlace ? stages : [draft.mediaPlaceId ? uuid.v4() : local.draftId];
+    const useStages = samePlace ? stages : draft.mediaPlaceId ? [...stages, uuid.v4()] : [local.draftId];
     if (!samePlace || !draft.placeId) await local.change({ ...draft, placeId, mediaPlaceId: placeId, mediaStages: useStages });
     navigation.attach("request", placeId, useStages[useStages.length - 1]!, mode);
   }
   async function remove(item: MediaTransfer) {
     if (draft.pendingOperation || !local.loaded) return;
     if (await transfers.remove(item.attachmentId)) return;
-    // Upload authorization is not request submission. Omit this staged ID, even if its bytes have settled.
-    await local.change({ ...draft, omittedMedia: [...(draft.omittedMedia ?? []), item.attachmentId], mediaStages: [...stages, uuid.v4()] });
+    // A cancelled reservation may still count against its server stage.
+    await local.change({ ...draft, mediaStages: [...stages, uuid.v4()] });
   }
   return { items, loaded: !parent || transfers.loaded, placeId, wrongPlace, add, remove, preview: navigation.preview, retry: transfers.retry };
 }

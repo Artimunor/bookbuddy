@@ -1,11 +1,13 @@
-import { getPlaceRoute, submitRequestPayloadSchema, submitRequestRoute, type PlaceDetails, type RequestReceipt } from "@bookbuddy/api-contract";
+import { getOperationRoute, getPlaceRoute, operationIdSchema, submitRequestPayloadSchema, submitRequestRoute, type PlaceDetails, type RequestReceipt } from "@bookbuddy/api-contract";
 import { uuid } from "expo";
 import * as Haptics from "expo-haptics";
 import { useRouter, type Href } from "expo-router";
 import { useRef, useState } from "react";
 import { useCommand, useRemote } from "../../api";
+import { useApiAccess } from "../../api/provider";
 import { useFormat, useT } from "../../i18n";
 import type { MediaTransfer } from "../../media";
+import { useRepository } from "../../repository/hooks";
 import { useSession } from "../../session";
 import { Button, Card, Dock, Screen } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
@@ -23,31 +25,69 @@ function payload(d: RequestDraft, items: readonly MediaTransfer[]) {
 }
 export default function RequestReviewScreen() {
   const router = useRouter(); const local = useRequestDraft(); const offline = useOffline(); const command = useCommand(submitRequestRoute, { resourceId: local.draftId }); const t = useT(); const { preferences } = useSession();
-  const place = useRemote(getPlaceRoute, { params: { p: local.value.placeId } }, { enabled: !!local.value.placeId });
+  const repo = useRepository(); const { client, requests } = useApiAccess();
+  const place = useRemote(getPlaceRoute, { params: { p: local.value.placeId } }, { enabled: !!local.value.placeId && !local.reconciliation });
   const media = useRequestMedia(local);
   const awaitingMedia = !media.loaded || media.items.some(item => item.state !== "ready");
-  const [receipt, setReceipt] = useState<RequestReceipt | null>(null); const [failure, setFailure] = useState(false); const locked = useRef(false);
+  const [receipt, setReceipt] = useState<RequestReceipt | null>(null);
+  const [committed, setCommitted] = useState(false);
+  const [failure, setFailure] = useState(false);
+  const [working, setWorking] = useState(false);
+  const locked = useRef(false);
   async function send() {
-    if (locked.current || offline || awaitingMedia || media.wrongPlace) return;
-    const d = local.value; const parsed = payload(d, media.items); if (!parsed?.success) return;
-    const pending = d.pendingOperation ?? (place.status === "ready" && place.data.state === "in_area" ? { id: uuid.v4(), revision: place.data.revision } : null);
-    if (!pending) return;
-    locked.current = true; setFailure(false);
+    if (locked.current || offline || !local.loaded || !repo?.isActive || !client || !requests.allows("context", repo)) return;
+    const prior = local.reconciliation;
+    const draft = local.value;
+    let body = prior?.body;
+    if (!prior) {
+      if (awaitingMedia || media.wrongPlace || place.status !== "ready" || place.data.state !== "in_area") return;
+      const parsed = payload(draft, media.items);
+      if (!parsed?.success) return;
+      body = { operationId: operationIdSchema.parse(uuid.v4()), expectedRevision: place.data.revision, payload: parsed.data };
+    }
+    locked.current = true; setWorking(true); setFailure(false);
     try {
-      if (!d.pendingOperation) await local.change({ ...d, pendingOperation: pending });
-      const result = await command.run({ body: { operationId: pending.id, expectedRevision: pending.revision, payload: parsed.data } });
-      if (result.ok) { setReceipt(result.data); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); await local.remove(); }
-      else if (!("delivery" in result.error && result.error.delivery === "unknown") && result.error.code !== "INTERNAL_ERROR") {
-        const changed = result.error.code === "STALE_REVISION" || result.error.code === "CONFLICT";
-        await local.change({ ...d, pendingOperation: null, step: changed ? "place" : "review" });
-        if (changed) router.replace(requestDraftHref("place", local.draftId, { changed: "1" })); else setFailure(true);
+      if (!body) {
+        if (!prior) return;
+        // Older clients saved the ID without the exact body. Check the
+        // receipt; never guess at a previously submitted payload.
+        const result = await client.request(getOperationRoute, { params: { id: prior.operationId } });
+        if (!requests.allows("context", repo)) return;
+        if (!result.ok) { setFailure(true); return; }
+        await local.finish(prior.operationId);
+        setCommitted(true);
+        return;
+      }
+      const frozen = prior ? { body, created: false } : await local.begin(body);
+      const result = await command.run({ body: frozen.body });
+      if (!requests.allows("context", repo)) return;
+      if (result.ok) {
+        setReceipt(result.data);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        await local.finish(frozen.body.operationId);
+      } else {
+        const { code } = result.error;
+        const changed = code === "STALE_REVISION" || code === "CONFLICT";
+        const notSent = "delivery" in result.error && result.error.delivery === "not_sent";
+        // Replays may encounter a changed place or a pruned receipt. Only a
+        // definitive first-attempt rejection returns to editing with a new ID.
+        if (frozen.created && (changed || notSent || code === "INVALID_INPUT" || code === "VALIDATION_FAILED")) {
+          await local.finish(frozen.body.operationId, { ...draft, pendingOperation: null, step: changed ? "place" : "review" });
+          if (changed) router.replace(requestDraftHref("place", local.draftId, { changed: "1" }));
+          else setFailure(true);
+        } else if (!("delivery" in result.error && result.error.delivery === "unknown") && code !== "INTERNAL_ERROR") {
+          setFailure(true);
+        }
       }
     } catch { setFailure(true); }
-    finally { locked.current = false; }
+    finally { locked.current = false; setWorking(false); }
   }
-  const checking = !!local.value.pendingOperation || command.state === "checking";
+  const checking = !!local.reconciliation || command.state === "checking";
+  if (committed) return <Screen title={t("mobile.request.sent")} dock={<Dock primary={{
+    label: t("mobile.customerHome.bookings"), onPress: () => router.dismissTo("/c/(tabs)/bookings" as Href),
+  }} />}><Copy>{t("mobile.request.nextBody")}</Copy></Screen>;
   if (!local.loaded && !receipt) return <Screen title={t("mobile.request.reviewTitle")}><Copy>{local.failed ? t("mobile.request.saveFailed") : t("mobile.request.loading")}</Copy></Screen>;
-  return <ReviewRequestView draft={local.value} place={place.data} offline={offline} status={command.state} checking={checking} failed={failure || local.failed} warn={local.warn} twoClock={preferences?.twoClock ?? false} receipt={receipt} items={media.items} awaitingMedia={awaitingMedia} wrongPlace={media.wrongPlace} onOpenAttachment={media.preview} onRemoveAttachment={item => { void media.remove(item).catch(() => setFailure(true)); }} onRetryAttachment={id => { void media.retry(id).catch(() => setFailure(true)); }} onBack={() => router.back()} onEditDescription={() => router.push(requestDraftHref("describe", local.draftId, { returnTo: "review" }))} onEditPlace={() => router.push(requestDraftHref("place", local.draftId, { returnTo: "review" }))} onSend={() => { void send(); }} onOpenJob={() => { if (receipt) { router.dismissTo("/c/(tabs)/now" as Href); router.push(`/c/jobs/${receipt.jobId}` as Href); } }} onClose={() => router.dismissTo("/c/(tabs)/now" as Href)} />;
+  return <ReviewRequestView draft={local.value} place={place.data} offline={offline} status={working ? "sending" : command.state} checking={checking} failed={failure || local.failed} warn={local.warn} twoClock={preferences?.twoClock ?? false} receipt={receipt} items={media.items} awaitingMedia={awaitingMedia} wrongPlace={media.wrongPlace} onOpenAttachment={media.preview} onRemoveAttachment={item => { void media.remove(item).catch(() => setFailure(true)); }} onRetryAttachment={id => { void media.retry(id).catch(() => setFailure(true)); }} onBack={() => router.back()} onEditDescription={() => router.push(requestDraftHref("describe", local.draftId, { returnTo: "review" }))} onEditPlace={() => router.push(requestDraftHref("place", local.draftId, { returnTo: "review" }))} onSend={() => { void send(); }} onOpenJob={() => { if (receipt) { router.dismissTo("/c/(tabs)/now" as Href); router.push(`/c/jobs/${receipt.jobId}` as Href); } }} onClose={() => router.dismissTo("/c/(tabs)/now" as Href)} />;
 }
 
 type CommandState = "idle" | "sending" | "done" | "conflict" | "checking" | "failed";
@@ -57,8 +97,8 @@ export function ReviewRequestView({ draft, place, offline, status, checking, fai
   const sending = status === "sending"; const ready = !!payload(draft, items)?.success && !awaitingMedia && !wrongPlace && place?.state === "in_area" && !offline;
   const context = checking ? t("mobile.request.checking") : wrongPlace ? t("mobile.photos.placeChanged") : offline ? t("mobile.request.offline") : awaitingMedia ? t("mobile.photos.wait") : !ready ? (place?.state === "out_of_area" ? t("mobile.request.outsideArea") : place?.state !== "in_area" ? t("mobile.request.areaUnknown") : t("mobile.request.describeRequired")) : t("mobile.request.free");
   const who = draft.arrivalArrangement === "nobody" ? t("mobile.request.nobody") : draft.arrivalArrangement === "requester" ? t("mobile.request.me") : draft.arrivalContactName;
-  return <Screen title={t("mobile.request.reviewTitle")} navigation={{ kind: "back", label: t("mobile.request.back"), onPress: onBack }} dock={<Dock context={context} primary={{ label: checking ? t("mobile.request.checkStatus") : t("mobile.request.send"), onPress: onSend, busy: sending, disabled: sending || offline || awaitingMedia || wrongPlace || (!checking && !ready) }} />}>
-    <Copy variant="supporting">{t("mobile.request.stepThree")}</Copy><Card><Copy variant="sectionTitle">{checking ? t("mobile.request.checking") : offline ? t("mobile.request.offline") : t("mobile.request.notBooking")}</Copy>{failed && !checking && <Copy>{t("mobile.request.failed")}</Copy>}</Card>
+  return <Screen title={t("mobile.request.reviewTitle")} navigation={{ kind: "back", label: t("mobile.request.back"), onPress: onBack }} dock={<Dock context={context} primary={{ label: checking ? t("mobile.request.checkStatus") : t("mobile.request.send"), onPress: onSend, busy: sending, disabled: sending || offline || (!checking && !ready) }} />}>
+    <Copy variant="supporting">{t("mobile.request.stepThree")}</Copy><Card><Copy variant="sectionTitle">{checking ? t("mobile.request.checking") : offline ? t("mobile.request.offline") : t("mobile.request.notBooking")}</Copy>{failed && <Copy>{checking ? t("mobile.pending.reviewFailed") : t("mobile.request.failed")}</Copy>}</Card>
     {warn && <Copy>{t("mobile.request.expiryWarning")}</Copy>}
     <Card><Copy variant="sectionTitle">{t("mobile.request.job")}</Copy>{!!draft.description.trim() && <Copy>{draft.description}</Copy>}{!!draft.language && <Copy variant="supporting">{draft.language}</Copy>}
       {!!items.length && <AttachmentTiles items={items} offline={offline} onOpen={onOpenAttachment} onRemove={checking || sending ? undefined : onRemoveAttachment} onRetry={checking || sending ? undefined : onRetryAttachment} />}

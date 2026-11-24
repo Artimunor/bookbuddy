@@ -29,7 +29,7 @@ export default function AttachScreen() {
   const { color, radius, space } = useBeaconTheme();
   const { pick, items, retry } = useAttach(scope?.caller, scope?.parentScopeId, stageId);
   const [denied, setDenied] = useState<Partial<Record<Source, boolean>>>({});
-  const [notice, setNotice] = useState<"tooLarge" | "draftLimit" | "unavailable" | null>(null);
+  const [notice, setNotice] = useState<"tooLarge" | "draftLimit" | "storageFull" | "unavailable" | null>(null);
   const [picking, setPicking] = useState(false);
   const [discard, setDiscard] = useState(false);
   const pendingPhoto = useRef(false);
@@ -81,7 +81,7 @@ export default function AttachScreen() {
     void Linking.openSettings().catch(() => setNotice("unavailable"));
   };
   const error = notice === "tooLarge" ? t("mobile.media.tooLarge") : notice === "draftLimit" ? t("mobile.media.draftLimit")
-    : notice === "unavailable" ? t("mobile.media.captureFailed") : null;
+    : notice === "storageFull" ? t("mobile.media.storageFull") : notice === "unavailable" ? t("mobile.media.captureFailed") : null;
 
   return <>
     <AttachPanel title={recording ? t("mobile.media.voiceNote") : t("mobile.media.attachTitle")}

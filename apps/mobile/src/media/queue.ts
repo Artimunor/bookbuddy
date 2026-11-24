@@ -1,6 +1,7 @@
 import type { ApiResult, RequestOptions } from "@bookbuddy/api-client";
 import { mediaLimits } from "@bookbuddy/api-contract";
 import type { AttachmentState, MediaSettlement, MediaUploadGrant, RouteRequest, RouteResponse, createMediaGrantsRoute, recoverMediaRoute, settleMediaRoute } from "@bookbuddy/api-contract";
+import { pendingAge } from "../repository/pending-work";
 import type { ScopedRepository } from "../repository/repository";
 import type { AttachmentId, MediaStageId, MediaTransfer, TransferProgress } from "./types";
 
@@ -23,7 +24,7 @@ export type TransferFiles = {
   erase: (uri: string) => Promise<void>;
   put: (uri: string, request: SignedPut) => Promise<PutReceipt>;
 };
-type TransferStore = Pick<ScopedRepository, "isActive" | "listMediaTransfers" | "updateMediaTransfer" | "removeMediaTransfer" | "notifyProgressReady">;
+type TransferStore = Pick<ScopedRepository, "isActive" | "now" | "listMediaTransfers" | "updateMediaTransfer" | "removeMediaTransfer" | "finishMediaCancellation" | "notifyProgressReady">;
 type Grant = { generation: number; value: MediaUploadGrant };
 const isRejected = (state: AttachmentState) => state === "rejected" || state === "expired";
 const serverDenied = (code: string) => code === "UNAUTHENTICATED" || code === "NOT_FOUND" || code === "CONFLICT" || code === "VALIDATION_FAILED" || code === "INVALID_INPUT";
@@ -37,6 +38,7 @@ function settlementFor(item: MediaTransfer, kind: MediaSettlement["kind"], gener
 export class MediaQueue {
   private readonly abort = new AbortController();
   private readonly grants = new Map<AttachmentId, Grant>();
+  private readonly removing = new Set<AttachmentId>();
   private running: Promise<void> | null = null;
   private requested = false;
   private readyProgress: Set<AttachmentId> | null = null;
@@ -46,7 +48,7 @@ export class MediaQueue {
     private readonly api: TransferApi,
     private readonly files: TransferFiles,
     private readonly permitted: () => boolean,
-    private readonly now = Date.now,
+    private readonly now = store.now,
   ) {}
 
   stop() {
@@ -56,6 +58,11 @@ export class MediaQueue {
   }
 
   private get canRun() { return !this.abort.signal.aborted && this.store.isActive && this.permitted(); }
+
+  private canSend(item: MediaTransfer) {
+    return this.canRun && !item.cancelled && !this.removing.has(item.attachmentId) &&
+      pendingAge(item.capturedAt, this.now(), item.sendReviewed) !== "held";
+  }
 
   // Only a lifecycle event or explicit action requests a pass. Requests arriving
   // during a pass coalesce; a stalled/unknown row cannot schedule its own retry.
@@ -72,23 +79,57 @@ export class MediaQueue {
   }
 
   async retry(attachmentId: AttachmentId) {
-    await this.store.updateMediaTransfer(attachmentId, (item) => item.selected && item.state === "failed" && !item.terminal
+    await this.store.updateMediaTransfer(attachmentId, (item) => item.selected && item.state === "failed" && !item.terminal &&
+      pendingAge(item.capturedAt, this.now(), item.sendReviewed) !== "held"
       ? { state: item.settlement || item.probe ? "verifying" : item.started ? "uploading" : "queued" }
       : null);
     return this.kick();
   }
 
-  remove(attachmentId: AttachmentId) { return this.store.removeMediaTransfer(attachmentId, this.files.erase); }
+  async sendHeld(attachmentId: AttachmentId) {
+    const approved = await this.store.updateMediaTransfer(attachmentId, (item) => {
+      if (!item.selected || !item.fileUri || item.terminal || item.state === "ready" ||
+        pendingAge(item.capturedAt, this.now(), item.sendReviewed) !== "held") return null;
+      const state = item.state === "failed" ? item.settlement || item.probe ? "verifying" : item.started ? "uploading" : "queued" : item.state;
+      return { sendReviewed: true, state };
+    });
+    if (!approved) return false;
+    await this.kick();
+    return true;
+  }
+
+  async remove(attachmentId: AttachmentId) {
+    if (this.removing.has(attachmentId)) return true;
+    // Fence an already-prepared in-memory batch immediately, before waiting
+    // for the persistent cancellation. Keep the fence until that batch exits.
+    this.removing.add(attachmentId);
+    try {
+      const removed = await this.store.removeMediaTransfer(attachmentId, this.files.erase);
+      this.grants.delete(attachmentId);
+      if (removed) void this.kick().catch(() => undefined);
+      return removed;
+    } finally {
+      const clear = () => { this.removing.delete(attachmentId); };
+      if (this.running) void this.running.then(clear, clear);
+      else clear();
+    }
+  }
 
   private async drain() {
     while (this.requested && this.canRun) {
       this.requested = false;
       const stages = new Map<MediaStageId, MediaTransfer[]>();
       for (const item of await this.store.listMediaTransfers({}, true)) {
-        if (item.state === "ready") {
+        if (!this.store.isActive || this.abort.signal.aborted) return;
+        if (item.cancelled && !item.probe) {
+          await this.store.finishMediaCancellation(item.attachmentId, this.files.erase);
+          continue;
+        }
+        if (!item.cancelled && item.state === "ready") {
           await this.eraseReady(item);
           continue;
         }
+        if (!item.cancelled && !this.canSend(item)) continue;
         const stage = stages.get(item.stageId);
         if (stage) stage.push(item);
         else stages.set(item.stageId, [item]);
@@ -128,19 +169,27 @@ export class MediaQueue {
   }
 
   private async advance(stageId: MediaStageId, batch: MediaTransfer[]) {
+    const eligible = batch.filter((item) => item.cancelled || this.canSend(item));
     const options = { signal: this.abort.signal };
-    const unknown = batch.flatMap(({ attachmentId, probe, generation }) => probe && generation !== null
+    const unknown = eligible.flatMap(({ attachmentId, probe, generation }) => probe && generation !== null
       ? [{ attachmentId, uploadGeneration: generation, unknown: probe }] : []);
-    const remaining = batch.filter(({ probe }) => !probe);
+    const remaining = eligible.filter((item) => !item.probe && !item.cancelled);
     const missing = new Map<AttachmentId, number[]>();
     if (unknown.length && this.canRun) {
       const recovery = await this.api.recover({ stageId, files: unknown }, options);
       if (recovery.ok && recovery.data.stageId === stageId) {
         const results = new Map(recovery.data.files.map((file) => [file.attachmentId, file]));
-        for (const item of batch) {
+        for (const item of eligible) {
           if (!item.probe) continue;
           const result = results.get(item.attachmentId);
           if (!result || result.uploadGeneration !== item.generation) continue;
+          if (item.cancelled) {
+            if (result.state === "ready" || isRejected(result.state) || result.state === "uploading") {
+              if (!this.store.isActive || this.abort.signal.aborted) return;
+              await this.store.finishMediaCancellation(item.attachmentId, this.files.erase, { generation: item.generation, probe: item.probe });
+            }
+            continue;
+          }
           if (result.state === "ready") await this.ready(item, result.uploadGeneration);
           else if (isRejected(result.state)) await this.failed(item, true, { probe: null });
           else if (result.state === "uploading") {
@@ -154,7 +203,7 @@ export class MediaQueue {
           }
         }
       } else if (!recovery.ok && serverDenied(recovery.error.code)) {
-        for (const item of batch) if (item.probe) await this.failed(item);
+        for (const item of eligible) if (item.probe && !item.cancelled) await this.failed(item);
       }
     }
 
@@ -162,13 +211,13 @@ export class MediaQueue {
     const toUpload: { item: MediaTransfer; grant: Grant }[] = [];
     const toSettle = remaining.filter(({ settlement }) => settlement);
     for (const item of remaining) {
-      if (item.settlement || !item.fileUri || !this.canRun) continue;
+      if (item.settlement || !item.fileUri || !this.canSend(item)) continue;
       if (this.files.size(item.fileUri) !== item.file.bytes) {
         await this.failed(item, true);
         continue;
       }
       const active = item.started ? item : await this.store.updateMediaTransfer(item.attachmentId, (current) =>
-        current.selected && current.state === "queued" ? { started: true, state: "uploading" } : null);
+        current.selected && current.state === "queued" && this.canSend(current) ? { started: true, state: "uploading" } : null);
       if (!active) continue; // Removed while waiting to claim.
       const grant = this.grants.get(active.attachmentId);
       if (grant?.generation === active.generation && grant.value.expiresAt > this.now()) toUpload.push({ item: active, grant });
@@ -178,15 +227,16 @@ export class MediaQueue {
       }
     }
 
-    if (toGrant.length && this.canRun) {
-      const { caller, parentScopeId } = toGrant[0]!;
-      const response = await this.api.createGrants({ stageId, scope: { caller, parentScopeId }, files: toGrant.map(({ attachmentId, file, generation }) => {
+    const grantable = toGrant.filter((item) => this.canSend(item));
+    if (grantable.length) {
+      const { caller, parentScopeId } = grantable[0]!;
+      const response = await this.api.createGrants({ stageId, scope: { caller, parentScopeId }, files: grantable.map(({ attachmentId, file, generation }) => {
         const missingPartNumbers = missing.get(attachmentId);
         return { attachmentId, file, ...(generation !== null && { refresh: { uploadGeneration: generation, missingPartNumbers } }) };
       }) }, options);
       if (response.ok && response.data.stageId === stageId) {
         const grants = new Map(response.data.grants.map((grant) => [grant.attachmentId, grant]));
-        for (const item of toGrant) {
+        for (const item of grantable) {
           const result = grants.get(item.attachmentId);
           if (!result) continue;
           const generation = result.uploadGeneration;
@@ -204,7 +254,7 @@ export class MediaQueue {
           }
         }
       } else if (!response.ok && serverDenied(response.error.code)) {
-        for (const item of toGrant) await this.failed(item);
+        for (const item of grantable) await this.failed(item);
       }
     }
 
@@ -217,16 +267,19 @@ export class MediaQueue {
   }
 
   private async upload(item: MediaTransfer, { generation, value }: Grant) {
-    if (!item.fileUri || !this.canRun || value.expiresAt <= this.now()) return null;
+    if (!item.fileUri || !this.canSend(item) || value.expiresAt <= this.now()) return null;
     const fileUri = item.fileUri;
     const probe = value.kind === "single" ? "put" : "parts";
-    if (!await this.update(item, { state: "uploading", probe })) return null;
-    if (!this.canRun || value.expiresAt <= this.now()) return this.update(item, { probe: null });
+    const armed = await this.store.updateMediaTransfer(item.attachmentId, (current) =>
+      current.selected && current.generation === generation && this.canSend(current) ? { state: "uploading", probe } : null);
+    if (!armed) return null;
+    if (!this.canSend(armed) || value.expiresAt <= this.now()) return this.update(armed, { probe: null });
 
     const completedParts = [...item.completedParts];
     const requests = value.kind === "single" ? [{ url: value.url, headers: value.headers, offset: 0, bytes: item.file.bytes }]
       : value.parts.filter((part) => !completedParts.some(({ partNumber }) => part.partNumber === partNumber));
     for (const request of requests) {
+      if (!this.canSend(armed) || value.expiresAt <= this.now()) return this.update(armed, { state: "verifying", completedParts });
       let receipt: PutReceipt;
       try { receipt = await this.files.put(fileUri, { ...request, signal: this.abort.signal }); }
       catch { return this.update(item, { state: "verifying", completedParts }); }
@@ -251,19 +304,16 @@ export class MediaQueue {
   private async settle(stageId: MediaStageId, items: MediaTransfer[]) {
     const marked: MediaTransfer[] = [];
     for (const item of items) {
-      if (!item.settlement) continue;
+      if (!item.settlement || !this.canSend(item)) continue;
       const next = await this.update(item, { probe: item.settlement.kind === "single" ? "put" : "completion" });
       if (next) marked.push(next);
     }
-    if (!marked.length) return;
-    if (!this.canRun) {
-      for (const item of marked) await this.update(item, { probe: null });
-      return;
-    }
-    const result = await this.api.settle({ stageId, files: marked.map(({ settlement }) => settlement!) }, { signal: this.abort.signal });
+    const sending = marked.filter((item) => this.canSend(item));
+    if (!sending.length) return;
+    const result = await this.api.settle({ stageId, files: sending.map(({ settlement }) => settlement!) }, { signal: this.abort.signal });
     if (!result.ok || result.data.stageId !== stageId) return;
     const records = new Map(result.data.acknowledgements.map((ack) => [ack.attachmentId, ack]));
-    for (const item of marked) {
+    for (const item of sending) {
       const ack = records.get(item.attachmentId);
       if (!ack || ack.uploadGeneration !== item.generation) continue;
       if (ack.state === "ready") await this.ready(item, ack.uploadGeneration);

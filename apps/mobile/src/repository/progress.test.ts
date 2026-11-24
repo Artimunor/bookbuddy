@@ -23,7 +23,7 @@ function link(attachmentIds: readonly string[], assignment = assignmentId): NewO
 async function stage(repo: ScopedRepository, id: string, state: MediaTransferState, assignment = assignmentId): Promise<AttachmentId> {
   const attachmentId = attachmentIdSchema.parse(id);
   await repo.createMediaTransfer({ attachmentId, operationId: operationIdSchema.parse(`transfer-${id}`),
-    caller: "progress", parentScopeId: assignment, file: photoFile, fileUri: `file:///staged/${id}.jpg` });
+    caller: "progress", parentScopeId: assignment, file: photoFile, fileUri: `file:///staged/${id}.jpg` }, () => {});
   await repo.updateMediaTransfer(attachmentId, () => ({ state, selected: true, started: state !== "queued" }));
   return attachmentId;
 }

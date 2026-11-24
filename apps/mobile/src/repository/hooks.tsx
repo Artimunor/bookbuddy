@@ -138,11 +138,15 @@ export function usePendingDrafts(kindOrAllRoles?: string | boolean): readonly Pe
     ? repo.listPendingDrafts(kindOrAllRoles) : repo.countPendingDrafts(kindOrAllRoles), [kindOrAllRoles]));
   const rows = Array.isArray(result) ? result : empty;
   const cutoff = Date.now() - draftExpiresAfter;
-  let end = rows.length;
-  while (end > 0 && rows[end - 1]!.updatedAt <= cutoff) end--;
-  const oldest = rows[end - 1];
-  useDeadline(oldest && oldest.updatedAt + draftExpiresAfter, Date.now);
-  if (typeof kindOrAllRoles === "string") return end === rows.length ? rows : rows.slice(0, end);
+  let oldest: number | undefined;
+  let expired = false;
+  for (const row of rows) {
+    if (row.reconciling) continue;
+    if (row.updatedAt <= cutoff) expired = true;
+    else oldest = row.updatedAt;
+  }
+  useDeadline(oldest === undefined ? undefined : oldest + draftExpiresAfter, Date.now);
+  if (typeof kindOrAllRoles === "string") return expired ? rows.filter((row) => row.reconciling || row.updatedAt > cutoff) : rows;
   return typeof result === "number" ? result : null;
 }
 
@@ -160,9 +164,9 @@ export function useDraft<Value extends DraftValue = DraftValue>(key: DraftKey | 
   const repo = useRepository();
   const read = useRead("drafts", useCallback(async (repo: ScopedRepository) => ({ draft: key ? await repo.getDraft<Value>(key) : null }), [key]));
   const result = read?.draft ?? null;
-  useDeadline(result?.warnAt, Date.now);
-  useDeadline(result?.expiresAt, Date.now);
-  const expired = !!result && Date.now() >= result.expiresAt;
+  useDeadline(result?.warnAt ?? undefined, Date.now);
+  useDeadline(result?.expiresAt ?? undefined, Date.now);
+  const expired = result?.expiresAt != null && Date.now() >= result.expiresAt;
   useEffect(() => {
     if (expired && repo?.isActive) void repo.expireDrafts().catch(() => undefined);
   }, [expired, repo]);
@@ -175,5 +179,5 @@ export function useDraft<Value extends DraftValue = DraftValue>(key: DraftKey | 
     await repo.removeDraft(key);
   }, [repo, key]);
   const draft = expired ? null : result;
-  return { draft, loaded: read !== null, warn: !!draft && Date.now() >= draft.warnAt, save, remove };
+  return { draft, loaded: read !== null, warn: draft?.warnAt != null && Date.now() >= draft.warnAt, save, remove };
 }

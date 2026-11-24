@@ -1,16 +1,19 @@
 import { accountSettingsSchema, errorBodySchema, mediaStageIdSchema, operationIdSchema, sessionBootstrapSchema, syncLimits, syncOperationSchema } from "@bookbuddy/api-contract";
 import type { ErrorBody, LocalePreferences, OpOutcome, OperationId, ProgressPhotoOutcome, SessionBootstrap, SyncOp, SyncPage } from "@bookbuddy/api-contract";
 import { fitsDraft } from "../media/types";
-import type { AttachmentId, MediaTransfer, NewMediaTransfer, TransferProgress, TransferQuery } from "../media/types";
+import type { AttachmentId, MediaTransfer, NewMediaTransfer, RecoveryProbe, TransferProgress, TransferQuery } from "../media/types";
 import { attendanceProgress } from "./attendance";
 import type { AttendanceCapture, AttendanceEventKind, AttendanceOperation, AttendanceSnapshot, LocalAttendance } from "./attendance";
 import { cacheableValue, draftExpiresAfter, draftWarnAfter, snapshotWindow } from "./cache";
 import type { CachedProjections, CachedWorkerFieldShift, ProjectionKind } from "./cache";
+import { legacyRequestMarker, mediaOmittedFromDraft, ownedMediaStages } from "./draft-media";
 import type { Executor, Rows } from "./executor";
 import { decodeTransfer, encodeTransfer } from "./media-transfers";
+import { pendingAge, pendingHoldAfter, pendingReviewAfter } from "./pending-work";
 import { cacheRemoteResponse, decodeRemoteSnapshot } from "./remote-cache";
 import type { CachedRead, RemoteCacheKind } from "./remote-cache";
 import { attendanceReceipts, drafts, localSettings, mediaTransfers, outbox, pendingOnlineReceipts, progressReceipts, projection, stagedMedia, syncState } from "./schema";
+import { requestReconciliations } from "./schema";
 import type { OutboxStatus, ProgressReceiptState } from "./schema";
 
 const devicePreferencesSchema = accountSettingsSchema.omit({ revision: true }).partial({
@@ -23,8 +26,12 @@ export type DraftKey = `${string}:${string}`;
 const draftKeyPattern = /^[a-z][a-z0-9_-]*:[A-Za-z0-9_-]+$/;
 const legacyRequestDraft = "request:new";
 export type DraftValue = null | boolean | number | string | DraftValue[] | { [key: string]: DraftValue };
-export type Draft<Value extends DraftValue = DraftValue> = { value: Value; updatedAt: number; warnAt: number; expiresAt: number };
-export type PendingDraft = { draftId: string; updatedAt: number; summary?: string };
+export type RequestReconciliation = { operationId: OperationId; expectedRevision: number; body: SubmitRequest | null };
+export type Draft<Value extends DraftValue = DraftValue> = { value: Value; updatedAt: number } & (
+  { warnAt: number; expiresAt: number; reconciliation?: never } |
+  { warnAt: null; expiresAt: null; reconciliation: RequestReconciliation }
+);
+export type PendingDraft = { draftId: string; updatedAt: number; summary?: string; reconciling?: true };
 export type ProjectionQuery = { afterId?: string; limit?: number };
 type WithOptionalId<Op> = Op extends SyncOp ? Omit<Op, "operationId"> & { operationId?: string } : never;
 export type NewOperation = WithOptionalId<SyncOp> | AttendanceCapture;
@@ -36,6 +43,23 @@ export type ProgressReceipt = {
 type ProgressOperation = Extract<SyncOp, { kind: "attachment_link" }>;
 type ProgressMedia = Map<AttachmentId, Parameters<typeof decodeTransfer>[0]>;
 type OutboxRetry = { kind: "sync" } | { kind: "media"; attachmentIds: AttachmentId[] };
+type EraseMedia = (uri: string) => Promise<void>;
+type StagingResult = { status: "staged"; item: MediaTransfer } | { status: "draftLimit" | "storageFull" };
+export type PendingReviewItem = { createdAt: number; held: boolean } & (
+  { kind: "outbox"; id: string; operation: SyncOp["kind"]; checking: boolean } |
+  { kind: "media"; id: AttachmentId; file: "photo" | "voice"; canSend: boolean }
+);
+export type PendingReview = { items: PendingReviewItem[]; nextAt: number | undefined };
+
+function unresolvedMedia(item: MediaTransfer): RecoveryProbe | null {
+  if (item.probe) return item.probe;
+  if (item.settlement) return item.settlement.kind === "single" ? "put" : "parts";
+  return item.completedParts.length > 0 ? "parts" : null;
+}
+
+function cancelMedia(item: MediaTransfer): MediaTransfer {
+  return { ...item, cancelled: true, selected: false, probe: unresolvedMedia(item) };
+}
 
 function transferFor(media: ProgressMedia, assignmentId: string, attachmentId: AttachmentId) {
   const row = media.get(attachmentId);
@@ -43,7 +67,10 @@ function transferFor(media: ProgressMedia, assignmentId: string, attachmentId: A
 }
 
 function progressReady({ payload: { assignmentId, photos } }: ProgressOperation, media: ProgressMedia) {
-  return photos.every(({ attachmentId }) => transferFor(media, assignmentId, attachmentId)?.state === "ready");
+  return photos.every(({ attachmentId }) => {
+    const row = transferFor(media, assignmentId, attachmentId);
+    return row?.state === "ready" && row.selected === 1;
+  });
 }
 
 function progressReceipt(operation: ProgressOperation, outcome: OpOutcome): { photos: ProgressPhotoOutcome[]; state: ProgressReceiptState } {
@@ -87,6 +114,44 @@ export class MobileRepository {
 
   openScope(scope: Scope) {
     return new ScopedRepository(this.db, { ...scope }, this.newId, this.now);
+  }
+
+  async reconcileStagedFiles(list: () => readonly string[], erase: (uris: readonly string[]) => Promise<void>): Promise<void> {
+    // Only run before this store is exposed. Every account's journal owns paths
+    // in the same private directory; a different account's files aren't orphans.
+    await this.db.transaction(async (db) => {
+      const referenced = new Set<string>();
+      const interrupted: { account_id: string; context_id: string; attachment_id: AttachmentId }[] = [];
+      const omitted = new Map<string, Set<string>>();
+      const requestKeys = { key: { op: "prefix", value: "request:" } } as const;
+      const authored = await db.select(drafts, requestKeys);
+      const checking = await db.select(requestReconciliations, requestKeys);
+      for (const rows of [authored, checking]) {
+        for (const draft of rows) {
+          const ids = mediaOmittedFromDraft(JSON.parse(draft.value) as DraftValue);
+          if (!ids.length) continue;
+          const partitionKey = JSON.stringify([draft.account_id, draft.context_id]);
+          const known = omitted.get(partitionKey) ?? new Set<string>();
+          for (const id of ids) known.add(id);
+          omitted.set(partitionKey, known);
+        }
+      }
+      for (const { value } of await db.select(stagedMedia, {})) referenced.add((JSON.parse(value) as StagedMedia).fileUri);
+      for (const row of await db.select(mediaTransfers, {})) {
+        const key = { account_id: row.account_id, context_id: row.context_id, attachment_id: row.attachment_id };
+        let item = decodeTransfer(row);
+        if (item.caller === "request" && !item.cancelled && omitted.get(JSON.stringify([row.account_id, row.context_id]))?.has(row.attachment_id)) {
+          item = cancelMedia(item);
+          const { selected, value } = encodeTransfer(item);
+          await db.update(mediaTransfers, key, { selected, value });
+        }
+        if (item.staging || (item.cancelled && !item.probe)) interrupted.push(key);
+        else if (item.fileUri) referenced.add(item.fileUri);
+      }
+      const orphaned = list().filter((uri) => !referenced.has(uri));
+      if (orphaned.length) await erase(orphaned);
+      for (const key of interrupted) await db.remove(mediaTransfers, key);
+    });
   }
 
   async getLocalePreferences(accountId: string): Promise<DevicePreferences | null> {
@@ -263,25 +328,49 @@ export class ScopedRepository {
   }
 
   async getDraft<Value extends DraftValue = DraftValue>(key: DraftKey): Promise<Draft<Value> | null> {
-    const [row] = await this.db.read((db) => db.select(drafts, { ...this.partition, key }));
-    if (!this.active || !row || this.now() >= row.updated_at + draftExpiresAfter) return null;
+    const where = { ...this.partition, key };
+    const result = await this.db.read(async (db) => {
+      const [draft] = await db.select(drafts, where);
+      if (draft) return { kind: "draft" as const, row: draft };
+      if (!key.startsWith("request:")) return null;
+      const [checking] = await db.select(requestReconciliations, where);
+      return checking ? { kind: "checking" as const, row: checking } : null;
+    });
+    if (!this.active || !result) return null;
     if (key === legacyRequestDraft) {
       await this.migrateRequestDraft();
       return null;
     }
-    return { value: JSON.parse(row.value) as Value, updatedAt: row.updated_at, warnAt: row.updated_at + draftWarnAfter, expiresAt: row.updated_at + draftExpiresAfter };
+    const { row } = result;
+    const value = JSON.parse(row.value) as Value;
+    if (result.kind === "checking") {
+      const checking = result.row;
+      return { value, updatedAt: row.updated_at, warnAt: null, expiresAt: null, reconciliation: {
+        operationId: operationIdSchema.parse(checking.operation_id), expectedRevision: checking.expected_revision,
+        body: checking.body === null ? null : JSON.parse(checking.body) as SubmitRequest,
+      } };
+    }
+    const marker = key.startsWith("request:") && legacyRequestMarker(value);
+    if (marker) return { value, updatedAt: row.updated_at, warnAt: null, expiresAt: null, reconciliation: { ...marker, body: null } };
+    if (this.now() >= row.updated_at + draftExpiresAfter) return null;
+    return { value, updatedAt: row.updated_at, warnAt: row.updated_at + draftWarnAfter, expiresAt: row.updated_at + draftExpiresAfter };
   }
 
   private async migrateRequestDraft() {
     const where = { ...this.partition, key: legacyRequestDraft };
     const moved = await this.write(async (db) => {
       const [legacy] = await db.select(drafts, where);
-      if (!legacy || this.now() >= legacy.updated_at + draftExpiresAfter) return false;
+      if (!legacy) return false;
+      const marker = legacyRequestMarker(JSON.parse(legacy.value) as DraftValue);
+      if (!marker && this.now() >= legacy.updated_at + draftExpiresAfter) return false;
       const key = `request:${this.newId()}`;
-      if (!draftKeyPattern.test(key) || key === legacyRequestDraft || (await db.count(drafts, { ...this.partition, key })) > 0) {
+      const target = { ...this.partition, key };
+      if (!draftKeyPattern.test(key) || key === legacyRequestDraft || await db.count(drafts, target) || await db.count(requestReconciliations, target)) {
         throw new Error("Invalid or duplicate generated request draft ID");
       }
-      await db.put(drafts, { ...legacy, key });
+      if (marker) {
+        await db.put(requestReconciliations, { ...legacy, key, operation_id: marker.operationId, expected_revision: marker.expectedRevision, body: null });
+      } else await db.put(drafts, { ...legacy, key });
       await db.remove(drafts, where);
       return true;
     });
@@ -289,10 +378,13 @@ export class ScopedRepository {
   }
 
   async listPendingDrafts(kind: string): Promise<PendingDraft[]> {
-    const read = () => this.db.read((db) => db.select(drafts, {
-      ...this.partition, key: { op: "prefix", value: `${kind}:` },
-      updated_at: { op: ">", value: this.now() - draftExpiresAfter },
-    }));
+    const cutoff = this.now() - draftExpiresAfter;
+    const request = kind === "request";
+    const where = { ...this.partition, key: { op: "prefix", value: `${kind}:` } } as const;
+    const read = () => this.db.read(async (db) => {
+      const rows = await db.select(drafts, request ? where : { ...where, updated_at: { op: ">", value: cutoff } });
+      return request ? [...rows, ...await db.select(requestReconciliations, where)] : rows;
+    });
     if (!this.active) return [];
     let rows = await read();
     if (this.active && kind === "request" && rows.some(({ key }) => key === legacyRequestDraft)) {
@@ -300,18 +392,17 @@ export class ScopedRepository {
       rows = await read();
     }
     if (!this.active) return [];
-    const cutoff = this.now() - draftExpiresAfter;
+    const currentCutoff = this.now() - draftExpiresAfter;
     rows.sort((a, b) => b.updated_at - a.updated_at || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
     const result: PendingDraft[] = [];
     for (const row of rows) {
-      if (row.updated_at <= cutoff) break;
-      const draft: PendingDraft = { draftId: row.key.slice(kind.length + 1), updatedAt: row.updated_at };
-      if (kind === "request") {
-        const value = JSON.parse(row.value) as DraftValue;
-        const summary = value && typeof value === "object" && !Array.isArray(value) && typeof value.description === "string"
-          ? value.description.trim().slice(0, 160) : "";
-        if (summary) draft.summary = summary;
-      }
+      const value = request ? JSON.parse(row.value) as DraftValue : null;
+      const reconciling = "operation_id" in row || (request && legacyRequestMarker(value));
+      if (row.key === legacyRequestDraft || (!reconciling && row.updated_at <= currentCutoff)) continue;
+      const draft: PendingDraft = { draftId: row.key.slice(kind.length + 1), updatedAt: row.updated_at, ...(reconciling && { reconciling: true }) };
+      const summary = value && typeof value === "object" && !Array.isArray(value) && typeof value.description === "string"
+        ? value.description.trim().slice(0, 160) : "";
+      if (summary) draft.summary = summary;
       result.push(draft);
     }
     return result;
@@ -357,10 +448,59 @@ export class ScopedRepository {
     const changed = await this.write(async (db) => {
       const [row] = await db.select(drafts, where);
       if (row?.value === text && this.now() < row.updated_at + draftExpiresAfter) return false;
+      if (key.startsWith("request:") && (row ? legacyRequestMarker(JSON.parse(row.value) as DraftValue) : await db.count(requestReconciliations, where))) {
+        throw new Error("Submitted requests cannot be edited while checking");
+      }
       await db.put(drafts, { ...where, value: text, updated_at: this.now() });
       return true;
     });
     if (changed) this.notify("drafts");
+  }
+
+  async beginRequestReconciliation(key: `request:${string}`, input: SubmitRequest): Promise<{ body: SubmitRequest; created: boolean }> {
+    if (!draftKeyPattern.test(key) || key === legacyRequestDraft) throw new Error("A stable request draft is required");
+    const { body } = submitRequestRoute.input.parse({ body: input });
+    const where = { ...this.partition, key };
+    const next = await this.write(async (db) => {
+      const [existing] = await db.select(requestReconciliations, where);
+      if (existing?.body) return { body: JSON.parse(existing.body) as SubmitRequest, created: false };
+      const [draft] = await db.select(drafts, where);
+      if (!draft) throw new Error("The request draft is no longer available");
+      if (existing || legacyRequestMarker(JSON.parse(draft.value) as DraftValue)) {
+        throw new Error("The original request operation must be reconciled");
+      }
+      if (this.now() >= draft.updated_at + draftExpiresAfter) throw new Error("The request draft has expired");
+      await db.put(requestReconciliations, {
+        ...where, updated_at: this.now(), value: draft.value, operation_id: body.operationId,
+        expected_revision: body.expectedRevision, body: JSON.stringify(body),
+      });
+      await db.remove(drafts, where);
+      return { body, created: true };
+    });
+    if (next.created) this.notify("drafts");
+    return next;
+  }
+
+  async finishRequestReconciliation(key: `request:${string}`, operationId: OperationId, restore?: DraftValue) {
+    const keyInScope = { ...this.partition, key };
+    const finished = await this.write(async (db) => {
+      const [row] = await db.select(requestReconciliations, keyInScope);
+      if (row && row.operation_id !== operationId) return false;
+      const legacy = !row || row.body === null;
+      if (!row) {
+        const [draft] = await db.select(drafts, keyInScope);
+        if (!draft || legacyRequestMarker(JSON.parse(draft.value) as DraftValue)?.operationId !== operationId) return false;
+        await db.remove(drafts, keyInScope);
+      }
+      if (restore !== undefined) await db.put(drafts, { ...keyInScope, value: JSON.stringify(restore), updated_at: this.now() });
+      if (row) await db.remove(requestReconciliations, keyInScope);
+      if (legacy) {
+        await db.remove(pendingOnlineReceipts, { ...this.partition, operation_id: operationId,
+          resource_id: key.slice("request:".length), kind: `${submitRequestRoute.method} ${submitRequestRoute.path}` });
+      }
+      return { legacy };
+    });
+    if (finished) this.notify("drafts", ...(finished.legacy ? ["receipts" as const] : []));
   }
 
   async removeDraft(key: DraftKey) {
@@ -369,8 +509,52 @@ export class ScopedRepository {
   }
 
   async expireDrafts() {
-    await this.write((db) => db.remove(drafts, { ...this.partition, updated_at: { op: "<=", value: this.now() - draftExpiresAfter } }));
-    this.notify("drafts");
+    const expiry = await this.write(async (db) => {
+      const where = { ...this.partition, updated_at: { op: "<=", value: this.now() - draftExpiresAfter } } as const;
+      const expired = await db.select(drafts, where);
+      if (!expired.length) return null;
+      const ownedStages = new Set<string>();
+      for (const row of expired) {
+        const value = JSON.parse(row.value) as DraftValue;
+        const marker = row.key.startsWith("request:") && legacyRequestMarker(value);
+        if (marker) {
+          // Old clients kept the operation marker in the editable draft.
+          const key = row.key === legacyRequestDraft ? `request:${this.newId()}` : row.key;
+          await db.put(requestReconciliations, { ...row, key, operation_id: marker.operationId, expected_revision: marker.expectedRevision, body: null });
+          continue;
+        }
+        const owned = ownedMediaStages(row.key, value);
+        if (owned) for (const stage of owned.stages) ownedStages.add(`${owned.caller}:${stage}`);
+      }
+      const cancelled: AttachmentId[] = [];
+      if (ownedStages.size) {
+        const rows = await db.select(mediaTransfers, this.partition);
+        const owned = rows.filter((row) => ownedStages.has(`${row.caller}:${row.stage_id}`));
+        const submitted = new Set<string>();
+        if (owned.some((row) => row.caller === "progress" || row.caller === "chat")) {
+          for (const row of await db.select(outbox, this.partition)) {
+            const operation = JSON.parse(row.value) as SyncOp;
+            if (operation.kind === "attachment_link") {
+              for (const photo of operation.payload.photos) submitted.add(photo.attachmentId);
+            } else if (operation.kind === "chat_append") {
+              for (const id of operation.payload.attachmentIds ?? []) submitted.add(id);
+            }
+          }
+        }
+        for (const row of owned) {
+          const item = decodeTransfer(row);
+          if (item.cancelled || item.state === "ready" || unresolvedMedia(item) || submitted.has(item.attachmentId)) continue;
+          const { selected, value } = encodeTransfer(cancelMedia(item));
+          await db.update(mediaTransfers, { ...this.partition, attachment_id: item.attachmentId }, { selected, value });
+          cancelled.push(item.attachmentId);
+        }
+      }
+      await db.remove(drafts, where);
+      return cancelled;
+    });
+    if (!expiry) return;
+    this.notify("drafts", ...(expiry.length ? ["media" as const] : []));
+    for (const id of expiry) await this.finishMediaCancellation(id, this.eraseMedia).catch(() => undefined);
   }
 
   async enqueueOperation(input: NewOperation): Promise<OperationId> {
@@ -390,7 +574,7 @@ export class ScopedRepository {
         if (previous.value !== value) throw new Error("An operation ID cannot be reused with different input");
         return false;
       }
-      await db.put(outbox, { ...key, value, status: "queued", created_at: this.now(), error: null });
+      await db.put(outbox, { ...key, value, status: "queued", created_at: this.now(), error: null, send_reviewed: 0 });
       return true;
     });
     if (changed) this.notify("outbox", ...(operation.kind === "attendance" ? ["attendance" as const] : []));
@@ -409,6 +593,77 @@ export class ScopedRepository {
     return removed;
   }
 
+  listPendingReview(): Promise<PendingReview> {
+    return this.db.read(async (db) => {
+      const items: PendingReviewItem[] = [];
+      if (!this.active) return { items, nextAt: undefined };
+      let nextAt: number | undefined;
+      const now = this.now();
+      const age = (createdAt: number) => {
+        const state = pendingAge(createdAt, now);
+        const next = state === "current" ? createdAt + pendingReviewAfter : state === "review" ? createdAt + pendingHoldAfter : undefined;
+        if (next !== undefined && (nextAt === undefined || next < nextAt)) nextAt = next;
+        return state;
+      };
+      for (const row of await db.select(outbox, {
+        ...this.partition, send_reviewed: 0, status: { op: "in", value: ["queued", "checking"] },
+      })) {
+        const state = age(row.created_at);
+        if (state === "current") continue;
+        const operation = JSON.parse(row.value) as SyncOp;
+        items.push({ kind: "outbox", id: row.operation_id, operation: operation.kind, createdAt: row.created_at,
+          held: state === "held", checking: row.status === "checking" });
+      }
+      for (const row of await db.select(mediaTransfers, { ...this.partition, selected: 1, file_uri: { op: ">", value: "" } })) {
+        const item = decodeTransfer(row);
+        if (item.staging || item.cancelled || item.state === "ready" || item.sendReviewed) continue;
+        const state = age(row.created_at);
+        if (state !== "current") items.push({ kind: "media", id: item.attachmentId, file: item.file.kind, createdAt: row.created_at,
+          held: state === "held", canSend: !item.terminal });
+      }
+      items.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+      return this.active ? { items, nextAt } : { items: [], nextAt: undefined };
+    });
+  }
+
+  async decidePendingOperation(operationId: string, send: boolean): Promise<"discarded" | "sync" | "media" | null> {
+    const action = await this.write(async (db) => {
+      const key = { ...this.partition, operation_id: operationId };
+      const [row] = await db.select(outbox, { ...key, status: { op: "in", value: ["queued", "checking"] } });
+      if (!row || pendingAge(row.created_at, this.now(), row.send_reviewed === 1) !== "held") return null;
+      if (!send) {
+        await db.remove(outbox, key);
+        return "discarded" as const;
+      }
+      const operation = JSON.parse(row.value) as SyncOp;
+      let needsMedia = false;
+      if (operation.kind === "attachment_link") {
+        const { photos, assignmentId } = operation.payload;
+        const media = await this.readProgressMedia(db, photos.map(({ attachmentId }) => attachmentId));
+        const transfers: MediaTransfer[] = [];
+        for (const { attachmentId } of photos) {
+          const source = transferFor(media, assignmentId, attachmentId);
+          if (!source?.selected) return null;
+          if (source.state === "ready") continue;
+          const item = decodeTransfer(source);
+          if (!item.fileUri || item.terminal || item.cancelled || item.staging) return null;
+          transfers.push(item);
+        }
+        for (const item of transfers) {
+          const state = item.state === "failed" ? item.probe || item.settlement ? "verifying" : item.started ? "uploading" : "queued" : item.state;
+          if (item.sendReviewed && state === item.state) continue;
+          const { value } = encodeTransfer({ ...item, state, sendReviewed: true });
+          await db.update(mediaTransfers, { ...this.partition, attachment_id: item.attachmentId }, { value, state });
+        }
+        needsMedia = transfers.length !== 0;
+      }
+      await db.update(outbox, key, { send_reviewed: 1 });
+      return needsMedia ? "media" as const : "sync" as const;
+    });
+    if (action) this.notify("outbox", "attendance", ...(action === "media" ? ["media" as const] : []));
+    return action;
+  }
+
   private async readProgressMedia(db: Pick<Rows, "select">, attachmentIds?: readonly AttachmentId[]): Promise<ProgressMedia> {
     const rows = await db.select(mediaTransfers, { ...this.partition, caller: "progress",
       ...(attachmentIds && { attachment_id: { op: "in", value: attachmentIds } }) });
@@ -421,7 +676,7 @@ export class ScopedRepository {
       const [row] = await db.select(outbox, {
         ...this.partition, operation_id: operationId, status: { op: "in", value: ["queued", "checking"] },
       });
-      if (!row || !this.active) return null;
+      if (!row || !this.active || pendingAge(row.created_at, this.now(), row.send_reviewed === 1) === "held") return null;
       const operation = JSON.parse(row.value) as SyncOp;
       if (operation.kind !== "attachment_link") return { kind: "sync" };
       const { assignmentId, photos } = operation.payload;
@@ -441,7 +696,9 @@ export class ScopedRepository {
     return this.db.read(async (db) => {
       if (!this.active || !ids.size) return false;
       let media: ProgressMedia | undefined;
+      const now = this.now();
       for (const row of await db.select(outbox, { ...this.partition, status: "queued" })) {
+        if (pendingAge(row.created_at, now, row.send_reviewed === 1) === "held") continue;
         const op = JSON.parse(row.value) as SyncOp;
         if (op.kind !== "attachment_link" || !op.payload.photos.some(({ attachmentId }) => ids.has(attachmentId))) continue;
         media ??= await this.readProgressMedia(db);
@@ -464,7 +721,7 @@ export class ScopedRepository {
           const { assignmentId, photos } = operation.payload;
           if (photos.some(({ attachmentId }) => {
             const transfer = transferFor(transfers, assignmentId, attachmentId);
-            return !transfer || transfer.state === "failed";
+            return !transfer?.selected || transfer.state === "failed";
           })) status = "failed";
         }
         entries.push({ operation, status, createdAt: row.created_at,
@@ -533,7 +790,9 @@ export class ScopedRepository {
       let media: ProgressMedia | undefined;
       let hasMoreOperations = false;
       let bytes = (cursor?.length ?? 0) + this.scope.contextId.length + 100;
+      const now = this.now();
       for (const candidate of candidates) {
+        if (pendingAge(candidate.created_at, now, candidate.send_reviewed === 1) === "held") continue;
         const op = syncOperationSchema.parse(JSON.parse(candidate.value));
         if (op.kind === "attachment_link") {
           media ??= await this.readProgressMedia(db);
@@ -666,23 +925,59 @@ export class ScopedRepository {
     this.notify("media");
   }
 
-  async createMediaTransfer(item: NewMediaTransfer): Promise<MediaTransfer | null> {
+  async createMediaTransfer(item: NewMediaTransfer, copy: () => void | Promise<void>): Promise<StagingResult> {
     const { caller, parentScopeId, stageId: existingStage } = item;
-    const transfer = await this.write(async (db) => {
+    const key = { ...this.partition, attachment_id: item.attachmentId };
+    const reserved = await this.write(async (db): Promise<StagingResult> => {
       const rows = await db.select(mediaTransfers, { ...this.partition, caller, parent_scope_id: parentScopeId,
         ...(existingStage && { stage_id: existingStage }) }, { order: ["created_at", "attachment_id"] });
       const stageId = existingStage ?? rows.at(-1)?.stage_id ?? mediaStageIdSchema.parse(this.newId());
-      if (!fitsDraft(caller, rows.filter((row) => row.stage_id === stageId).map((row) => decodeTransfer(row).file), item.file)) return null;
+      const files = rows.filter((row) => row.stage_id === stageId).map(decodeTransfer).filter((row) => !row.cancelled).map(({ file }) => file);
+      if (!fitsDraft(caller, files, item.file)) return { status: "draftLimit" };
+      if (await db.count(mediaTransfers, key)) throw new Error("An attachment ID cannot be used twice");
+      const account = { account_id: this.scope.accountId };
+      let bytes = item.file.bytes;
+      for (const row of await db.select(mediaTransfers, { ...account, file_uri: { op: ">", value: "" } })) {
+        bytes += decodeTransfer(row).file.bytes;
+        if (bytes > mediaLimits.pendingBytes) return { status: "storageFull" };
+      }
+      for (const { value } of await db.select(stagedMedia, account)) {
+        bytes += (JSON.parse(value) as StagedMedia).bytes;
+        if (bytes > mediaLimits.pendingBytes) return { status: "storageFull" };
+      }
       const capturedAt = this.now();
       const next: MediaTransfer = {
         ...item, stageId, capturedAt, state: "queued", selected: false, started: false, generation: null,
-        probe: null, settlement: null, completedParts: [], terminal: false,
+        probe: null, settlement: null, completedParts: [], terminal: false, staging: true,
       };
       await db.put(mediaTransfers, { ...this.partition, ...encodeTransfer(next), created_at: capturedAt });
-      return next;
+      return { status: "staged", item: next };
     });
-    if (transfer) this.notify("media");
-    return transfer;
+    if (reserved.status !== "staged") return reserved;
+    const completed = { ...reserved.item, staging: false };
+    try {
+      // The committed locator above survives a crash. The local copy and the
+      // ready-to-select update serialize against expiry and account disposal.
+      await this.write(async (db) => {
+        const [row] = await db.select(mediaTransfers, key);
+        const journal = row && decodeTransfer(row);
+        if (!journal?.staging || journal.cancelled) throw new Error("The media reservation has been removed");
+        await copy();
+        await db.update(mediaTransfers, key, { value: encodeTransfer(completed).value });
+      });
+    } catch (error) {
+      // There is no transfer to retain for a failed copy. This exact journal
+      // can be cleaned even if its scope closed while the picker was open.
+      await this.db.transaction(async (db) => {
+        const [row] = await db.select(mediaTransfers, key);
+        if (!row || row.file_uri !== item.fileUri || !decodeTransfer(row).staging) return;
+        await this.eraseMedia(item.fileUri);
+        await db.remove(mediaTransfers, key);
+      }).catch(() => undefined);
+      throw error;
+    }
+    this.notify("media");
+    return { status: "staged", item: completed };
   }
 
   listMediaTransfers({ attachmentId, caller, parentScopeId, stageId }: TransferQuery = {}, workOnly = false): Promise<MediaTransfer[]> {
@@ -691,10 +986,12 @@ export class ScopedRepository {
       const rows = await db.select(mediaTransfers, {
         ...this.partition, ...(attachmentId && { attachment_id: attachmentId }), ...(caller && { caller }),
         ...(parentScopeId && { parent_scope_id: parentScopeId }), ...(stageId && { stage_id: stageId }),
-        ...(workOnly && { selected: 1, file_uri: { op: ">", value: "" },
-          state: { op: "in", value: ["queued", "uploading", "verifying", "ready"] } }),
+        ...(workOnly && { file_uri: { op: ">", value: "" } }),
       }, { order: ["created_at", "attachment_id"] });
-      return this.active ? rows.map(decodeTransfer) : [];
+      if (!this.active) return [];
+      return rows.map(decodeTransfer).filter((item) => workOnly
+        ? item.cancelled || (!item.staging && item.selected && item.state !== "failed")
+        : !item.staging && !item.cancelled);
     });
   }
 
@@ -704,6 +1001,7 @@ export class ScopedRepository {
       const [row] = await db.select(mediaTransfers, key);
       if (!row) return null;
       const item = decodeTransfer(row);
+      if (item.staging || item.cancelled) return null;
       const patch = change(item);
       if (!patch) return null;
       const updated = { ...item, ...patch };
@@ -715,17 +1013,46 @@ export class ScopedRepository {
     return next?.updated ?? null;
   }
 
-  async removeMediaTransfer(attachmentId: AttachmentId, erase: (uri: string) => Promise<void>): Promise<boolean> {
-    const removed = await this.write(async (db) => {
+  async removeMediaTransfer(attachmentId: AttachmentId, erase: EraseMedia): Promise<boolean> {
+    const cancelled = await this.write(async (db) => {
       const key = { ...this.partition, attachment_id: attachmentId };
       const [row] = await db.select(mediaTransfers, key);
-      if (!row || decodeTransfer(row).started) return null;
-      if (row.file_uri) await erase(row.file_uri);
-      await db.remove(mediaTransfers, key);
-      return row.caller;
+      if (!row) return null;
+      const item = decodeTransfer(row);
+      if (item.cancelled) return item;
+      const next = cancelMedia(item);
+      const { selected, value } = encodeTransfer(next);
+      await db.update(mediaTransfers, key, { selected, value });
+      return next;
     });
-    if (removed) this.notify("media", ...(removed === "progress" ? ["outbox" as const] : []));
-    return removed !== null;
+    if (!cancelled) return false;
+    this.notify("media", ...(cancelled.caller === "progress" ? ["outbox" as const] : []));
+    if (!cancelled.probe) await this.finishMediaCancellation(attachmentId, erase);
+    return true;
+  }
+
+  async finishMediaCancellation(attachmentId: AttachmentId, erase: EraseMedia, recovered?: { generation: number | null; probe: RecoveryProbe }) {
+    const changed = await this.write(async (db) => {
+      const key = { ...this.partition, attachment_id: attachmentId };
+      const [row] = await db.select(mediaTransfers, key);
+      if (!row) return false;
+      const item = decodeTransfer(row);
+      if (!item.cancelled) return false;
+      if (item.probe) {
+        if (!recovered || recovered.generation !== item.generation || recovered.probe !== item.probe) return false;
+        const { value } = encodeTransfer({ ...item, probe: null, settlement: null });
+        await db.update(mediaTransfers, key, { value });
+      }
+      // A failed deletion retains its locator and byte reservation, but a
+      // successful recovery never needs to contact the server a second time.
+      if (row.file_uri) {
+        try { await erase(row.file_uri); } catch { return false; }
+      }
+      await db.remove(mediaTransfers, key);
+      return true;
+    });
+    if (changed) this.notify("media");
+    return changed;
   }
 
   getOnlineReceipt(kind: string, resourceId: string): Promise<OnlineReceipt | null> {
