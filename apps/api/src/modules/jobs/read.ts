@@ -11,7 +11,7 @@ import { readyAttachmentSql } from "../media/policy";
 import { placeCapability } from "../places/policy";
 import { approvedVersion, noWithdrawal } from "../schedule/policy";
 import { workerHomeOffers } from "../schedule/shifts";
-import { foremanScope, handoffDeadlineSql, handoffRecipientAllowed, initialHandoffAllowed, latestHandoff,
+import { foremanScope, handoffPreviewDeadlinesSql, handoffRecipientAllowed, initialHandoffAllowed, latestHandoff,
   liveProviderHandoff, reofferAllowed, withHandoffClock } from "./handoff-policy";
 import {
   booking, businessCapability, currentMembership, customerPlaces, handoffJson, headingSql, journey, journeySql,
@@ -176,12 +176,12 @@ const handoffPreview = `(WITH eligible_foremen AS MATERIALIZED (
       AND (${initialOffer} OR h.recipient_id <> m.id)`, `m.id AS membership_id, ${displayName("a")} AS display_name`)}
   ), calendar_area AS (
     SELECT area.id, area.site_zone WHERE EXISTS (SELECT 1 FROM eligible_foremen)
-  ), ${handoffDeadlineSql("standard", "(SELECT value FROM handoff_offsets)")}
-  SELECT json_object('policy', 'standard', 'expiresAt', deadline.expires_at,
+  ), ${handoffPreviewDeadlinesSql("(SELECT value FROM handoff_offsets)")}
+  SELECT json_object('deadlines', json_object('standard', deadlines.standard, 'urgent', deadlines.urgent),
     'reofferOfId', CASE WHEN ${mayReoffer} THEN h.id END,
     'eligibleForemen', json(${jsonRows(`json_object('membershipId', membership_id, 'displayName', display_name)`,
     "FROM eligible_foremen ORDER BY display_name COLLATE NOCASE, membership_id")}))
-  FROM deadline)`;
+  FROM deadlines WHERE deadlines.standard IS NOT NULL)`;
 
 const todayVisits = (linked: boolean, whole: boolean) => {
   const visit = visitJson("v", "booked");

@@ -4,7 +4,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useCommand, useRemote } from "../../api";
 import { useLocale, useT } from "../../i18n";
-import { Badge, BookingCard, Button, Card, Dock, ListRow, SegmentedControl, SwitchRow, TextField } from "../../ui/controls";
+import { Badge, BookingCard, Button, Card, Dock, ListRow, SegmentedControl, TextField } from "../../ui/controls";
 import { Copy } from "../../ui/controls/shared";
 import { ProviderScreen, ReadState, useProvider, useProviderFormat as useFormat, useProviderLabels } from "../p-01/shared";
 import { Journey } from "../c-01/common";
@@ -110,14 +110,14 @@ export default function ProviderJobsScreen() {
 function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; initialSegment?: string; fromSwitch: boolean }) {
   const router = useRouter(); const t = useT(); const format = useFormat(); const labels = useProviderLabels(); const { actor } = useProvider();
   const [segment, setSegment] = useState<Segment>(initialSegment === "needs_you" ? "needs_you" : jobId ? "active" : "needs_you");
-  const [selected, setSelected] = useState<string | null>(jobId ?? null); const [recipient, setRecipient] = useState<string | null>(null); const [urgentCalled, setUrgentCalled] = useState(false);
+  const [selected, setSelected] = useState<string | null>(jobId ?? null); const [recipient, setRecipient] = useState<string | null>(null);
   const [cursors, setCursors] = useState<string[]>([]);
   const [review, setReview] = useState<ReviewTarget | null>(null);
   const reviewChanged = useRef(false);
   useEffect(() => {
     if (!jobId) return;
     setSegment(initialSegment === "needs_you" ? "needs_you" : "active");
-    setSelected(jobId); setCursors([]); setRecipient(null); setUrgentCalled(false);
+    setSelected(jobId); setCursors([]); setRecipient(null);
   }, [jobId, initialSegment]);
   const jobs = useRemote(getJobsRoute, { query: { segment, ...(cursors.at(-1) ? { cursor: cursors.at(-1) } : {}) } });
   const detail = useRemote(getJobRoute, { params: { j: selected ?? "" }, query: { view: "whole" } }, { enabled: !!selected });
@@ -136,24 +136,34 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
   const preview = job?.handoffPreview;
   const handoff = job?.handoff;
   const candidate = preview?.eligibleForemen.find((person) => person.membershipId === recipient);
-  const canOffer = !!candidate && (preview?.policy !== "urgent" || urgentCalled);
+  const deadlines = preview && job ? {
+    standard: t("mobile.provider.standardReplyBy", { time: format.siteTime(preview.deadlines.standard, job.siteZone) }),
+    urgent: t("mobile.provider.urgentReplyBy", { time: format.siteTime(preview.deadlines.urgent, job.siteZone) }),
+  } : null;
   const canWithdraw = !!handoff && job?.canWithdrawHandoff;
   const busy = [offer.state, withdraw.state].some((state) => state === "sending" || state === "checking");
-  function confirm(kind: "offer" | "withdraw") {
-    if (!job || busy || (kind === "offer" ? !canOffer : !canWithdraw)) return;
-    const label = kind === "offer" ? t("mobile.provider.offer") : t("mobile.provider.withdrawOffer");
-    confirmAction(router, { title: label, actionLabel: label, actionLabelKey: kind === "offer" ? "mobile.provider.offer" : "mobile.provider.withdrawOffer", item: `${job.title ?? job.reference} · ${job.reference}${candidate ? ` · ${candidate.displayName}` : ""}`, actor, role: t("mobile.provider.admin"), effects: [t("mobile.provider.offerEffect")], onReview: () => { void detail.refresh(); }, onConfirm: async () => {
-      const result = kind === "offer" && candidate && preview ? await offer.run({ params: { j: job.jobId }, body: {
+  function confirm(kind: "standard" | "urgent" | "withdraw") {
+    if (!job || busy || (kind === "withdraw" ? !canWithdraw : !candidate || !deadlines)) return;
+    const actionLabelKey = kind === "withdraw" ? "mobile.provider.withdrawOffer"
+      : kind === "urgent" ? "mobile.provider.urgentCall" : "mobile.provider.offer";
+    const label = kind === "withdraw" ? t("mobile.provider.withdrawOffer")
+      : kind === "urgent" ? t("mobile.provider.urgentCall") : t("mobile.provider.offer");
+    const effects = [t("mobile.provider.offerEffect")];
+    if (kind !== "withdraw" && deadlines) effects.unshift(deadlines[kind]);
+    if (kind === "urgent") effects.unshift(t("mobile.provider.urgentHelp"));
+    confirmAction(router, { title: kind === "urgent" ? t("mobile.provider.urgentOffer") : label,
+      actionLabel: label, actionLabelKey, item: `${job.title ?? job.reference} · ${job.reference}${candidate ? ` · ${candidate.displayName}` : ""}`,
+      actor, role: t("mobile.provider.admin"), effects, onReview: () => { void detail.refresh(); }, onConfirm: async () => {
+      const result = kind !== "withdraw" && candidate && preview ? await offer.run({ params: { j: job.jobId }, body: {
         expectedRevision: job.revision, payload: {
           recipientMembershipId: candidate.membershipId,
           ...(preview.reofferOfId ? { reofferOfId: preview.reofferOfId } : {}),
-          ...(preview.policy === "urgent" && urgentCalled ? { urgentCallConfirmed: true as const } : {}),
+          ...(kind === "urgent" ? { urgentCallConfirmed: true as const } : {}),
         },
       } }) : kind === "withdraw" && handoff ? await withdraw.run({ params: { j: job.jobId, h: handoff.handoffId },
         body: { expectedRevision: job.revision, payload: {} } }) : null;
       if (result?.ok) {
         setRecipient(null);
-        setUrgentCalled(false);
         void detail.refresh();
         void jobs.refresh();
         return "confirmed";
@@ -171,10 +181,13 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
   const handoffAction = canWithdraw ? { label: t("mobile.provider.withdrawOffer"), disabled: busy, onPress: () => confirm("withdraw") }
     : preview ? {
       label: candidate ? t("mobile.provider.offerTo", { name: candidate.displayName }) : t("mobile.provider.offer"),
-      disabled: !canOffer || busy, onPress: () => confirm("offer"),
+      disabled: !candidate || busy, onPress: () => confirm("standard"),
     } : null;
   return <ProviderScreen title={t("mobile.provider.jobs")} business={page?.businessName}
-    dock={handoffAction ? <Dock context={t("mobile.provider.offerEffect")} primary={handoffAction} /> : undefined}>
+    dock={handoffAction ? <Dock context={t("mobile.provider.offerEffect")} primary={handoffAction}
+      secondary={!canWithdraw && preview ? {
+        label: t("mobile.provider.urgentOffer"), disabled: !candidate || busy, onPress: () => confirm("urgent"),
+      } : undefined} /> : undefined}>
     <SegmentedControl label={t("mobile.provider.segment")} value={segment} onChange={(value) => { setSegment(value); setCursors([]); setSelected(null); }} options={[{ value: "needs_you", label: `${t("mobile.provider.needsYou")} ${page?.needsYouCount ?? ""}` }, { value: "active", label: `${t("mobile.provider.active")} ${page?.activeCount ?? ""}` }, { value: "past", label: `${t("mobile.provider.past")} ${page?.pastCount ?? ""}` }]} />
     <ReadState status={jobs.status} retry={() => { void jobs.refresh(); }} />
     {items.map((item) => {
@@ -185,7 +198,7 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
       const chosen = selected === item.jobId;
       const booking = <BookingCard title={title} place={place} stage={stage} next={foreman}
         progress={<Journey journey={item.journey} />} accessibilityLabel={[title, place, stage, foreman].join(" · ")}
-        onPress={() => { setSelected(chosen ? null : item.jobId); setRecipient(null); setUrgentCalled(false); }} />;
+        onPress={() => { setSelected(chosen ? null : item.jobId); setRecipient(null); }} />;
       if (!chosen && !item.readyToBill) return <Fragment key={item.jobId}>{booking}</Fragment>;
       return <Card dense key={item.jobId}>{booking}
       {item.readyToBill && <Badge label={t("mobile.provider.readyToBill")} tone="neutral" />}
@@ -204,11 +217,11 @@ function ProviderJobs({ jobId, initialSegment, fromSwitch }: { jobId?: string; i
           <Copy>{t("mobile.provider.paid", { amount: format.money(job.bill.outcome.matched.minor, job.bill.outcome.matched.currency),
             person: job.bill.outcome.recorded.by ?? "", time: format.siteTime(job.bill.outcome.recorded.at, job.siteZone) })}</Copy>
         </>}
-        {preview && <>
+        {preview && deadlines && <>
           <Copy variant="label">{t("mobile.provider.selectForeman")}</Copy>
           {preview.eligibleForemen.map((person) => <ChoiceRadio key={person.membershipId} selected={recipient === person.membershipId} label={person.displayName} onPress={() => setRecipient(person.membershipId)} />)}
-          <Copy variant="supporting">{t("mobile.provider.replyBy", { time: format.lines(preview.expiresAt, job.siteZone)?.site ?? t("mobile.provider.unavailable") })}</Copy>
-          {preview.policy === "urgent" && <><Copy>{t("mobile.provider.urgentHelp")}</Copy><SwitchRow label={t("mobile.provider.urgentCall")} value={urgentCalled} onValueChange={setUrgentCalled} /></>}
+          <Copy variant="supporting">{deadlines.standard}</Copy>
+          <Copy variant="supporting">{deadlines.urgent}</Copy>
         </>}
         {(offer.state === "checking" || withdraw.state === "checking") && <Copy>{t("mobile.provider.checking")}</Copy>}
       </>}</>}

@@ -257,6 +257,11 @@ test("only the intended foreman takes an open job; a non-default incumbent canno
     const revoke = { operationId: "revoke", payload: { roleGrantId: "third-role" } };
     expect((await f.call("/members/third-member/revoke", "admin", revoke)).status).toBe(409);
     const body = { operationId: "offer", expectedRevision: 0, payload: { recipientMembershipId: "second-member", urgentCallConfirmed: true } };
+    for (const unconfirmed of [{ policy: "urgent" }, { urgentCallConfirmed: false }]) {
+      expect(await f.call("/jobs/job/handoffs", "admin", {
+        ...body, payload: { recipientMembershipId: "second-member", ...unconfirmed },
+      }, 0)).toMatchObject({ status: 422, body: { error: { code: "VALIDATION_FAILED" } } });
+    }
     expect((await f.call("/jobs/job/handoffs", "first", body)).status).toBe(404);
     const opened = resultSchema(offerJobHandoffRoute.output).parse((await f.call("/jobs/job/handoffs", "admin", body)).body);
     if (!opened.ok) throw new Error(JSON.stringify(opened));
@@ -346,7 +351,7 @@ test("provider details and linked openings preview only candidates the offer com
     };
     const initial = await detail();
     expect(initial.handoffPreview).toEqual({
-      policy: "standard", expiresAt: tuesday, reofferOfId: null,
+      deadlines: { standard: tuesday, urgent: tuesday - 1.5 * hour }, reofferOfId: null,
       eligibleForemen: [{ membershipId: "second-member", displayName: "second" }],
     });
     const blocked = await f.call("/jobs/job/handoffs", "admin", {
@@ -361,7 +366,7 @@ test("provider details and linked openings preview only candidates the offer com
       operationId: "preview-offer", expectedRevision: initial.revision, payload: { recipientMembershipId: "second-member" },
     })).body);
     if (!firstOffer.ok) throw new Error(firstOffer.error.code);
-    expect(firstOffer.data.expiresAt).toBe(initial.handoffPreview?.expiresAt);
+    expect(firstOffer.data.expiresAt).toBe(initial.handoffPreview?.deadlines.standard);
     expect(await detail()).toMatchObject({ canWithdrawHandoff: true, handoffPreview: null });
     expect(await detail("peer")).toMatchObject({ canWithdrawHandoff: false, handoffPreview: null });
 
@@ -370,15 +375,15 @@ test("provider details and linked openings preview only candidates the offer com
     expect((await detail("peer")).handoffPreview).toBeNull();
     const expired = await detail();
     expect(expired.handoffPreview).toEqual({
-      policy: "standard", expiresAt: tuesday + 2 * hour, reofferOfId: firstOffer.data.handoffId,
+      deadlines: { standard: tuesday + 2 * hour, urgent: tuesday + hour / 2 }, reofferOfId: firstOffer.data.handoffId,
       eligibleForemen: [{ membershipId: "third-member", displayName: "third" }],
     });
     const secondOffer = resultSchema(offerJobHandoffRoute.output).parse((await f.call("/jobs/job/handoffs", "admin", {
       operationId: "preview-reoffer", expectedRevision: expired.revision,
-      payload: { recipientMembershipId: "third-member", reofferOfId: firstOffer.data.handoffId },
+      payload: { recipientMembershipId: "third-member", reofferOfId: firstOffer.data.handoffId, urgentCallConfirmed: true },
     })).body);
     if (!secondOffer.ok) throw new Error(secondOffer.error.code);
-    expect(secondOffer.data.expiresAt).toBe(expired.handoffPreview?.expiresAt);
+    expect(secondOffer.data.expiresAt).toBe(expired.handoffPreview?.deadlines.urgent);
     clock.mockReturnValue(secondOffer.data.expiresAt);
     expect((await detail()).handoffPreview).toBeNull();
   } finally { f.db.close(); clock.mockRestore(); }

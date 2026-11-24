@@ -269,7 +269,8 @@ export const jobDetailSchema = z.discriminatedUnion("audience", [
       view: z.literal("whole"), revision: revisionSchema, bill: providerBill.nullable(), commercialReview: providerReview.nullable(),
       readyBill: readyBill.nullable(),
       canWithdrawHandoff: z.boolean(), handoffPreview: z.object({
-        policy: handoffPolicy, expiresAt: timestampSchema, reofferOfId: jobHandoffIdSchema.nullable(), eligibleForemen: z.array(member),
+        deadlines: z.object({ standard: timestampSchema, urgent: timestampSchema }),
+        reofferOfId: jobHandoffIdSchema.nullable(), eligibleForemen: z.array(member),
       }).nullable(),
     }),
     providerJobCard.extend({ view: z.literal("today"), live: providerLive }),

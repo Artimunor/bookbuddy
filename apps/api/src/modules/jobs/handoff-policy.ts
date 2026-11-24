@@ -56,8 +56,7 @@ export function withHandoffClock(access: SessionAccess, now: number): SessionAcc
 }
 
 // The caller supplies one authorized calendar_area row (id and site_zone).
-export function handoffDeadlineSql(policy: keyof typeof offerMinutes, offsets: string): string {
-  const duration = offerMinutes[policy] * minute;
+function staffedElapsedSql(offsets: string): string {
   return `staffed_days(wall_ms) AS (
       SELECT (${at} / ${day} - 1) * ${day}
       UNION ALL SELECT wall_ms + ${day} FROM staffed_days WHERE wall_ms < (${at} / ${day} + ${clockWeeks * 7 + 1}) * ${day}
@@ -73,9 +72,26 @@ export function handoffDeadlineSql(policy: keyof typeof offerMinutes, offsets: s
     ), staffed_elapsed AS (
       SELECT starts, ends, sum(ends - starts) OVER (ORDER BY starts ROWS UNBOUNDED PRECEDING) AS elapsed
       FROM staffed_windows WHERE starts < ends
-    ), deadline AS MATERIALIZED (
+    )`;
+}
+
+export function handoffDeadlineSql(policy: keyof typeof offerMinutes, offsets: string): string {
+  const duration = offerMinutes[policy] * minute;
+  return `${staffedElapsedSql(offsets)}, deadline AS MATERIALIZED (
       SELECT ends - (elapsed - ${duration}) AS expires_at FROM staffed_elapsed WHERE elapsed >= ${duration} ORDER BY starts LIMIT 1
     )`;
+}
+
+export function handoffPreviewDeadlinesSql(offsets: string): string {
+  const deadline = (policy: keyof typeof offerMinutes) => {
+    const duration = offerMinutes[policy] * minute;
+    // Pick the window in which this policy's cumulative staffed time is reached.
+    return `max(ends - (elapsed - ${duration})) FILTER (
+      WHERE elapsed - (ends - starts) < ${duration} AND elapsed >= ${duration}) AS ${policy}`;
+  };
+  return `${staffedElapsedSql(offsets)}, deadlines AS (
+    SELECT ${deadline("standard")}, ${deadline("urgent")} FROM staffed_elapsed
+  )`;
 }
 
 export function foremanScope(condition: string, select = "c.id AS context_id, m.id AS membership_id, m.business_id, m.account_id"): string {
