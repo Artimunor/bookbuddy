@@ -1,3 +1,5 @@
+import { createAuthClient } from "@bookbuddy/api-client";
+import type { ApiClient } from "@bookbuddy/api-client";
 import { accountIdSchema, authTokenPattern, contextIdSchema, idSchema, sessionBootstrapSchema, sessionRevokeRoute, sessionRevocationProofSchema } from "@bookbuddy/api-contract";
 import type { SessionBootstrap } from "@bookbuddy/api-contract";
 import { contextSummarySchema } from "./offline-bootstrap";
@@ -34,12 +36,12 @@ export interface SignOutProgress { intent: EndingSession; persisted: boolean }
 export function parseStoredSession(raw: string, cookieSession: boolean): ActiveSession | EndingSession {
   const value: unknown = JSON.parse(raw);
   if (value && typeof value === "object" && "state" in value) {
-    if (value.state === "active" && "requiresUnlock" in value && typeof value.requiresUnlock === "boolean"
-      && "credential" in value && "proof" in value && "session" in value) {
+    if (value.state === "active" && "credential" in value && "proof" in value && "session" in value) {
       const { credential, proof } = value;
-      if (cookieSession ? credential === null && proof === null
-        : typeof credential === "string" && authTokenPattern.test(credential) && sessionRevocationProofSchema.safeParse(proof).success) {
-        return { state: "active", requiresUnlock: value.requiresUnlock, credential: credential as string | null,
+      const requiresUnlock = "requiresUnlock" in value ? value.requiresUnlock : true;
+      if (typeof requiresUnlock === "boolean" && (cookieSession ? credential === null && proof === null
+        : typeof credential === "string" && authTokenPattern.test(credential) && sessionRevocationProofSchema.safeParse(proof).success)) {
+        return { state: "active", requiresUnlock, credential: credential as string | null,
           proof: proof as string | null, session: sessionHeader.parse(value.session) };
       }
     }
@@ -65,11 +67,13 @@ export function parseStoredSession(raw: string, cookieSession: boolean): ActiveS
   throw new Error("Invalid saved session");
 }
 
-export function beginSignOut(record: ActiveSession, disposition: Disposition, persistent: boolean): SignOutProgress {
+export function beginSignOut(record: ActiveSession, local: { disposition: Disposition; persistent: boolean } | null): SignOutProgress {
   const { sessionId, accountId, activeContext } = record.session;
   const revocation: Revocation = record.proof ? { mode: "native", sessionId, proof: record.proof }
     : { mode: "cookie", sessionId, contextId: activeContext?.contextId ?? null };
-  return { intent: { state: "ending", accountId, localPending: true, disposition, persistent, revocation }, persisted: false };
+  const intent: EndingSession = { state: "ending", accountId, localPending: local !== null, disposition: local?.disposition ?? "keep",
+    persistent: local?.persistent ?? record.requiresUnlock, revocation };
+  return { intent, persisted: false };
 }
 
 interface Settlement {
@@ -96,4 +100,19 @@ export async function settleSignOut(progress: SignOutProgress, { save, remove, f
   if (progress.intent.revocation) return false;
   await remove();
   return true;
+}
+
+export async function sendRevocation(api: ApiClient, revocation: Revocation): Promise<boolean> {
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), 15_000);
+  const auth = createAuthClient(api);
+  try {
+    if (revocation.mode === "native") {
+      const result = await auth.revoke({ sessionId: revocation.sessionId, proof: revocation.proof }, { signal: abort.signal });
+      return result.ok && result.data.ended;
+    }
+    const { sessionId, contextId } = revocation;
+    const result = await auth.end({ expectedCookieIdentity: { sessionId, contextId }, signal: abort.signal });
+    return result.ok || result.error.code === "UNAUTHENTICATED";
+  } finally { clearTimeout(timeout); }
 }

@@ -2,7 +2,8 @@ import type { SessionBootstrap } from "@bookbuddy/api-contract";
 import type { RepositoryOpening } from "../repository/open-policy";
 import type { DevicePreferences, MobileRepository } from "../repository/repository";
 import type { OfflineBootstrap } from "./offline-bootstrap";
-import type { ActiveSession, DeviceSession } from "./sign-out";
+import { beginSignOut } from "./sign-out";
+import type { ActiveSession, DeviceSession, SignOutProgress } from "./sign-out";
 
 export interface SessionView {
   session: DeviceSession | null;
@@ -22,9 +23,10 @@ export function expireOfflineView(session: DeviceSession | null): SessionView {
 
 export async function readUnlockedSession(record: ActiveSession,
   open: (requiresUnlock: boolean) => Promise<RepositoryOpening<Pick<MobileRepository, "getOfflineBootstrap">>>,
-  discardCredential: () => Promise<void>, now = Date.now) {
+  now = Date.now): Promise<{ record: ActiveSession; cached: OfflineBootstrap | null } | { ending: SignOutProgress } | null> {
   const opened = await open(record.requiresUnlock);
-  if (opened.status === "unavailable") await discardCredential();
+  // Enrollment loss does not authorize opening the protected store for cleanup.
+  if (opened.status === "unavailable") return { ending: beginSignOut(record, null) };
   if (opened.status !== "open" || record.session.expiresAt <= now()) return null;
   const { accountId, sessionId, activeContext } = record.session;
   const cached = activeContext && await opened.repository.getOfflineBootstrap(accountId, sessionId, activeContext.contextId);

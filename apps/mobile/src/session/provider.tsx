@@ -18,7 +18,7 @@ import { cardRemovalReporter, cardScope } from "../system/status-cards/controlle
 import { expireOfflineView, readUnlockedSession, sessionView, watchBackgroundLock } from "./lifecycle";
 import type { SessionView } from "./lifecycle";
 import { contextSummarySchema, offlineWindow, projectOfflineBootstrap } from "./offline-bootstrap";
-import { beginSignOut, parseStoredSession, settleSignOut } from "./sign-out";
+import { beginSignOut, parseStoredSession, sendRevocation, settleSignOut } from "./sign-out";
 import type { ActiveSession, Disposition, SignOutProgress } from "./sign-out";
 import { sessionStorage } from "./storage";
 
@@ -100,10 +100,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [bindSession, closeScope]);
 
   const restoreStored = useCallback(async (stored: ActiveSession, live: () => boolean, relocking = false) => {
-    const restored = await readUnlockedSession(stored, requiresUnlock => repository(requiresUnlock || relocking),
-      async () => { if (live()) await sessionStorage.remove(); });
+    const restored = await readUnlockedSession(stored, requiresUnlock => repository(requiresUnlock || relocking));
     if (!live()) return;
-    if (!restored) { current.current = null; adopt(null); return; }
+    if (!restored || "ending" in restored) {
+      if (restored) {
+        // Settlement resumes after this serialized restore, including while offline.
+        ending.current = restored.ending;
+        lockPushForSignedOutAccount(stored.session.accountId);
+      }
+      current.current = null;
+      confirmed.current = false;
+      adopt(null);
+      return;
+    }
     const { record, cached } = restored;
     current.current = record;
     if (cached) adopt(record, sessionView({ ...record.session, activeContext: cached.activeContext }, null, cached));
@@ -161,18 +170,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         },
         revoke: api ? async (revocation) => {
           if (!inForeground() || getConnection().offline) return false;
-          const abort = new AbortController();
-          const timeout = setTimeout(() => abort.abort(), 15_000);
-          const auth = createAuthClient(api);
-          try {
-            if (revocation.mode === "native") {
-              const result = await auth.revoke({ sessionId: revocation.sessionId, proof: revocation.proof }, { signal: abort.signal });
-              return result.ok && result.data.ended;
-            }
-            const { sessionId, contextId } = revocation;
-            const result = await auth.end({ expectedCookieIdentity: { sessionId, contextId }, signal: abort.signal });
-            return result.ok || result.error.code === "UNAUTHENTICATED";
-          } finally { clearTimeout(timeout); }
+          return sendRevocation(api, revocation);
         } : undefined,
       });
       if (settled) ending.current = null;
@@ -334,7 +332,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback((disposition: Disposition) => {
     const record = current.current;
     if (!record) return Promise.resolve();
-    ending.current = beginSignOut(record, disposition, repo.current?.persistentAuthoring ?? false);
+    ending.current = beginSignOut(record, { disposition, persistent: repo.current?.persistentAuthoring ?? false });
     epoch.current++;
     restoreAbort.current?.abort();
     current.current = null;

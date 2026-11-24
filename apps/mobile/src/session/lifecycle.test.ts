@@ -1,10 +1,11 @@
+import { createApiClient } from "@bookbuddy/api-client";
 import { accountIdSchema, sessionBootstrapSchema } from "@bookbuddy/api-contract";
 import { expect, test } from "bun:test";
 import { createRepositoryAccess } from "../repository/open-policy";
 import { expireOfflineView, readUnlockedSession, sessionView, watchBackgroundLock } from "./lifecycle";
 import { projectOfflineBootstrap } from "./offline-bootstrap";
-import { parseStoredSession } from "./sign-out";
-import type { ActiveSession } from "./sign-out";
+import { parseStoredSession, sendRevocation, settleSignOut } from "./sign-out";
+import type { ActiveSession, EndingSession, Revocation } from "./sign-out";
 
 const accountId = accountIdSchema.parse("account");
 const bootstrap = sessionBootstrapSchema.parse({
@@ -18,7 +19,7 @@ const cached = projectOfflineBootstrap(bootstrap, 1_000)!;
 const record: ActiveSession = { state: "active", requiresUnlock: true, credential: "A".repeat(43), proof: `r1.${"Q".repeat(42)}A`,
   session: { accountId, sessionId: bootstrap.sessionId, setup: bootstrap.setup, expiresAt: bootstrap.expiresAt, activeContext: cached.activeContext } };
 
-test("cold restore discards the saved bearer when device enrollment is lost", async () => {
+test("enrollment loss replaces the bearer with a proof kept until the server acknowledges revocation", async () => {
   const calls: string[] = [];
   let raw: string | null = JSON.stringify(record);
   const stored = parseStoredSession(raw, false);
@@ -31,14 +32,52 @@ test("cold restore discards the saved bearer when device enrollment is lost", as
     persistent: async () => ({ getOfflineBootstrap: async () => { calls.push("read cached"); return cached; } }),
     memory: () => ({ getOfflineBootstrap: async () => { calls.push("memory"); return null; } }),
   });
-  const restored = await readUnlockedSession(stored, requiresUnlock => access.open("Unlock", requiresUnlock),
-    async () => { calls.push("discard"); raw = null; }, () => 1_000);
-  expect(restored).toBeNull(); // The provider has no record from which to rebind.
+  const restored = await readUnlockedSession(stored, requiresUnlock => access.open("Unlock", requiresUnlock), () => 1_000);
+  if (!restored || !("ending" in restored)) throw new Error("Expected revocation without an unlocked session");
+  const storage = {
+    save: async (intent: EndingSession) => { raw = JSON.stringify(intent); },
+    remove: async () => { raw = null; },
+    finalizeLocal: async () => { calls.push("cleanup"); },
+  };
+  // An offline restore must durably replace the bearer without opening the cache.
+  expect(await settleSignOut(restored.ending, storage)).toBe(false);
+  expect(raw).not.toContain("credential");
+  const marker = raw;
+  const pending = parseStoredSession(marker ?? "", false);
+  const proof = { sessionId: record.session.sessionId, proof: record.proof };
+  expect(pending).toMatchObject({ state: "ending", localPending: false, revocation: { mode: "native", ...proof } });
+  if (pending.state !== "ending") throw new Error("Expected revocation marker");
+
+  let sent = 0;
+  const api = createApiClient({
+    baseUrl: "https://app.example.test/api/v1",
+    getSession: () => record.credential,
+    getLocale: () => "en",
+    fetch: async (url, init) => {
+      expect(url).toBe("https://app.example.test/api/v1/session/revoke");
+      expect(init.method).toBe("POST");
+      expect(new Headers(init.headers).get("authorization")).toBeNull();
+      expect(JSON.parse(init.body as string)).toEqual(proof);
+      expect(raw).toBe(marker);
+      if (++sent === 1) throw new Error("Lost response");
+      return Response.json({ ok: true, data: { ended: true }, meta: { requestId: "req-1", serverTime: 1_000 } });
+    },
+  });
+  const progress = { intent: pending, persisted: true };
+  const remote = { ...storage, revoke: (revocation: Revocation) => sendRevocation(api, revocation) };
+  expect(await settleSignOut(progress, remote)).toBe(false);
+  expect(raw).toBe(marker);
+  expect(await settleSignOut(progress, remote)).toBe(true);
   expect(raw).toBeNull();
-  expect(calls).toEqual(["eligibility", "discard"]);
+  expect(sent).toBe(2);
+  expect(calls).toEqual(["eligibility"]);
 });
 
-test("a protected restore prompts even with no database, and denial keeps the bearer locked", async () => {
+test("a legacy session still requires a prompt with no database, and denial keeps the bearer locked", async () => {
+  const { requiresUnlock: _, ...legacy } = record;
+  const stored = parseStoredSession(JSON.stringify(legacy), false);
+  expect(stored).toEqual(record);
+  if (stored.state !== "active") throw new Error("Expected an active session");
   const calls: string[] = [];
   let approved = false;
   const access = createRepositoryAccess({
@@ -49,12 +88,11 @@ test("a protected restore prompts even with no database, and denial keeps the be
     persistent: async () => ({ getOfflineBootstrap: async () => { calls.push("read cached"); return null; } }),
     memory: () => ({ getOfflineBootstrap: async () => { calls.push("memory"); return null; } }),
   });
-  const restore = () => readUnlockedSession(record, requiresUnlock => access.open("Unlock", requiresUnlock),
-    async () => { calls.push("discard"); }, () => 1_000);
-  expect(await restore()).toBeNull();
+  const open = (requiresUnlock: boolean) => access.open("Unlock", requiresUnlock);
+  expect(await readUnlockedSession(stored, open, () => 1_000)).toBeNull();
   expect(calls).toEqual(["prompt"]);
   approved = true;
-  expect(await restore()).toEqual({ record, cached: null });
+  expect(await readUnlockedSession(stored, open, () => 1_000)).toEqual({ record, cached: null });
   expect(calls).toEqual(["prompt", "prompt", "sweep", "read cached"]);
 });
 

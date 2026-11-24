@@ -7,7 +7,7 @@ const active: ActiveSession = { state: "active", requiresUnlock: true, credentia
   session: { sessionId: "session", accountId: accountIdSchema.parse("account"), expiresAt: 10, setup: "complete", activeContext: null } };
 
 test("offline sign-out replaces the bearer, seals once and retries until a server acknowledgement", async () => {
-  const progress = beginSignOut(active, "keep", true);
+  const progress = beginSignOut(active, { disposition: "keep", persistent: true });
   let raw = JSON.stringify(active);
   let local = 0, calls = 0;
   const save = async (intent: EndingSession) => { raw = JSON.stringify(intent); };
@@ -34,7 +34,7 @@ test("offline sign-out replaces the bearer, seals once and retries until a serve
 });
 
 test("a failed marker write cannot discard work or send a revocation in its place", async () => {
-  const progress = beginSignOut(active, "discard", true);
+  const progress = beginSignOut(active, { disposition: "discard", persistent: true });
   let touched = false;
   await expect(settleSignOut(progress, {
     save: async () => { throw new Error("No SecureStore write"); }, remove: async () => { touched = true; },
@@ -45,7 +45,7 @@ test("a failed marker write cannot discard work or send a revocation in its plac
 });
 
 test("a failed discard cannot prevent remote revocation or erase the unfinished local marker", async () => {
-  const progress = beginSignOut(active, "discard", true);
+  const progress = beginSignOut(active, { disposition: "discard", persistent: true });
   let remote = 0;
   const save = async (_intent: EndingSession) => {};
   const remove = async () => {};
