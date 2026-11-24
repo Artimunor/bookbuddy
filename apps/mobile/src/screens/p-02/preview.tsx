@@ -19,7 +19,8 @@ function Fixture({ state }: { state: State }) {
   const siteDay = format.siteTime(Date.UTC(2026, 10, 23, 16, 50), "Europe/Madrid");
   return <ProviderScreenView title={t("mobile.provider.jobs")} subtitle={siteDay.kind === "available" ? `${siteDay.site.date} · ${format.zoneLabel("Europe/Madrid", siteDay.site)}` : undefined} actor={recipient} business="Reformas Ruiz" onProfile={() => {}} onNotifications={() => {}}
     dock={handoff || state === "offered" ? <Dock context={t("mobile.provider.offerEffect")}
-      primary={{ label: handoff ? t("mobile.provider.offerTo", { name: recipient }) : t("mobile.provider.withdrawOffer"), onPress: () => {} }} /> : undefined}>
+      primary={{ label: handoff ? t("mobile.provider.offerTo", { name: recipient }) : t("mobile.provider.withdrawOffer"), onPress: () => {} }}
+      secondary={handoff ? { label: t("mobile.provider.urgentOffer"), onPress: () => {} } : undefined} /> : undefined}>
     <SegmentedControl label={t("mobile.provider.segment")} value={active ? "active" : "needs_you"} onChange={() => {}} options={[{ value: "needs_you", label: t("mobile.provider.needsYou") }, { value: "active", label: t("mobile.provider.active") }, { value: "past", label: t("mobile.provider.past") }]} />
     <Card dense><BookingCard title="Pergola post repair" place="BB-1031 · Casa Llum" stage={t("mobile.foremanHome.booked")} next={unassigned ? t("mobile.provider.noForeman") : t("mobile.provider.foreman", { name: "Inés Vidal" })} accessibilityLabel="Pergola post repair · BB-1031 · Casa Llum"
       progress={<Journey journey={{ step: state === "paid-recorded" ? "paid" : "booked", complete: state === "paid-recorded", cancelled: false }} />} onPress={() => {}} />
@@ -31,7 +32,8 @@ function Fixture({ state }: { state: State }) {
       {handoff && <>
         <Copy variant="label">{t("mobile.provider.selectForeman")}</Copy>
         <ChoiceRadio selected label={recipient} description={t("mobile.provider.foremanRole")} onPress={() => {}} />
-        {unassigned && <Copy variant="supporting">{t("mobile.provider.replyBy", { time: reply })}</Copy>}
+        <Copy variant="supporting">{t("mobile.provider.standardReplyBy")}</Copy>
+        <Copy variant="supporting">{t("mobile.provider.urgentReplyBy")}</Copy>
       </>}
     </Card>
   </ProviderScreenView>;

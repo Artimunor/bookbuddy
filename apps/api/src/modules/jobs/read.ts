@@ -181,7 +181,7 @@ const handoffPreview = `(WITH eligible_foremen AS MATERIALIZED (
     'reofferOfId', CASE WHEN ${mayReoffer} THEN h.id END,
     'eligibleForemen', json(${jsonRows(`json_object('membershipId', membership_id, 'displayName', display_name)`,
     "FROM eligible_foremen ORDER BY display_name COLLATE NOCASE, membership_id")}))
-  FROM deadlines WHERE deadlines.standard IS NOT NULL)`;
+  FROM deadlines WHERE deadlines.standard IS NOT NULL OR deadlines.urgent IS NOT NULL)`;
 
 const todayVisits = (linked: boolean, whole: boolean) => {
   const visit = visitJson("v", "booked");

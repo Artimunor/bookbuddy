@@ -1792,14 +1792,14 @@ interface ValuesByKey {
   "mobile.provider.selectForeman": undefined;
   "mobile.provider.sendInvite": undefined;
   "mobile.provider.since": { readonly "time": string | number | boolean; };
-  "mobile.provider.standardReplyBy": { readonly "time": string | number | boolean; };
+  "mobile.provider.standardReplyBy": undefined;
   "mobile.provider.suspended": undefined;
   "mobile.provider.unassigned": { readonly "count": string | number | boolean; };
   "mobile.provider.unavailable": undefined;
   "mobile.provider.urgentCall": undefined;
   "mobile.provider.urgentHelp": undefined;
   "mobile.provider.urgentOffer": undefined;
-  "mobile.provider.urgentReplyBy": { readonly "time": string | number | boolean; };
+  "mobile.provider.urgentReplyBy": undefined;
   "mobile.provider.verifiedTransferReference": undefined;
   "mobile.provider.waitUntil": { readonly "time": string | number | boolean; };
   "mobile.provider.withdrawInvite": undefined;

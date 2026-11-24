@@ -389,6 +389,35 @@ test("provider details and linked openings preview only candidates the offer com
   } finally { f.db.close(); clock.mockRestore(); }
 });
 
+test("an urgent-only handoff preview remains available and the receipt uses send time", async () => {
+  const clock = spyOn(Date, "now").mockReturnValue(tuesday);
+  const f = await fixture();
+  try {
+    await f.job();
+    await f.db.batch([
+      f.db.prepare("DELETE FROM staffed_calendar WHERE weekday IS NOT NULL"),
+      f.db.prepare(`INSERT INTO staffed_calendar (id, area_id, local_date, opens_minute, closes_minute)
+        VALUES ('last-window', 'area', '2026-10-27', 590, 635)`), // 45 staffed minutes from preview.
+      f.db.prepare(`INSERT INTO link_targets VALUES ('provider-job-link', 'job_update', 'job', 'admin-staff', ?)`).bind(tuesday + hour),
+    ]);
+    const detail = resultSchema(getJobRoute.output).parse((await f.call("/jobs/job", "admin")).body);
+    if (!detail.ok || detail.data.audience !== "provider_admin" || detail.data.job.view !== "whole") throw new Error("Expected provider detail");
+    const { handoffPreview, revision } = detail.data.job;
+    expect(handoffPreview?.deadlines).toEqual({ standard: null, urgent: tuesday + hour / 2 });
+    const opening = resultSchema(openLinkRoute.output).parse((await f.call("/links/provider-job-link", "admin")).body);
+    expect(opening).toMatchObject({ ok: true, data: { kind: "job", record: { job: { handoffPreview } } } });
+
+    clock.mockReturnValue(tuesday + 10 * 60_000);
+    const payload = { recipientMembershipId: "second-member" };
+    expect(await f.call("/jobs/job/handoffs", "admin", { operationId: "standard", expectedRevision: revision, payload }))
+      .toMatchObject({ status: 409 });
+    const issued = resultSchema(offerJobHandoffRoute.output).parse((await f.call("/jobs/job/handoffs", "admin", {
+      operationId: "urgent", expectedRevision: revision, payload: { ...payload, urgentCallConfirmed: true },
+    })).body);
+    expect(issued).toMatchObject({ ok: true, data: { expiresAt: tuesday + 40 * 60_000 } });
+  } finally { f.db.close(); clock.mockRestore(); }
+});
+
 test("the deadline is exclusive; an expired offer may be reoffered only once to an alternate", async () => {
   const clock = spyOn(Date, "now").mockReturnValue(friday);
   const f = await fixture();
